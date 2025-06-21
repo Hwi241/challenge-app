@@ -9,51 +9,66 @@ export default function AddChallengeScreen({ navigation }) {
   const [targetScore, setTargetScore] = useState('');
   const [reward, setReward] = useState('');
 
-  const saveChallenge = async () => {
-    // 1) 값 검사
-    if (!title || !startDate) {
-      Alert.alert('필수 항목을 입력해주세요!');
-      return;
-    }
+const saveChallenge = async () => {
+  // 1) 제목 검사 (공백 제거)
+  if (!title.trim()) {
+    Alert.alert('제목을 입력해주세요!');
+    return;
+  }
 
-    try {
-      // 2) 기존 저장된 데이터 불러오기
-      const stored = await AsyncStorage.getItem('challenges');
-      const parsed = stored ? JSON.parse(stored) : [];
+  // 2) 날짜 형식 검사 (있으면)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (startDate && !dateRegex.test(startDate)) {
+    Alert.alert('시작일은 YYYY-MM-DD 형식으로 입력해주세요.');
+    return;
+  }
+  if (endDate && !dateRegex.test(endDate)) {
+    Alert.alert('종료일은 YYYY-MM-DD 형식으로 입력해주세요.');
+    return;
+  }
 
-      // 3) 새 항목 추가
-      const newChallenge = {
-        id: Date.now().toString(),
-        title,
-        startDate,
-        endDate,
-        targetScore,
-        reward,
-      };
+  // 3) 목표 점수 숫자 검사
+  if (targetScore && isNaN(Number(targetScore))) {
+    Alert.alert('목표 점수는 숫자로 입력해주세요.');
+    return;
+  }
 
-      const newChallenges = [...parsed, newChallenge];
+  // 4) 기존 저장 로직 수행
+  try {
+    const stored = await AsyncStorage.getItem('challenges');
+    const parsed = stored ? JSON.parse(stored) : [];
 
-      // 4) 저장
-      await AsyncStorage.setItem('challenges', JSON.stringify(newChallenges));
+    const newChallenge = {
+      id: Date.now().toString(),
+      title,
+      startDate,
+      endDate,
+      targetScore: Number(targetScore), // 숫자화!
+      reward,
+    };
 
-      // 5) 알림 + 돌아가기
-      Alert.alert('저장 완료!', '', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+    const newChallenges = [...parsed, newChallenge];
+    await AsyncStorage.setItem('challenges', JSON.stringify(newChallenges));
 
-      // 6) 입력 초기화 (선택)
-      setTitle('');
-      setStartDate('');
-      setEndDate('');
-      setTargetScore('');
-      setReward('');
-    } catch (error) {
-      Alert.alert('에러', '저장 실패: ' + error);
-    }
-  };
+    Alert.alert('저장 완료!', '', [
+      {
+        text: 'OK',
+        onPress: () => navigation.goBack(),
+      },
+    ]);
+
+    // 저장 후 폼 초기화
+    setTitle('');
+    setStartDate('');
+    setEndDate('');
+    setTargetScore('');
+    setReward('');
+
+  } catch (error) {
+    Alert.alert('저장 실패', error.message);
+  }
+};
+
 
   return (
     <View style={styles.container}>

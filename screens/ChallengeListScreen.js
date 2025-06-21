@@ -21,14 +21,39 @@ export default function ChallengeListScreen({ navigation }) {
     return unsubscribe;
   }, [navigation]);
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.item}>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text>{item.startDate} ~ {item.endDate}</Text>
-      <Text>목표 점수: {item.targetScore}</Text>
-      <Text>보상: {item.reward}</Text>
+const deleteChallenge = async (id) => {
+  try {
+    const stored = await AsyncStorage.getItem('challenges');
+    const parsed = stored ? JSON.parse(stored) : [];
+
+    // id가 다른 애들만 남김 = 삭제됨!
+    const filtered = parsed.filter(item => item.id !== id);
+
+    // 저장하고 상태 업데이트
+    await AsyncStorage.setItem('challenges', JSON.stringify(filtered));
+    setChallenges(filtered);
+  } catch (error) {
+    console.error('삭제 실패:', error);
+  }
+};
+
+
+ const renderItem = ({ item }) => (
+  <View style={styles.item}>
+    <Text style={styles.title}>{item.title}</Text>
+    <Text>{item.startDate} ~ {item.endDate}</Text>
+    <Text>목표 점수: {item.targetScore}</Text>
+    <Text>보상: {item.reward}</Text>
+
+    <TouchableOpacity
+      style={styles.deleteButton}
+      onPress={() => deleteChallenge(item.id)}
+    >
+      <Text style={styles.deleteButtonText}>삭제</Text>
     </TouchableOpacity>
-  );
+  </View>
+);
+
 
 return (
   <View style={styles.container}>
@@ -82,4 +107,16 @@ addButtonText: {
   fontWeight: 'bold',
   fontSize: 16,
 },
+deleteButton: {
+  marginTop: 10,
+  backgroundColor: '#dc3545',
+  padding: 10,
+  borderRadius: 5,
+  alignItems: 'center',
+},
+deleteButtonText: {
+  color: '#fff',
+  fontWeight: 'bold',
+},
 });
+

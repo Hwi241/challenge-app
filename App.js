@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ChallengeListScreen from './screens/ChallengeListScreen';
 import AddChallengeScreen from './screens/AddChallengeScreen';
+import EditChallengeScreen from './screens/EditChallengeScreen'; // ✅ 반드시 추가!
 
 const Stack = createNativeStackNavigator();
 
@@ -20,6 +21,11 @@ export default function App() {
           name="AddChallenge"
           component={AddChallengeScreen}
           options={{ title: '도전 추가' }}
+        />
+        <Stack.Screen
+          name="EditChallengeScreen"
+          component={EditChallengeScreen}
+          options={{ title: '도전 수정' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

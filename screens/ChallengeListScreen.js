@@ -24,7 +24,12 @@ const handleSort = (type) => {
       try {
         const stored = await AsyncStorage.getItem('challenges');
         const parsed = stored ? JSON.parse(stored) : [];
-        setChallenges(parsed);
+const fixed = parsed.map(c => ({
+  ...c,
+  currentScore: c.currentScore ?? 0,
+  completed: c.completed ?? false,
+}));
+setChallenges(fixed);
       } catch (error) {
         console.error('Error fetching challenges:', error);
       }
@@ -48,6 +53,36 @@ const deleteChallenge = async (id) => {
     setChallenges(filtered);
   } catch (error) {
     console.error('삭제 실패:', error);
+  }
+};
+
+const checkToday = async (id) => {
+  try {
+    const stored = await AsyncStorage.getItem('challenges');
+    const parsed = stored ? JSON.parse(stored) : [];
+
+    const updated = parsed.map(item => {
+      if (item.id === id && !item.completed) {
+        const newScore = (item.currentScore || 0) + 1;
+        const completed = newScore >= item.targetScore;
+        return { ...item, currentScore: newScore, completed };
+      }
+      return item;
+    
+    });
+    
+    await AsyncStorage.setItem('challenges', JSON.stringify(updated));
+    setChallenges(updated);
+  } catch (error) {
+    console.error('인증 실패:', error);
+  }
+};
+
+const claimReward = (item) => {
+  if (item.completed) {
+    alert(`축하합니다! 보상을 받으세요: ${item.reward || '🎉'}`);
+  } else {
+    alert('아직 목표에 도달하지 않았어요!');
   }
 };
 
@@ -78,7 +113,10 @@ const duplicateChallenge = async (challenge) => {
     <Text style={styles.title}>{item.title}</Text>
     <Text>{item.startDate} ~ {item.endDate}</Text>
     <Text>목표 점수: {item.targetScore}</Text>
+    <Text>현재 점수: {item.currentScore || 0}</Text>
     <Text>보상: {item.reward}</Text>
+    <Text>진행률: {Math.round(((item.currentScore || 0) / item.targetScore) * 100)}%</Text>
+
   {/* ✅ 수정 버튼 */}
     <TouchableOpacity
       style={styles.editButton}
@@ -102,6 +140,32 @@ const duplicateChallenge = async (challenge) => {
     >
        <Text style={styles.duplicateButtonText}>복제</Text>
     </TouchableOpacity>
+
+     {/* ✅ 오늘 인증 버튼 */}
+    <TouchableOpacity
+  style={styles.checkButton}
+  onPress={() => checkToday(item.id)}
+>
+  <Text style={styles.checkButtonText}>오늘 인증</Text>
+</TouchableOpacity>
+  
+     {/* ✅ 보상 받기 버튼 */}
+<TouchableOpacity
+  style={styles.rewardButton}
+  onPress={() => claimReward(item)}
+>
+  <Text style={styles.rewardButtonText}>보상 받기</Text>
+</TouchableOpacity>
+
+
+      {/* ✅ 여기에 완료 체크 표시 */}
+{item.completed && (
+   <Text style={{ color: 'green', fontWeight: 'bold', marginTop: 5 }}>
+    ✔️ 완료됨
+  </Text>
+)}
+
+
 
   </View>
   
@@ -237,6 +301,30 @@ sortButton: {
   padding: 8,
   borderRadius: 5,
 },
+checkButton: {
+  marginTop: 10,
+  marginBottom: 5,
+  backgroundColor: '#ffc107',
+  padding: 10,
+  borderRadius: 5,
+  alignItems: 'center',
+},
+checkButtonText: {
+  color: '#000',
+  fontWeight: 'bold',
+},
+rewardButton: {
+  marginBottom: 5,
+  backgroundColor: '#6f42c1',
+  padding: 10,
+  borderRadius: 5,
+  alignItems: 'center',
+},
+rewardButtonText: {
+  color: '#fff',
+  fontWeight: 'bold',
+},
+
 
 
 });

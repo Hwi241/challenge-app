@@ -64,42 +64,41 @@ export default function EntryDetailScreen({ route, navigation }) {
 
   const removeImage = () => setImageUri(null);
 
-const saveEntry = async () => {
-  if (!text.trim()) {
-    Alert.alert('내용을 입력해주세요.');
-    return;
-  }
+  const saveEntry = async () => {
+    if (!text.trim()) {
+      Alert.alert('내용을 입력해주세요.');
+      return;
+    }
 
-  const minutes = parseInt(duration);
-  const hasValidDuration = !isNaN(minutes) && minutes > 0;
+    const minutes = parseInt(duration);
+    const hasValidDuration = !isNaN(minutes) && minutes > 0;
 
-  try {
-    const key = `entries_${challengeId}`;
-    const stored = await AsyncStorage.getItem(key);
-    const arr = stored ? JSON.parse(stored) : [];
+    try {
+      const key = `entries_${challengeId}`;
+      const stored = await AsyncStorage.getItem(key);
+      const arr = stored ? JSON.parse(stored) : [];
 
-    const updated = arr.map(e =>
-      e.id === entryId
-        ? {
-            ...e,
-            text: text.trim(),
-            imageUri,
-            ...(hasValidDuration ? { duration: minutes } : {}),
-          }
-        : e
-    );
+      const updated = arr.map(e =>
+        e.id === entryId
+          ? {
+              ...e,
+              text: text.trim(),
+              imageUri,
+              ...(hasValidDuration ? { duration: minutes } : {}),
+            }
+          : e
+      );
 
-    await AsyncStorage.setItem(key, JSON.stringify(updated));
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
 
-    Alert.alert('저장 완료', '인증이 수정되었습니다.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
-  } catch (error) {
-    console.error('Entry 수정 실패:', error);
-    Alert.alert('오류', '수정 저장에 실패했습니다.');
-  }
-};
-
+      Alert.alert('저장 완료', '인증이 수정되었습니다.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (error) {
+      console.error('Entry 수정 실패:', error);
+      Alert.alert('오류', '수정 저장에 실패했습니다.');
+    }
+  };
 
   const deleteEntry = async () => {
     try {

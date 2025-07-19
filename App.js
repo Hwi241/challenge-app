@@ -10,6 +10,18 @@ import EditChallengeScreen  from './screens/EditChallengeScreen';
 import UploadScreen         from './screens/UploadScreen';
 import EntryListScreen      from './screens/EntryListScreen';
 import EntryDetailScreen    from './screens/EntryDetailScreen';
+import * as Notifications from 'expo-notifications';
+import SimpleNotificationScreen from './screens/SimpleNotificationScreen';
+import WeeklyNotificationScreen from './screens/WeeklyNotificationScreen';
+import MonthlyNotificationScreen from './screens/MonthlyNotificationScreen';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const Stack = createNativeStackNavigator();
 
@@ -55,6 +67,10 @@ export default function App() {
             component={EntryDetailScreen}
             options={{ title: '인증 수정' }}
           />
+          <Stack.Screen name="SimpleNotification" component={SimpleNotificationScreen} />
+<Stack.Screen name="WeeklyNotification" component={WeeklyNotificationScreen} />
+<Stack.Screen name="MonthlyNotification" component={MonthlyNotificationScreen} />
+
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

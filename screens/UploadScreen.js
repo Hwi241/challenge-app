@@ -24,8 +24,7 @@ export default function UploadScreen({ route, navigation }) {
 
   useEffect(() => {
     (async () => {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('권한 오류', '사진 접근 권한이 필요합니다.');
       }
@@ -34,9 +33,7 @@ export default function UploadScreen({ route, navigation }) {
 
   const pickImage = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        quality: 0.5,
-      });
+      const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.5 });
       if (!result.canceled) {
         const uri = result.assets?.[0]?.uri ?? result.uri;
         setImageUri(uri);
@@ -55,25 +52,27 @@ export default function UploadScreen({ route, navigation }) {
       return;
     }
 
-const minutes = parseInt(duration);
-const hasValidDuration = !isNaN(minutes) && minutes > 0;
+    const minutes = parseInt(duration);
+    const hasValidDuration = !isNaN(minutes) && minutes > 0;
 
     try {
       const entryKey = `entries_${challengeId}`;
       const raw = await AsyncStorage.getItem(entryKey);
       const list = raw ? JSON.parse(raw) : [];
 
-const newEntry = {
-  id: Date.now().toString(),
-  text: text.trim(),
-  imageUri,
-  timestamp: new Date().toISOString(),
-};
-if (hasValidDuration) {
-  newEntry.duration = minutes;
-}
+      const newEntry = {
+        id: Date.now().toString(),
+        text: text.trim(),
+        imageUri,
+        timestamp: new Date().toISOString(),
+      };
+      if (hasValidDuration) {
+        newEntry.duration = minutes;
+      }
 
-      // 기존 점수 방식 유지 (향후 duration 기반으로 변경 가능)
+      const newList = [...list, newEntry];
+      await AsyncStorage.setItem(entryKey, JSON.stringify(newList));
+
       const chalKey = 'challenges';
       const rawChals = await AsyncStorage.getItem(chalKey);
       const chals = rawChals ? JSON.parse(rawChals) : [];
@@ -97,10 +96,7 @@ if (hasValidDuration) {
 
   return (
     <SafeAreaView
-      style={[
-        styles.container,
-        { paddingTop: insets.top, paddingBottom: insets.bottom },
-      ]}
+      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
     >
       <KeyboardAvoidingView
         style={styles.flex}
@@ -126,25 +122,15 @@ if (hasValidDuration) {
 
           {imageUri ? (
             <View style={styles.previewContainer}>
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.image}
-              />
+              <Image source={{ uri: imageUri }} style={styles.image} />
               <View style={styles.previewButtons}>
                 <Button title="사진 변경" onPress={pickImage} />
-                <Button
-                  title="사진 제거"
-                  onPress={removeImage}
-                  color="#dc3545"
-                />
+                <Button title="사진 제거" onPress={removeImage} color="#dc3545" />
               </View>
             </View>
           ) : (
             <View style={styles.fileButton}>
-              <Button
-                title="사진 선택하기"
-                onPress={pickImage}
-              />
+              <Button title="사진 선택하기" onPress={pickImage} />
             </View>
           )}
 
@@ -163,13 +149,8 @@ if (hasValidDuration) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  inner: {
-    padding: 20,
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  inner: { padding: 20 },
   input: {
     minHeight: 50,
     borderColor: '#ccc',
@@ -179,9 +160,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textAlignVertical: 'top',
   },
-  previewContainer: {
-    marginBottom: 15,
-  },
+  previewContainer: { marginBottom: 15 },
   image: {
     width: '100%',
     height: 200,
@@ -192,10 +171,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  fileButton: {
-    marginBottom: 15,
-  },
-  submitButton: {
-    marginTop: 20,
-  },
+  fileButton: { marginBottom: 15 },
+  submitButton: { marginTop: 20 },
 });

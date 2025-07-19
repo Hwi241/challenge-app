@@ -11,13 +11,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 
 export default function EntryListScreen({ route, navigation }) {
-  const { challengeId, title, startDate, targetScore = 7, currentScore = 0 } = route.params;
+  const { challengeId, title, startDate, targetScore = 7 } = route.params;
   const insets = useSafeAreaInsets();
   const scrollRef = useRef();
   const isFocused = useIsFocused();
 
   const [entries, setEntries] = useState([]);
   const [weeksData, setWeeksData] = useState([]);
+  const [currentScore, setCurrentScore] = useState(0);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -25,6 +26,10 @@ export default function EntryListScreen({ route, navigation }) {
       const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
       const list = raw ? JSON.parse(raw) : [];
       setEntries(list);
+
+      const score = list.length;
+      setCurrentScore(score);
+
       buildWeeks(list);
     })().catch(console.error);
   }, [isFocused, challengeId]);
@@ -43,18 +48,35 @@ export default function EntryListScreen({ route, navigation }) {
     let cursor = new Date(start);
     while (cursor <= lastSunday) {
       const ws = new Date(cursor);
-      weeks.push({ ws });
+
+      const dailyStats = Array(7).fill(null).map((_, i) => {
+        const dayStart = new Date(ws);
+        dayStart.setDate(dayStart.getDate() + i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+
+        const dailyEntries = list.filter(e => {
+          const d = new Date(e.timestamp);
+          return d >= dayStart && d < dayEnd;
+        });
+
+        const durationSum = dailyEntries.reduce(
+          (sum, e) => sum + (typeof e.duration === 'number' ? e.duration : 0),
+          0
+        );
+
+        return {
+          date: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
+          duration: durationSum,
+          count: dailyEntries.length,
+        };
+      });
+
+      weeks.push({ ws, dailyStats });
       cursor.setDate(cursor.getDate() + 7);
     }
-    setWeeksData(weeks);
 
-    const todayIdx = weeks.findIndex(({ ws }) => {
-      const diff = Math.floor((today - ws) / 86400000);
-      return diff >= 0 && diff < 7;
-    });
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ x: (todayIdx >= 0 ? todayIdx : weeks.length - 1) * SCREEN_WIDTH, animated: false });
-    }, 0);
+    setWeeksData(weeks);
   }
 
   const overallPct = Math.min(Math.round((currentScore / targetScore) * 100), 100);
@@ -84,32 +106,9 @@ export default function EntryListScreen({ route, navigation }) {
     </>
   );
 
-  const renderWeek = ({ ws }, idx) => {
+  const renderWeek = ({ ws, dailyStats }, idx) => {
     const maxBarHeight = 60;
-    const max = Math.max(...entries.map(e => e.duration || 0), 1);
-
-    const dailyStats = Array(7).fill(null).map((_, i) => {
-      const dayStart = new Date(ws);
-      dayStart.setDate(dayStart.getDate() + i);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-
-      const dailyEntries = entries.filter(e => {
-        const d = new Date(e.timestamp);
-        return d >= dayStart && d < dayEnd;
-      });
-
-      const durationSum = dailyEntries.reduce(
-        (sum, e) => sum + (typeof e.duration === 'number' ? e.duration : 0),
-        0
-      );
-
-      return {
-        date: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
-        duration: durationSum,
-        count: dailyEntries.length,
-      };
-    });
+    const max = Math.max(...dailyStats.map(stat => stat.duration || 0), 1);
 
     return (
       <View key={idx} style={styles.weekBlock}>
@@ -129,15 +128,13 @@ export default function EntryListScreen({ route, navigation }) {
                 {stat.duration > 0 ? `${stat.duration}분` : ' '}
               </Text>
               <View
-                style={[
-                  styles.bar,
-                  {
-                    height: stat.duration > 0
-                      ? Math.min((stat.duration / max) * maxBarHeight + 10, maxBarHeight + 10)
-                      : 0,
-                    marginVertical: 2,
-                  },
-                ]}
+                style={[styles.bar, {
+                  height: stat.duration > 0
+                    ? Math.min((stat.duration / max) * maxBarHeight + 10, maxBarHeight + 10)
+                    : 1, // 0 대신 1로 설정해 공간 확보
+                  opacity: stat.duration > 0 ? 1 : 0,
+                  marginVertical: 2,
+                }]}
               />
               <Text style={styles.countLabel}>{stat.count}회</Text>
             </View>

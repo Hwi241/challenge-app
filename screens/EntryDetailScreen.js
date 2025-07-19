@@ -1,10 +1,7 @@
-// screens/EntryDetailScreen.js
-
 import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
-  Text,
   TextInput,
   Button,
   Image,
@@ -15,13 +12,15 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function EntryDetailScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets();
   const { challengeId, entryId } = route.params;
   const [text, setText] = useState('');
   const [imageUri, setImageUri] = useState(null);
+  const [duration, setDuration] = useState('');
 
-  // 기존 Entry 불러오기
   useEffect(() => {
     (async () => {
       try {
@@ -32,14 +31,15 @@ export default function EntryDetailScreen({ route, navigation }) {
         if (entry) {
           setText(entry.text);
           setImageUri(entry.imageUri || null);
+          setDuration(entry.duration?.toString() || '');
         }
       } catch (error) {
         console.error('Entry 불러오기 실패:', error);
+        Alert.alert('오류', '인증 정보를 불러오지 못했습니다.');
       }
     })();
   }, [challengeId, entryId]);
 
-  // 사진 권한 요청
   useEffect(() => {
     (async () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -49,41 +49,58 @@ export default function EntryDetailScreen({ route, navigation }) {
     })();
   }, []);
 
-  // 사진 변경
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.5 });
       if (!result.canceled) {
-        const uri = result.assets ? result.assets[0].uri : result.uri;
+        const uri = result.assets?.[0]?.uri ?? result.uri;
         setImageUri(uri);
       }
     } catch (error) {
       console.error('이미지 선택 실패:', error);
+      Alert.alert('오류', '이미지 선택에 실패했습니다.');
     }
   };
 
-  // 사진 제거
   const removeImage = () => setImageUri(null);
 
-  // 수정 저장
-  const saveEntry = async () => {
-    try {
-      const key = `entries_${challengeId}`;
-      const stored = await AsyncStorage.getItem(key);
-      const arr = stored ? JSON.parse(stored) : [];
-      const updated = arr.map(e =>
-        e.id === entryId
-          ? { ...e, text, imageUri }
-          : e
-      );
-      await AsyncStorage.setItem(key, JSON.stringify(updated));
-      navigation.goBack();
-    } catch (error) {
-      console.error('Entry 수정 실패:', error);
-    }
-  };
+const saveEntry = async () => {
+  if (!text.trim()) {
+    Alert.alert('내용을 입력해주세요.');
+    return;
+  }
 
-  // 삭제
+  const minutes = parseInt(duration);
+  const hasValidDuration = !isNaN(minutes) && minutes > 0;
+
+  try {
+    const key = `entries_${challengeId}`;
+    const stored = await AsyncStorage.getItem(key);
+    const arr = stored ? JSON.parse(stored) : [];
+
+    const updated = arr.map(e =>
+      e.id === entryId
+        ? {
+            ...e,
+            text: text.trim(),
+            imageUri,
+            ...(hasValidDuration ? { duration: minutes } : {}),
+          }
+        : e
+    );
+
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
+
+    Alert.alert('저장 완료', '인증이 수정되었습니다.', [
+      { text: 'OK', onPress: () => navigation.goBack() },
+    ]);
+  } catch (error) {
+    console.error('Entry 수정 실패:', error);
+    Alert.alert('오류', '수정 저장에 실패했습니다.');
+  }
+};
+
+
   const deleteEntry = async () => {
     try {
       const key = `entries_${challengeId}`;
@@ -92,30 +109,32 @@ export default function EntryDetailScreen({ route, navigation }) {
       const filtered = arr.filter(e => e.id !== entryId);
       await AsyncStorage.setItem(key, JSON.stringify(filtered));
 
-      // 점수 차감
       const chalKey = 'challenges';
       const storedChals = await AsyncStorage.getItem(chalKey);
       const parsedChals = storedChals ? JSON.parse(storedChals) : [];
-      const updatedChals = parsedChals.map(c => {
-        if (c.id === challengeId) {
-          const newScore = Math.max((c.currentScore || 1) - 1, 0);
-          return { ...c, currentScore: newScore, completed: newScore >= c.targetScore };
-        }
-        return c;
-      });
+      const updatedChals = parsedChals.map(c =>
+        c.id === challengeId
+          ? {
+              ...c,
+              currentScore: Math.max((c.currentScore || 1) - 1, 0),
+              completed: Math.max((c.currentScore || 1) - 1, 0) >= c.targetScore,
+            }
+          : c
+      );
       await AsyncStorage.setItem(chalKey, JSON.stringify(updatedChals));
 
       navigation.goBack();
     } catch (error) {
       console.error('Entry 삭제 실패:', error);
+      Alert.alert('오류', '삭제에 실패했습니다.');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>      
       <KeyboardAvoidingView
         style={styles.inner}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <TextInput
           style={styles.input}
@@ -123,6 +142,14 @@ export default function EntryDetailScreen({ route, navigation }) {
           value={text}
           onChangeText={setText}
           multiline
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="소요 시간 (분)"
+          value={duration}
+          onChangeText={setDuration}
+          keyboardType="numeric"
         />
 
         {imageUri ? (
@@ -150,7 +177,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   inner: { flex: 1, padding: 20 },
   input: {
-    flex: 1,
+    minHeight: 50,
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 5,

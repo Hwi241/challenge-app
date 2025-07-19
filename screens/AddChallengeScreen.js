@@ -1,111 +1,175 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  Button,
+  Alert,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function AddChallengeScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [targetScore, setTargetScore] = useState('');
   const [reward, setReward] = useState('');
 
-const saveChallenge = async () => {
-  // 1) 제목 검사 (공백 제거)
-  if (!title.trim()) {
-    Alert.alert('제목을 입력해주세요!');
-    return;
-  }
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
-  // 2) 날짜 형식 검사 (있으면)
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (startDate && !dateRegex.test(startDate)) {
-    Alert.alert('시작일은 YYYY-MM-DD 형식으로 입력해주세요.');
-    return;
-  }
-  if (endDate && !dateRegex.test(endDate)) {
-    Alert.alert('종료일은 YYYY-MM-DD 형식으로 입력해주세요.');
-    return;
-  }
+  const handleStartDateChange = (event, selectedDate) => {
+    setShowStartPicker(false);
+    if (selectedDate) {
+      const iso = selectedDate.toISOString().split('T')[0];
+      setStartDate(iso);
+    }
+  };
 
-  // 3) 목표 점수 숫자 검사
-  if (targetScore && isNaN(Number(targetScore))) {
-    Alert.alert('목표 점수는 숫자로 입력해주세요.');
-    return;
-  }
+  const handleEndDateChange = (event, selectedDate) => {
+    setShowEndPicker(false);
+    if (selectedDate) {
+      const iso = selectedDate.toISOString().split('T')[0];
+      setEndDate(iso);
+    }
+  };
 
-  // 4) 기존 저장 로직 수행
-  try {
-    const stored = await AsyncStorage.getItem('challenges');
-    const parsed = stored ? JSON.parse(stored) : [];
+  const saveChallenge = async () => {
+    if (!title.trim()) {
+      Alert.alert('제목을 입력해주세요.');
+      return;
+    }
+    if (!startDate || !endDate) {
+      Alert.alert('시작일과 종료일을 모두 선택해주세요.');
+      return;
+    }
+    if (new Date(endDate) < new Date(startDate)) {
+      Alert.alert('종료일은 시작일 이후여야 합니다.');
+      return;
+    }
 
-    const newChallenge = {
-      id: Date.now().toString(),
-      title,
-      startDate,
-      endDate,
-      targetScore: Number(targetScore), // 숫자화!
-      reward,
-    };
+    const numScore = Number(targetScore);
+    if (isNaN(numScore) || numScore <= 0) {
+      Alert.alert('목표 점수는 1 이상의 숫자여야 합니다.');
+      return;
+    }
 
-    const newChallenges = [...parsed, newChallenge];
-    await AsyncStorage.setItem('challenges', JSON.stringify(newChallenges));
-
-    Alert.alert('저장 완료!', '', [
-      {
-        text: 'OK',
-        onPress: () => navigation.goBack(),
-      },
-    ]);
-
-    // 저장 후 폼 초기화
-    setTitle('');
-    setStartDate('');
-    setEndDate('');
-    setTargetScore('');
-    setReward('');
-
-  } catch (error) {
-    Alert.alert('저장 실패', error.message);
-  }
-};
-
+    try {
+      const raw = await AsyncStorage.getItem('challenges');
+      const list = raw ? JSON.parse(raw) : [];
+      const newChallenge = {
+        id: Date.now().toString(),
+        title: title.trim(),
+        startDate,
+        endDate,
+        targetScore: numScore,
+        reward: reward.trim(),
+        currentScore: 0,
+        completed: false,
+      };
+      const updated = [...list, newChallenge];
+      await AsyncStorage.setItem('challenges', JSON.stringify(updated));
+      Alert.alert('저장 완료', '새로운 챌린지가 추가되었습니다.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (error) {
+      console.error('저장 실패', error);
+      Alert.alert('저장 실패', '다시 시도해주세요.');
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>도전 제목:</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="제목 입력" />
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>      
+      <KeyboardAvoidingView
+        style={styles.inner}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View>
+          <Text style={styles.label}>도전 제목</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="제목 입력"
+            value={title}
+            onChangeText={setTitle}
+          />
 
-      <Text style={styles.label}>시작일:</Text>
-      <TextInput style={styles.input} value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" />
+          <Text style={styles.label}>시작일</Text>
+          <Pressable onPress={() => setShowStartPicker(true)} style={styles.dateInput}>
+            <Text>{startDate || '날짜 선택'}</Text>
+          </Pressable>
+          {showStartPicker && (
+            <DateTimePicker
+              value={startDate ? new Date(startDate) : new Date()}
+              mode="date"
+              display="default"
+              onChange={handleStartDateChange}
+            />
+          )}
 
-      <Text style={styles.label}>종료일:</Text>
-      <TextInput style={styles.input} value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" />
+          <Text style={styles.label}>종료일</Text>
+          <Pressable onPress={() => setShowEndPicker(true)} style={styles.dateInput}>
+            <Text>{endDate || '날짜 선택'}</Text>
+          </Pressable>
+          {showEndPicker && (
+            <DateTimePicker
+              value={endDate ? new Date(endDate) : new Date()}
+              mode="date"
+              display="default"
+              onChange={handleEndDateChange}
+            />
+          )}
 
-      <Text style={styles.label}>목표 점수:</Text>
-      <TextInput style={styles.input} value={targetScore} onChangeText={setTargetScore} placeholder="숫자 입력" keyboardType="numeric" />
+          <Text style={styles.label}>목표 점수</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="숫자 입력"
+            value={targetScore}
+            onChangeText={setTargetScore}
+            keyboardType="numeric"
+          />
 
-      <Text style={styles.label}>보상:</Text>
-      <TextInput style={styles.input} value={reward} onChangeText={setReward} placeholder="보상 내용 입력" />
+          <Text style={styles.label}>보상</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="보상 내용 입력"
+            value={reward}
+            onChangeText={setReward}
+          />
 
-      <Button title="도전 저장하기" onPress={saveChallenge} />
-    </View>
+          <View style={styles.buttonWrapper}>
+            <Button title="도전 저장하기" onPress={saveChallenge} />
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    marginTop: 50,
-  },
-  label: {
-    fontWeight: 'bold',
-    marginTop: 10,
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  inner: { flex: 1, padding: 20, justifyContent: 'center' },
+  label: { fontWeight: 'bold', marginTop: 12 },
   input: {
     borderWidth: 1,
-    borderColor: '#aaa',
-    padding: 10,
-    marginTop: 5,
+    borderColor: '#ccc',
     borderRadius: 5,
+    padding: 10,
+    marginTop: 6,
   },
+  dateInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 12,
+    marginTop: 6,
+  },
+  buttonWrapper: { marginTop: 24 },
 });

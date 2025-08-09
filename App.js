@@ -14,6 +14,7 @@ import * as Notifications from 'expo-notifications';
 import SimpleNotificationScreen from './screens/SimpleNotificationScreen';
 import WeeklyNotificationScreen from './screens/WeeklyNotificationScreen';
 import MonthlyNotificationScreen from './screens/MonthlyNotificationScreen';
+import HallOfFameScreen from './screens/HallOfFameScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -70,6 +71,8 @@ export default function App() {
           <Stack.Screen name="SimpleNotification" component={SimpleNotificationScreen} />
 <Stack.Screen name="WeeklyNotification" component={WeeklyNotificationScreen} />
 <Stack.Screen name="MonthlyNotification" component={MonthlyNotificationScreen} />
+<Stack.Screen name="HallOfFameScreen" component={HallOfFameScreen} options={{ title: '명예의 전당' }} />
+
 
         </Stack.Navigator>
       </NavigationContainer>

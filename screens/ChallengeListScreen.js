@@ -1,239 +1,304 @@
 // screens/ChallengeListScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  SafeAreaView,
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  useWindowDimensions,
-  Alert,
+  SafeAreaView, View, Text, StyleSheet,
+  TouchableOpacity, Alert, FlatList
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import uuid from 'react-native-uuid';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// ✅ (생략된 import들은 그대로 유지)
+// 공통 팔레트/여백
+import { buttonStyles, colors, spacing, radius } from '../styles/common';
 
-// 📌 loadChallenges 함수는 export 안에서 쓸 수 있게 바깥에 선언
-const loadChallenges = async (setChallenges) => {
-  try {
-    const raw = await AsyncStorage.getItem('challenges');
-    const list = raw ? JSON.parse(raw) : [];
-    const fixed = list.map(c => ({
-      ...c,
-      currentScore: c.currentScore ?? 0,
-      completed: c.completed ?? false,
-    }));
-    setChallenges(fixed);
-  } catch (e) {
-    console.error(e);
-    Alert.alert('오류', '챌린지 로드에 실패했습니다.');
-  }
-};
-
-async function duplicateChallenge(original, setChallenges) {
-  try {
-    const id = uuid.v4();
-
-    const newChallenge = {
-      id,
-      title: original.title + ' (복사됨)',
-      description: original.description,
-      startDate: original.startDate,
-      endDate: original.endDate,
-      goal: original.goal,
-      reward: original.reward,
-      createdAt: new Date().toISOString(),
-
-      // ✅ 초기화
-      currentScore: 0,
-      completedCount: 0,
-      progress: 0,
-      weeklyProgress: [],
-      entries: [],
-      targetScore: original.targetScore ?? 1, // ✅ NaN 방지용 보완
-    };
-
-    const existing = await AsyncStorage.getItem('challenges');
-    const challenges = existing ? JSON.parse(existing) : [];
-
-    challenges.push(newChallenge);
-    await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
-
-    // ✅ 복제 후 즉시 리스트 갱신
-    loadChallenges(setChallenges);
-  } catch (error) {
-    console.error('챌린지 복사 오류:', error);
-    Alert.alert('오류', '복제 중 오류 발생');
-  }
-}
-
-export default function ChallengeListScreen({ navigation }) {
-  const { width, height } = useWindowDimensions();
-  const isPortrait = height >= width;
+export default function ChallengeListScreen() {
+  const isFocused = useIsFocused();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [challenges, setChallenges] = useState([]);
+
+  const [list, setList] = useState([]);
 
   useEffect(() => {
-    const unsub = navigation.addListener('focus', () => loadChallenges(setChallenges));
-    return unsub;
-  }, [navigation]);
-
-  const handleSort = mode => {
-    const sorted = [...challenges];
-    if (mode === 'latest') {
-      sorted.sort((a, b) => Number(b.id) - Number(a.id));
-    } else if (mode === 'title') {
-      sorted.sort((a, b) => a.title.localeCompare(b.title));
-    } else if (mode === 'progress') {
-      sorted.sort(
-        (a, b) =>
-          b.currentScore / b.targetScore - a.currentScore / a.targetScore
-      );
-    }
-    setChallenges(sorted);
-  };
-
-  const deleteChallenge = async id => {
-    try {
+    if (!isFocused) return;
+    (async () => {
       const raw = await AsyncStorage.getItem('challenges');
-      const list = raw ? JSON.parse(raw) : [];
-      const filtered = list.filter(c => c.id !== id);
-      await AsyncStorage.setItem('challenges', JSON.stringify(filtered));
-      setChallenges(filtered);
-    } catch (e) {
-      console.error(e);
-      Alert.alert('오류', '챌린지 삭제에 실패했습니다.');
-    }
+      const arr = raw ? JSON.parse(raw) : [];
+      setList(arr);
+    })().catch(console.error);
+  }, [isFocused]);
+
+  // 완료 판정(안전): status === 'completed' || (goalScore>0 && currentScore>=goalScore)
+  const decorate = (c) => {
+    const cs = Number(c?.currentScore ?? 0);
+    const gs = Number(c?.goalScore ?? NaN);
+    const hasValidGoal = Number.isFinite(gs) && gs > 0;
+    const doneByScore = hasValidGoal && cs >= gs;
+    const done = c?.status === 'completed' || doneByScore;
+    return { ...c, _isDone: !!done, _completedAt: c?.completedAt ?? 0 };
   };
 
-  const goToUpload = id => navigation.navigate('Upload', { challengeId: id });
+  // 정렬: 완료(완료일 최신) → 진행중(생성 최신)
+  const sorted = useMemo(() => {
+    const arr = (list || []).map(decorate);
+    const done = arr.filter((c) => c._isDone)
+      .sort((a, b) => (b._completedAt || 0) - (a._completedAt || 0));
+    const active = arr.filter((c) => !c._isDone)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return [...done, ...active];
+  }, [list]);
+
+  const saveChallenges = async (arr) => {
+    setList(arr);
+    await AsyncStorage.setItem('challenges', JSON.stringify(arr));
+  };
+
+  const onDelete = (item) => {
+    Alert.alert('삭제 확인', `'${item.title}' 도전을 삭제할까요?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제', style: 'destructive', onPress: async () => {
+          const next = (list || []).filter((c) => c.id !== item.id);
+          await saveChallenges(next);
+          await AsyncStorage.removeItem(`entries_${item.id}`).catch(() => {});
+        },
+      },
+    ]);
+  };
+
+  const onDuplicate = (item) => {
+    if (item._isDone) return;
+    Alert.alert('복제 확인', `'${item.title}' 도전을 복제할까요?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '복제', onPress: async () => {
+          const copy = {
+            ...item,
+            id: `ch_${Date.now()}`,
+            title: `${item.title} (복제)`,
+            currentScore: 0,
+            status: 'active',
+            createdAt: Date.now(),
+            completedAt: undefined,
+          };
+          const next = [copy, ...list];
+          await saveChallenges(next);
+        },
+      },
+    ]);
+  };
+
+  const onClaimReward = async (item) => {
+    const marked = { ...item, status: 'completed', completedAt: Date.now() };
+    const nextChallenges = (list || []).filter((c) => c.id !== item.id);
+    await saveChallenges(nextChallenges);
+    const raw = await AsyncStorage.getItem('hallOfFame');
+    const hof = raw ? JSON.parse(raw) : [];
+    hof.unshift(marked);
+    await AsyncStorage.setItem('hallOfFame', JSON.stringify(hof));
+    navigation.navigate('HallOfFameScreen');
+  };
+
+  const goEntryList = (item) => {
+    navigation.navigate('EntryList', {
+      challengeId: item.id,
+      title: item.title,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      targetScore: item.goalScore,
+      rewardTitle: item.rewardTitle,
+      reward: item.reward,
+    });
+  };
 
   const renderItem = ({ item }) => {
-    const pct =
-      item.targetScore && item.targetScore > 0
-        ? Math.round((item.currentScore / item.targetScore) * 100)
-        : 0;
+    const isDone = !!item._isDone;
 
     return (
-      <TouchableOpacity
-        style={[styles.item, item.completed && styles.completedCard]}
-        onPress={() =>
-          navigation.navigate('EntryList', {
-            challengeId: item.id,
-            title: item.title,
-            startDate: item.startDate,
-            targetScore: item.targetScore,
-            currentScore: item.currentScore,
-          })
-        }
-      >
-        <Text style={styles.title} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.sub}>{item.startDate} ~ {item.endDate}</Text>
-        <Text style={styles.sub}>목표: {item.targetScore}회</Text>
-        <Text style={styles.sub}>현재: {item.currentScore}회</Text>
-        <Text style={styles.sub}>진행률: {pct}%</Text>
-        <Text style={styles.sub}>보상: {item.reward}</Text>
+      <View style={styles.cardWrap}>
+        {/* 카드 영역 전체 탭 → 인증 목록 */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => goEntryList(item)}
+          style={[styles.card, isDone && styles.dimmed]}
+        >
+          <Text style={styles.title}>{item.title}</Text>
 
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.smallButton}
-            onPress={() => navigation.navigate('EditChallenge', { challenge: item })}
-          >
-            <Text style={styles.smallButtonText}>수정</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.smallButton} onPress={() => deleteChallenge(item.id)}>
-            <Text style={styles.smallButtonText}>삭제</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.smallButton} onPress={() => duplicateChallenge(item, setChallenges)}>
-            <Text style={styles.smallButtonText}>복제</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.metaWrap}>
+            <Text style={styles.meta}>기간 {item.startDate ?? '-'} ~ {item.endDate ?? '-'}</Text>
+            <Text style={styles.meta}>점수 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
+            {!!(item.rewardTitle || item.reward) && (
+              <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
+            )}
+          </View>
 
-        {!item.completed ? (
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.checkButton} onPress={() => goToUpload(item.id)}>
-              <Text style={styles.checkButtonText}>도전 인증</Text>
+          {/* (요청) 카드 테두리 안, 오른쪽 정렬: 흰 배경 + 카드 라인색 테두리 */}
+          <View style={styles.actionsRight}>
+            <TouchableOpacity
+              disabled={isDone}
+              style={[styles.outlineBtn, isDone && styles.disabledBtn]}
+              onPress={() => navigation.navigate('EditChallenge', { challenge: item })}
+            >
+              <Text style={styles.outlineText}>{isDone ? '수정불가' : '수정'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              disabled={isDone}
+              style={[styles.outlineBtn, isDone && styles.disabledBtn]}
+              onPress={() => onDuplicate(item)}
+            >
+              <Text style={styles.outlineText}>{isDone ? '복제불가' : '복제'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.outlineBtn}
+              onPress={() => onDelete(item)}
+            >
+              <Text style={styles.outlineText}>삭제</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.rewardButton} onPress={() => alert(`보상 받기: ${item.reward}`)}>
-              <Text style={styles.rewardButtonText}>보상 받기</Text>
+
+          {/* (요청) 카드 테두리 안, 큰 버튼: 진행중=인증하기 / 완료=보상 받기 */}
+          {!isDone ? (
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.bigActionBtn]}
+              onPress={() => navigation.navigate('Upload', { challengeId: item.id })}
+              activeOpacity={0.9}
+            >
+              <Text style={[buttonStyles.primaryText, styles.bigActionText]}>인증하기</Text>
             </TouchableOpacity>
-          </View>
-        )}
-      </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.bigActionBtn]}
+              onPress={() => onClaimReward(item)}
+              activeOpacity={0.9}
+            >
+              <Text style={[buttonStyles.primaryText, styles.bigActionText]}>보상 받기</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+      </View>
     );
   };
 
-  return (
-    <SafeAreaView
+  // 화면 맨밑 고정 “도전 추가” 버튼 (인증하기와 동일한 모양)
+  const BottomAddButton = () => (
+    <View
+      pointerEvents="box-none"
       style={[
-        isPortrait ? styles.portrait : styles.landscape,
-        { paddingTop: insets.top, paddingBottom: insets.bottom },
+        styles.bottomBar,
+        { paddingBottom: Math.max(insets.bottom, 8) }
       ]}
     >
+      <TouchableOpacity
+        style={[buttonStyles.primary, styles.bigActionBtn]}
+        onPress={() => navigation.navigate('AddChallenge')}
+        activeOpacity={0.9}
+      >
+        <Text style={[buttonStyles.primaryText, styles.bigActionText]}>도전 추가</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* 헤더: 명예의 전당 이동만 유지 */}
       <View style={styles.header}>
-        <Text style={styles.heading}>저장된 챌린지</Text>
-        <View style={styles.sortContainer}>
-          <TouchableOpacity onPress={() => handleSort('latest')} style={styles.sortButton}>
-            <Text>최신</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleSort('title')} style={styles.sortButton}>
-            <Text>이름</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleSort('progress')} style={styles.sortButton}>
-            <Text>진행률</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.headerTitle}>도전 목록</Text>
+        <TouchableOpacity
+          style={buttonStyles.compactRight}
+          onPress={() => navigation.navigate('HallOfFameScreen')}
+        >
+          <Text style={buttonStyles.compactRightText}>명예의 전당</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
-        contentContainerStyle={[
-          challenges.length === 0 && styles.emptyContainer
-        ]}
-        data={challenges}
-        keyExtractor={item => item.id}
+        data={sorted}
+        keyExtractor={(it) => it.id}
         renderItem={renderItem}
-        ListEmptyComponent={<Text style={styles.empty}>챌린지가 없습니다.</Text>}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.lg,
+          paddingBottom: spacing.xxl + Math.max(insets.bottom, 8), // 하단 고정 버튼과 겹치지 않게
+        }}
+        ListEmptyComponent={<Text style={styles.empty}>등록된 도전이 없습니다.</Text>}
       />
 
-      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddChallenge')}>
-        <Text style={styles.addButtonText}>+ 챌린지 추가</Text>
-      </TouchableOpacity>
+      <BottomAddButton />
     </SafeAreaView>
   );
 }
 
-// ✅ styles는 그대로 유지 (생략 가능하면 말해줘!)
-
+// 카드 테두리/아웃라인 공통 색(카드 외곽선과 동일하게 맞춤)
+const CARD_BORDER = '#E5E7EB'; // colors.gray300 과 유사톤 (styles/common 팔레트와 톤 맞춤)
 
 const styles = StyleSheet.create({
-  portrait: { flex:1, backgroundColor:'#f4f4f4', paddingHorizontal:20 },
-  landscape:{ flex:1, backgroundColor:'#f4f4f4', flexDirection:'row', padding:10 },
-  header:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginHorizontal:20, marginBottom:10 },
-  heading:{ fontSize:20, fontWeight:'bold' },
-  sortContainer:{ flexDirection:'row' },
-  sortButton:{ marginLeft:8, padding:6, backgroundColor:'#eee', borderRadius:4 },
-  item:{ backgroundColor:'#fff', padding:16, marginHorizontal:20, marginVertical:8, borderRadius:8, borderColor:'#ddd', borderWidth:1 },
-  completedCard:{ backgroundColor:'#e0e0e0', opacity:0.7 },
-  title:{ fontSize:16, fontWeight:'bold', marginBottom:4 },
-  sub:{ fontSize:14, color:'#333', marginBottom:2 },
-  buttonRow:{ flexDirection:'row', justifyContent:'flex-end', marginTop:8 },
-  smallButton:{ marginLeft:8, backgroundColor:'#007bff', paddingHorizontal:12, paddingVertical:6, borderRadius:4 },
-  smallButtonText:{ color:'#fff', fontWeight:'bold' },
-  checkButton:{ flex:1, backgroundColor:'#ffc107', padding:12, borderRadius:4, alignItems:'center' },
-  checkButtonText:{ color:'#000', fontWeight:'bold' },
-  rewardButton:{ flex:1, backgroundColor:'#28a745', padding:12, borderRadius:4, alignItems:'center' },
-  rewardButtonText:{ color:'#fff', fontWeight:'bold' },
-  addButton:{ backgroundColor:'#28a745', padding:16, margin:20, borderRadius:8, alignItems:'center' },
-  addButtonText:{ color:'#fff', fontWeight:'bold', fontSize:16 },
-  empty:{ textAlign:'center', color:'#666', marginTop:50, fontSize:16 },
-  emptyContainer:{ flex:1, justifyContent:'center' },
+  container: { flex: 1, backgroundColor: colors.white },
+
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800 },
+
+  cardWrap: { marginTop: spacing.md },
+
+  // 카드(테두리/라운드/안쪽 패딩 포함)
+  card: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  // 완료 도전: 본문만 살짝 흐림(버튼 가독성은 유지됨)
+  dimmed: { opacity: 0.6 },
+
+  title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
+  metaWrap: { marginTop: 6 },
+  meta: { fontSize: 12, color: colors.gray600, marginTop: 2 },
+
+  // 카드 내부: 우측 정렬 아웃라인 버튼들
+  actionsRight: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    columnGap: 8,
+    rowGap: 8,
+  },
+  outlineBtn: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: CARD_BORDER, // (요청) 카드 테두리와 동일 톤
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+  },
+  outlineText: { color: colors.black, fontSize: 12, fontWeight: '700' },
+
+  // 카드 내부: 큰 버튼(인증하기/보상)
+  bigActionBtn: {
+    marginTop: spacing.md,
+    alignSelf: 'stretch',
+    paddingVertical: 14,
+    borderRadius: radius.lg,
+  },
+  bigActionText: { fontSize: 16, fontWeight: '800' },
+
+  empty: { textAlign: 'center', color: colors.gray400, marginTop: 60 },
+
+  // 하단 고정 Add 버튼 컨테이너
+  bottomBar: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
 });

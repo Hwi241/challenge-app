@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+// screens/EntryListScreen.js
+import React, {
+  useState, useEffect, useRef, useMemo, useCallback, memo,
+} from 'react';
 import {
   SafeAreaView, View, Text, FlatList, Image, StyleSheet, TouchableOpacity,
   Dimensions, ScrollView
@@ -13,6 +16,131 @@ const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 // 'latest' = 항상 최신 주로 열기 / 'today' = 오늘이 포함된 주로 열기
 const SCROLL_MODE = 'latest';
 
+/** ─────────────────────────────
+ *  메모 컴포넌트들 (UI 변경 없음)
+ *  ────────────────────────────*/
+const WeekView = memo(function WeekView({ weeksData }) {
+  const scrollRef = useRef(null);
+
+  // 오늘/최신 주 계산
+  const todayWeekIndex = useMemo(() => {
+    if (!weeksData || weeksData.length === 0) return 0;
+    const today = new Date();
+    const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    for (let i = 0; i < weeksData.length; i++) {
+      const ws = new Date(weeksData[i].ws);
+      const we = new Date(ws);
+      we.setDate(we.getDate() + 7); // 다음 주 월요일(미포함)
+      if (t0 >= ws && t0 < we) return i;
+    }
+    return Math.max(weeksData.length - 1, 0);
+  }, [weeksData]);
+
+  const latestWeekIndex = useMemo(() => Math.max(weeksData.length - 1, 0), [weeksData]);
+
+  const targetIndex = useMemo(
+    () => (SCROLL_MODE === 'today' ? todayWeekIndex : latestWeekIndex),
+    [todayWeekIndex, latestWeekIndex]
+  );
+
+  const initialOffsetX = useMemo(() => targetIndex * SCREEN_WIDTH, [targetIndex]);
+
+  const backupScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    try {
+      scrollRef.current.scrollTo({ x: initialOffsetX, y: 0, animated: false });
+    } catch {}
+  }, [initialOffsetX]);
+
+  const renderWeek = useCallback(({ ws, dailyStats }, idx) => {
+    const maxBarHeight = 60;
+    const max = Math.max(...dailyStats.map(stat => stat.duration || 0), 1);
+
+    return (
+      <View key={idx} style={styles.weekBlock}>
+        <View style={styles.labelRow}>
+          {dailyStats.map((stat, i) => (
+            <View key={i} style={{ alignItems: 'center', width: SCREEN_WIDTH / 7 }}>
+              <Text style={[styles.dateLabel, { marginBottom: 2 }]}>{stat.date}</Text>
+              <Text style={styles.dayLabel}>{DAY_LABELS[i]}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.barRow}>
+          {dailyStats.map((stat, i) => (
+            <View key={i} style={styles.barContainer}>
+              <Text style={styles.barText}>
+                {stat.duration > 0 ? `${stat.duration}분` : ' '}
+              </Text>
+              <View
+                style={[styles.bar, {
+                  height: stat.duration > 0
+                    ? Math.min((stat.duration / max) * maxBarHeight + 10, maxBarHeight + 10)
+                    : 1,
+                  opacity: stat.duration > 0 ? 1 : 0,
+                  marginVertical: 2,
+                }]}
+              />
+              <Text style={styles.countLabel}>
+                {stat.count > 0 ? `${stat.count}회` : '—'}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }, []);
+
+  return (
+    <View style={{ height: 160 }}>
+      <ScrollView
+        key={`sv-${weeksData.length}-${targetIndex}`}
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={{ flex: 1 }}
+        contentOffset={{ x: initialOffsetX, y: 0 }}
+        onLayout={backupScroll}
+        onContentSizeChange={backupScroll}
+      >
+        {weeksData.map(renderWeek)}
+      </ScrollView>
+    </View>
+  );
+});
+
+const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress }) {
+  const body = (
+    <>
+      <Text style={styles.number}>{indexFromEnd}</Text>
+      {item.imageUri && <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />}
+      <View style={styles.textContainer}>
+        <Text style={styles.text} numberOfLines={2}>{item.text}</Text>
+        <Text style={styles.time}>{new Date(item.timestamp).toLocaleString()}</Text>
+        {typeof item.duration === 'number' ? (
+          <Text style={styles.duration}>소요 시간: {item.duration}분</Text>
+        ) : (
+          <Text style={[styles.duration, styles.durationPlaceholder]}>소요 시간</Text>
+        )}
+      </View>
+    </>
+  );
+
+  if (readOnly) {
+    return <View style={styles.entry}>{body}</View>;
+  }
+  return (
+    <TouchableOpacity style={styles.entry} onPress={onPress} activeOpacity={0.85}>
+      {body}
+    </TouchableOpacity>
+  );
+});
+
+/** ─────────────────────────────
+ *  본문
+ *  ────────────────────────────*/
 export default function EntryListScreen({ route, navigation }) {
   const {
     challengeId,
@@ -22,12 +150,11 @@ export default function EntryListScreen({ route, navigation }) {
     endDate: endDateFromRoute,
     rewardTitle: rewardTitleFromRoute,
     reward: rewardFromRoute,
+    readOnly = false, // 읽기 전용 모드
   } = route.params;
 
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-
-  const scrollRef = useRef();
 
   const [entries, setEntries] = useState([]);
   const [weeksData, setWeeksData] = useState([]);
@@ -88,7 +215,7 @@ export default function EntryListScreen({ route, navigation }) {
   }, [isFocused, challengeId]);
 
   // 주간 데이터 구성 (월~일)
-  function buildWeeks(list, startDateStr) {
+  const buildWeeks = useCallback((list, startDateStr) => {
     if (!startDateStr) {
       setWeeksData([]);
       return;
@@ -134,42 +261,12 @@ export default function EntryListScreen({ route, navigation }) {
       cursor.setDate(cursor.getDate() + 7);
     }
     setWeeksData(weeks);
-  }
+  }, []);
 
-  // 오늘 주 인덱스
-  const todayWeekIndex = useMemo(() => {
-    if (!weeksData || weeksData.length === 0) return 0;
-    const today = new Date();
-    const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    for (let i = 0; i < weeksData.length; i++) {
-      const ws = new Date(weeksData[i].ws);
-      const we = new Date(ws);
-      we.setDate(we.getDate() + 7); // 다음 주 월요일(미포함)
-      if (t0 >= ws && t0 < we) return i;
-    }
-    return Math.max(weeksData.length - 1, 0);
-  }, [weeksData]);
-
-  // 최신 주 인덱스
-  const latestWeekIndex = useMemo(() => Math.max(weeksData.length - 1, 0), [weeksData]);
-
-  // 이번 렌더에서 사용할 대상 인덱스
-  const targetIndex = useMemo(() => {
-    return (SCROLL_MODE === 'today') ? todayWeekIndex : latestWeekIndex;
-  }, [todayWeekIndex, latestWeekIndex]);
-
-  // 초기 오프셋 (처음부터 해당 페이지로 시작)
-  const initialOffsetX = useMemo(() => targetIndex * SCREEN_WIDTH, [targetIndex]);
-
-  // 백업 스크롤 (혹시 초기 오프셋이 안 먹을 때)
-  const backupScroll = useCallback(() => {
-    if (!scrollRef.current) return;
-    try {
-      scrollRef.current.scrollTo({ x: initialOffsetX, y: 0, animated: false });
-    } catch {}
-  }, [initialOffsetX]);
-
-  const overallPct = Math.min(Math.round((currentScore / targetScore) * 100), 100);
+  const overallPct = useMemo(
+    () => Math.min(Math.round((currentScore / targetScore) * 100), 100),
+    [currentScore, targetScore]
+  );
 
   // 정렬은 사본으로 계산
   const sortedEntries = useMemo(
@@ -177,8 +274,8 @@ export default function EntryListScreen({ route, navigation }) {
     [entries]
   );
 
-  // 상단 기간/보상 박스
-  function renderPeriodAndReward() {
+  // 상단 기간/보상 박스 (원래 UI 유지)
+  const renderPeriodAndReward = useCallback(() => {
     const startStr = meta.startDate ? new Date(meta.startDate) : null;
     const endStr = meta.endDate ? new Date(meta.endDate) : null;
 
@@ -197,38 +294,18 @@ export default function EntryListScreen({ route, navigation }) {
 
     return (
       <View style={styles.infoBlock}>
-        <Text style={styles.infoLine}>{periodText}</Text>
-        <Text style={styles.infoLine}>{rewardText}</Text>
+        <Text style={styles.infoLine} numberOfLines={2} ellipsizeMode="tail">{periodText}</Text>
+        <Text style={styles.infoLine} numberOfLines={2} ellipsizeMode="tail">{rewardText}</Text>
       </View>
     );
-  }
+  }, [meta.endDate, meta.reward, meta.rewardTitle, meta.startDate]);
 
-  const Header = () => (
+  // 헤더 엘리먼트 메모 (UI 동일)
+  const headerElement = useMemo(() => (
     <>
-      <Text style={styles.heading}>{title} 인증 목록</Text>
-
-      {/* 기간/보상 요약 */}
+      <Text style={styles.heading}>{title} 인증 목록{readOnly ? ' (기록 보기)' : ''}</Text>
       {renderPeriodAndReward()}
-
-      {/* 주간 진행(가로 스크롤) */}
-      <View style={{ height: 160 }}>
-        <ScrollView
-          // 핵심: weeksData/targetIndex가 바뀔 때 리마운트 → 초기 contentOffset 보장
-          key={`sv-${weeksData.length}-${targetIndex}`}
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          style={{ flex: 1 }}
-          contentOffset={{ x: initialOffsetX, y: 0 }}   // 초기 오프셋
-          onLayout={backupScroll}                        // 백업 스크롤 1
-          onContentSizeChange={backupScroll}            // 백업 스크롤 2
-        >
-          {weeksData.map(renderWeek)}
-        </ScrollView>
-      </View>
-
-      {/* 전체 진행률 */}
+      <WeekView weeksData={weeksData} />
       <View style={styles.overallBlock}>
         <Text style={styles.overallTitle}>전체 진행률</Text>
         <View style={styles.progressBg}>
@@ -237,71 +314,39 @@ export default function EntryListScreen({ route, navigation }) {
         <Text style={styles.overallPct}>{overallPct}%</Text>
       </View>
     </>
-  );
+  ), [overallPct, readOnly, renderPeriodAndReward, title, weeksData]);
 
-  const renderWeek = ({ ws, dailyStats }, idx) => {
-    const maxBarHeight = 60;
-    const max = Math.max(...dailyStats.map(stat => stat.duration || 0), 1);
+  const keyExtractor = useCallback((it) => it.id, []);
+
+  const renderEntry = useCallback(({ item, index }) => {
+    const indexFromEnd = sortedEntries.length - index;
+    const onPress = readOnly
+      ? undefined
+      : () => navigation.navigate('EntryDetail', { challengeId, entryId: item.id });
 
     return (
-      <View key={idx} style={styles.weekBlock}>
-        <View style={styles.labelRow}>
-          {dailyStats.map((stat, i) => (
-            <View key={i} style={{ alignItems: 'center', width: SCREEN_WIDTH / 7 }}>
-              <Text style={styles.dateLabel}>{stat.date}</Text>
-              <Text style={styles.dayLabel}>{DAY_LABELS[i]}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.barRow}>
-          {dailyStats.map((stat, i) => (
-            <View key={i} style={styles.barContainer}>
-              <Text style={styles.barText}>
-                {stat.duration > 0 ? `${stat.duration}분` : ' '}
-              </Text>
-              <View
-                style={[styles.bar, {
-                  height: stat.duration > 0
-                    ? Math.min((stat.duration / max) * maxBarHeight + 10, maxBarHeight + 10)
-                    : 1,
-                  opacity: stat.duration > 0 ? 1 : 0,
-                  marginVertical: 2,
-                }]}
-              />
-              <Text style={styles.countLabel}>{stat.count}회</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      <EntryRow
+        item={item}
+        indexFromEnd={indexFromEnd}
+        readOnly={readOnly}
+        onPress={onPress}
+      />
     );
-  };
-
-  const renderEntry = ({ item, index }) => (
-    <TouchableOpacity
-      style={styles.entry}
-      onPress={() => navigation.navigate('EntryDetail', { challengeId, entryId: item.id })}
-    >
-      <Text style={styles.number}>{sortedEntries.length - index}</Text>
-      {item.imageUri && <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />}
-      <View style={styles.textContainer}>
-        <Text style={styles.text} numberOfLines={2}>{item.text}</Text>
-        <Text style={styles.time}>{new Date(item.timestamp).toLocaleString()}</Text>
-        {typeof item.duration === 'number' && (
-          <Text style={styles.duration}>소요 시간: {item.duration}분</Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+  }, [challengeId, navigation, readOnly, sortedEntries.length]);
 
   return (
-    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]} >
       <FlatList
         data={sortedEntries}
-        keyExtractor={(it) => it.id}
+        keyExtractor={keyExtractor}
         renderItem={renderEntry}
-        ListHeaderComponent={<Header />}
+        ListHeaderComponent={headerElement}
         ListEmptyComponent={<Text style={styles.empty}>등록된 인증이 없습니다.</Text>}
+        removeClippedSubviews
+        windowSize={7}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={60}
       />
     </SafeAreaView>
   );
@@ -333,6 +378,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#333',
     marginBottom: 2,
+    flexShrink: 1,
   },
 
   weekBlock: {
@@ -393,7 +439,8 @@ const styles = StyleSheet.create({
   textContainer: { flex: 1, paddingHorizontal: 8 },
   text: { fontSize: 14 },
   time: { fontSize: 12, color: '#666' },
-  duration: { fontSize: 12, color: '#007bff', marginTop: 4 },
+  duration: { fontSize: 12, color: '#000', marginTop: 4 },
+  durationPlaceholder: { opacity: 0, includeFontPadding: false },
 
   empty: { textAlign: 'center', marginTop: 50, color: '#999' },
 });

@@ -1,121 +1,128 @@
 // screens/WeeklyNotificationScreen.js
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Button,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
+// - 제목: "주간 알림 설정" 중앙
+// - 7개 요일을 '카드'로 구분(인지 쉬움)
+// - 각 요일 최대 10개 시간, 중복 방지, 정렬
+// - 저장: replace(returnTo)
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = [0, 10, 20, 30, 40, 50];
-const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { buttonStyles, spacing, radius, colors } from '../styles/common';
 
-export default function WeeklyNotificationScreen({ route, navigation }) {
-  const { onSaveNotificationSetting } = route.params;
-  const [weeklyTimes, setWeeklyTimes] = useState({});
+const WEEK = ['월','화','수','목','금','토','일'];
+const MAX_PER_DAY = 10;
 
-  const addTimeSlot = (day) => {
-    const existing = weeklyTimes[day] || [];
-    if (existing.length >= 5) return;
-    setWeeklyTimes({
-      ...weeklyTimes,
-      [day]: [...existing, { hour: 8, minute: 0 }],
+const pad2 = (n)=>String(n).padStart(2,'0');
+const fmtHHMM = (d)=>`${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+export default function WeeklyNotificationScreen(){
+  const navigation = useNavigation();
+  const route = useRoute();
+  const initial = route.params?.initial || null;
+  const returnTo = route.params?.returnTo || 'AddChallenge';
+
+  const [map,setMap] = useState(()=>{
+    const m = new Map();
+    WEEK.forEach(d=>m.set(d, []));
+    if (initial && Array.isArray(initial.byWeekDays)) {
+      for (const {day, times=[]} of initial.byWeekDays) {
+        if (WEEK.includes(day)) m.set(day, [...new Set(times.map(String))].sort());
+      }
+    }
+    return m;
+  });
+
+  const [pickerDay,setPickerDay] = useState(null);
+  const [pickerVisible,setPickerVisible] = useState(false);
+
+  const openPicker = useCallback((day)=>{ setPickerDay(day); setPickerVisible(true); },[]);
+  const onConfirm = useCallback((date)=>{
+    const t = fmtHHMM(date);
+    setPickerVisible(false);
+    if (!pickerDay) return;
+    setMap(prev=>{
+      const arr = prev.get(pickerDay) || [];
+      if (arr.includes(t)) { Alert.alert('중복','이미 추가한 시간입니다.'); return prev; }
+      if (arr.length>=MAX_PER_DAY){ Alert.alert('제한',`하루 최대 ${MAX_PER_DAY}개까지 가능합니다.`); return prev; }
+      const next = [...arr, t].sort();
+      const m = new Map(prev); m.set(pickerDay,next); return m;
     });
-  };
+  },[pickerDay]);
+  const onCancel = useCallback(()=>setPickerVisible(false),[]);
 
-  const updateTime = (day, index, field, value) => {
-    const updated = [...(weeklyTimes[day] || [])];
-    updated[index] = {
-      ...updated[index],
-      [field]: Number(value),
-    };
-    setWeeklyTimes({ ...weeklyTimes, [day]: updated });
-  };
+  const removeOne = useCallback((day,time)=>{
+    setMap(prev=>{
+      const arr = prev.get(day) || [];
+      const next = arr.filter(t=>t!==time);
+      const m = new Map(prev); m.set(day,next); return m;
+    });
+  },[]);
 
-  const removeTime = (day, index) => {
-    const filtered = (weeklyTimes[day] || []).filter((_, i) => i !== index);
-    setWeeklyTimes({ ...weeklyTimes, [day]: filtered });
-  };
-
-  const saveSetting = () => {
-    const setting = {
-      type: 'weekly',
-      data: weeklyTimes,
-    };
-    onSaveNotificationSetting(setting);
-    navigation.goBack();
-  };
+  const save = useCallback(()=>{
+    const byWeekDays = WEEK.map(day=>({ day, times: (map.get(day)||[]) }));
+    navigation.replace(returnTo, {
+      notificationResult: { mode:'weekly', payload:{ byWeekDays } },
+      _nonce: Date.now(),
+    });
+  },[map, navigation, returnTo]);
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>요일별 알림 시간 설정</Text>
-      {DAYS.map((day) => (
-        <View key={day} style={styles.dayBlock}>
-          <Text style={styles.dayLabel}>{day}</Text>
-          {(weeklyTimes[day] || []).map((time, index) => (
-            <View key={index} style={styles.timeRow}>
-              <View style={styles.dropdownRow}>
-                <Text>시:</Text>
-                <ScrollView horizontal>
-                  {HOURS.map((h) => (
-                    <TouchableOpacity
-                      key={h}
-                      style={time.hour === h ? styles.selected : styles.option}
-                      onPress={() => updateTime(day, index, 'hour', h)}>
-                      <Text>{h}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <View style={styles.dropdownRow}>
-                <Text>분:</Text>
-                <ScrollView horizontal>
-                  {MINUTES.map((m) => (
-                    <TouchableOpacity
-                      key={m}
-                      style={time.minute === m ? styles.selected : styles.option}
-                      onPress={() => updateTime(day, index, 'minute', m)}>
-                      <Text>{m}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <Button title="삭제" onPress={() => removeTime(day, index)} color="#dc3545" />
-            </View>
-          ))}
-          <Button title="+ 시간 추가" onPress={() => addTimeSlot(day)} />
-        </View>
-      ))}
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>주간 알림 설정</Text>
 
-      <View style={styles.bottomButton}>
-        <Button title="저장" onPress={saveSetting} />
+      <View style={{rowGap: spacing.sm}}>
+        {WEEK.map(day=>{
+          const times = map.get(day)||[];
+          const canAdd = times.length < MAX_PER_DAY;
+          return (
+            <View key={day} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.dayTitle}>{day}</Text>
+                {canAdd && (
+                  <TouchableOpacity style={styles.addBtn} onPress={()=>openPicker(day)}>
+                    <Text style={styles.addBtnPlus}>＋</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.timeChips}>
+                {times.map(t=>(
+                  <View key={`${day}-${t}`} style={styles.chip}>
+                    <Text style={styles.chipText} numberOfLines={1}>{t}</Text>
+                    <TouchableOpacity onPress={()=>removeOne(day,t)}>
+                      <Text style={styles.chipRemove}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })}
       </View>
+
+      <TouchableOpacity style={[buttonStyles.primary.container,{marginTop:spacing.xl}]} onPress={save}>
+        <Text style={buttonStyles.primary.label}>선택완료</Text>
+      </TouchableOpacity>
+
+      <DateTimePickerModal isVisible={pickerVisible} mode="time" onConfirm={onConfirm} onCancel={onCancel} is24Hour />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 20 },
-  dayBlock: { marginBottom: 20 },
-  dayLabel: { fontWeight: 'bold', marginBottom: 10 },
-  timeRow: { marginBottom: 10 },
-  dropdownRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
-  option: {
-    padding: 6,
-    marginHorizontal: 4,
-    backgroundColor: '#eee',
-    borderRadius: 5,
-  },
-  selected: {
-    padding: 6,
-    marginHorizontal: 4,
-    backgroundColor: '#000',
-    borderRadius: 5,
-    color: '#fff',
-  },
-  bottomButton: { marginTop: 30 },
+  container:{ padding: spacing.lg, backgroundColor: colors.gray50 },
+  title:{ fontSize:20, fontWeight:'800', color: colors.gray800, textAlign:'center', marginBottom: spacing.md },
+
+  card:{ backgroundColor:'#FFF', borderWidth:1, borderColor:'#E5E7EB', borderRadius: radius.lg, padding: spacing.md },
+  cardHeader:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
+  dayTitle:{ fontSize:14, fontWeight:'800', color: colors.gray800 },
+
+  timeChips:{ flexDirection:'row', flexWrap:'wrap', gap:6, marginTop: spacing.sm },
+  chip:{ flexDirection:'row', alignItems:'center', backgroundColor: colors.gray100, borderRadius: radius.pill, paddingVertical:3, paddingHorizontal:6 },
+  chipText:{ color: colors.gray800, fontSize:12, marginRight:6 },
+  chipRemove:{ color:'#6B7280', fontSize:14, fontWeight:'800' },
+
+  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor:'#D1D5DB', backgroundColor:'#FFF', alignItems:'center', justifyContent:'center' },
+  addBtnPlus:{ color: colors.gray700, fontSize:16, fontWeight:'800', lineHeight:16 }
 });

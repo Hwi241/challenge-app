@@ -1,98 +1,144 @@
 // styles/common.js
-// 앱 전반에서 재사용할 공통 스타일 모음
-// - Primary 버튼(검은색)
-// - Compact Right 버튼(작고 오른쪽 정렬)
-// - 간단한 색상/여백 토큰
-
 import { StyleSheet } from 'react-native';
 
 export const colors = {
+  background: '#FFFFFF',
+  surface: '#FFFFFF',
+  primary: '#111111',
   black: '#000000',
-  white: '#FFFFFF',
-  gray50: '#FAFAFA',
-  gray100: '#F5F5F5',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
+  gray800: '#111111',
+  gray600: '#525252',
   gray400: '#9CA3AF',
-  gray600: '#4B5563',
-  gray800: '#1F2937',
+  borderStrong: '#111111',
+  borderSoft: '#D9D9D9',
 };
 
 export const spacing = {
-  xs: 4,
+  xs: 6,
   sm: 8,
   md: 12,
   lg: 16,
   xl: 24,
+  xxl: 36,
 };
 
 export const radius = {
   sm: 8,
   md: 12,
   lg: 16,
-  pill: 9999,
 };
 
-export const buttonStyles = StyleSheet.create({
+const textButton = {
+  fontSize: 15,
+  fontWeight: '700',
+  color: colors.primary,
+};
+
+// 중첩(container/label) + 평평(flat) 동시 지원 (기존 코드 호환)
+export const buttonStyles = {
   primary: {
-    backgroundColor: colors.black,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: radius.md,
+    container: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+      borderWidth: 1.5,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    label: {
+      ...textButton,
+      color: colors.background,
+    },
+  },
+  primaryText: { ...textButton, color: colors.background },
+
+  outlineStrong: {
+    container: {
+      backgroundColor: colors.background,
+      borderColor: colors.borderStrong,
+      borderWidth: 2,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    label: { ...textButton, color: colors.primary },
+  },
+  outlineStrongText: { ...textButton, color: colors.primary },
+
+  outlineSoft: {
+    container: {
+      backgroundColor: colors.background,
+      borderColor: colors.borderSoft,
+      borderWidth: 1,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    label: { ...textButton, color: colors.primary, fontWeight: '600' },
+  },
+  outlineSoftText: { ...textButton, color: colors.primary, fontWeight: '600' },
+
+  // ✅ 헤더 우측 소형 버튼(기존 compactRight = 검은 버튼)
+  compactRight: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryText: {
-    color: colors.white,
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  compactRight: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.black,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: radius.pill,
-  },
   compactRightText: {
-    color: colors.white,
-    fontWeight: '600',
-    fontSize: 12,
+    ...textButton,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.background,
   },
-  disabled: {
-    opacity: 0.5,
+
+  // (남겨두되 미사용 가능) 흰 배경 아웃라인 소형 버튼
+  headerRight: {
+    container: {
+      minWidth: 44,
+      height: 34,
+      paddingHorizontal: spacing.md,
+      borderColor: colors.borderSoft,
+      borderWidth: 1,
+      borderRadius: radius.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    },
+    label: { ...textButton, fontSize: 14, fontWeight: '600', color: colors.primary },
   },
+};
+
+export const text = StyleSheet.create({
+  title: { fontSize: 20, fontWeight: '700', color: colors.primary },
+  subtitle: { fontSize: 16, fontWeight: '600', color: colors.primary },
+  body: { fontSize: 15, color: colors.primary },
+  meta: { fontSize: 13, color: colors.gray600 },
 });
 
-export const chipStyles = StyleSheet.create({
-  chip: {
-    backgroundColor: colors.gray100,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  chipText: {
-    fontSize: 12,
-    color: colors.gray800,
-  },
-});
-
-export const cardStyles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.white,
+export const card = StyleSheet.create({
+  base: {
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSoft,
+    borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.gray200,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.gray800,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: colors.gray600,
   },
 });
+
+export const header = {
+  titleAlign: 'center',
+  headerStyle: { backgroundColor: colors.background },
+  headerTintColor: colors.primary,
+  headerShadowVisible: false,
+};

@@ -1,4 +1,4 @@
-package com.anonymous.challengeapp
+package com.anonymous.thepush
 
 import android.app.Application
 import android.content.res.Configuration

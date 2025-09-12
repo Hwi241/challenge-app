@@ -1,175 +1,264 @@
 // screens/SimpleNotificationScreen.js
-// - onDone 콜백으로 결과 전달 + goBack()
-// - 경고/중복 네비게이션 없이 Edit 화면 미리보기 즉시 갱신
+// - 요일 원형(중앙정렬), 폰트 작게
+// - '매일 반복' + '매주 반복' 버튼(동일 높이): 매주는 모달로 1~5번째주 또는 매주 선택, 라벨 동적 변경
+// - 시간 여러 개(최대 10개) 추가/삭제
+// - 저장 시 payload: { days, time(첫번째), times[], weeks: 'every' | number[] } 로 AddChallenge에 replace
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, ScrollView } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { buttonStyles, colors, spacing, radius, cardStyles } from '../styles/common';
+import { buttonStyles, colors, spacing, radius, card as cardStyles } from '../styles/common';
 
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
-const toHHmm = (d) => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+const CIRCLE = 40;
+const MAX_TIMES = 10;
+
+const toHHmm = (d) =>
+  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
 export default function SimpleNotificationScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { initial, onDone } = route.params || {};
+  const { initial, returnTo } = route.params || {};
 
-  const [mode, setMode] = useState('daily');       // 'daily' | 'weeklyDays'
   const [selectedDays, setSelectedDays] = useState([]);
-  const [time, setTime] = useState(null);
-  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [times, setTimes] = useState([]); // ['HH:MM',...]
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  // 매주 반복(주차) 선택
+  const [weekModal, setWeekModal] = useState(false);
+  const [weeks, setWeeks] = useState('every'); // 'every' | number[]
+
+  // 초기값 반영
   useEffect(() => {
     if (!initial) return;
     try {
-      if (Array.isArray(initial.days) && typeof initial.time === 'string') {
-        setTime(initial.time);
-        const isDaily = initial.days.length === 7 && DAY_LABELS.every(d => initial.days.includes(d));
-        if (isDaily) { setMode('daily'); setSelectedDays(DAY_LABELS.slice()); }
-        else { setMode('weeklyDays'); setSelectedDays(initial.days.filter(d => DAY_LABELS.includes(d))); }
+      if (Array.isArray(initial.days)) {
+        const valid = initial.days.filter((d) => DAY_LABELS.includes(d));
+        setSelectedDays(valid.length ? valid : []);
+      }
+      if (Array.isArray(initial.times) && initial.times.length) {
+        setTimes([...new Set(initial.times.map(String))].sort());
+      } else if (typeof initial.time === 'string') {
+        setTimes([initial.time]);
+      }
+      if (Array.isArray(initial.weeks) && initial.weeks.length) {
+        setWeeks(initial.weeks.map(n=>Number(n)).filter(n=>n>=1 && n<=5));
+      } else if (initial.weeks === 'every') {
+        setWeeks('every');
       }
     } catch {}
   }, [initial]);
 
-  useEffect(() => {
-    if (mode === 'daily') setSelectedDays(DAY_LABELS.slice());
-    else if (selectedDays.length === 7) setSelectedDays([]);
-  }, [mode]);
+  const isDaily = useMemo(() => selectedDays.length === 7, [selectedDays]);
+  const weekLabel = useMemo(() => {
+    if (weeks === 'every') return '매주 반복';
+    if (!Array.isArray(weeks) || weeks.length === 0) return '매주 반복';
+    return weeks.sort((a,b)=>a-b).map(n=>`${n}`).join(',') + '번째주';
+  }, [weeks]);
 
-  const previewText = useMemo(() => {
-    if (!time) return '시간을 아직 선택하지 않았습니다.';
-    const [hStr, mStr] = time.split(':'); const h = Number(hStr); const m = Number(mStr);
-    const isAM = h < 12; const h12 = h % 12 === 0 ? 12 : h % 12; const mm = m > 0 ? `${m}분` : ''; const period = isAM ? '오전' : '오후';
-    if (mode === 'daily') return `매일 ${period} ${h12}시 ${mm} 알림`;
-    const daysText = selectedDays.length ? selectedDays.map(d => `[${d}]`).join(' ') : '[요일 미선택]';
-    return `선택요일 매주 반복: ${daysText} ${period} ${h12}시 ${mm} 알림`;
-  }, [mode, time, selectedDays]);
+  // 요일 토글
+  const toggleDay = useCallback((d) => {
+    setSelectedDays((prev) => {
+      const has = prev.includes(d);
+      const next = has ? prev.filter((x) => x !== d) : [...prev, d];
+      return next.sort((a, b) => DAY_LABELS.indexOf(a) - DAY_LABELS.indexOf(b));
+    });
+  }, []);
 
-  const toggleDay = (d) => { if (mode !== 'weeklyDays') return;
-    setSelectedDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]); };
-  const onConfirmTime = (d) => { setShowTimePicker(false); setTime(toHHmm(d)); };
+  // 매일 반복 토글
+  const toggleDaily = useCallback(() => {
+    setSelectedDays((prev) => (prev.length === 7 ? [] : DAY_LABELS.slice()));
+  }, []);
+
+  // 시간 추가/삭제
+  const onConfirmTime = (d) => {
+    const t = toHHmm(d);
+    setShowTimePicker(false);
+    setTimes(prev=>{
+      if (prev.includes(t)) { Alert.alert('중복','이미 추가된 시간입니다.'); return prev; }
+      if (prev.length >= MAX_TIMES) { Alert.alert('제한', `최대 ${MAX_TIMES}개까지 가능합니다.`); return prev; }
+      return [...prev, t].sort();
+    });
+  };
+  const removeTime = useCallback((t)=>{
+    setTimes(prev=>prev.filter(x=>x!==t));
+  },[]);
+
+  // 주차 모달 토글
+  const toggleWeek = useCallback((n)=>{
+    if (n==='every') { setWeeks('every'); return; }
+    setWeeks(prev=>{
+      if (prev==='every') return [n];
+      const set = new Set(prev);
+      if (set.has(n)) set.delete(n); else set.add(n);
+      const arr = Array.from(set).sort((a,b)=>a-b);
+      return arr;
+    });
+  },[]);
 
   const save = useCallback(() => {
-    if (!time) { Alert.alert('확인', '알림 시간을 선택해주세요.'); return; }
-    let daysToSave = selectedDays;
-    if (mode === 'daily') daysToSave = DAY_LABELS.slice();
-    else if (!Array.isArray(selectedDays) || selectedDays.length === 0) {
-      Alert.alert('확인', '요일을 한 개 이상 선택해주세요.'); return;
-    }
+    if (!times.length) { Alert.alert('확인','알림 시간을 한 개 이상 추가해주세요.'); return; }
+    if (!selectedDays.length) { Alert.alert('확인','요일을 한 개 이상 선택해주세요.'); return; }
 
-    onDone && onDone({
-      mode: 'simple',
-      payload: { days: daysToSave, time },
+    navigation.replace(returnTo || 'AddChallenge', {
+      notificationResult: {
+        mode: 'simple',
+        payload: {
+          days: selectedDays,
+          time: times[0],   // 백워드 호환
+          times,            // 다중시간
+          weeks: (weeks==='every' ? 'every' : weeks),
+        },
+      },
+      _nonce: Date.now(),
     });
-    navigation.goBack();
-  }, [navigation, onDone, mode, time, selectedDays]);
+  }, [navigation, returnTo, selectedDays, times, weeks]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.screenTitle}>간단 알림 설정</Text>
 
-      <View style={cardStyles.container}>
-        <Text style={cardStyles.title}>알림 방식</Text>
-        <View style={{ marginTop: spacing.sm }}>
-          <TouchableOpacity style={[styles.radioRow, mode === 'daily' && styles.radioRowActive]} onPress={() => setMode('daily')}>
-            <View style={[styles.radioDot, mode === 'daily' && styles.radioDotActive]} />
-            <Text style={styles.radioLabel}>매일 반복</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.radioRow, mode === 'weeklyDays' && styles.radioRowActive]} onPress={() => setMode('weeklyDays')}>
-            <View style={[styles.radioDot, mode === 'weeklyDays' && styles.radioDotActive]} />
-            <Text style={styles.radioLabel}>선택요일 매주 반복</Text>
-          </TouchableOpacity>
+      {/* 요일 선택 */}
+      <View style={cardStyles.base}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.cardTitle}>요일 선택</Text>
+          <View style={{flexDirection:'row', columnGap:8}}>
+            <TouchableOpacity onPress={toggleDaily} activeOpacity={0.9}
+              style={[styles.toggleBtn, isDaily && styles.toggleBtnOn]}>
+              <Text style={[styles.toggleBtnText, isDaily && styles.toggleBtnTextOn]}>매일 반복</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={()=>setWeekModal(true)} activeOpacity={0.9}
+              style={[styles.toggleBtn, styles.toggleBtnOn /* 기본 검정 */]}>
+              <Text style={[styles.toggleBtnText, styles.toggleBtnTextOn]} numberOfLines={1}>{weekLabel}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.daysWrap}>
+          {DAY_LABELS.map((d) => {
+            const active = selectedDays.includes(d);
+            return (
+              <TouchableOpacity
+                key={d}
+                style={[styles.dayCircle, active ? styles.dayCircleOn : styles.dayCircleOff]}
+                onPress={() => toggleDay(d)}
+                activeOpacity={0.9}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Text allowFontScaling={false} style={[styles.dayText, active && styles.dayTextOn]}>
+                  {d}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
-      <View style={[cardStyles.container, { marginTop: spacing.lg }]}>
-        <Text style={cardStyles.title}>세부 설정</Text>
+      {/* 시간 선택 */}
+      <View style={[cardStyles.base, { marginTop: spacing.lg }]}>
+        <Text style={styles.cardTitle}>알림 시간</Text>
 
-        {mode === 'weeklyDays' && (
-          <TouchableOpacity style={[buttonStyles.compactRight, { alignSelf: 'flex-start', marginTop: spacing.sm }]} onPress={() => setShowDayPicker(true)}>
-            <Text style={buttonStyles.compactRightText}>요일 선택</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity style={[buttonStyles.compactRight, { alignSelf: 'flex-start', marginTop: spacing.sm }]} onPress={() => setShowTimePicker(true)}>
-          <Text style={buttonStyles.compactRightText}>알림 시간 선택</Text>
-        </TouchableOpacity>
-
-        <View style={styles.previewBox}><Text style={styles.previewText}>{previewText}</Text></View>
+        <View style={styles.timeChips}>
+          {times.map(t=>(
+            <View key={t} style={styles.chip}>
+              <Text style={styles.chipText} numberOfLines={1}>{t}</Text>
+              <TouchableOpacity onPress={()=>removeTime(t)}>
+                <Text style={styles.chipRemove}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          {times.length < MAX_TIMES && (
+            <TouchableOpacity style={styles.addBtn} onPress={()=>setShowTimePicker(true)}>
+              <Text style={styles.addBtnPlus}>＋</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <TouchableOpacity style={[buttonStyles.primary, { marginTop: spacing.xl }]} onPress={save}>
-        <Text style={buttonStyles.primaryText}>선택완료</Text>
+      {/* 완료 */}
+      <TouchableOpacity
+        style={[buttonStyles.primary.container, { marginTop: spacing.xl }]}
+        onPress={save}
+        activeOpacity={0.9}
+      >
+        <Text style={buttonStyles.primary.label}>선택완료</Text>
       </TouchableOpacity>
 
-      {/* 요일 모달 */}
-      <Modal visible={showDayPicker} transparent animationType="fade" onRequestClose={() => setShowDayPicker(false)}>
+      {/* 시간 피커 */}
+      <DateTimePickerModal
+        isVisible={showTimePicker}
+        mode="time"
+        onConfirm={onConfirmTime}
+        onCancel={() => setShowTimePicker(false)}
+        is24Hour
+      />
+
+      {/* 주차 선택 모달 */}
+      <Modal visible={weekModal} transparent animationType="fade" onRequestClose={()=>setWeekModal(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>요일 선택</Text>
-            <View style={styles.weekRow}>
-              {DAY_LABELS.map((d) => {
-                const active = selectedDays.includes(d);
+            <Text style={styles.modalTitle}>반복 주차 선택</Text>
+            <View style={{rowGap:8}}>
+              {[1,2,3,4,5].map(n=>{
+                const active = Array.isArray(weeks) && weeks.includes(n);
                 return (
-                  <TouchableOpacity key={d} style={[styles.dayChip, active && styles.dayChipActive]} onPress={() => toggleDay(d)}>
-                    <Text style={[styles.dayChipText, active && styles.dayChipTextActive]}>{d}</Text>
+                  <TouchableOpacity key={n} style={[styles.modalRow, active && styles.modalRowOn]} onPress={()=>toggleWeek(n)}>
+                    <Text style={[styles.modalRowText, active && styles.modalRowTextOn]}>{n}번째 주</Text>
                   </TouchableOpacity>
                 );
               })}
+              <TouchableOpacity style={[styles.modalRow, weeks==='every' && styles.modalRowOn]} onPress={()=>toggleWeek('every')}>
+                <Text style={[styles.modalRowText, weeks==='every' && styles.modalRowTextOn]}>매주</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setShowDayPicker(false)}>
-              <Text style={styles.modalCloseText}>닫기</Text>
+
+            <TouchableOpacity style={styles.modalClose} onPress={()=>setWeekModal(false)}>
+              <Text style={styles.modalCloseText}>확인</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
-      {/* 시간 모달 */}
-      <DateTimePickerModal isVisible={showTimePicker} mode="time" onConfirm={onConfirmTime} onCancel={() => setShowTimePicker(false)} is24Hour />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.lg, backgroundColor: colors.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.gray800, marginBottom: spacing.lg },
+  container: { padding: spacing.lg, backgroundColor: colors.gray50 },
+  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.gray800, marginBottom: spacing.lg, textAlign: 'center' },
 
-  radioRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.gray200,
-    paddingVertical: 12, paddingHorizontal: 12, borderRadius: radius.md, marginTop: spacing.sm,
-  },
-  radioRowActive: { borderColor: colors.black },
-  radioDot: {
-    width: 16, height: 16, borderRadius: 8,
-    borderWidth: 2, borderColor: colors.gray400, marginRight: 10, backgroundColor: colors.white,
-  },
-  radioDotActive: { borderColor: colors.black, backgroundColor: colors.black },
-  radioLabel: { color: colors.gray800, fontWeight: '600' },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  previewBox: {
-    marginTop: spacing.md,
-    paddingVertical: 10, paddingHorizontal: 12,
-    backgroundColor: colors.gray100, borderRadius: radius.md,
-  },
-  previewText: { color: colors.gray800 },
+  daysWrap: { marginTop: spacing.md, flexDirection: 'row', justifyContent: 'space-between' },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', backgroundColor: colors.white, borderRadius: radius.lg, padding: spacing.lg },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: colors.gray800, marginBottom: spacing.md, textAlign: 'center' },
-  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.black },
-  modalCloseText: { color: colors.white, fontWeight: '700', fontSize: 12 },
+  dayCircle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE/2, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  dayCircleOff: { borderColor: '#D1D5DB', backgroundColor: '#FFFFFF' },
+  dayCircleOn:  { borderColor: '#000000', backgroundColor: '#000000' },
+  dayText: { fontSize: 14, fontWeight: '800', color: '#374151', includeFontPadding: false, textAlign: 'center' },
+  dayTextOn: { color: '#FFFFFF' },
 
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dayChip: {
-    borderWidth: 1, borderColor: colors.gray300,
-    paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.pill,
-    backgroundColor: colors.white,
-  },
-  dayChipActive: { borderColor: colors.black, backgroundColor: colors.white },
-  dayChipText: { color: colors.gray700, fontWeight: '600' },
-  dayChipTextActive: { color: colors.black },
+  toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF' },
+  toggleBtnOn: { borderColor: '#000000', backgroundColor: '#000000' },
+  toggleBtnText: { fontSize: 12, fontWeight: '800', color: '#111111' },
+  toggleBtnTextOn:{ color: '#FFFFFF' },
+
+  timeChips:{ flexDirection:'row', flexWrap:'wrap', gap:6, marginTop: spacing.sm },
+  chip:{ flexDirection:'row', alignItems:'center', backgroundColor: colors.gray100, borderRadius: radius.pill, paddingVertical:3, paddingHorizontal:6 },
+  chipText:{ color: colors.gray800, fontSize:12, marginRight:6 },
+  chipRemove:{ color:'#6B7280', fontSize:14, fontWeight:'800' },
+  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor:'#D1D5DB', backgroundColor:'#FFF', alignItems:'center', justifyContent:'center' },
+  addBtnPlus:{ color: colors.gray700, fontSize:16, fontWeight:'800', lineHeight:16 },
+
+  modalBackdrop:{ flex:1, backgroundColor:'rgba(0,0,0,0.35)', alignItems:'center', justifyContent:'center', padding: spacing.lg },
+  modalCard:{ width:'100%', backgroundColor:'#FFF', borderRadius: radius.lg, padding: spacing.lg, borderWidth:1, borderColor:'#E5E7EB' },
+  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.gray800, marginBottom: spacing.md, textAlign:'center' },
+  modalRow:{ paddingVertical:10, paddingHorizontal:12, borderWidth:1, borderColor:'#E5E7EB', borderRadius: radius.md },
+  modalRowOn:{ backgroundColor:'#000', borderColor:'#000' },
+  modalRowText:{ color: colors.gray800, fontWeight:'700' },
+  modalRowTextOn:{ color:'#FFF' },
+  modalClose:{ marginTop: spacing.md, alignSelf:'center', paddingVertical:6, paddingHorizontal:12, borderRadius:999, backgroundColor:'#000' },
+  modalCloseText:{ color:'#FFF', fontWeight:'700', fontSize:12 },
 });

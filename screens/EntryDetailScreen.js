@@ -1,267 +1,286 @@
 // screens/EntryDetailScreen.js
-// - 사진 변경/삭제: 우측 상단 작은 검은 버튼 2개
-// - 저장/삭제 버튼: 검은색 버튼
-// - 저장/삭제 시 entries & challenges 동기화 후 인증목록으로 복귀
-// - 텍스트 또는 사진 중 하나만 있으면 저장 가능(소요 시간은 선택 사항)
+// - 사진 삭제 가능, 소요시간 비워도 저장 가능(0으로 저장)
+// - "삭제" 버튼 포함(옅은 테두리)
+// - 🔧 미세 폴리싱: 저장/삭제 중 중복 탭 방지(busy), try/finally로 상태 복구
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, ScrollView
+  SafeAreaView, View, Text, TextInput, Image, StyleSheet,
+  TouchableOpacity, Alert, ScrollView
 } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
 
-import { buttonStyles, colors, spacing, radius, cardStyles } from '../styles/common';
-import { numericInputProps, createNumberChangeHandler, toNumberOrZero } from '../utils/number';
+import { buttonStyles, colors, spacing, radius } from '../styles/common';
+import { createNumberChangeHandler, numericInputProps, toNumberOrZero } from '../utils/number';
 
 export default function EntryDetailScreen() {
-  const navigation = useNavigation();
   const route = useRoute();
+  const navigation = useNavigation();
+
   const { challengeId, entryId } = route.params || {};
-
   const [loading, setLoading] = useState(true);
-  const [entry, setEntry] = useState(null);
+  const [busy, setBusy] = useState(false); // 🔧 작업 중 버튼 비활성화
 
-  // form
   const [text, setText] = useState('');
-  const [duration, setDuration] = useState(''); // 선택 입력
+  const [duration, setDuration] = useState(''); // 빈 문자열 허용
   const [imageUri, setImageUri] = useState(null);
+  const [timestamp, setTimestamp] = useState(null);
 
-  // challenge meta for return
-  const [challengeMeta, setChallengeMeta] = useState(null);
-
-  // 초기 로드
+  // 로드
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
-        const challRaw = await AsyncStorage.getItem('challenges');
-        const challenges = challRaw ? JSON.parse(challRaw) : [];
-        const ch = challenges.find((c) => c.id === challengeId);
-        setChallengeMeta(ch || null);
-
-        const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
-        const list = raw ? JSON.parse(raw) : [];
-        const current = list.find((e) => e.id === entryId);
-        if (!current) {
+        if (!challengeId || !entryId) {
           Alert.alert('오류', '인증 정보를 찾을 수 없습니다.', [
             { text: '확인', onPress: () => navigation.goBack() },
           ]);
           return;
         }
-        setEntry(current);
-        setText(String(current.text ?? ''));
+        const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+        const list = raw ? JSON.parse(raw) : [];
+        const found = list.find(e => e.id === entryId);
+        if (!found) {
+          Alert.alert('오류', '인증 항목이 존재하지 않습니다.', [
+            { text: '확인', onPress: () => navigation.goBack() },
+          ]);
+          return;
+        }
+        if (!mounted) return;
+
+        setText(String(found.text || ''));
         setDuration(
-          typeof current.duration === 'number' && current.duration > 0
-            ? String(current.duration)
+          typeof found.duration === 'number' && found.duration > 0
+            ? String(found.duration)
             : ''
         );
-        setImageUri(current.imageUri ?? null);
+        setImageUri(found.imageUri || null);
+        setTimestamp(found.timestamp || Date.now());
       } catch (e) {
         console.error(e);
         Alert.alert('오류', '인증 정보를 불러오지 못했습니다.');
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
+    return () => { mounted = false; };
   }, [challengeId, entryId, navigation]);
 
-  const goEntryList = useCallback(() => {
-    navigation.replace('EntryList', {
-      challengeId,
-      title: challengeMeta?.title,
-      startDate: challengeMeta?.startDate,
-      endDate: challengeMeta?.endDate,
-      targetScore: challengeMeta?.goalScore,
-      reward: challengeMeta?.reward,
-    });
-  }, [navigation, challengeId, challengeMeta]);
-
-  // 사진 변경
-  const onPickImage = useCallback(async () => {
-    try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (perm.status !== 'granted') {
-        Alert.alert('권한 필요', '사진 보관함 접근 권한이 필요합니다.');
-        return;
-      }
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.8,
-        exif: false,
-      });
-      if (res.canceled) return;
-      const asset = res.assets?.[0];
-      if (asset?.uri) setImageUri(asset.uri);
-    } catch (e) {
-      console.error(e);
-      Alert.alert('오류', '사진 선택 중 문제가 발생했습니다.');
-    }
-  }, []);
-
-  // 사진 삭제
-  const onRemoveImage = useCallback(() => {
+  const onRemovePhoto = useCallback(() => {
     if (!imageUri) return;
-    Alert.alert('사진 삭제', '현재 사진을 삭제할까요?', [
+    Alert.alert('사진 삭제', '이 인증의 사진을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       { text: '삭제', style: 'destructive', onPress: () => setImageUri(null) },
     ]);
   }, [imageUri]);
 
-  // 저장
   const onSave = useCallback(async () => {
-    if (!entry) return;
-    const trimmed = (text || '').trim();
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (!challengeId || !entryId) return;
+      const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+      const list = raw ? JSON.parse(raw) : [];
+      const idx = list.findIndex(e => e.id === entryId);
+      if (idx < 0) {
+        Alert.alert('오류', '인증 항목이 존재하지 않습니다.');
+        return;
+      }
 
-    // 텍스트 또는 사진 중 최소 하나 필요
-    if (!trimmed && !imageUri) {
-      Alert.alert('확인', '텍스트 또는 사진 중 하나는 입력/선택해주세요.');
-      return;
+      const dur = duration === '' ? 0 : toNumberOrZero(duration);
+      if (duration !== '' && dur <= 0) {
+        Alert.alert('확인', '소요 시간은 1 이상의 숫자로 입력해주세요.');
+        return;
+      }
+
+      const updated = {
+        ...list[idx],
+        text: (text || '').trim(),
+        imageUri: imageUri || null,
+        duration: dur,
+        timestamp: timestamp || list[idx].timestamp || Date.now(),
+      };
+      list[idx] = updated;
+
+      await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
+      Alert.alert('완료', '인증이 수정되었습니다.', [
+        { text: '확인', onPress: () => navigation.goBack() },
+      ]);
+    } catch (e) {
+      console.error(e);
+      Alert.alert('오류', '인증을 저장하지 못했습니다.');
+    } finally {
+      setBusy(false);
     }
+  }, [busy, challengeId, entryId, duration, imageUri, navigation, text, timestamp]);
 
-    // 시간은 선택 입력: 값이 있을 때만 유효성 체크
-    const dur = toNumberOrZero(duration);
-    if (duration !== '' && dur <= 0) {
-      Alert.alert('확인', '소요 시간은 1 이상의 숫자로 입력해주세요.');
-      return;
-    }
-
-    const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
-    const list = raw ? JSON.parse(raw) : [];
-    const idx = list.findIndex((e) => e.id === entryId);
-    if (idx < 0) {
-      Alert.alert('오류', '수정할 인증을 찾을 수 없습니다.');
-      return;
-    }
-    const updated = {
-      ...list[idx],
-      text: trimmed,
-      imageUri: imageUri || null,
-      duration: duration !== '' ? dur : 0, // 미입력이면 0으로 저장
-      // timestamp는 수정하지 않음
-    };
-    list[idx] = updated;
-    await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
-
-    // 점수 동기화(엔트리 수 기준)
-    const challRaw = await AsyncStorage.getItem('challenges');
-    const challenges = challRaw ? JSON.parse(challRaw) : [];
-    const cidx = challenges.findIndex((c) => c.id === challengeId);
-    if (cidx >= 0) {
-      challenges[cidx] = { ...challenges[cidx], currentScore: list.length };
-      await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
-      await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[cidx]));
-    }
-
-    Alert.alert('완료', '인증이 수정되었습니다.', [
-      { text: '확인', onPress: goEntryList },
-    ]);
-  }, [entry, text, imageUri, duration, challengeId, entryId, goEntryList]);
-
-  // 삭제
-  const onDelete = useCallback(async () => {
+  const onDelete = useCallback(() => {
+    if (busy) return;
     Alert.alert('삭제 확인', '이 인증을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제', style: 'destructive', onPress: async () => {
-          const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
-          const list = raw ? JSON.parse(raw) : [];
-          const next = list.filter((e) => e.id !== entryId);
-          await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(next));
+          setBusy(true);
+          try {
+            // 1) entries에서 삭제
+            const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+            const list = raw ? JSON.parse(raw) : [];
+            const next = list.filter(e => e.id !== entryId);
+            await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(next));
 
-          // 점수 동기화
-          const challRaw = await AsyncStorage.getItem('challenges');
-          const challenges = challRaw ? JSON.parse(challRaw) : [];
-          const cidx = challenges.findIndex((c) => c.id === challengeId);
-          if (cidx >= 0) {
-            challenges[cidx] = { ...challenges[cidx], currentScore: next.length };
-            await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
-            await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[cidx]));
+            // 2) challenges의 currentScore 갱신 (entries 개수 기반)
+            const challRaw = await AsyncStorage.getItem('challenges');
+            const challenges = challRaw ? JSON.parse(challRaw) : [];
+            const idx = challenges.findIndex((c) => c.id === challengeId);
+            if (idx >= 0) {
+              challenges[idx] = {
+                ...challenges[idx],
+                currentScore: next.length,
+              };
+              await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
+              await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
+            }
+
+            Alert.alert('삭제됨', '인증이 삭제되었습니다.', [
+              { text: '확인', onPress: () => navigation.goBack() },
+            ]);
+          } catch (e) {
+            console.error(e);
+            Alert.alert('오류', '인증을 삭제하지 못했습니다.');
+          } finally {
+            setBusy(false);
           }
-
-          Alert.alert('삭제됨', '인증이 삭제되었습니다.', [
-            { text: '확인', onPress: goEntryList },
-          ]);
         }
       }
     ]);
-  }, [challengeId, entryId, goEntryList]);
+  }, [busy, challengeId, entryId, navigation]);
 
   if (loading) {
     return (
-      <ScrollView contentContainerStyle={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ color: colors.gray500 }}>불러오는 중…</Text>
-      </ScrollView>
+      <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <Text style={{ color: '#666' }}>불러오는 중…</Text>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.screenTitle}>인증 수정</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+        <Text style={styles.screenTitle}>인증 수정</Text>
 
-      <View style={cardStyles.container}>
-        <Text style={cardStyles.title}>내용</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>내용</Text>
 
-        {/* 우측 상단: 사진 변경/삭제 (작은 검은 버튼) */}
-        <View style={styles.rowRight}>
-          <TouchableOpacity style={buttonStyles.compactRight} onPress={onPickImage}>
-            <Text style={buttonStyles.compactRightText}>사진 변경</Text>
-          </TouchableOpacity>
-          {imageUri && (
-            <TouchableOpacity style={[buttonStyles.compactRight, { marginLeft: 8 }]} onPress={onRemoveImage}>
-              <Text style={buttonStyles.compactRightText}>사진 삭제</Text>
-            </TouchableOpacity>
+          {!!imageUri && (
+            <>
+              <Image source={{ uri: imageUri }} style={styles.preview} />
+              <TouchableOpacity style={styles.removeBtn} onPress={onRemovePhoto} disabled={busy}>
+                <Text style={styles.removeBtnText}>사진 삭제</Text>
+              </TouchableOpacity>
+            </>
           )}
+
+          <Text style={styles.label}>텍스트</Text>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="인증 내용을 입력하세요"
+            style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+            multiline
+            placeholderTextColor="#9CA3AF"
+            editable={!busy}
+          />
+
+          <Text style={[styles.label, { marginTop: spacing.md }]}>소요 시간(분)</Text>
+          <TextInput
+            value={duration}
+            onChangeText={createNumberChangeHandler(setDuration)}
+            placeholder="숫자만 입력 (비워도 저장 가능)"
+            style={styles.input}
+            placeholderTextColor="#9CA3AF"
+            editable={!busy}
+            {...numericInputProps}
+          />
         </View>
 
-        {!!imageUri && <Image source={{ uri: imageUri }} style={styles.preview} />}
+        {/* 저장 / 삭제 버튼 */}
+        <TouchableOpacity
+          style={[buttonStyles.primary.container, { marginTop: spacing.xl, opacity: busy ? 0.6 : 1 }]}
+          onPress={onSave}
+          activeOpacity={0.9}
+          disabled={busy}
+        >
+          <Text style={buttonStyles.primary.label}>저장</Text>
+        </TouchableOpacity>
 
-        <Text style={styles.label}>텍스트</Text>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder="인증 내용을 입력하세요"
-          style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-          multiline
-          placeholderTextColor={colors.gray400}
-        />
-
-        <Text style={[styles.label, { marginTop: spacing.md }]}>소요 시간(분) (선택)</Text>
-        <TextInput
-          value={duration}
-          onChangeText={createNumberChangeHandler(setDuration)}
-          placeholder="입력하지 않아도 됩니다"
-          style={styles.input}
-          placeholderTextColor={colors.gray400}
-          {...numericInputProps}
-        />
-      </View>
-
-      {/* 하단 액션: 검은 버튼 2개 */}
-      <TouchableOpacity style={[buttonStyles.primary, { marginTop: spacing.xl }]} onPress={onSave}>
-        <Text style={buttonStyles.primaryText}>저장</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={[buttonStyles.primary, { marginTop: spacing.sm }]} onPress={onDelete}>
-        <Text style={buttonStyles.primaryText}>삭제</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          style={[buttonStyles.outlineSoft.container, { marginTop: spacing.md, opacity: busy ? 0.6 : 1 }]}
+          onPress={onDelete}
+          activeOpacity={0.9}
+          disabled={busy}
+        >
+          <Text style={buttonStyles.outlineSoft.label}>삭제</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: colors.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.gray800, marginBottom: spacing.lg },
-  label: { fontSize: 13, color: colors.gray600, marginBottom: 6 },
+  container: { flex: 1, backgroundColor: '#fff' },
+
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111',
+    marginBottom: spacing.lg,
+  },
+
+  // 로컬 카드(기존 카드 느낌)
+  card: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111',
+    marginBottom: spacing.md,
+  },
+
+  label: { fontSize: 13, color: '#525252', marginBottom: 6 },
   input: {
-    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.gray200,
-    borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: colors.gray800,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111',
   },
-  rowRight: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm },
+
   preview: {
-    width: '100%', height: 200, borderRadius: radius.md,
-    marginBottom: spacing.md, backgroundColor: colors.gray100,
+    width: '100%',
+    height: 200,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
+    backgroundColor: '#F3F4F6',
   },
+  removeBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: spacing.md,
+  },
+  removeBtnText: { color: '#111', fontWeight: '700', fontSize: 12 },
 });

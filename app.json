@@ -1,30 +1,45 @@
 {
   "expo": {
-    "name": "challenge-app",
-    "slug": "challenge-app",
+    "name": "THE - PUSH",
+    "slug": "the-push",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "assets/icon.png",
+    "scheme": "thepush",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FFFFFF"
     },
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#FFFFFF",
+      "translucent": false,
+      "hidden": false
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.challengeapp"
+      "package": "com.anonymous.thepush"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "assets/icon.png"
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-mail-composer"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "placeholder-project-id"
+      }
     }
   }
 }

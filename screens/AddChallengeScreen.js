@@ -69,7 +69,12 @@ function timeToHuman(hhmm) {
    ========================= */
 
 // 간단 프리뷰: 작은 원형 요일 + 시간(여러개 지원)
-function SimplePreview({ days=[], times=[], time }) {
+function SimplePreview({ days=[], times=[], time, weeks }) {
+ const weekLabel = (() => {
+    if (weeks === 'every') return '매주';
+    if (Array.isArray(weeks) && weeks.length) return `${weeks.sort((a,b)=>a-b).join(',')}번째주`;
+    return null;
+  })();
   const toShow = (Array.isArray(times) && times.length) ? sortTimesAsc(times) : (time ? [time] : []);
   return (
     <View>
@@ -84,12 +89,11 @@ function SimplePreview({ days=[], times=[], time }) {
         })}
       </View>
       {toShow.length ? (
-        <Text style={styles.previewTextSmall}>
-          {toShow.join('  ')}
-        </Text>
+        <Text style={styles.previewTextSmall}>{toShow.join('  ')}</Text>
       ) : (
         <Text style={styles.previewTextSmall}>시간 미설정</Text>
       )}
+      {!!weekLabel && <Text style={styles.previewNoteText}>{weekLabel}</Text>}
     </View>
   );
 }
@@ -265,7 +269,7 @@ function previewNodeByNotification(notification, startDate, endDate) {
   const { mode, payload = {} } = notification;
 
   if (mode === 'simple') {
-    return <SimplePreview days={payload.days||[]} times={payload.times||[]} time={payload.time} />;
+    return <SimplePreview days={payload.days||[]} times={payload.times||[]} time={payload.time} weeks={payload.weeks} />;
   }
 
   if (mode === 'weekly' && Array.isArray(payload?.byWeekDays)) {
@@ -701,6 +705,8 @@ const styles = StyleSheet.create({
   previewText: { color: PALETTE.gray800 },
   previewTextSmall: { color: PALETTE.gray800, fontSize: 12, marginTop: 6 },
   previewAssistive: { height: 0, width: 0 },
+  previewTextSmall: { color: PALETTE.gray800, fontSize: 12, marginTop: 6 },
+  previewNoteText: { color: PALETTE.gray600, fontSize: 11, marginTop: 2 },
 
   // 간단
   simpleDaysRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },

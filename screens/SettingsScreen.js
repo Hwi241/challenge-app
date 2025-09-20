@@ -1,4 +1,8 @@
 // screens/SettingsScreen.js
+// - 앱 리뷰 버튼: 인앱 리뷰 요청 후에도 항상 안내창을 띄워서 반응 보이게 하고,
+//   "스토어 열기"로 마켓/앱스토어 페이지를 여는 확실한 fallback 추가
+// - 개선의견 메일: FEEDBACK_EMAIL을 설정(Expo extra → 상수)하고, 미설정/플레이스홀더면 안내
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   SafeAreaView,
@@ -16,13 +20,24 @@ import * as Notifications from 'expo-notifications';
 import * as Application from 'expo-application';
 import * as MailComposer from 'expo-mail-composer';
 import * as StoreReview from 'expo-store-review';
+import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 
 import { colors, spacing, radius, buttonStyles } from '../styles/common';
 
 const STORAGE_KEY = 'settings.notificationsEnabled';
-// 출시 후 App Store ID가 생기면 여기에 숫자만 입력
-const IOS_APP_ID = null;
+
+// ▶︎ 설정 방법
+// 1) app.json/app.config.ts의 expo.extra에 값을 넣으면 자동으로 사용됩니다.
+//    {
+//      "expo": {
+//        "extra": { "FEEDBACK_EMAIL": "your@email.com", "IOS_APP_ID": "1234567890" }
+//      }
+//    }
+const FEEDBACK_EMAIL =
+  Constants?.expoConfig?.extra?.FEEDBACK_EMAIL || 'feedback@the-push.app'; // 기본값(임시)
+const IOS_APP_ID =
+  Constants?.expoConfig?.extra?.IOS_APP_ID || null; // iOS 실제 배포 후 App Store ID 필수
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -66,53 +81,110 @@ export default function SettingsScreen() {
     persist(next);
   }, [enabled, persist]);
 
+  // ── 개선의견 메일
   const sendFeedback = useCallback(async () => {
+    const to = FEEDBACK_EMAIL;
+    if (!to || to === 'feedback@the-push.app') {
+      Alert.alert(
+        '개발자 설정 필요',
+        '피드백 수신 이메일이 설정되지 않았습니다.\napp.config의 expo.extra.FEEDBACK_EMAIL 또는 SettingsScreen의 FEEDBACK_EMAIL을 설정해 주세요.'
+      );
+      return;
+    }
+
     try {
       const available = await MailComposer.isAvailableAsync();
-      const subject = 'THE - PUSH 피드백';
-      const body = '아래에 개선 의견을 적어주세요.\n\n— 기기/OS 정보도 적어주시면 큰 도움이 됩니다.';
+      const subject = `THE - PUSH 피드백 v${version} (${build})`;
+      const body =
+        '아래에 개선 의견을 적어주세요.\n\n— 기기/OS 정보도 적어주시면 큰 도움이 됩니다.';
+
       if (available) {
         await MailComposer.composeAsync({
-          recipients: ['feedback@the-push.app'],
-          subject, body,
+          recipients: [to],
+          subject,
+          body,
         });
         return;
       }
-      const mailto = `mailto:feedback@the-push.app?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const mailto = `mailto:${to}?subject=${encodeURIComponent(
+        subject
+      )}&body=${encodeURIComponent(body)}`;
       const can = await Linking.canOpenURL(mailto);
       if (can) return Linking.openURL(mailto);
       Alert.alert('안내', '이 기기에서 메일 앱을 열 수 없습니다.');
     } catch {
       Alert.alert('안내', '메일 작성 화면을 열 수 없습니다.');
     }
-  }, []);
+  }, [version, build]);
 
-  const getStoreUrl = useCallback(() => {
-    if (Platform.OS === 'android') {
-      if (!androidPackage) return null;
-      return `https://play.google.com/store/apps/details?id=${androidPackage}`;
+  // ── 스토어 URL 열기 (확실한 fallback)
+  const openStorePage = useCallback(async () => {
+    try {
+      if (Platform.OS === 'android') {
+        if (!androidPackage) return false;
+        const marketUrl = `market://details?id=${androidPackage}`;
+        const httpsUrl = `https://play.google.com/store/apps/details?id=${androidPackage}`;
+        if (await Linking.canOpenURL(marketUrl)) {
+          await Linking.openURL(marketUrl);
+          return true;
+        }
+        if (await Linking.canOpenURL(httpsUrl)) {
+          await Linking.openURL(httpsUrl);
+          return true;
+        }
+        return false;
+      } else {
+        if (!IOS_APP_ID) return false;
+        const url = `itms-apps://itunes.apple.com/app/id${IOS_APP_ID}?action=write-review`;
+        if (await Linking.canOpenURL(url)) {
+          await Linking.openURL(url);
+          return true;
+        }
+        return false;
+      }
+    } catch {
+      return false;
     }
-    if (!IOS_APP_ID) return null;
-    return `itms-apps://itunes.apple.com/app/id${IOS_APP_ID}?action=write-review`;
   }, [androidPackage]);
 
+  // ── 앱 리뷰
   const requestStoreReview = useCallback(async () => {
     try {
       const available = await StoreReview.isAvailableAsync();
+
+      // 1) 인앱 리뷰 요청 (OS 정책상 표시되지 않더라도 호출은 성공으로 끝남)
       if (available) {
         await StoreReview.requestReview();
-        return;
       }
-      const url = getStoreUrl();
-      if (url) {
-        const can = await Linking.canOpenURL(url);
-        if (can) return Linking.openURL(url);
-      }
-      Alert.alert('안내', '리뷰 기능을 사용할 수 없습니다.');
+
+      // 2) 사용자가 즉시 반응을 느끼도록 안내창 + 스토어 열기 옵션 제공
+      Alert.alert(
+        '리뷰 남기기',
+        '리뷰 창이 보이지 않으면 스토어에서 리뷰를 남길 수 있어요.',
+        [
+          { text: '닫기', style: 'cancel' },
+          {
+            text: '스토어 열기',
+            onPress: async () => {
+              const ok = await openStorePage();
+              if (!ok) {
+                if (Platform.OS === 'ios' && !IOS_APP_ID) {
+                  Alert.alert(
+                    '앱 ID 필요',
+                    'iOS App Store ID가 설정되지 않아 리뷰 페이지를 열 수 없습니다.\nexpo.extra.IOS_APP_ID를 설정하세요.'
+                  );
+                } else {
+                  Alert.alert('안내', '리뷰 페이지를 열 수 없습니다.');
+                }
+              }
+            },
+          },
+        ]
+      );
     } catch {
       Alert.alert('안내', '리뷰 요청에 실패했습니다.');
     }
-  }, [getStoreUrl]);
+  }, [openStorePage]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -202,7 +274,12 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '700', color: colors.gray800 },
   hint: { marginTop: spacing.sm, fontSize: 13, color: colors.gray600 },
 
-  kvRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
+  kvRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
   kKey: { fontSize: 14, color: colors.gray600 },
   kVal: { fontSize: 14, fontWeight: '700', color: colors.gray800 },
 });

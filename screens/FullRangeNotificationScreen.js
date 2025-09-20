@@ -1,11 +1,5 @@
 // screens/FullRangeNotificationScreen.js
-// - 제목 중앙
-// - 월별 달력에 요일 헤더 표시
-// - 각 날짜칩(시간) 텍스트 한 줄 유지(칩 내부 줄바꿈 방지), 패딩 축소
-// - 각 날짜 최대 10개
-// - 저장: replace(returnTo) { mode:'fullrange', payload:{ start,end, byDate } }
-
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -31,6 +25,15 @@ export default function FullRangeNotificationScreen(){
   const start = parseDateStr(startStr);
   const end = parseDateStr(endStr);
 
+  // 🚫 시작 > 종료 보호: Alert 후 뒤로가기
+  useEffect(() => {
+    if (start && end && start > end) {
+      Alert.alert('확인', '시작일이 종료일보다 늦습니다. 날짜를 다시 선택해주세요.', [
+        { text: '확인', onPress: () => navigation.goBack() },
+      ]);
+    }
+  }, [startStr, endStr, start, end, navigation]);
+
   const [map,setMap] = useState(()=>{
     const m = {};
     if (initial && initial.byDate && typeof initial.byDate==='object') {
@@ -43,6 +46,7 @@ export default function FullRangeNotificationScreen(){
 
   const [pickerKey,setPickerKey] = useState(null);
   const [pickerVisible,setPickerVisible] = useState(false);
+  const [bulkMode,setBulkMode] = useState(false); // 모든 날짜 추가
 
   const months = useMemo(()=>{
     if(!start || !end) return [];
@@ -53,26 +57,59 @@ export default function FullRangeNotificationScreen(){
   },[start,end]);
 
   const isInRange = useCallback((y,mi,d)=>{
+    if(!start || !end) return false;
     const dt = new Date(y,mi,d);
-    return dt >= new Date(start.getFullYear(), start.getMonth(), start.getDate())
-      && dt <= new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    return dt >= s && dt <= e;
   },[start,end]);
 
-  const openPicker = useCallback((y,mi,d)=>{
-    const key = `${y}-${pad2(mi+1)}-${pad2(d)}`;
-    setPickerKey(key); setPickerVisible(true);
-  },[]);
+  const openPicker = useCallback((y,mi,d)=>{ const key = `${y}-${pad2(mi+1)}-${pad2(d)}`; setPickerKey(key); setBulkMode(false); setPickerVisible(true); },[]);
+  const openBulkPicker = useCallback(()=>{ setPickerKey(null); setBulkMode(true); setPickerVisible(true); },[]);
+
   const onConfirm = useCallback((date)=>{
     const t = fmtHHMM(date);
     setPickerVisible(false);
+
+    if (bulkMode) {
+      // in-range의 모든 날짜 키 수집
+      const targets = [];
+      months.forEach(({y,mi})=>{
+        const daysInMonth = new Date(y,mi+1,0).getDate();
+        for(let d=1; d<=daysInMonth; d++){
+          if (!isInRange(y,mi,d)) continue;
+          const key = `${y}-${pad2(mi+1)}-${pad2(d)}`;
+          const arr = map[key] || [];
+          if (!arr.includes(t)) targets.push(key);
+        }
+      });
+      // 사전검사
+      const overflow = targets.some(key=>{
+        const arr = map[key] || [];
+        return arr.length >= MAX_PER_DATE;
+      });
+      if (overflow){ Alert.alert('제한', `어느 날짜는 이미 ${MAX_PER_DATE}개여서 더 추가할 수 없어요.`); return; }
+
+      setMap(prev=>{
+        const next = {...prev};
+        targets.forEach(key=>{
+          const arr = Array.isArray(next[key]) ? [...next[key]] : [];
+          arr.push(t); arr.sort();
+          next[key] = arr;
+        });
+        return next;
+      });
+      return;
+    }
+
     if(!pickerKey) return;
     setMap(prev=>{
       const arr = Array.isArray(prev[pickerKey]) ? [...prev[pickerKey]] : [];
       if (arr.includes(t)) { Alert.alert('중복','이미 추가한 시간입니다.'); return prev; }
-      if (arr.length>=MAX_PER_DATE){ Alert.alert('제한',`하루 최대 ${MAX_PER_DATE}개까지 가능합니다.`); return prev; }
+      if (arr.length>=MAX_PER_DATE){ Alert.alert('제한',`최대 ${MAX_PER_DATE}개 초과하였습니다`); return prev; }
       arr.push(t); arr.sort(); return { ...prev, [pickerKey]: arr };
     });
-  },[pickerKey]);
+  },[pickerKey, bulkMode, map, months, isInRange]);
   const onCancel = useCallback(()=>setPickerVisible(false),[]);
 
   const removeOne = useCallback((key,time)=>{
@@ -82,15 +119,30 @@ export default function FullRangeNotificationScreen(){
     });
   },[]);
 
-  const save = useCallback(()=>{
-    navigation.replace(returnTo, {
-      notificationResult: {
-        mode:'fullrange',
-        payload: { start: startStr, end: endStr, byDate: map }
-      },
-      _nonce: Date.now(),
+  const clearAll = useCallback(()=>{
+    Alert.alert('초기화','범위 내 모든 날짜의 시간을 삭제할까요?',[
+      { text:'취소', style:'cancel' },
+      { text:'삭제', style:'destructive', onPress:()=> setMap({}) }
+    ]);
+  },[]);
+
+   const save = useCallback(()=>{
+    const result = {
+      mode:'fullrange',
+      payload:{ start: startStr, end: endStr, byDate: map }
+    };
+    const onDone = route.params?.onDone;
+    if (typeof onDone === 'function') {
+      onDone(result);
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate({
+      name: returnTo || 'AddChallenge',
+      params: { notificationResult: result, _nonce: Date.now() },
+      merge: true,
     });
-  },[map, navigation, returnTo, startStr, endStr]);
+  },[map, navigation, returnTo, startStr, endStr, route.params?.onDone]);
 
   if(!start || !end){
     return (
@@ -100,10 +152,26 @@ export default function FullRangeNotificationScreen(){
     );
   }
 
+  if (start > end) {
+    // useEffect에서 Alert 후 뒤로가기를 호출하지만, 안전하게 화면도 비워둔다.
+    return <View style={{flex:1, backgroundColor: colors.gray50}} />;
+  }
+
   return (
     <ScrollView contentContainerStyle={{ padding: spacing.lg, backgroundColor: colors.gray50 }}>
       <Text style={styles.title}>전체 일정 알림</Text>
       <Text style={styles.desc}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
+
+      {/* 액션: 초기화 + 모든 날짜 시간+ */}
+      <View style={styles.actions}>
+        <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
+          <Text style={styles.resetBtnText}>초기화</Text>
+        </TouchableOpacity>
+        <View style={{flex:1}} />
+        <TouchableOpacity style={[buttonStyles.primary.container, { paddingHorizontal: 14 }]} onPress={openBulkPicker}>
+          <Text style={buttonStyles.primary.label}>모든 날짜 시간+</Text>
+        </TouchableOpacity>
+      </View>
 
       {months.map(({y,mi})=>{
         const first = new Date(y,mi,1);
@@ -146,7 +214,7 @@ export default function FullRangeNotificationScreen(){
                               <View style={styles.timesWrap}>
                                 {times.map(t=>(
                                   <View key={`${key}-${t}`} style={styles.chip}>
-                                    <Text style={styles.chipText} numberOfLines={1}>{t}</Text>
+                                    <Text style={styles.chipText} numberOfLines={1} allowFontScaling={false}>{t}</Text>
                                     <TouchableOpacity onPress={()=>removeOne(key,t)}>
                                       <Text style={styles.chipRemove}>×</Text>
                                     </TouchableOpacity>
@@ -175,7 +243,7 @@ export default function FullRangeNotificationScreen(){
         <Text style={buttonStyles.primary.label}>선택완료</Text>
       </TouchableOpacity>
 
-      <DateTimePickerModal isVisible={pickerVisible} mode="time" onConfirm={onConfirm} onCancel={onCancel} is24Hour />
+      <DateTimePickerModal isVisible={pickerVisible} mode="time" onConfirm={onConfirm} onCancel={()=>setPickerVisible(false)} is24Hour />
     </ScrollView>
   );
 }
@@ -184,7 +252,11 @@ const styles = StyleSheet.create({
   title:{ fontSize:20, fontWeight:'800', color: colors.gray800, textAlign:'center' },
   desc:{ color: colors.gray600, marginTop:4, marginBottom: spacing.md, fontSize:13, textAlign:'center' },
 
-  monthTitle:{ fontSize:12, fontWeight:'800', color: colors.gray700, marginBottom:4 },
+  actions:{ flexDirection:'row', alignItems:'center', marginBottom: spacing.md },
+  resetBtn:{ backgroundColor:'#FFF', borderWidth:1, borderColor:'#D1D5DB', borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+  resetBtnText:{ color: colors.gray700, fontSize: 14, fontWeight:'600' },
+
+  monthTitle:{ fontSize:12, fontWeight:'800', color: colors.gray700, marginBottom:4, textAlign:'center' },
 
   weekHeaderRow:{ flexDirection:'row', marginBottom:4 },
   weekHeaderCell:{ flex:1, alignItems:'center' },
@@ -198,11 +270,13 @@ const styles = StyleSheet.create({
   cellDivider:{ borderRightWidth:1, borderRightColor:'#E5E7EB' },
   dateText:{ fontSize:11, fontWeight:'800', color: colors.gray700, textAlign:'right' },
 
+  // 시간들은 토큰(글자)만, 1줄 고정 표시, 줄 단위로만 래핑
   timesWrap:{ marginTop:2, gap:6, flexDirection:'row', flexWrap:'wrap' },
   chip:{ flexDirection:'row', alignItems:'center', backgroundColor: colors.gray100, borderRadius: radius.pill, paddingVertical:3, paddingHorizontal:6 },
   chipText:{ color: colors.gray800, fontSize:12, marginRight:6 },
   chipRemove:{ color:'#6B7280', fontSize:14, fontWeight:'800' },
 
+  // 원형 + 버튼
   addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor:'#D1D5DB', backgroundColor:'#FFF', alignItems:'center', justifyContent:'center' },
   addBtnPlus:{ color: colors.gray700, fontSize:16, fontWeight:'800', lineHeight:16 }
 });

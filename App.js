@@ -1,8 +1,11 @@
 // App.js
+import 'react-native-gesture-handler'; // ✅ 반드시 최상단에!
 import React, { useEffect, useState } from 'react';
 import { Image, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import ChallengeListScreen from './screens/ChallengeListScreen';
 import AddChallengeScreen from './screens/AddChallengeScreen';
@@ -16,7 +19,7 @@ import MonthlyNotificationScreen from './screens/MonthlyNotificationScreen';
 import HallOfFameScreen from './screens/HallOfFameScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BackupScreen from './screens/BackupScreen';
-import { colors } from './styles/common'; // header 스타일 import 제거
+import { colors } from './styles/common';
 
 const Stack = createNativeStackNavigator();
 
@@ -42,47 +45,51 @@ export default function App() {
   }, []);
 
   return (
-    <NavigationContainer>
-      {showStartup ? (
-        <StartupScreen />
-      ) : (
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false, // ✅ 전 화면 기본 헤더 제거
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          {/* 메인 */}
-          <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          {showStartup ? (
+            <StartupScreen />
+          ) : (
+            <Stack.Navigator
+              screenOptions={{
+                headerShown: false, // ✅ 전 화면 기본 헤더 제거
+                contentStyle: { backgroundColor: colors.background },
+              }}
+            >
+              {/* 메인 */}
+              <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
 
-          {/* 알림 설정들 */}
-          <Stack.Screen name="SimpleNotification" component={SimpleNotificationScreen} />
-          <Stack.Screen name="WeeklyNotification" component={WeeklyNotificationScreen} />
-          <Stack.Screen name="MonthlyNotification" component={MonthlyNotificationScreen} />
+              {/* 알림 설정들 */}
+              <Stack.Screen name="SimpleNotification" component={SimpleNotificationScreen} />
+              <Stack.Screen name="WeeklyNotification" component={WeeklyNotificationScreen} />
+              <Stack.Screen name="MonthlyNotification" component={MonthlyNotificationScreen} />
 
-          {/* 도전 편집/상세/업로드 */}
-          <Stack.Screen name="AddChallenge" component={AddChallengeScreen} />
-          <Stack.Screen name="EditChallenge" component={EditChallengeScreen} />
-          <Stack.Screen name="EntryList" component={EntryListScreen} />
-          <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
-          <Stack.Screen name="Upload" component={UploadScreen} />
+              {/* 도전 편집/상세/업로드 */}
+              <Stack.Screen name="AddChallenge" component={AddChallengeScreen} />
+              <Stack.Screen name="EditChallenge" component={EditChallengeScreen} />
+              <Stack.Screen name="EntryList" component={EntryListScreen} />
+              <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
+              <Stack.Screen name="Upload" component={UploadScreen} />
 
-          {/* 명예의 전당 */}
-          <Stack.Screen name="HallOfFameScreen" component={HallOfFameScreen} />
+              {/* 명예의 전당 */}
+              <Stack.Screen name="HallOfFameScreen" component={HallOfFameScreen} />
 
-          {/* 설정/백업 */}
-          <Stack.Screen name="Settings" component={SettingsScreen} />
-          <Stack.Screen name="Backup" component={BackupScreen} />
-          
-          <Stack.Screen
-  name="FullRangeNotification"
-  component={require('./screens/FullRangeNotificationScreen').default}
-  options={{ title: '전체 일정 알림' }}
-/>
+              {/* 설정/백업 */}
+              <Stack.Screen name="Settings" component={SettingsScreen} />
+              <Stack.Screen name="Backup" component={BackupScreen} />
 
-        </Stack.Navigator>
-      )}
-    </NavigationContainer>
+              {/* 전체 일정 알림 */}
+              <Stack.Screen
+                name="FullRangeNotification"
+                component={require('./screens/FullRangeNotificationScreen').default}
+                options={{ title: '전체 일정 알림' }}
+              />
+            </Stack.Navigator>
+          )}
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

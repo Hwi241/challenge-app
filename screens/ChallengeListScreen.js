@@ -1,12 +1,13 @@
 // screens/ChallengeListScreen.js
-import React, { useEffect, useMemo, useState, useCallback, memo } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, memo, useRef } from 'react';
 import {
   SafeAreaView, View, Text, StyleSheet,
-  TouchableOpacity, Alert, FlatList
+  TouchableOpacity, Alert, BackHandler, Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DraggableFlatList from 'react-native-draggable-flatlist';
 
 import { buttonStyles, colors, spacing, radius } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
@@ -25,37 +26,33 @@ async function readJsonArray(key) {
     return [];
   }
 }
-
-function safeStringId(v) {
-  return v == null ? '' : String(v);
-}
-
+function safeStringId(v) { return v == null ? '' : String(v); }
 function dedupeById(arr = []) {
   const map = new Map();
-  for (const it of arr) {
-    if (!it || !it.id) continue;
-    map.set(safeStringId(it.id), it);
-  }
+  for (const it of arr) { if (!it || !it.id) continue; map.set(safeStringId(it.id), it); }
   return Array.from(map.values());
+}
+function moveInArray(arr, from, to) {
+  const copy = [...arr];
+  const [picked] = copy.splice(from, 1);
+  copy.splice(to, 0, picked);
+  return copy;
 }
 
 /* ---------- 카드 ---------- */
 const ItemCard = memo(function ItemCard({
-  item,
-  onPressCard,
-  onPressEdit,
-  onPressDuplicate,
-  onPressDelete,
-  onPressClaim,
+  item, onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
+  onLongPress, isActiveDrag,
 }) {
   const isDone = !!item._isDone;
-
   return (
     <View style={styles.cardWrap}>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => onPressCard(item)}
-        style={[styles.card, isDone && styles.dimmed]}
+        onLongPress={isDone ? undefined : onLongPress}
+        delayLongPress={160}
+        style={[styles.card, isDone && styles.dimmed, isActiveDrag && styles.draggingCard]}
       >
         <Text style={styles.title}>{item.title}</Text>
 
@@ -118,15 +115,48 @@ export default function ChallengeListScreen() {
   const insets = useSafeAreaInsets();
 
   const [list, setList] = useState([]);
+  const [uiData, setUiData] = useState([]); // 드래그시 깜빡임 방지용 표시 데이터
+  const uiDataRef = useRef(uiData);
+  useEffect(() => { uiDataRef.current = uiData; }, [uiData]);
 
-  // 포커스 시 최신 데이터 로드
+  // 포커스 시 최신 데이터 로드 + sortIndex 초기화
   useEffect(() => {
     if (!isFocused) return;
     (async () => {
       const arr = dedupeById(await readJsonArray('challenges'));
-      try { await AsyncStorage.setItem('challenges', JSON.stringify(arr)); } catch {}
-      setList(arr);
+      const decorated = arr.map((c) => ({
+        ...c,
+        sortIndex: Number.isFinite(c?.sortIndex) ? c.sortIndex : undefined,
+      }));
+      const done = decorated.filter(c => (c?.status === 'completed'));
+      const active = decorated.filter(c => !(c?.status === 'completed'));
+      const needInit = active.some(c => !Number.isFinite(c.sortIndex));
+      if (needInit) {
+        const activeInit = active
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+          .map((c, idx) => ({ ...c, sortIndex: idx }));
+        const merged = [...done, ...activeInit];
+        try { await AsyncStorage.setItem('challenges', JSON.stringify(merged)); } catch {}
+        setList(merged);
+      } else {
+        try { await AsyncStorage.setItem('challenges', JSON.stringify(decorated)); } catch {}
+        setList(decorated);
+      }
     })().catch(console.error);
+  }, [isFocused]);
+
+  // 안드로이드 뒤로가기 → 종료 확인
+  useEffect(() => {
+    if (!isFocused || Platform.OS !== 'android') return;
+    const onBackPress = () => {
+      Alert.alert('앱 종료', '정말 종료할까요?', [
+        { text: '취소', style: 'cancel' },
+        { text: '종료', style: 'destructive', onPress: () => BackHandler.exitApp() },
+      ]);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
   }, [isFocused]);
 
   const decorate = useCallback((c) => {
@@ -138,18 +168,26 @@ export default function ChallengeListScreen() {
     return { ...c, _isDone: !!done, _completedAt: c?.completedAt ?? 0 };
   }, []);
 
+  // 표시 순서: 완료(완료일 내림차순) + 진행중(sortIndex 오름차순/대체 createdAt)
   const sorted = useMemo(() => {
     const arr = (list || []).map(decorate);
     const done = arr.filter((c) => c._isDone)
       .sort((a, b) => (b._completedAt || 0) - (a._completedAt || 0));
     const active = arr.filter((c) => !c._isDone)
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      .sort((a, b) => {
+        const ai = Number.isFinite(a.sortIndex) ? a.sortIndex : -(a.createdAt || 0);
+        const bi = Number.isFinite(b.sortIndex) ? b.sortIndex : -(b.createdAt || 0);
+        return ai - bi;
+      });
     return [...done, ...active];
   }, [list, decorate]);
 
+  // 정렬 계산이 바뀌면 화면 데이터 동기화
+  useEffect(() => { setUiData(sorted); }, [sorted]);
+
   const saveChallenges = useCallback(async (arr) => {
     const clean = dedupeById(Array.isArray(arr) ? arr : []);
-    setList(clean);
+    setList(clean); // 상태도 갱신(루트와 동기화)
     await AsyncStorage.setItem('challenges', JSON.stringify(clean));
   }, []);
 
@@ -173,6 +211,10 @@ export default function ChallengeListScreen() {
       { text: '취소', style: 'cancel' },
       {
         text: '복제', onPress: async () => {
+          const current = dedupeById(await readJsonArray('challenges'));
+          const dec = current.map(decorate);
+          const active = dec.filter(c => !c._isDone);
+          const shifted = active.map(c => ({ ...c, sortIndex: Number.isFinite(c.sortIndex) ? (c.sortIndex + 1) : 1 }));
           const copy = {
             ...item,
             id: `ch_${Date.now()}`,
@@ -181,23 +223,21 @@ export default function ChallengeListScreen() {
             status: 'active',
             createdAt: Date.now(),
             completedAt: undefined,
+            sortIndex: 0,
           };
-          const next = [copy, ...list];
-          await saveChallenges(next);
+          const done = dec.filter(c => c._isDone);
+          const merged = [...done, copy, ...shifted];
+          await saveChallenges(merged);
         },
       },
     ]);
-  }, [list, saveChallenges]);
+  }, [saveChallenges]);
 
   const confirmClaimReward = useCallback((item) => {
-    Alert.alert(
-      '보상 받기',
-      `'${item.title}' 도전의 보상을 받으시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '확인', style: 'default', onPress: () => onClaimReward(item) },
-      ]
-    );
+    Alert.alert('보상 받기', `'${item.title}' 도전의 보상을 받으시겠습니까?`, [
+      { text: '취소', style: 'cancel' },
+      { text: '확인', style: 'default', onPress: () => onClaimReward(item) },
+    ]);
   }, []);
 
   const onClaimReward = useCallback(async (item) => {
@@ -238,8 +278,50 @@ export default function ChallengeListScreen() {
     });
   }, [navigation]);
 
+  // ── 드래그 시작/종료 메타 (진행중 영역 경계 유지)
+  const dragMetaRef = useRef({ doneCount: 0 });
+  const handleDragBegin = useCallback(({ index }) => {
+    const arr = uiDataRef.current || [];
+    const doneCount = arr.filter(c => c._isDone).length;
+    dragMetaRef.current = { doneCount, startIndex: index };
+  }, []);
+
+  // ── 드래그 종료: 화면 먼저 업데이트(깜빡임 최소화) → 진행중 블록 sortIndex 저장
+  const handleDragEnd = useCallback(({ from, to }) => {
+    const arr = uiDataRef.current || [];
+    const { doneCount } = dragMetaRef.current;
+    const activeStart = doneCount;
+
+    // 완료 블록으로 드롭되는 경우, 진행중 첫 위치로 클램프
+    const clampedFrom = Math.max(from, activeStart);
+    const clampedTo = Math.max(to, activeStart);
+
+    const done = arr.slice(0, activeStart);
+    const active = arr.slice(activeStart);
+
+    const fromIdx = clampedFrom - activeStart;
+    const toIdx = Math.min(Math.max(clampedTo - activeStart, 0), active.length - 1);
+
+    // 동일 위치면 아무 것도 안 함
+    if (fromIdx === toIdx) return;
+
+    const activeMoved = moveInArray(active, fromIdx, toIdx);
+    const merged = [...done, ...activeMoved];
+
+    // 1) UI 즉시 반영 (깜빡임 최소화)
+    setUiData(merged);
+
+    // 2) 진행중 sortIndex 재부여하여 영구 저장
+    const idxMap = new Map(activeMoved.map((c, idx) => [safeStringId(c.id), idx]));
+    const next = (list || []).map(it => {
+      const id = safeStringId(it.id);
+      return idxMap.has(id) ? { ...it, sortIndex: idxMap.get(id) } : it;
+    });
+    saveChallenges(next);
+  }, [list, saveChallenges]);
+
   const renderItem = useCallback(
-    ({ item }) => (
+    ({ item, drag, isActive }) => (
       <ItemCard
         item={item}
         onPressCard={goEntryList}
@@ -247,10 +329,18 @@ export default function ChallengeListScreen() {
         onPressDuplicate={onDuplicate}
         onPressDelete={onDelete}
         onPressClaim={confirmClaimReward}
+        onLongPress={drag}
+        isActiveDrag={isActive}
       />
     ),
     [goEntryList, navigation, onDuplicate, onDelete, confirmClaimReward]
   );
+
+  const renderPlaceholder = useCallback(() => (
+    <View style={styles.cardWrap}>
+      <View style={[styles.card, styles.placeholderCard]} />
+    </View>
+  ), []);
 
   const keyExtractor = useCallback((it) => String(it.id), []);
 
@@ -261,7 +351,6 @@ export default function ChallengeListScreen() {
       <View pointerEvents="box-none" style={[styles.addFloatingWrap, { bottom }]}>
         <TouchableOpacity
           style={styles.addFab}
-          // ✅ 알림 미리보기 초기화를 위해 resetNonce 전달 (UI 변화 없음)
           onPress={() => navigation.navigate('AddChallenge', { resetNonce: Date.now() })}
           activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -305,20 +394,22 @@ export default function ChallengeListScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={sorted}
+      <DraggableFlatList
+        data={uiData}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        renderPlaceholder={renderPlaceholder}    // ✅ 드롭 시 레이아웃 점프 완화
+        onDragBegin={handleDragBegin}           // ✅ 진행중 경계 기록
+        onDragEnd={handleDragEnd}               // ✅ 경계 클램프 + 제어형 반영
+        activationDistance={10}
+        dragItemOverflow                          // ✅ 드래그중 아이템 오버플로 허용(안드 깜빡임 감소)
+        removeClippedSubviews={false}            // ✅ 클리핑 제거로 깜빡임 감소
+        containerStyle={{ flexGrow: 1 }}
         contentContainerStyle={{
           paddingHorizontal: spacing.lg,
           paddingBottom: spacing.xxl + Math.max(insets.bottom, 12),
         }}
-        ListEmptyComponent={<Text style={styles.empty}>새로운 도전을 응원합니다!</Text>}
-        removeClippedSubviews
-        windowSize={7}
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        updateCellsBatchingPeriod={50}
+        scrollEventThrottle={16}
       />
 
       <BottomAddButton />
@@ -331,7 +422,6 @@ export default function ChallengeListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
-  // ▼ 중앙 타이틀 헤더 (UI 유지)
   header: {
     position: 'relative',
     paddingHorizontal: spacing.lg,
@@ -353,15 +443,8 @@ const styles = StyleSheet.create({
     top: '50%',
     transform: [{ translateY: -12 }],
   },
-  hofBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginTop: 15,
-  },
-  hofBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  hofBtn: { paddingVertical: 4, paddingHorizontal: 10, marginTop: 15 },
+  hofBtnText: { fontSize: 13, fontWeight: '700' },
 
   cardWrap: { marginTop: spacing.md },
 
@@ -373,7 +456,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  placeholderCard: {
+    opacity: 0.25,
+    borderStyle: 'dashed',
+  },
   dimmed: { opacity: 0.6 },
+
+  // 드래그 중 효과(가벼운 처리로 부드럽게)
+  draggingCard: { opacity: 0.98 },
 
   title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
   metaWrap: { marginTop: 6 },
@@ -399,12 +489,7 @@ const styles = StyleSheet.create({
   outlineText: { color: colors.black, fontSize: 12, fontWeight: '700' },
   disabledBtn: { opacity: 0.5 },
 
-  bigActionBtn: {
-    marginTop: spacing.md,
-    alignSelf: 'stretch',
-    paddingVertical: 14,
-    borderRadius: radius.lg,
-  },
+  bigActionBtn: { marginTop: spacing.md, alignSelf: 'stretch', paddingVertical: 14, borderRadius: radius.lg },
   bigActionText: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
 
   empty: { textAlign: 'center', color: colors.gray400, marginTop: 60 },
@@ -421,21 +506,11 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
   },
-  addFabPlus: {
-    color: colors.background,
-    fontSize: 28, fontWeight: '900', lineHeight: 28, includeFontPadding: false,
-  },
+  addFabPlus: { color: colors.background, fontSize: 28, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
 
   /* 좌하단 설정 버튼 */
   settingsFloatingWrap: { position: 'absolute', left: spacing.lg },
-  settingsBtn: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    padding: 2,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  settingsBtn: { backgroundColor: 'transparent', borderWidth: 0, padding: 2, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
   /* 완료 도전용 큰 아웃라인 버튼 */
   outlineBigBtn: {
@@ -447,10 +522,5 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginTop: spacing.md,
   },
-  outlineBigText: {
-    color: colors.black,
-    fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
+  outlineBigText: { color: colors.black, fontSize: 16, fontWeight: '800', textAlign: 'center' },
 });

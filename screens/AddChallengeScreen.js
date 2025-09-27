@@ -2,12 +2,10 @@
 // - 시작/종료일 역순 즉시 경고(되돌리기)
 // - 알림 모달 라벨: 주간 알림 / 월간 알림 / 전체 일정 알림
 // - 프리뷰 개선
-//    * 간단: 작은 원형 요일 + 여러 시간(최대 10, payload.times 지원; 없으면 payload.time 사용)
-//    * 주간: 7열 세로 리스트(칩/테두리 X), 글씨 작게
-//    * 월간: "매월" 고정 7×5 = 35칸(1~31일까지 항상 표시), 요일헤더/요일정렬 없이 1일부터 첫 칸 시작
-//    * 전체일정: 월별 표 위에 요일 헤더(일~토), 프리뷰 박스 **세로 스크롤**(nestedScrollEnabled)로 여러 달 표시
 // - 뒤로가기(하드웨어/제스처) 시 항상 ChallengeList로 이동
 // - '전체 일정 알림' 진입 전 시작/종료일 필수 + 역순 차단
+// - ✅ 입력 제한 추가(제목 50, 목표점수 ≤1000, 내용 500, 보상 50)
+// - ✅ 뒤로가기로 나갈 때 초안 초기화 + 폼 리셋
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -18,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
 import { buttonStyles, spacing, radius } from '../styles/common';
-import { numericInputProps, createNumberChangeHandler, toNumberOrZero } from '../utils/number';
+import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 
 const PALETTE = {
@@ -34,8 +32,149 @@ const PALETTE = {
   gray800: '#111111',
 };
 
+const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
+
 const DRAFT_KEY = 'draft_add_challenge';
 const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
+const sortTimesAsc = (arr=[]) => [...arr].sort((a,b)=>a.localeCompare(b));
+
+const SimplePreviewMini = ({ days=[], times=[], time }) => {
+  const toShow = (Array.isArray(times) && times.length) ? sortTimesAsc(times) : (time ? [time] : []);
+  return (
+    <View>
+      <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom:6 }}>
+        {WEEK_DAYS_KO.map(d=>{
+          const on = days.includes(d);
+          return (
+            <View key={d} style={{
+              width:22, height:22, borderRadius:11, alignItems:'center', justifyContent:'center',
+              borderWidth:1, borderColor: on? '#111':'#ddd', backgroundColor:on? '#111':'#fff'
+            }}>
+              <Text style={{ fontSize:11, fontWeight:'800', color:on?'#fff':'#333' }}>{d}</Text>
+            </View>
+          );
+        })}
+      </View>
+      <Text style={{ fontSize:12, color:'#333', textAlign:'center' }}>
+        {toShow.length? toShow.join('  ') : '시간 미설정'}
+      </Text>
+    </View>
+  );
+};
+
+const WeeklyPreviewMini = ({ byWeekDays=[] })=>{
+  const map = React.useMemo(()=>{
+    const m=new Map();
+    for(const {day, times=[]} of byWeekDays) m.set(day, sortTimesAsc(times));
+    return m;
+  },[byWeekDays]);
+  return (
+    <View style={{ flexDirection:'row' }}>
+      {WEEK_DAYS_KO.map((d,i)=>(
+        <View key={d} style={{ flex:1, paddingHorizontal:4, borderRightWidth:i<6?1:0, borderRightColor:'#eee' }}>
+          <Text style={{ fontSize:12, fontWeight:'800', color:'#555', textAlign:'center', marginBottom:2 }}>{d}</Text>
+          {(map.get(d)||[]).map((t,idx)=><Text key={`${d}-${t}-${idx}`} style={{ fontSize:11, textAlign:'center' }}>{t}</Text>)}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const MonthlyPreviewMini = ({ byDates=[] })=>{
+  const map = React.useMemo(()=>{
+    const m=new Map();
+    for(const {date, times=[]} of byDates){
+      const n=Number(date);
+      if(n>=1&&n<=31){ m.set(n, sortTimesAsc([...(m.get(n)||[]), ...times])); }
+    }
+    return m;
+  },[byDates]);
+  const cells=[]; for(let d=1; d<=31; d++) cells.push(d); while(cells.length<35) cells.push(null);
+  return (
+    <View style={{ borderTopWidth:1, borderTopColor:'#eee' }}>
+      {Array.from({length:5}).map((_,r)=>(
+        <View key={`r${r}`} style={{ flexDirection:'row', borderBottomWidth:r<4?1:0, borderBottomColor:'#eee' }}>
+          {cells.slice(r*7, r*7+7).map((d,c)=>(
+            <View key={`c${r}-${c}`} style={{ flex:1, padding:4, borderRightWidth:c<6?1:0, borderRightColor:'#eee' }}>
+              {d && <>
+                <Text style={{ fontSize:11, fontWeight:'800', color:'#555', textAlign:'right' }}>{d}</Text>
+                {(map.get(d)||[]).map((t,idx)=><Text key={`${d}-${t}-${idx}`} style={{ fontSize:11 }}>{t}</Text>)}
+              </>}
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const FullRangePreviewMini = ({ payload={}, startDate, endDate }) => {
+  if(!startDate || !endDate) return <Text style={{fontSize:12, textAlign:'center'}}>기간이 설정되지 않았습니다.</Text>;
+  const byDate = payload.byDate || {};
+  const months=[]; const cur=new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+  while(cur<=end){ months.push({y:cur.getFullYear(), mi:cur.getMonth()}); cur.setMonth(cur.getMonth()+1,1); }
+  const inRange=(y,mi,d)=>{
+    const dt=new Date(y,mi,d);
+    return dt>=new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+        && dt<=new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  };
+  const pad2=(n)=>String(n).padStart(2,'0');
+  return (
+    <View style={{ maxHeight:260 }}>
+      <ScrollView nestedScrollEnabled>
+        {months.map(({y,mi})=>{
+          const firstDow=new Date(y,mi,1).getDay();
+          const dim=new Date(y,mi+1,0).getDate();
+          const cells=[]; for(let i=0;i<firstDow;i++) cells.push(null); for(let d=1; d<=dim; d++) cells.push(d);
+          while(cells.length%7!==0) cells.push(null);
+          return (
+            <View key={`${y}-${mi}`} style={{ marginBottom:8 }}>
+              <Text style={{ fontSize:12, fontWeight:'800', color:'#555', textAlign:'center' }}>{y}.{pad2(mi+1)}</Text>
+              <View style={{ flexDirection:'row', marginBottom:4 }}>
+                {['일','월','화','수','목','금','토'].map((w,i)=>
+                  <View key={w} style={{ flex:1, alignItems:'center', borderRightWidth:i<6?1:0, borderRightColor:'#eee' }}>
+                    <Text style={{fontSize:11, fontWeight:'800', color:'#777'}}>{w}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ borderTopWidth:1, borderTopColor:'#eee' }}>
+                {Array.from({length: Math.ceil(cells.length/7)}).map((__,r)=>(
+                  <View key={`r${r}`} style={{ flexDirection:'row', borderBottomWidth:1, borderBottomColor:'#eee' }}>
+                    {cells.slice(r*7, r*7+7).map((d,c)=>{
+                      const show = d && inRange(y,mi,d);
+                      const key = d? `${y}-${pad2(mi+1)}-${pad2(d)}` : '';
+                      const t = show? (Array.isArray(byDate[key])? sortTimesAsc(byDate[key]):[]) : [];
+                      return (
+                        <View key={`c${r}-${c}`} style={{ flex:1, padding:4, borderRightWidth:c<6?1:0, borderRightColor:'#eee' }}>
+                          {d && <>
+                            <Text style={{ fontSize:11, fontWeight:'800', color: show?'#555':'#bbb', textAlign:'right' }}>{d}</Text>
+                            {show && t.map((x,idx)=><Text key={`${d}-${x}-${idx}`} style={{ fontSize:11 }}>{x}</Text>)}
+                          </>}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+};
+
+const NotiPreviewSwitch = ({ notification, startDate, endDate })=>{
+  if(!notification?.mode) return <Text style={{ fontSize:12, color:'#555', textAlign:'center' }}>알림 없음</Text>;
+  const { mode, payload={} } = notification;
+  if (mode==='simple')  return <SimplePreviewMini days={payload.days||[]} times={payload.times||[]} time={payload.time} />;
+  if (mode==='weekly' && Array.isArray(payload.byWeekDays)) return <WeeklyPreviewMini byWeekDays={payload.byWeekDays} />;
+  if (mode==='monthly' && Array.isArray(payload.byDates))   return <MonthlyPreviewMini byDates={payload.byDates} />;
+  if (mode==='fullrange') return <FullRangePreviewMini payload={payload} startDate={startDate} endDate={endDate} />;
+  return <Text style={{ fontSize:12, color:'#555', textAlign:'center' }}>알림 없음</Text>;
+};
+
 
 function pad2(n){return String(n).padStart(2,'0');}
 function fmtDate(d) {
@@ -51,9 +190,7 @@ function parseDateStr(s) {
   const dt = new Date(y, (m||1)-1, d||1);
   return isNaN(dt.getTime()) ? null : dt;
 }
-function sortTimesAsc(times = []) {
-  return [...times].sort((a,b) => a.localeCompare(b));
-}
+
 function timeToHuman(hhmm) {
   if (!hhmm) return '';
   const [hStr, mStr] = hhmm.split(':');
@@ -62,229 +199,6 @@ function timeToHuman(hhmm) {
   const mm = pad2(m);
   const period = isAM ? '오전' : '오후';
   return `${period} ${h12}:${mm}`;
-}
-
-/* =========================
-   프리뷰 렌더러
-   ========================= */
-
-// 간단 프리뷰: 작은 원형 요일 + 시간(여러개 지원)
-function SimplePreview({ days=[], times=[], time, weeks }) {
- const weekLabel = (() => {
-    if (weeks === 'every') return '매주';
-    if (Array.isArray(weeks) && weeks.length) return `${weeks.sort((a,b)=>a-b).join(',')}번째주`;
-    return null;
-  })();
-  const toShow = (Array.isArray(times) && times.length) ? sortTimesAsc(times) : (time ? [time] : []);
-  return (
-    <View>
-      <View style={styles.simpleDaysRow}>
-        {WEEK_DAYS_KO.map(d => {
-          const active = days.includes(d);
-          return (
-            <View key={d} style={[styles.simpleCircle, active ? styles.simpleCircleOn : styles.simpleCircleOff]}>
-              <Text allowFontScaling={false} style={[styles.simpleCircleText, active && styles.simpleCircleTextOn]}>{d}</Text>
-            </View>
-          );
-        })}
-      </View>
-      {toShow.length ? (
-        <Text style={styles.previewTextSmall}>{toShow.join('  ')}</Text>
-      ) : (
-        <Text style={styles.previewTextSmall}>시간 미설정</Text>
-      )}
-      {!!weekLabel && <Text style={styles.previewNoteText}>{weekLabel}</Text>}
-    </View>
-  );
-}
-
-// 주간 프리뷰: 7열, 요일 라벨 + 세로 텍스트 리스트(작게, 칩 X)
-function WeeklyPreview({ byWeekDays = [] }) {
-  const map = useMemo(() => {
-    const m = new Map();
-    for (const { day, times = [] } of byWeekDays) {
-      m.set(day, sortTimesAsc(times));
-    }
-    return m;
-  }, [byWeekDays]);
-
-  return (
-    <View style={styles.weekGrid}>
-      {WEEK_DAYS_KO.map((d, idx) => {
-        const t = map.get(d) || [];
-        return (
-          <View key={d} style={[styles.weekCol, idx < 6 && styles.weekColDivider]}>
-            <Text style={styles.weekDayLabel}>{d}</Text>
-            <View style={styles.weekTimesWrap}>
-              {t.map((tm, i) => (
-                <Text key={`${d}-${tm}-${i}`} style={styles.weekTimeText} numberOfLines={1}>{tm}</Text>
-              ))}
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-// 월간 프리뷰(매월 고정): 7×5 = 35칸, 1~31 표시(항상 31일까지)
-function MonthlyPreviewFixed({ byDates = [] }) {
-  const dateMap = useMemo(() => {
-    const m = new Map();
-    for (const { date, times = [] } of byDates) {
-      const n = Number(date);
-      if (Number.isFinite(n) && n >= 1 && n <= 31) {
-        const prev = m.get(n) || [];
-        m.set(n, sortTimesAsc([...prev, ...times]));
-      }
-    }
-    return m;
-  }, [byDates]);
-
-  // 35칸 배열(1..31, 나머지 null)
-  const cells = [];
-  for (let d=1; d<=31; d++) cells.push(d);
-  while (cells.length < 35) cells.push(null);
-
-  const rows = [];
-  for (let i=0; i<35; i+=7) rows.push(cells.slice(i,i+7));
-
-  return (
-    <View style={styles.monthOuter}>
-      {rows.map((row, rIdx) => (
-        <View key={`r-${rIdx}`} style={[styles.monthRow, rIdx < rows.length - 1 && styles.monthRowDivider]}>
-          {row.map((d, cIdx) => {
-            const times = d ? (dateMap.get(d) || []) : [];
-            return (
-              <View key={`c-${rIdx}-${cIdx}`} style={[styles.monthCell, cIdx < 6 && styles.monthCellDivider]}>
-                {d ? (
-                  <>
-                    <Text style={styles.monthDateText}>{d}</Text>
-                    <View style={styles.monthTimesWrap}>
-                      {times.map((tm, i) => (
-                        <Text key={`${d}-${tm}-${i}`} style={styles.monthTimeText} numberOfLines={1}>{tm}</Text>
-                      ))}
-                    </View>
-                  </>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-// 전체일정 프리뷰: 월 타이틀 + 요일헤더 + 달력(세로 스크롤, nestedScrollEnabled)
-function FullRangePreview({ payload = {}, startDate, endDate }) {
-  if (!startDate || !endDate) return <Text style={styles.previewText}>기간이 설정되지 않았습니다.</Text>;
-
-  const byDate = payload?.byDate || {}; // {'YYYY-MM-DD':['HH:MM',...]}
-
-  // 월 리스트(시작~종료, 각 월 1일 기준)
-  const months = [];
-  const cur = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-  const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-  while (cur <= end) {
-    months.push({ y: cur.getFullYear(), mi: cur.getMonth() });
-    cur.setMonth(cur.getMonth() + 1, 1);
-  }
-
-  // 범위 포함 여부
-  const inRange = (y, mi, d) => {
-    const dt = new Date(y, mi, d);
-    return dt >= new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
-      && dt <= new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-  };
-
-  return (
-    <View style={{height: 260}}>
-      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
-        {months.map(({y,mi}) => {
-          const first = new Date(y, mi, 1);
-          const daysInMonth = new Date(y, mi + 1, 0).getDate();
-          const firstDow = first.getDay(); // 0~6(일~토)
-          const cells = [];
-          for (let i=0;i<firstDow;i++) cells.push(null);
-          for (let d=1; d<=daysInMonth; d++) cells.push(d);
-          while (cells.length % 7 !== 0) cells.push(null);
-          const rows = [];
-          for (let i=0;i<cells.length;i+=7) rows.push(cells.slice(i,i+7));
-
-          return (
-            <View key={`${y}-${mi}`} style={{marginBottom: 10}}>
-              <Text style={styles.fullRangeMonthTitle}>{y}.{pad2(mi+1)}</Text>
-
-              {/* 요일 헤더 */}
-              <View style={styles.weekHeaderRow}>
-                {['일','월','화','수','목','금','토'].map((w,idx)=>(
-                  <View key={w} style={[styles.weekHeaderCell, idx<6 && styles.weekHeaderCellDivider]}>
-                    <Text style={styles.weekHeaderText}>{w}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* 달력 */}
-              <View style={styles.monthOuter}>
-                {rows.map((row,rIdx)=>(
-                  <View key={`fr-r-${y}-${mi}-${rIdx}`} style={[styles.monthRow, rIdx < rows.length-1 && styles.monthRowDivider]}>
-                    {row.map((d,cIdx)=>{
-                      const show = d ? inRange(y,mi,d) : false;
-                      const key = d ? `${y}-${pad2(mi+1)}-${pad2(d)}` : '';
-                      const times = d && show ? (Array.isArray(byDate[key]) ? sortTimesAsc(byDate[key]) : []) : [];
-                      return (
-                        <View key={`fr-c-${y}-${mi}-${rIdx}-${cIdx}`} style={[styles.monthCell, cIdx<6 && styles.monthCellDivider]}>
-                          {d ? (
-                            <>
-                              <Text style={[styles.monthDateText, !show && {opacity:0.25}]}>{d}</Text>
-                              {show && (
-                                <View style={styles.monthTimesWrap}>
-                                  {times.map((tm, i) => (
-                                    <Text key={`${y}-${mi}-${d}-${tm}-${i}`} style={styles.monthTimeText} numberOfLines={1}>{tm}</Text>
-                                  ))}
-                                </View>
-                              )}
-                            </>
-                          ) : null}
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
-
-// 프리뷰 선택자
-function previewNodeByNotification(notification, startDate, endDate) {
-  if (!notification || !notification.mode) {
-    return <Text style={styles.previewText}>알림 없음</Text>;
-  }
-  const { mode, payload = {} } = notification;
-
-  if (mode === 'simple') {
-    return <SimplePreview days={payload.days||[]} times={payload.times||[]} time={payload.time} weeks={payload.weeks} />;
-  }
-
-  if (mode === 'weekly' && Array.isArray(payload?.byWeekDays)) {
-    return <WeeklyPreview byWeekDays={payload.byWeekDays} />;
-  }
-
-  if (mode === 'monthly' && Array.isArray(payload?.byDates)) {
-    return <MonthlyPreviewFixed byDates={payload.byDates} />;
-  }
-
-  if (mode === 'fullrange' && startDate && endDate) {
-    return <FullRangePreview payload={payload} startDate={startDate} endDate={endDate} />;
-  }
-
-  return <Text style={styles.previewText}>알림 없음</Text>;
 }
 
 /* =========================
@@ -299,12 +213,12 @@ export default function AddChallengeScreen() {
   const [title, setTitle] = useState('');
   const [goalScore, setGoalScore] = useState('');
   const [reward, setReward] = useState('');
+  const [description, setDescription] = useState(''); // ✅ 도전 내용
 
   // 날짜
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
+
 
   // 알림
   const [notification, setNotification] = useState({ mode: null, payload: null });
@@ -313,22 +227,37 @@ export default function AddChallengeScreen() {
   // 저장 중 보호
   const [busy, setBusy] = useState(false);
 
-  // 초안 저장/복원(알림 제외)
+  // 임시저장 제어
   const saveDraftDebounce = useRef(null);
+  const suppressDraftRef = useRef(false);
   const saveDraft = useCallback(async (draft) => {
     try { await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch {}
   }, []);
+
+  // ✅ 목표 점수 입력: 숫자만, 최대 1000으로 클램프
+  const handleGoalChange = useCallback((txt)=>{
+    const digits = (txt || '').replace(/[^\d]/g,'');
+    if (!digits) { setGoalScore(''); return; }
+    let n = parseInt(digits, 10);
+    if (isNaN(n)) { setGoalScore(''); return; }
+    if (n > LIMITS.maxGoal) n = LIMITS.maxGoal;
+    setGoalScore(String(n));
+  }, []);
+
+  // ✅ 임시저장: 제한 적용된 값으로 저장 (suppress 시 저장 안 함)
   useEffect(() => {
+    if (suppressDraftRef.current) return;
     const draft = {
-      title, goalScore, reward,
+      title, goalScore, reward, description,
       startDate: startDate ? fmtDate(startDate) : null,
       endDate: endDate ? fmtDate(endDate) : null,
     };
     if (saveDraftDebounce.current) clearTimeout(saveDraftDebounce.current);
     saveDraftDebounce.current = setTimeout(() => saveDraft(draft), 200);
     return () => { if (saveDraftDebounce.current) clearTimeout(saveDraftDebounce.current); };
-  }, [title, goalScore, reward, startDate, endDate, saveDraft]);
+  }, [title, goalScore, reward, description, startDate, endDate, saveDraft]);
 
+  // 최초 진입 시 초안 복원
   useEffect(() => {
     (async () => {
       try {
@@ -339,6 +268,7 @@ export default function AddChallengeScreen() {
         setTitle(String(d.title || ''));
         setGoalScore(d.goalScore == null ? '' : String(d.goalScore));
         setReward(String(d.reward || ''));
+        setDescription(String(d.description || ''));
         setStartDate(d.startDate ? parseDateStr(d.startDate) : null);
         setEndDate(d.endDate ? parseDateStr(d.endDate) : null);
       } catch {}
@@ -365,21 +295,40 @@ export default function AddChallengeScreen() {
     }
   }, [route.params?.notificationResult, route.params?._nonce, navigation]);
 
-  // 뒤로가기 → ChallengeList로
+  // ✅ 뒤로가기 시: 초안 삭제 + 폼 리셋 + 리스트로 이동
+  const clearDraftAndReset = useCallback(async () => {
+    try {
+      suppressDraftRef.current = true; // 저장 억제
+      if (saveDraftDebounce.current) { clearTimeout(saveDraftDebounce.current); saveDraftDebounce.current = null; }
+      await AsyncStorage.removeItem(DRAFT_KEY);
+    } catch {}
+    // 폼 리셋
+    setTitle(''); setGoalScore(''); setReward(''); setDescription('');
+    setStartDate(null); setEndDate(null);
+    setNotification({ mode: null, payload: null });
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      const onBack = () => { navigation.navigate('ChallengeList'); return true; };
+      const onBack = () => {
+        clearDraftAndReset();
+        navigation.navigate('ChallengeList');
+        return true;
+      };
       const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
       const remove = navigation.addListener('beforeRemove', (e) => {
         e.preventDefault();
+        clearDraftAndReset();
         navigation.navigate('ChallengeList');
       });
       return () => { sub.remove(); navigation.removeListener('beforeRemove', remove); };
-    }, [navigation])
+    }, [navigation, clearDraftAndReset])
   );
 
   // 날짜 역순 즉시 경고(되돌리기)
   const lastChangedRef = useRef(null); // 'start' | 'end'
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   useEffect(() => { if (showStartPicker) lastChangedRef.current = 'start'; }, [showStartPicker]);
   useEffect(() => { if (showEndPicker) lastChangedRef.current = 'end'; }, [showEndPicker]);
   useEffect(() => {
@@ -394,11 +343,23 @@ export default function AddChallengeScreen() {
     if (busy) return;
     setBusy(true);
     try {
+      const t = (title || '').trim();
+      const r = (reward || '').trim();
+      const desc = (description || '').trim();
+
+      // ✅ 길이/값 검증
+      if (!t) { Alert.alert('확인', '도전 제목을 입력해주세요.'); setBusy(false); return; }
+      if (t.length > LIMITS.title) { Alert.alert('확인', `제목은 ${LIMITS.title}자 이내로 입력해주세요.`); setBusy(false); return; }
+      if (r.length > LIMITS.reward) { Alert.alert('확인', `보상은 ${LIMITS.reward}자 이내로 입력해주세요.`); setBusy(false); return; }
+      if (desc.length > LIMITS.description) { Alert.alert('확인', `도전 내용은 ${LIMITS.description}자 이내로 입력해주세요.`); setBusy(false); return; }
+
       const goalNum = toNumberOrZero(goalScore);
+      if (goalNum <= 0) { Alert.alert('확인', '목표 점수는 1 이상의 숫자여야 합니다.'); setBusy(false); return; }
+      if (goalNum > LIMITS.maxGoal) { Alert.alert('확인', `목표 점수는 ${LIMITS.maxGoal}점 이하여야 합니다.`); setBusy(false); return; }
 
       const dataForValidation = {
-        title,
-        goalScore: goalScore === '' ? '' : goalNum,
+        title: t,
+        goalScore: goalNum,
         startDate: startDate ? fmtDate(startDate) : null,
         endDate: endDate ? fmtDate(endDate) : null,
         allowEmptyGoal: false,
@@ -417,12 +378,13 @@ export default function AddChallengeScreen() {
       const id = `ch_${Date.now()}`;
       const newChallenge = {
         id,
-        title: (title || '').trim(),
+        title: t,
         goalScore: goalNum,
         currentScore: 0,
         startDate: fmtDate(startDate),
         endDate: fmtDate(endDate),
-        reward,
+        reward: r,
+        description: desc,
         notification: notification?.mode ? notification : { mode: null, payload: null },
         status: 'active',
         createdAt: Date.now(),
@@ -437,10 +399,11 @@ export default function AddChallengeScreen() {
       await AsyncStorage.setItem(`challenge_${id}`, JSON.stringify(newChallenge));
 
       // 저장 후 초기화 + 초안 삭제
-      setTitle(''); setGoalScore(''); setReward('');
+      try { await AsyncStorage.removeItem(DRAFT_KEY); } catch {}
+      suppressDraftRef.current = true;
+      setTitle(''); setGoalScore(''); setReward(''); setDescription('');
       setStartDate(null); setEndDate(null);
       setNotification({ mode: null, payload: null });
-      try { await AsyncStorage.removeItem(DRAFT_KEY); } catch {}
 
       Alert.alert('완료', '도전이 추가되었습니다.', [
         { text: '확인', onPress: () => navigation.navigate('ChallengeList') },
@@ -451,23 +414,21 @@ export default function AddChallengeScreen() {
     } finally {
       setBusy(false);
     }
-  }, [busy, title, goalScore, reward, startDate, endDate, notification, navigation]);
+  }, [busy, title, goalScore, reward, description, startDate, endDate, notification, navigation]);
 
-  // 알림 모달 라우팅
+  // 알림 모달 라우팅 (기존 그대로)
   const goSimple = useCallback(() => {
     if (busy) return;
     const initial = notification?.mode === 'simple' ? (notification.payload ?? null) : null;
     setShowNotifPicker(false);
     navigation.navigate('SimpleNotification', { initial, returnTo: 'AddChallenge' });
   }, [busy, navigation, notification]);
-
   const goWeekly = useCallback(() => {
     if (busy) return;
     const initial = notification?.mode === 'weekly' ? (notification.payload ?? null) : null;
     setShowNotifPicker(false);
     navigation.navigate('WeeklyNotification', { initial, returnTo: 'AddChallenge' });
   }, [busy, navigation, notification]);
-
   const goMonthly = useCallback(() => {
     if (busy) return;
     const initial = notification?.mode === 'monthly'
@@ -475,7 +436,6 @@ export default function AddChallengeScreen() {
     setShowNotifPicker(false);
     navigation.navigate('MonthlyNotification', { initial, returnTo: 'AddChallenge' });
   }, [busy, navigation, notification]);
-
   const goFullRange = useCallback(() => {
     if (busy) return;
     if (!startDate || !endDate) {
@@ -508,23 +468,42 @@ export default function AddChallengeScreen() {
         <Text style={styles.label}>도전 제목</Text>
         <TextInput
           value={title}
-          onChangeText={setTitle}
+          onChangeText={(t)=>setTitle(t.slice(0, LIMITS.title))}
           placeholder="도전 제목"
           style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
           placeholderTextColor={PALETTE.gray400}
           editable={!busy}
+          maxLength={LIMITS.title} // ✅ 50자 제한
         />
+       
 
         <Text style={[styles.label, { marginTop: spacing.md }]}>목표 점수</Text>
         <TextInput
           value={goalScore}
-          onChangeText={createNumberChangeHandler(setGoalScore)}
+          onChangeText={handleGoalChange}
           placeholder="숫자만 입력"
           style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
           placeholderTextColor={PALETTE.gray400}
           editable={!busy}
+          maxLength={4} // ✅ 4자리로 제한(1000까지)
           {...numericInputProps}
         />
+        
+
+        {/* ✅ 도전 내용 */}
+        <Text style={[styles.label, { marginTop: spacing.md }]}>도전 내용</Text>
+        <TextInput
+          value={description}
+          onChangeText={(t)=>setDescription(t.slice(0, LIMITS.description))}
+          placeholder="도전의 구체적인 내용을 적어주세요"
+          style={[styles.input, styles.textarea, { opacity: busy ? 0.75 : 1 }]}
+          placeholderTextColor={PALETTE.gray400}
+          editable={!busy}
+          multiline
+          textAlignVertical="top"
+          maxLength={LIMITS.description} // ✅ 500자 제한
+        />
+        
 
         {/* 날짜 */}
         <View style={styles.row}>
@@ -558,19 +537,21 @@ export default function AddChallengeScreen() {
         </View>
       </View>
 
-      {/* 보상 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <Text style={styles.cardTitle}>보상</Text>
-        <Text style={styles.label}>보상 내용</Text>
-        <TextInput
-          value={reward}
-          onChangeText={setReward}
-          placeholder="원하는 보상을 입력하세요!"
-          style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
-          placeholderTextColor={PALETTE.gray400}
-          editable={!busy}
-        />
-      </View>
+   {/* 보상 */}
+<View style={[styles.card, { marginTop: spacing.lg }]}>
+  <Text style={styles.cardTitle}>보상</Text>
+  <Text style={styles.label}>보상 내용</Text>
+  <TextInput
+    value={reward}
+    onChangeText={(t)=>setReward(t.slice(0, LIMITS.reward))}
+    placeholder="원하는 보상을 입력하세요!"
+    style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
+    placeholderTextColor={PALETTE.gray400}
+    editable={!busy}
+    maxLength={LIMITS.reward} // 50자 제한
+  />
+  
+</View>
 
       {/* 알림 */}
       <View style={[styles.card, { marginTop: spacing.lg }]}>
@@ -600,17 +581,15 @@ export default function AddChallengeScreen() {
           </View>
         </View>
 
-        <View style={styles.previewBox}>
-          {previewNodeByNotification(notification, startDate, endDate)}
-        </View>
+       <View style={styles.previewBox}>
+  <NotiPreviewSwitch
+    notification={notification}
+    startDate={startDate}
+    endDate={endDate}
+  />
+</View>
 
-        <Text style={[styles.previewAssistive]} accessible accessibilityLabel={
-          !notification?.mode ? '알림 없음' :
-            notification.mode === 'simple' ? '간단 알림' :
-            notification.mode === 'weekly' ? '주간 알림' :
-            notification.mode === 'monthly' ? '월간 알림' :
-            '전체 일정 알림'
-        }>
+        <Text style={[styles.previewAssistive]}>
           {''}
         </Text>
       </View>
@@ -639,7 +618,7 @@ export default function AddChallengeScreen() {
         onCancel={() => setShowEndPicker(false)}
       />
 
-      {/* 알림 방식 모달 */}
+      {/* 알림 방식 모달 (기존 그대로) */}
       <Modal
         visible={showNotifPicker}
         transparent
@@ -692,6 +671,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10,
     fontSize: 14, color: PALETTE.gray800,
   },
+  textarea: { minHeight: 96, lineHeight: 20 },
+  counter: { alignSelf: 'flex-end', fontSize: 11, color: PALETTE.gray400, marginTop: 4 },
 
   row: { flexDirection: 'row', marginTop: spacing.md },
   col: { flex: 1 },
@@ -704,47 +685,14 @@ const styles = StyleSheet.create({
   previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray100, borderRadius: radius.md, padding: spacing.md },
   previewText: { color: PALETTE.gray800 },
   previewTextSmall: { color: PALETTE.gray800, fontSize: 12, marginTop: 6 },
-  previewAssistive: { height: 0, width: 0 },
-  previewTextSmall: { color: PALETTE.gray800, fontSize: 12, marginTop: 6 },
   previewNoteText: { color: PALETTE.gray600, fontSize: 11, marginTop: 2 },
 
-  // 간단
-  simpleDaysRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  simpleCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  simpleCircleOff: { borderColor: PALETTE.gray300, backgroundColor: PALETTE.white },
-  simpleCircleOn: { borderColor: PALETTE.black, backgroundColor: PALETTE.black },
-  simpleCircleText: { fontSize: 12, fontWeight: '800', color: PALETTE.gray700, includeFontPadding: false },
-  simpleCircleTextOn: { color: PALETTE.white },
-
-  // 주간
-  weekGrid: { flexDirection: 'row' },
-  weekCol: { flex: 1, paddingHorizontal: 6 },
-  weekColDivider: { borderRightWidth: 1, borderRightColor: PALETTE.gray200 },
-  weekDayLabel: { textAlign: 'center', fontSize: 12, fontWeight: '800', color: PALETTE.gray700, marginBottom: 4 },
-  weekTimesWrap: { alignItems: 'center' },
-  weekTimeText: { fontSize: 11, color: PALETTE.gray800, lineHeight: 14 },
-
-  // 월간/전체일정 공통
-  monthOuter: { borderTopWidth: 1, borderTopColor: PALETTE.gray200 },
-  monthRow: { flexDirection: 'row' },
-  monthRowDivider: { borderBottomWidth: 1, borderBottomColor: PALETTE.gray200 },
-  monthCell: { flex: 1, padding: 6 },
-  monthCellDivider: { borderRightWidth: 1, borderRightColor: PALETTE.gray200 },
-  monthDateText: { fontSize: 11, fontWeight: '800', color: PALETTE.gray700, textAlign: 'right' },
-  monthTimesWrap: { marginTop: 2 },
-  monthTimeText: { fontSize: 11, color: PALETTE.gray800, lineHeight: 14 },
-
-  // 전체 일정 프리뷰 월 타이틀 + 요일 헤더
-  fullRangeMonthTitle: { fontSize: 12, fontWeight: '800', color: PALETTE.gray700, marginBottom: 4 },
-  weekHeaderRow: { flexDirection: 'row', marginBottom: 4 },
-  weekHeaderCell: { flex: 1, alignItems: 'center' },
-  weekHeaderCellDivider: { borderRightWidth: 1, borderRightColor: PALETTE.gray200 },
-  weekHeaderText: { fontSize: 11, fontWeight: '800', color: PALETTE.gray700 },
+  // …………(프리뷰/달력 관련 기존 스타일 유지)…………
 
   // 모달
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: PALETTE.gray200 },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
   modalButton: { marginTop: spacing.sm },
   modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
   modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },

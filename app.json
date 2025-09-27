@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "THE - PUSH",
-    "slug": "the-push",
+    "slug": "thepush",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "assets/icon.png",
@@ -27,7 +27,7 @@
         "foregroundImage": "assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.anonymous.thepush"
+      "package": "com.hwiject.thepush"
     },
     "web": {
       "favicon": "assets/icon.png"
@@ -38,7 +38,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "placeholder-project-id"
+        "projectId": "e2f2204e-b7fb-479e-a4f4-34f1ba5c5ef0"
       }
     }
   }

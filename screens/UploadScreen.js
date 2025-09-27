@@ -1,5 +1,8 @@
 // screens/UploadScreen.js
-// - UI 동일 유지
+// - 제목 중앙, "내용"+“사진 선택” 한 줄, "텍스트" 라벨 제거
+// - 인증내용 500자 제한(표시 X), 입력에 따라 자동 높이 확장
+// - 소요시간 숫자만, 최대 1440분(표시 X), 입력/저장 시 클램프
+// - 사진 미리보기 우상단에 반투명 회색 원형 X 버튼으로 삭제
 // - 🔧 폴리싱: 중복 탭 방지(busy), try/finally로 상태 복구
 
 import React, { useCallback, useState } from 'react';
@@ -11,9 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 import { buttonStyles, spacing, radius } from '../styles/common';
-import { numericInputProps, createNumberChangeHandler, toNumberOrZero } from '../utils/number';
+import { numericInputProps, toNumberOrZero } from '../utils/number';
 
-// 로컬 팔레트(기존 흑/백/회색 톤 유지)
 const PALETTE = {
   white: '#FFFFFF',
   gray50: '#FAFAFA',
@@ -24,17 +26,21 @@ const PALETTE = {
   gray800: '#111111',
 };
 
+const MAX_TEXT_LEN = 500;
+const MAX_MINUTES = 1440;
+
 export default function UploadScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { challengeId } = route.params || {};
 
   const [text, setText] = useState('');
+  const [textHeight, setTextHeight] = useState(140); // 자동 확장용 높이 상태
   const [duration, setDuration] = useState('');
   const [imageUri, setImageUri] = useState(null);
-  const [busy, setBusy] = useState(false); // 🔧 제출/저장 중 보호
+  const [busy, setBusy] = useState(false);
 
-  // 권한 요청 + 갤러리에서 이미지 선택
+  // 사진 선택
   const onPickImage = useCallback(async () => {
     if (busy) return;
     try {
@@ -58,6 +64,22 @@ export default function UploadScreen() {
     }
   }, [busy]);
 
+  // 사진 삭제
+  const onRemoveImage = useCallback(() => {
+    if (busy) return;
+    setImageUri(null);
+  }, [busy]);
+
+  // 소요시간: 숫자만 + 1~1440 범위로 입력단계 클램프
+  const handleDurationChange = useCallback((txt) => {
+    const digits = (txt || '').replace(/[^\d]/g, '');
+    if (!digits) { setDuration(''); return; }
+    let n = parseInt(digits, 10);
+    if (isNaN(n) || n <= 0) { setDuration(''); return; }
+    if (n > MAX_MINUTES) n = MAX_MINUTES;
+    setDuration(String(n));
+  }, []);
+
   const onSubmit = useCallback(async () => {
     if (busy) return;
     setBusy(true);
@@ -67,21 +89,21 @@ export default function UploadScreen() {
         return;
       }
       const trimmed = (text || '').trim();
+
       if (!trimmed && !imageUri) {
         Alert.alert('확인', '텍스트 또는 사진 중 하나는 입력/선택해주세요.');
         return;
       }
-      const dur = toNumberOrZero(duration);
-      if (duration && dur <= 0) {
-        Alert.alert('확인', '소요 시간은 1 이상의 숫자로 입력해주세요.');
-        return;
-      }
+
+      // 최종 클램프
+      const rawDur = toNumberOrZero(duration);
+      const finalDur = duration ? Math.min(Math.max(rawDur, 1), MAX_MINUTES) : 0;
 
       const entry = {
         id: `en_${Date.now()}`,
         text: trimmed,
         imageUri: imageUri || null,
-        duration: duration ? dur : 0,
+        duration: finalDur,
         timestamp: Date.now(),
       };
 
@@ -91,16 +113,13 @@ export default function UploadScreen() {
       list.unshift(entry);
       await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
 
-      // challenge의 currentScore = entries 개수로 갱신
+      // challenge의 currentScore 갱신
       const challRaw = await AsyncStorage.getItem('challenges');
       const challenges = challRaw ? JSON.parse(challRaw) : [];
       const idx = challenges.findIndex((c) => c.id === challengeId);
       let nextTitle, nextStart, nextEnd, nextGoal, nextReward;
       if (idx >= 0) {
-        challenges[idx] = {
-          ...challenges[idx],
-          currentScore: list.length,
-        };
+        challenges[idx] = { ...challenges[idx], currentScore: list.length };
         await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
         await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
         nextTitle = challenges[idx]?.title;
@@ -134,13 +153,13 @@ export default function UploadScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* 제목 중앙 정렬 */}
       <Text style={styles.screenTitle}>인증 업로드</Text>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>내용</Text>
-
-        {/* 상단 오른쪽: 작은 "사진 선택" 버튼 */}
-        <View style={styles.rowRight}>
+        {/* "내용"과 "사진 선택"을 가로 한 줄로 */}
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>내용</Text>
           <TouchableOpacity
             style={[buttonStyles.compactRight, { opacity: busy ? 0.6 : 1 }]}
             onPress={onPickImage}
@@ -151,25 +170,45 @@ export default function UploadScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* 미리보기 + 우상단 삭제 버튼 */}
         {!!imageUri && (
-          <Image source={{ uri: imageUri }} style={styles.preview} />
+          <View style={styles.previewWrap}>
+            <Image source={{ uri: imageUri }} style={styles.preview} />
+            <TouchableOpacity
+              accessibilityLabel="사진 삭제"
+              onPress={onRemoveImage}
+              activeOpacity={0.8}
+              disabled={busy}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              style={styles.previewDeleteBtn}
+            >
+              <Text allowFontScaling={false} style={styles.previewDeleteX}>×</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
-        <Text style={styles.label}>텍스트</Text>
+        {/* "텍스트" 라벨 제거, 인증내용 500자, 자동 높이 확장 */}
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={(t) => setText((t || '').slice(0, MAX_TEXT_LEN))}
           placeholder="인증 내용을 입력하세요"
-          style={[styles.input, { height: 100, textAlignVertical: 'top', opacity: busy ? 0.75 : 1 }]}
+          style={[styles.input, { height: textHeight, textAlignVertical: 'top', opacity: busy ? 0.75 : 1 }]}
           multiline
           editable={!busy}
           placeholderTextColor={PALETTE.gray400}
+          maxLength={MAX_TEXT_LEN}
+          onContentSizeChange={e => {
+            const h = e?.nativeEvent?.contentSize?.height || 0;
+            const minH = 120; // 최소
+            const maxH = 240; // 최대 (너무 커지지 않게)
+            if (h > 0) setTextHeight(Math.max(minH, Math.min(h, maxH)));
+          }}
         />
 
         <Text style={[styles.label, { marginTop: spacing.md }]}>소요 시간(분)</Text>
         <TextInput
           value={duration}
-          onChangeText={createNumberChangeHandler(setDuration)}
+          onChangeText={handleDurationChange}
           placeholder="숫자만 입력"
           style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
           editable={!busy}
@@ -192,9 +231,8 @@ export default function UploadScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg },
+  screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign: 'center' },
 
-  // 카드(기존 cardStyles.container 대체)
   card: {
     backgroundColor: PALETTE.white,
     borderWidth: 1,
@@ -202,17 +240,55 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.lg,
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
+  // "내용"과 "사진 선택"을 한 줄로, 간격 살짝 줄임
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800 },
 
   label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },
   input: {
-    backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200,
-    borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: PALETTE.gray800,
+    backgroundColor: PALETTE.white,
+    borderWidth: 1,
+    borderColor: PALETTE.gray200,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: PALETTE.gray800,
   },
-  rowRight: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm },
+
+  // 미리보기 컨테이너 (삭제 버튼을 절대 위치시키기 위해 relative)
+  previewWrap: {
+    position: 'relative',
+    marginBottom: spacing.md,
+  },
   preview: {
-    width: '100%', height: 200, borderRadius: radius.md,
-    marginBottom: spacing.md, backgroundColor: PALETTE.gray100,
+    width: '100%',
+    height: 200,
+    borderRadius: radius.md,
+    backgroundColor: PALETTE.gray100,
+  },
+  // 우상단 반투명 회색 원형 + 검은 X
+  previewDeleteBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(229, 231, 235, 0.85)', // 회색(Gray-200) 반투명
+  },
+  previewDeleteX: {
+    fontSize: 18,
+    lineHeight: 18,
+    color: '#000', // 검은색 X
+    fontWeight: '900',
+    includeFontPadding: false,
   },
 });

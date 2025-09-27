@@ -1,4 +1,4 @@
-package com.anonymous.thepush
+package com.hwiject.thepush
 
 import android.app.Application
 import android.content.res.Configuration

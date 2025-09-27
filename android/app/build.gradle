@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.thepush'
+    namespace 'com.hwiject.thepush'
     defaultConfig {
-        applicationId 'com.anonymous.thepush'
+        applicationId 'com.hwiject.thepush'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -1,112 +1,277 @@
 // screens/ChallengeListScreen.js
-import React, { useEffect, useMemo, useState, useCallback, memo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, memo, useRef } from 'react';
 import {
   SafeAreaView, View, Text, StyleSheet,
-  TouchableOpacity, Alert, BackHandler, Platform
+  TouchableOpacity, TouchableWithoutFeedback, Alert,
+  BackHandler, Platform, FlatList, UIManager, LayoutAnimation,
+  Animated, Easing
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DraggableFlatList from 'react-native-draggable-flatlist';
 
 import { buttonStyles, colors, spacing, radius } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
 import GearIcon from '../assets/icons/gear.svg';
 
-const CARD_BORDER = '#E5E7EB';
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
-/* ---------- 안전 유틸 ---------- */
-async function readJsonArray(key) {
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-function safeStringId(v) { return v == null ? '' : String(v); }
-function dedupeById(arr = []) {
+/* ---------- 상수 ---------- */
+const CARD_BORDER = '#E5E7EB';   // 얇은 카드 테두리
+const ARROW_SIZE = 40;
+const ARROW_GAP = 12;
+const CONTROLS_H = 44;
+const ORDER_KEY = 'ch_order';    // ✅ 활성 카드 순서 맵(id -> index)
+
+/* ---------- 유틸 ---------- */
+const safeStringId = (v) => (v == null ? '' : String(v));
+const ensureItemId = (it, idx = 0) => {
+  if (!it || typeof it !== 'object') return it;
+  const raw = it.id ?? it.challengeId ?? it.uuid ?? it.key ?? (Number.isFinite(it.createdAt) ? `gen_${it.createdAt}` : null);
+  const id = raw != null && String(raw).length ? String(raw) : `gen_${Date.now()}_${idx}`;
+  return it.id === id ? it : { ...it, id };
+};
+const parseJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
+const dedupeById = (arr = []) => {
   const map = new Map();
-  for (const it of arr) { if (!it || !it.id) continue; map.set(safeStringId(it.id), it); }
+  arr.forEach((raw, i) => {
+    const it = ensureItemId(raw, i);
+    const id = safeStringId(it?.id);
+    if (!id) return;
+    if (!map.has(id)) map.set(id, it);
+  });
   return Array.from(map.values());
-}
-function moveInArray(arr, from, to) {
-  const copy = [...arr];
+};
+const moveInArray = (arr, from, to) => {
+  const copy = arr.slice();
   const [picked] = copy.splice(from, 1);
   copy.splice(to, 0, picked);
   return copy;
+};
+const readOrderMap = async () => {
+  const raw = await AsyncStorage.getItem(ORDER_KEY);
+  const obj = raw ? JSON.parse(raw) : {};
+  return (obj && typeof obj === 'object') ? obj : {};
+};
+const writeOrderMap = async (map) => {
+  try { await AsyncStorage.setItem(ORDER_KEY, JSON.stringify(map || {})); } catch {}
+};
+
+function asDoneFlags(c) {
+  const cs = Number(c?.currentScore ?? 0);
+  const gs = Number(c?.goalScore ?? NaN);
+  const doneByScore = Number.isFinite(gs) && gs > 0 && cs >= gs;
+  const done = c?.status === 'completed' || doneByScore;
+  return { _isDone: !!done, _completedAt: c?.completedAt ?? 0 };
 }
 
-/* ---------- 카드 ---------- */
-const ItemCard = memo(function ItemCard({
-  item, onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
-  onLongPress, isActiveDrag,
+/* 완료/진행중 정렬 + archived 제외 + ✅ 순서맵 적용 */
+function normalizeWithOrder(arrRaw = [], orderMapIn = {}) {
+  const raw = (arrRaw || []).map((c, i) => ({ ...ensureItemId(c, i), ...asDoneFlags(c) }));
+  const list = raw.filter(c => !c.archived);
+
+  const done = list
+    .filter(c => c._isDone)
+    .sort((a, b) => (b._completedAt || 0) - (a._completedAt || 0))
+    .map(c => { const { sortIndex, ...rest } = c; return rest; });
+
+  const active = list.filter(c => !c._isDone);
+
+  // ✅ 순서맵 기준으로 활성 카드 정렬
+  const known = [];
+  const unknown = [];
+  active.forEach(c => {
+    const id = safeStringId(c.id);
+    const idx = Number.isFinite(orderMapIn[id]) ? orderMapIn[id] : null;
+    if (idx === null) unknown.push(c); else known.push({ idx, item: c });
+  });
+
+  known.sort((a, b) => a.idx - b.idx);
+  // unknown은 기존 sortIndex가 있다면 그 순서, 없으면 createdAt(최신 우선)으로
+  unknown.sort((a, b) => {
+    const aHas = Number.isFinite(a.sortIndex); const bHas = Number.isFinite(b.sortIndex);
+    if (aHas && bHas) return a.sortIndex - b.sortIndex;
+    if (aHas) return -1;
+    if (bHas) return 1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  const mergedActive = [...known.map(k => k.item), ...unknown];
+
+  // 활성 카드에 새 sortIndex 부여 + 새로운 orderMap 생성
+  const newOrderMap = {};
+  const activeNormalized = mergedActive.map((c, i) => {
+    newOrderMap[safeStringId(c.id)] = i;
+    return { ...c, sortIndex: i };
+  });
+
+  return { arranged: [...done, ...activeNormalized], newOrderMap };
+}
+
+/* ---------- HOF 저장(단일 키 'hof') ---------- */
+async function upsertHof(record) {
+  try {
+    const raw = await AsyncStorage.getItem('hof');
+    const list = parseJson(raw) || [];
+    const arr = Array.isArray(list) ? list : [];
+    const id = safeStringId(record.id || record.challengeId);
+    const rec = {
+      id,
+      challengeId: id,
+      title: record.title ?? '(제목 없음)',
+      startDate: record.startDate ?? null,
+      endDate: record.endDate ?? null,
+      goalScore: record.goalScore ?? 0,
+      currentScore: record.currentScore ?? 0,
+      rewardTitle: record.rewardTitle ?? record.reward ?? null,
+      reward: record.reward ?? record.rewardTitle ?? null,
+      status: 'completed',
+      completedAt: record.completedAt ?? Date.now(),
+      rewardClaimed: true,
+      rewardClaimedAt: record.rewardClaimedAt ?? Date.now(),
+      archived: true,
+      ...record,
+    };
+    const filtered = arr.filter(h => safeStringId(h.id) !== id && safeStringId(h.challengeId) !== id);
+    filtered.unshift(rec);
+    await AsyncStorage.setItem('hof', JSON.stringify(filtered));
+  } catch (e) {
+    console.warn('HOF save failed', e);
+  }
+}
+
+/* ---------- 빈 상태 ---------- */
+const EmptyState = memo(() => (
+  <View style={styles.emptyWrap}>
+    <Text style={styles.emptyText}>새로운 도전을 응원합니다!</Text>
+  </View>
+));
+
+/* ---------- 카드 UI ---------- */
+function CardBody({
+  item,
+  showControls,
+  canReorder,
+  onPressCard,
+  onPressEdit,
+  onPressDuplicate,
+  onPressDelete,
+  onPressClaim,
+  onLongPress,
 }) {
   const isDone = !!item._isDone;
-  return (
-    <View style={styles.cardWrap}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => onPressCard(item)}
-        onLongPress={isDone ? undefined : onLongPress}
-        delayLongPress={160}
-        style={[styles.card, isDone && styles.dimmed, isActiveDrag && styles.draggingCard]}
-      >
-        <Text style={styles.title}>{item.title}</Text>
 
-        <View style={styles.metaWrap}>
-          <Text style={styles.meta}>기간 {item.startDate ?? '-'} ~ {item.endDate ?? '-'}</Text>
-          <Text style={styles.meta}>점수 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
-          {!!(item.rewardTitle || item.reward) && (
-            <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
-          )}
-        </View>
+  // 본문(제목/메타/좌우 컨트롤)만 선택적으로 디밍
+  const Content = (
+    <View style={[styles.cardContent, isDone && styles.dimmedContent]}>
+      <Text style={styles.title}>{item.title ?? '(제목 없음)'}</Text>
 
-        <View style={styles.actionsRight}>
-          <TouchableOpacity
-            disabled={isDone}
-            style={[styles.outlineBtn, isDone && styles.disabledBtn]}
-            onPress={() => onPressEdit(item)}
-          >
-            <Text style={styles.outlineText}>{isDone ? '수정불가' : '수정'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            disabled={isDone}
-            style={[styles.outlineBtn, isDone && styles.disabledBtn]}
-            onPress={() => onPressDuplicate(item)}
-          >
-            <Text style={styles.outlineText}>{isDone ? '복제불가' : '복제'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.outlineBtn} onPress={() => onPressDelete(item)}>
-            <Text style={styles.outlineText}>삭제</Text>
-          </TouchableOpacity>
-        </View>
-
-        {!isDone ? (
-          <TouchableOpacity
-            style={[buttonStyles.primary.container, styles.bigActionBtn]}
-            onPress={() => onPressCard({ ...item, _upload: true })}
-            activeOpacity={0.9}
-          >
-            <Text style={[buttonStyles.primary.label, styles.bigActionText]}>인증하기</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.outlineBigBtn}
-            onPress={() => onPressClaim(item)}
-            activeOpacity={1}
-          >
-            <Text style={styles.outlineBigText}>보상 받기</Text>
-          </TouchableOpacity>
+      <View style={styles.metaWrap}>
+        <Text style={styles.meta}>기간 {item.startDate ?? '-'} ~ {item.endDate ?? '-'}</Text>
+        <Text style={styles.meta}>점수 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
+        {!!(item.rewardTitle || item.reward) && (
+          <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
         )}
-      </TouchableOpacity>
+      </View>
+
+      <View style={styles.controlsRow}>
+        {/* 좌측: 순서 화살표 (길게눌렀을 때만 표시, 공간 유지) */}
+        <View style={[styles.arrowsInline, !showControls && { opacity: 0 }]}>
+          <TouchableOpacity
+            onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'up' }) : undefined}
+            activeOpacity={0.9}
+            style={styles.circleArrowSmall}
+          >
+            <Text style={styles.circleArrowTxt}>↑</Text>
+          </TouchableOpacity>
+          <View style={{ width: ARROW_GAP }} />
+          <TouchableOpacity
+            onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'down' }) : undefined}
+            activeOpacity={0.9}
+            style={styles.circleArrowSmall}
+          >
+            <Text style={styles.circleArrowTxt}>↓</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 우측: 수정/복제/삭제 (길게눌렀을 때만 표시, 공간 유지) */}
+        <View style={[styles.actionsRight, !showControls && { opacity: 0 }]}>
+          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
+            <Text style={styles.actionDarkText}>수정</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
+            <Text style={styles.actionDarkText}>복제</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDelete?.(item) : undefined} activeOpacity={0.9}>
+            <Text style={styles.actionDarkText}>삭제</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
-});
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onPressCard?.(item)}
+      onLongPress={(!showControls && !isDone) ? onLongPress : undefined}
+      delayLongPress={160}
+      style={[
+        styles.card,
+        showControls && styles.selectedCard      // 얇은선 유지
+      ]}
+    >
+      {Content}
+
+      {/* 하단 버튼은 디밍에서 제외 → 글씨 검은색 선명 */}
+      {!isDone ? (
+        <TouchableOpacity
+          style={[buttonStyles.primary.container, styles.bigActionBtn, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressCard?.({ ...item, _upload: true })}
+          activeOpacity={0.9}
+        >
+          <Text style={[buttonStyles.primary.label, styles.bigActionText]}>인증하기</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.outlineBigBtn, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressClaim?.(item)}
+          activeOpacity={1}
+        >
+          {/* ✅ 글씨만 검은색 — 카드 본문 디밍과 독립 */}
+          <Text style={styles.outlineBigText}>보상 받기</Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+/* ---------- 리스트 셀 ---------- */
+const ItemCard = memo(React.forwardRef(function ItemCard({
+  item, hidden,
+  onLongPress,
+  onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
+}, ref) {
+  return (
+    <View ref={ref} style={[styles.cardWrap, hidden && { opacity: 0 }]}>
+      <CardBody
+        item={item}
+        showControls={false}
+        canReorder={!asDoneFlags(item)._isDone}
+        onPressCard={onPressCard}
+        onPressEdit={onPressEdit}
+        onPressDuplicate={onPressDuplicate}
+        onPressDelete={onPressDelete}
+        onPressClaim={onPressClaim}
+        onLongPress={onLongPress}
+      />
+    </View>
+  );
+}));
 
 /* ---------- 화면 ---------- */
 export default function ChallengeListScreen() {
@@ -114,41 +279,52 @@ export default function ChallengeListScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  const [list, setList] = useState([]);
-  const [uiData, setUiData] = useState([]); // 드래그시 깜빡임 방지용 표시 데이터
-  const uiDataRef = useRef(uiData);
-  useEffect(() => { uiDataRef.current = uiData; }, [uiData]);
+  const [data, setData] = useState([]);
 
-  // 포커스 시 최신 데이터 로드 + sortIndex 초기화
+  // 정렬 상태
+  const [reorderActive, setReorderActive] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+
+  // 선택 카드 복제본 좌표
+  const floatLeft = useRef(new Animated.Value(0)).current;
+  const floatTop  = useRef(new Animated.Value(0)).current;
+  const floatWidthRef = useRef(0);
+
+  // 빠른 연타 방지
+  const animLockRef = useRef(false);
+
+  // refs
+  const itemRefs = useRef({}); // id -> nativeRef
+
+  // 이전 데이터 보존용(일시적)
+  const dataRef = useRef([]);
+  useEffect(() => { dataRef.current = data; }, [data]);
+
+  /* 데이터 로드 */
   useEffect(() => {
     if (!isFocused) return;
     (async () => {
-      const arr = dedupeById(await readJsonArray('challenges'));
-      const decorated = arr.map((c) => ({
-        ...c,
-        sortIndex: Number.isFinite(c?.sortIndex) ? c.sortIndex : undefined,
-      }));
-      const done = decorated.filter(c => (c?.status === 'completed'));
-      const active = decorated.filter(c => !(c?.status === 'completed'));
-      const needInit = active.some(c => !Number.isFinite(c.sortIndex));
-      if (needInit) {
-        const activeInit = active
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-          .map((c, idx) => ({ ...c, sortIndex: idx }));
-        const merged = [...done, ...activeInit];
-        try { await AsyncStorage.setItem('challenges', JSON.stringify(merged)); } catch {}
-        setList(merged);
-      } else {
-        try { await AsyncStorage.setItem('challenges', JSON.stringify(decorated)); } catch {}
-        setList(decorated);
-      }
+      const raw = parseJson(await AsyncStorage.getItem('challenges')) || [];
+      const ensured = (Array.isArray(raw) ? raw : []).map(ensureItemId);
+      const deduped = dedupeById(ensured);
+
+      // ✅ 순서맵과 함께 정규화
+      const orderMap = await readOrderMap();
+      const { arranged, newOrderMap } = normalizeWithOrder(deduped, orderMap);
+
+      setData(arranged);
+      try {
+        await AsyncStorage.setItem('challenges', JSON.stringify(arranged));
+        await writeOrderMap(newOrderMap);
+      } catch {}
     })().catch(console.error);
   }, [isFocused]);
 
-  // 안드로이드 뒤로가기 → 종료 확인
+  /* 뒤로가기 */
   useEffect(() => {
     if (!isFocused || Platform.OS !== 'android') return;
     const onBackPress = () => {
+      if (reorderActive) { finalizeReorder(); return true; }
       Alert.alert('앱 종료', '정말 종료할까요?', [
         { text: '취소', style: 'cancel' },
         { text: '종료', style: 'destructive', onPress: () => BackHandler.exitApp() },
@@ -157,116 +333,111 @@ export default function ChallengeListScreen() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [isFocused]);
+  }, [isFocused, reorderActive, finalizeReorder]);
 
-  const decorate = useCallback((c) => {
-    const cs = Number(c?.currentScore ?? 0);
-    const gs = Number(c?.goalScore ?? NaN);
-    const hasValidGoal = Number.isFinite(gs) && gs > 0;
-    const doneByScore = hasValidGoal && cs >= gs;
-    const done = c?.status === 'completed' || doneByScore;
-    return { ...c, _isDone: !!done, _completedAt: c?.completedAt ?? 0 };
+  /* 저장/정리 */
+  const persistChallenges = useCallback(async (arr) => {
+    const ensured = (Array.isArray(arr) ? arr : []).map(ensureItemId);
+    const clean = dedupeById(ensured);
+
+    // ✅ 현재 결과에서 다시 순서맵 생성/적용
+    const currentOrder = await readOrderMap();
+    const { arranged, newOrderMap } = normalizeWithOrder(clean, currentOrder);
+
+    requestAnimationFrame(() => {
+      try { AsyncStorage.setItem('challenges', JSON.stringify(arranged)); } catch {}
+      writeOrderMap(newOrderMap);
+    });
+    return arranged;
   }, []);
 
-  // 표시 순서: 완료(완료일 내림차순) + 진행중(sortIndex 오름차순/대체 createdAt)
-  const sorted = useMemo(() => {
-    const arr = (list || []).map(decorate);
-    const done = arr.filter((c) => c._isDone)
-      .sort((a, b) => (b._completedAt || 0) - (a._completedAt || 0));
-    const active = arr.filter((c) => !c._isDone)
-      .sort((a, b) => {
-        const ai = Number.isFinite(a.sortIndex) ? a.sortIndex : -(a.createdAt || 0);
-        const bi = Number.isFinite(b.sortIndex) ? b.sortIndex : -(b.createdAt || 0);
-        return ai - bi;
-      });
-    return [...done, ...active];
-  }, [list, decorate]);
-
-  // 정렬 계산이 바뀌면 화면 데이터 동기화
-  useEffect(() => { setUiData(sorted); }, [sorted]);
-
-  const saveChallenges = useCallback(async (arr) => {
-    const clean = dedupeById(Array.isArray(arr) ? arr : []);
-    setList(clean); // 상태도 갱신(루트와 동기화)
-    await AsyncStorage.setItem('challenges', JSON.stringify(clean));
+  /* 리스트 애니메이션(부드럽게) */
+  const animateList = useCallback(() => {
+    LayoutAnimation.configureNext({
+      duration: 180,
+      update: { type: LayoutAnimation.Types.easeInEaseOut },
+      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+    });
   }, []);
 
+  /* finalizeReorder: 단일 정의 */
+  const finalizeReorder = useCallback(() => {
+    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
+    setData(prev => {
+      const next = prev.slice();
+      // 저장 시 persistChallenges가 newOrderMap을 갱신
+      persistChallenges(next);
+      return next;
+    });
+    setSelectedId(null);
+    setReorderActive(false);
+    animLockRef.current = false;
+  }, [persistChallenges]);
+
+  /* 좌표 측정 */
+  const measureNow = useCallback((id) => {
+    const ref = itemRefs.current[safeStringId(id)];
+    if (!ref || !ref.measureInWindow) return false;
+    let did = false;
+    ref.measureInWindow((x, y, width) => {
+      did = true;
+      floatLeft.setValue(x);
+      floatTop.setValue(Math.max(0, y - insets.top));
+      floatWidthRef.current = width;
+    });
+    return did;
+  }, [floatLeft, floatTop, insets.top]);
+  const rafMeasureSelected = useCallback((id) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => measureNow(id)));
+  }, [measureNow]);
+
+  /* CRUD/네비 */
   const onDelete = useCallback((item) => {
     Alert.alert('삭제 확인', `'${item.title}' 도전을 삭제할까요?`, [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제', style: 'destructive', onPress: async () => {
           try { await cancelAllForChallenge(item.id).catch(() => {}); } catch {}
-          const next = (list || []).filter((c) => safeStringId(c.id) !== safeStringId(item.id));
-          await saveChallenges(next);
+          animateList();
+          setData(prev => prev.filter(c => safeStringId(c.id) !== safeStringId(item.id)));
+          // 저장
+          setTimeout(() => { persistChallenges(dataRef.current); }, 0);
           try { await AsyncStorage.removeItem(`entries_${item.id}`); } catch {}
+          finalizeReorder();
         },
       },
     ]);
-  }, [list, saveChallenges]);
+  }, [finalizeReorder, animateList, persistChallenges]);
 
   const onDuplicate = useCallback((item) => {
-    if (item._isDone) return;
-    Alert.alert('복제 확인', `'${item.title}' 도전을 복제할까요?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '복제', onPress: async () => {
-          const current = dedupeById(await readJsonArray('challenges'));
-          const dec = current.map(decorate);
-          const active = dec.filter(c => !c._isDone);
-          const shifted = active.map(c => ({ ...c, sortIndex: Number.isFinite(c.sortIndex) ? (c.sortIndex + 1) : 1 }));
-          const copy = {
-            ...item,
-            id: `ch_${Date.now()}`,
-            title: `${item.title} (복제)`,
-            currentScore: 0,
-            status: 'active',
-            createdAt: Date.now(),
-            completedAt: undefined,
-            sortIndex: 0,
-          };
-          const done = dec.filter(c => c._isDone);
-          const merged = [...done, copy, ...shifted];
-          await saveChallenges(merged);
-        },
-      },
-    ]);
-  }, [saveChallenges]);
-
-  const confirmClaimReward = useCallback((item) => {
-    Alert.alert('보상 받기', `'${item.title}' 도전의 보상을 받으시겠습니까?`, [
-      { text: '취소', style: 'cancel' },
-      { text: '확인', style: 'default', onPress: () => onClaimReward(item) },
-    ]);
-  }, []);
-
-  const onClaimReward = useCallback(async (item) => {
-    try {
-      const current = dedupeById(await readJsonArray('challenges'));
-      const next = current.filter(c => safeStringId(c.id) !== safeStringId(item.id));
-      await AsyncStorage.setItem('challenges', JSON.stringify(next));
-      setList(next);
-
-      const hof = await readJsonArray('hallOfFame');
-      const marked = { ...item, status: 'completed', completedAt: Date.now() };
-      hof.unshift(marked);
-      await AsyncStorage.setItem('hallOfFame', JSON.stringify(hof));
-      await AsyncStorage.setItem('lastClaimedId', safeStringId(marked.id));
-
-      try { await cancelAllForChallenge(item.id); } catch {}
-
-      navigation.navigate('HallOfFameScreen', { fromClaim: true, recentId: marked.id });
-    } catch (e) {
-      console.error(e);
-      Alert.alert('오류', '보상 처리 중 문제가 발생했습니다.');
-    }
-  }, [navigation]);
+    if (asDoneFlags(item)._isDone) return;
+    animateList();
+    setData(prev => {
+      // 활성 맨 위(0번)로 넣고, 나머지 +1은 persist에서 newOrderMap 생성 시 반영
+      const copy = {
+        ...ensureItemId(item),
+        id: `ch_${Date.now()}`,
+        title: `${item.title} (복제)`,
+        currentScore: 0,
+        status: 'active',
+        createdAt: Date.now(),
+        completedAt: undefined,
+        sortIndex: 0,
+      };
+      const arr = prev.slice();
+      // done 이후 위치(활성 구간의 맨 앞)에 삽입
+      const doneCount = arr.reduce((acc, c) => acc + (asDoneFlags(c)._isDone ? 1 : 0), 0);
+      arr.splice(doneCount, 0, copy);
+      return arr;
+    });
+    // 저장(순서맵 갱신)
+    setTimeout(() => { persistChallenges(dataRef.current); }, 0);
+    finalizeReorder();
+  }, [persistChallenges, finalizeReorder, animateList]);
 
   const goEntryList = useCallback((item) => {
-    if (item?._upload) {
-      navigation.navigate('Upload', { challengeId: item.id });
-      return;
-    }
+    if (item?._upload) { navigation.navigate('Upload', { challengeId: item.id }); return; }
     navigation.navigate('EntryList', {
       challengeId: item.id,
       title: item.title,
@@ -278,142 +449,230 @@ export default function ChallengeListScreen() {
     });
   }, [navigation]);
 
-  // ── 드래그 시작/종료 메타 (진행중 영역 경계 유지)
-  const dragMetaRef = useRef({ doneCount: 0 });
-  const handleDragBegin = useCallback(({ index }) => {
-    const arr = uiDataRef.current || [];
-    const doneCount = arr.filter(c => c._isDone).length;
-    dragMetaRef.current = { doneCount, startIndex: index };
-  }, []);
+  /* 보상 수령 — 모달 없이 즉시 처리 후 HOF로 이동 */
+  const onClaimReward = useCallback(async (item) => {
+    const flags = asDoneFlags(item);
+    if (!flags._isDone) {
+      Alert.alert('아직 완료 전이에요', '목표를 달성하면 보상을 받을 수 있어요.');
+      return;
+    }
 
-  // ── 드래그 종료: 화면 먼저 업데이트(깜빡임 최소화) → 진행중 블록 sortIndex 저장
-  const handleDragEnd = useCallback(({ from, to }) => {
-    const arr = uiDataRef.current || [];
-    const { doneCount } = dragMetaRef.current;
-    const activeStart = doneCount;
+    // ✅ 항상 동일한 ms 타임스탬프 사용
+    const completedAtTs = Date.now();
 
-    // 완료 블록으로 드롭되는 경우, 진행중 첫 위치로 클램프
-    const clampedFrom = Math.max(from, activeStart);
-    const clampedTo = Math.max(to, activeStart);
+    // 1) 메인 리스트에서 archived 처리
+    setData(prev => prev.map(c =>
+      String(c.id) === String(item.id)
+        ? {
+            ...c,
+            status: 'completed',
+            completedAt: completedAtTs,
+            rewardClaimed: true,
+            rewardClaimedAt: completedAtTs,
+            archived: true
+          }
+        : c
+    ));
+    // 저장(순서맵 갱신)
+    setTimeout(() => { persistChallenges(dataRef.current); }, 0);
 
-    const done = arr.slice(0, activeStart);
-    const active = arr.slice(activeStart);
+    // 2) 알림 취소
+    try { await cancelAllForChallenge(item.id).catch(() => {}); } catch {}
 
-    const fromIdx = clampedFrom - activeStart;
-    const toIdx = Math.min(Math.max(clampedTo - activeStart, 0), active.length - 1);
+    // 3) HOF 저장 (동일 ts 사용)
+    const hofRecord = {
+      ...item,
+      id: String(item.id),
+      challengeId: String(item.id),
+      status: 'completed',
+      completedAt: completedAtTs,
+      rewardClaimed: true,
+      rewardClaimedAt: completedAtTs,
+      archived: true,
+    };
+    await upsertHof(hofRecord);
 
-    // 동일 위치면 아무 것도 안 함
-    if (fromIdx === toIdx) return;
-
-    const activeMoved = moveInArray(active, fromIdx, toIdx);
-    const merged = [...done, ...activeMoved];
-
-    // 1) UI 즉시 반영 (깜빡임 최소화)
-    setUiData(merged);
-
-    // 2) 진행중 sortIndex 재부여하여 영구 저장
-    const idxMap = new Map(activeMoved.map((c, idx) => [safeStringId(c.id), idx]));
-    const next = (list || []).map(it => {
-      const id = safeStringId(it.id);
-      return idxMap.has(id) ? { ...it, sortIndex: idxMap.get(id) } : it;
+    // 4) HOF로 이동 — 팝업은 HOF에서만 한 번 표시
+    navigation.navigate('HallOfFameScreen', {
+      highlightId: hofRecord.id,
+      justClaimed: true,
+      ts: completedAtTs,
     });
-    saveChallenges(next);
-  }, [list, saveChallenges]);
+  }, [navigation, persistChallenges]);
 
-  const renderItem = useCallback(
-    ({ item, drag, isActive }) => (
-      <ItemCard
-        item={item}
-        onPressCard={goEntryList}
-        onPressEdit={(it) => navigation.navigate('EditChallenge', { challenge: it })}
-        onPressDuplicate={onDuplicate}
-        onPressDelete={onDelete}
-        onPressClaim={confirmClaimReward}
-        onLongPress={drag}
-        isActiveDrag={isActive}
-      />
-    ),
-    [goEntryList, navigation, onDuplicate, onDelete, confirmClaimReward]
+  /* 정렬 모드 */
+  const doneCount = data.reduce((acc, c) => acc + (asDoneFlags(c)._isDone ? 1 : 0), 0);
+  const indexOfId = useCallback((id) => data.findIndex(c => safeStringId(c.id) === safeStringId(id)), [data]);
+
+  const moveSelected = useCallback((dir) => {
+    if (!reorderActive || !selectedId) return;
+    if (animLockRef.current) return;
+    animLockRef.current = true;
+
+    const idx = indexOfId(selectedId);
+    if (idx < 0) { animLockRef.current = false; return; }
+
+    const minIdx = doneCount;
+    const maxIdx = data.length - 1;
+    const to = Math.max(minIdx, Math.min(maxIdx, idx + (dir === 'up' ? -1 : +1)));
+    if (to === idx) { animLockRef.current = false; return; }
+
+    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
+    setData(prev => moveInArray(prev, idx, to));
+
+    setTimeout(() => {
+      const ref = itemRefs.current[safeStringId(selectedId)];
+      if (ref && ref.measureInWindow) {
+        ref.measureInWindow((_x, y) => {
+          const nextTop = Math.max(0, y - insets.top);
+          Animated.timing(floatTop, {
+            toValue: nextTop,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+          }).start(() => { animLockRef.current = false; });
+        });
+      } else {
+        animLockRef.current = false;
+      }
+    }, 16);
+  }, [reorderActive, selectedId, indexOfId, doneCount, data.length, insets.top, floatTop]);
+
+  const enterReorder = useCallback((item) => {
+    if (asDoneFlags(item)._isDone) {
+      Alert.alert('안내', '완료된 도전은 순서를 변경할 수 없어요.');
+      return;
+    }
+    setSelectedId(item.id);
+    const ok = measureNow(item.id);
+    setReorderActive(true);
+    if (!ok) rafMeasureSelected(item.id);
+  }, [measureNow, rafMeasureSelected]);
+
+  const onOverlayPress = useCallback(() => finalizeReorder(), [finalizeReorder]);
+
+  /* 렌더 */
+  const keyExtractor = useCallback(
+    (it, index) => `${safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? `idx_${index}`)}__${index}`,
+    []
+  );
+  const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
+
+  const renderRow = useCallback(
+    ({ item }) => {
+      const id = safeStringId(item.id);
+      const isSelected = reorderActive && id === safeStringId(selectedId);
+
+      return (
+        <ItemCard
+          ref={(el) => { if (el) itemRefs.current[id] = el; }}
+          item={item}
+          hidden={isSelected && reorderActive}
+          onLongPress={() => enterReorder(item)}
+          onPressCard={(it) => {
+            if (reorderActive) return;
+            if (it?._upload) { navigation.navigate('Upload', { challengeId: it.id }); return; }
+            goEntryList(it);
+          }}
+          onPressEdit={() => {}}
+          onPressDuplicate={() => {}}
+          onPressDelete={() => {}}
+          onPressClaim={onClaimReward}
+        />
+      );
+    },
+    [reorderActive, selectedId, navigation, goEntryList, enterReorder, onClaimReward]
   );
 
-  const renderPlaceholder = useCallback(() => (
-    <View style={styles.cardWrap}>
-      <View style={[styles.card, styles.placeholderCard]} />
-    </View>
-  ), []);
-
-  const keyExtractor = useCallback((it) => String(it.id), []);
-
-  /** 오른쪽 하단: 도전추가 버튼 — 원형 + 아이콘만 (UI 유지) */
-  const BottomAddButton = useCallback(() => {
-    const bottom = Math.max(insets.bottom, 8) + spacing.lg;
-    return (
-      <View pointerEvents="box-none" style={[styles.addFloatingWrap, { bottom }]}>
-        <TouchableOpacity
-          style={styles.addFab}
-          onPress={() => navigation.navigate('AddChallenge', { resetNonce: Date.now() })}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text allowFontScaling={false} style={styles.addFabPlus}>+</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }, [insets.bottom, navigation]);
-
-  /** 왼쪽 하단: 설정(아이콘만, 52px) */
-  const BottomSettingsButton = useCallback(() => {
-    const bottom = Math.max(insets.bottom, 8) + spacing.lg;
-    return (
-      <View pointerEvents="box-none" style={[styles.settingsFloatingWrap, { bottom }]}>
-        <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={() => navigation.navigate('Settings')}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <GearIcon width={52} height={52} fill={colors.gray600} />
-        </TouchableOpacity>
-      </View>
-    );
-  }, [insets.bottom, navigation]);
+  const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ▼ 타이틀 중앙 정렬 헤더 (UI 유지) */}
+      {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>THE - PUSH</Text>
-
         <TouchableOpacity
           style={[buttonStyles.compactRight, styles.headerRight, styles.hofBtn]}
           onPress={() => navigation.navigate('HallOfFameScreen')}
           activeOpacity={0.9}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          disabled={reorderActive}
         >
           <Text style={[buttonStyles.compactRightText, styles.hofBtnText]}>명예의 전당</Text>
         </TouchableOpacity>
       </View>
 
-      <DraggableFlatList
-        data={uiData}
+      {/* 리스트 */}
+      <FlatList
+        data={data}
         keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        renderPlaceholder={renderPlaceholder}    // ✅ 드롭 시 레이아웃 점프 완화
-        onDragBegin={handleDragBegin}           // ✅ 진행중 경계 기록
-        onDragEnd={handleDragEnd}               // ✅ 경계 클램프 + 제어형 반영
-        activationDistance={10}
-        dragItemOverflow                          // ✅ 드래그중 아이템 오버플로 허용(안드 깜빡임 감소)
-        removeClippedSubviews={false}            // ✅ 클리핑 제거로 깜빡임 감소
-        containerStyle={{ flexGrow: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: spacing.lg,
-          paddingBottom: spacing.xxl + Math.max(insets.bottom, 12),
-        }}
-        scrollEventThrottle={16}
+        renderItem={renderRow}
+        scrollEnabled={!reorderActive}
+        removeClippedSubviews={false}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: listBottomPad }}
+        ListEmptyComponent={EmptyState}
+        initialNumToRender={12}
+        windowSize={15}
       />
 
-      <BottomAddButton />
-      <BottomSettingsButton />
+      {/* 플로팅 버튼 */}
+      <View pointerEvents="box-none" style={[styles.addFloatingWrap, { bottom: Math.max(insets.bottom, 8) + spacing.lg }]}>
+        <TouchableOpacity
+          style={styles.addFab}
+          onPress={() => navigation.navigate('AddChallenge', { resetNonce: Date.now() })}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          disabled={reorderActive}
+        >
+          <Text allowFontScaling={false} style={styles.addFabPlus}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View pointerEvents="box-none" style={[styles.settingsFloatingWrap, { bottom: Math.max(insets.bottom, 8) + spacing.lg }]}>
+        <TouchableOpacity
+          style={styles.settingsBtn}
+          onPress={() => navigation.navigate('Settings')}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          disabled={reorderActive}
+        >
+          <GearIcon width={52} height={52} fill={colors.gray600} />
+        </TouchableOpacity>
+      </View>
+
+      {/* 정렬 스크림 — 유지 */}
+      {reorderActive && (
+        <TouchableWithoutFeedback onPress={onOverlayPress}>
+          <View style={styles.fullOverlay} />
+        </TouchableWithoutFeedback>
+      )}
+
+      {/* 정렬 중 선택 카드 복제본 */}
+      {reorderActive && selected && (
+        <Animated.View
+          pointerEvents="box-none"
+          style={[
+            styles.floatingCardWrap,
+            { left: floatLeft, top: floatTop, width: floatWidthRef.current },
+          ]}
+        >
+          <CardBody
+            item={selected}
+            showControls
+            canReorder={!asDoneFlags(selected)._isDone}
+            onPressCard={(it) => {
+              if (it?.__move === 'up') { moveSelected('up'); return; }
+              if (it?.__move === 'down') { moveSelected('down'); return; }
+            }}
+            onPressEdit={(it) => { finalizeReorder(); navigation.navigate('EditChallenge', { challenge: it }); }}
+            onPressDuplicate={(it) => { onDuplicate(it); finalizeReorder(); }}
+            onPressDelete={(it) => { onDelete(it); }}
+            onPressClaim={() => {}}
+            onLongPress={undefined}
+          />
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -429,98 +688,80 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 0,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.gray800,
-    textAlign: 'center',
-    alignSelf: 'center',
-  },
-  headerRight: {
-    position: 'absolute',
-    right: spacing.lg,
-    top: '50%',
-    transform: [{ translateY: -12 }],
-  },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800, textAlign: 'center' },
+  headerRight: { position: 'absolute', right: spacing.lg, top: '50%', transform: [{ translateY: -12 }] },
   hofBtn: { paddingVertical: 4, paddingHorizontal: 10, marginTop: 15 },
   hofBtnText: { fontSize: 13, fontWeight: '700' },
 
+  /* 카드 */
   cardWrap: { marginTop: spacing.md },
-
   card: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderWidth: 1, borderColor: CARD_BORDER,   // 얇은선 통일
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
   },
-  placeholderCard: {
-    opacity: 0.25,
-    borderStyle: 'dashed',
-  },
-  dimmed: { opacity: 0.6 },
+  // 카드 본문(제목/메타/상단 컨트롤)만 디밍 — 하단 버튼은 영향 없음
+  cardContent: { },
+  dimmedContent: { opacity: 0.55 },  // ✅ 완료시 본문만 흐리게
 
-  // 드래그 중 효과(가벼운 처리로 부드럽게)
-  draggingCard: { opacity: 0.98 },
-
+  selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 }, // 선택 상태도 얇은선 유지
   title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
   metaWrap: { marginTop: 6 },
   meta: { fontSize: 12, color: colors.gray600, marginTop: 2 },
 
-  actionsRight: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    columnGap: 8,
-    rowGap: 8,
-  },
-  outlineBtn: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: radius.md,
-  },
-  outlineText: { color: colors.black, fontSize: 12, fontWeight: '700' },
-  disabledBtn: { opacity: 0.5 },
+  controlsRow: { marginTop: spacing.sm, minHeight: CONTROLS_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  bigActionBtn: { marginTop: spacing.md, alignSelf: 'stretch', paddingVertical: 14, borderRadius: radius.lg },
+  arrowsInline: { flexDirection: 'row', alignItems: 'center', height: CONTROLS_H },
+  circleArrowSmall: {
+    width: ARROW_SIZE, height: ARROW_SIZE, borderRadius: ARROW_SIZE / 2,
+    backgroundColor: colors.black, borderWidth: 1, borderColor: colors.black,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 3, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 2 },
+  },
+  circleArrowTxt: { color: colors.background, fontSize: 18, fontWeight: '900', lineHeight: 18, includeFontPadding: false },
+
+  actionsRight: { flexDirection: 'row', alignItems: 'center', columnGap: 8, height: CONTROLS_H },
+  actionDarkBtn: {
+    backgroundColor: colors.black, borderWidth: 1, borderColor: colors.black,
+    paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md,
+  },
+  actionDarkText: { color: colors.background, fontSize: 12, fontWeight: '800' },
+
+  bigActionBtn: { marginTop: spacing.sm, alignSelf: 'stretch', paddingVertical: 14, borderRadius: radius.lg },
   bigActionText: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  disabledBig: { opacity: 0.5 },
 
-  empty: { textAlign: 'center', color: colors.gray400, marginTop: 60 },
+  // 완료 도전용 버튼(배경 아님, 테두리만) + 글씨만 블랙 — 본문 디밍과 분리
+  outlineBigBtn: {
+    backgroundColor: colors.background,
+    borderWidth: 2, borderColor: '#000',
+    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: spacing.sm,
+  },
+  outlineBigText: { color: '#000', fontSize: 16, fontWeight: '800', textAlign: 'center' },
 
-  /* 우하단 플로팅: 검은 원 + 흰색 + */
+  /* 빈 상태 */
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
+  emptyText: { fontSize: 14, color: colors.gray400 },
+
+  /* 플로팅 버튼들 */
   addFloatingWrap: { position: 'absolute', right: spacing.lg },
   addFab: {
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: colors.black,
     alignItems: 'center', justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
   },
   addFabPlus: { color: colors.background, fontSize: 28, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
 
-  /* 좌하단 설정 버튼 */
   settingsFloatingWrap: { position: 'absolute', left: spacing.lg },
   settingsBtn: { backgroundColor: 'transparent', borderWidth: 0, padding: 2, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
-  /* 완료 도전용 큰 아웃라인 버튼 */
-  outlineBigBtn: {
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.black,
-    borderRadius: radius.lg,
-    paddingVertical: 14,
-    alignSelf: 'stretch',
-    marginTop: spacing.md,
-  },
-  outlineBigText: { color: colors.black, fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  /* 정렬 스크림 */
+  fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },
+
+  /* 선택 카드 복제본(스크림 위) */
+  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12 },
 });

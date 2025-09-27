@@ -1,15 +1,14 @@
 // screens/HallOfFameScreen.js
-// - 보상 직후 팝업: 1회 노출, onShow 시점에 3초 자동 닫힘, 화면 아무 곳 탭해도 닫힘
-// - 하이라이트: 카드 외곽선 1회 깜빡임
-// - 선택 삭제: 선택 모드 + 하단바에서 "선택 삭제" (삭제 전 경고창)
-// - 카드 텍스트 전부 중앙 정렬
-// - 보상 섹션 위 수평선: 기존보다 살짝 더 진한 회색
-// - 선택 버튼: 화면 왼쪽 하단 고정
-// - 선택 아이콘: 체크 마크를 '검은색'으로 표시
+// 요구사항 반영 + 강조(하이라이트) 원복:
+// 1) 보상 직후 넘어온 카드는 첫 진입 시 맨 위 배치
+// 2) 카드 외곽선은 도전 리스트와 동일(#E5E7EB, 1px)
+// 3) 왼쪽 하단 '선택' 버튼 제거(길게 눌러 선택/삭제만 지원)
+// 4) 카드 탭 시 인증목록(EntryList)로 이동
+// 5) 축하 닫힘 직후 해당 카드 외곽선 1회 깜빡임(원복)
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import {
-  SafeAreaView, View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Animated, Pressable, Alert
+  SafeAreaView, View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Pressable, Alert, Animated
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
@@ -17,17 +16,83 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, radius, buttonStyles } from '../styles/common';
 
-const CARD_BORDER = '#E5E7EB';   // gray-200
+const CARD_BORDER = '#E5E7EB';   // gray-200: 도전 리스트와 동일
 const DIVIDER = '#D1D5DB';       // gray-300 (살짝 더 진하게)
+const HOF_KEY = 'hof';
+const LEGACY_KEYS = ['hallOfFame', 'hall_of_fame', 'HOF']; // 1회 마이그레이션 용
 
+/* ----------------- 저장 로직 ----------------- */
+async function readHof() {
+  const raw = await AsyncStorage.getItem(HOF_KEY);
+  const list = raw ? JSON.parse(raw) : [];
+  return Array.isArray(list) ? list : [];
+}
+async function writeHof(list) {
+  await AsyncStorage.setItem(HOF_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+}
+async function migrateHofIfNeeded() {
+  const current = await readHof();
+  if (current.length > 0) return current;
+  for (const k of LEGACY_KEYS) {
+    try {
+      const raw = await AsyncStorage.getItem(k);
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr) && arr.length > 0) {
+        await writeHof(arr);
+        await AsyncStorage.removeItem(k); // 재등장 방지
+        return arr;
+      }
+    } catch {}
+  }
+  return current;
+}
+
+/* ----------------- 유틸 ----------------- */
 function sortHOF(list = []) {
   return [...list].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
 }
+function sortHOFWithTop(list = [], topId) {
+  const s = sortHOF(list);
+  if (!topId) return s;
+  const idx = s.findIndex(it => String(it.id) === String(topId));
+  if (idx > 0) {
+    const [hit] = s.splice(idx, 1);
+    s.unshift(hit);
+  }
+  return s;
+}
+function toMillis(v) {
+  if (v == null) return 0;
+  if (typeof v === 'number') return v > 1e12 ? v : v * 1000; // sec → ms 보정
+  if (typeof v === 'string') {
+    if (/^\d+$/.test(v)) { const n = Number(v); return n > 1e12 ? n : n * 1000; }
+    const t = Date.parse(v); return Number.isNaN(t) ? 0 : t;   // ISO 문자열 보정
+  }
+  return 0;
+}
 
-/** 개별 카드 — 외곽선 플래시 */
+function extractIncomingId(params = {}) {
+  const id =
+    params.highlightId ??
+    params.highlightedCardId ??
+    params.claimedId ??
+    params.challengeId ??
+    params.challenge?.id ??
+    params.claimedChallenge?.id ??
+    params.newHofItem?.id ??
+    null;
+  return id != null ? String(id) : null;
+}
+function shouldShowCongrats(params = {}) {
+  // ChallengeList에서 모달은 제거했으므로 HOF에서만 1회 표시
+  return !!params.justClaimed;
+}
+
+/* ----------------- 카드 (하이라이트 애니메이션 포함) ----------------- */
 const HofItem = memo(function HofItem({
   item, isSelected, selectMode, onPress, onLongPress, onToggleSelect, highlight,
 }) {
+  const rewardLabel = item.rewardTitle ?? item.reward ?? '';
   const outlineAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -42,10 +107,7 @@ const HofItem = memo(function HofItem({
 
   const animatedStyle = {
     borderWidth: outlineAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 3] }),
-    borderColor: '#111',
   };
-
-  const rewardLabel = item.rewardTitle ?? item.reward ?? '';
 
   return (
     <TouchableOpacity
@@ -54,8 +116,12 @@ const HofItem = memo(function HofItem({
       onLongPress={() => onLongPress?.(item)}
       onPress={() => (selectMode ? onToggleSelect?.(item) : onPress?.(item))}
     >
-      <Animated.View style={[styles.card, animatedStyle]}>
-        {/* 타이틀 중앙 정렬, 우상단 체크표시는 오버레이 */}
+      <Animated.View style={[
+        styles.card,
+        highlight && styles.cardHighlight, // 깜빡임 동안 검은 테두리
+        animatedStyle
+      ]}>
+        {/* 타이틀 중앙 정렬 + 선택 체크는 오버레이 */}
         <View style={styles.titleCenterWrap}>
           <Text style={styles.titleCentered} numberOfLines={2}>
             {item.title || '(제목 없음)'}
@@ -75,15 +141,18 @@ const HofItem = memo(function HofItem({
           {!!item.startDate && !!item.endDate && (
             <Text style={styles.meta}>기간 {item.startDate} ~ {item.endDate}</Text>
           )}
-          <Text style={styles.meta}>
-            완료일 {item.completedAt ? new Date(item.completedAt).toLocaleString() : '-'}
-          </Text>
+          {(() => {
+            const doneTs = toMillis(item.completedAt ?? item.rewardClaimedAt ?? item.endDate);
+            return (
+              <Text style={styles.meta}>
+                완료일 {doneTs ? new Date(doneTs).toLocaleString() : '-'}
+              </Text>
+            );
+          })()}
 
           {!!rewardLabel && (
             <>
-              {/* 보상 섹션 상단 구분선 (카드 외곽 라인과 닿지 않도록 좌우 여백) */}
               <View style={styles.innerDivider} />
-
               <View style={styles.rewardBox}>
                 <Text style={styles.rewardBoxLabel}>보상</Text>
                 <Text style={styles.rewardBoxTitle} numberOfLines={1}>{rewardLabel}</Text>
@@ -96,6 +165,7 @@ const HofItem = memo(function HofItem({
   );
 });
 
+/* ----------------- 화면 ----------------- */
 export default function HallOfFameScreen() {
   const isFocused = useIsFocused();
   const navigation = useNavigation();
@@ -107,43 +177,65 @@ export default function HallOfFameScreen() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
 
-  // 축하 팝업/하이라이트
+  // 축하 팝업 (HOF에서만 1회)
   const [showCongrats, setShowCongrats] = useState(false);
   const [recentId, setRecentId] = useState(null);
+
+  // 🔸 강조(하이라이트) 원복용
   const [highlightId, setHighlightId] = useState(null);
   const congratsTimer = useRef(null);
   const flashTimer = useRef(null);
-  const lastShownIdRef = useRef(null); // 동일 ID 재노출 방지
+  const handledSigRef = useRef(null);
 
-  // 방금 완료한 도전 데이터
   const recentItem = useMemo(() => {
     if (!recentId) return null;
     const rid = String(recentId);
     return hof.find(it => String(it.id) === rid) || null;
   }, [hof, recentId]);
 
-  // 데이터 로드 + 보상 직후 진입 처리
+  const triggerHighlight = useCallback((id) => {
+    if (!id) return;
+    setHighlightId(String(id));
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setHighlightId(null), 1200);
+  }, []);
+
+  // 로드 + 보상 직후 진입 처리
   useEffect(() => {
     if (!isFocused) return;
-    (async () => {
-      const raw = await AsyncStorage.getItem('hallOfFame');
-      const arr = raw ? JSON.parse(raw) : [];
-      setHof(sortHOF(arr));
 
-      let rid = route.params?.recentId || null;
-      if (!rid) {
-        const last = await AsyncStorage.getItem('lastClaimedId').catch(() => null);
-        if (last) rid = last;
+    // 1) 파라미터 해석(동기)
+    const p = route.params ?? {};
+    const incomingId = extractIncomingId(p);
+    const congrats = shouldShowCongrats(p);
+    const sig = incomingId ? `${incomingId}|${congrats ? '1' : '0'}` : 'none';
+    if (handledSigRef.current === sig) return;
+    handledSigRef.current = sig;
+
+    // 2) 데이터 로드 후 정렬(필요 시 incomingId를 맨 위로)
+    (async () => {
+      const arr = await migrateHofIfNeeded();
+      const normalized = arr.map(it => {
+        const fixed = toMillis(it.completedAt ?? it.rewardClaimedAt ?? it.endDate);
+        return fixed ? { ...it, completedAt: fixed } : it;
+      });
+      if (JSON.stringify(arr) !== JSON.stringify(normalized)) {
+        await writeHof(normalized);   // ✅ 1회 정정 저장
+      }
+      const arranged = sortHOFWithTop(normalized, incomingId);
+      setHof(arranged);
+
+      if (incomingId) {
+        try { listRef.current?.scrollToOffset?.({ offset: 0, animated: true }); } catch {}
       }
 
-      const ridStr = rid ? String(rid) : null;
-
-      if (ridStr && lastShownIdRef.current !== ridStr) {
-        lastShownIdRef.current = ridStr; // 1회 처리
-        setRecentId(ridStr);
+      // 3) 축하 모달(HOF에서만 1회)
+      if (incomingId && congrats) {
+        setRecentId(incomingId);
         setShowCongrats(true);
-        await AsyncStorage.removeItem('lastClaimedId').catch(() => {});
-        navigation.setParams?.({ recentId: undefined });
+      } else if (incomingId && !congrats) {
+        // 모달 없이 넘어온 경우라도 바로 하이라이트 1회
+        triggerHighlight(incomingId);
       }
     })().catch(console.error);
 
@@ -151,32 +243,19 @@ export default function HallOfFameScreen() {
       if (congratsTimer.current) { clearTimeout(congratsTimer.current); congratsTimer.current = null; }
       if (flashTimer.current) { clearTimeout(flashTimer.current); flashTimer.current = null; }
     };
-  }, [isFocused, navigation, route.params]);
-
-  const handleAfterCongrats = useCallback(() => {
-    try {
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: true });
-    } catch {}
-    if (recentId) {
-      setHighlightId(String(recentId));
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setHighlightId(null), 1200);
-    }
-    setRecentId(null);
-  }, [recentId]);
+  }, [isFocused, route.params, triggerHighlight]);
 
   const closeCongrats = useCallback(() => {
     if (congratsTimer.current) { clearTimeout(congratsTimer.current); congratsTimer.current = null; }
     setShowCongrats(false);
-    handleAfterCongrats();
-  }, [handleAfterCongrats]);
+    // ✅ 모달 닫힘 직후 강조 원복
+    if (recentId) triggerHighlight(recentId);
+    setRecentId(null);
+  }, [recentId, triggerHighlight]);
 
-  // Modal이 실제로 화면에 나타난 시점에서 3초 타이머 시작
   const onModalShow = useCallback(() => {
     if (congratsTimer.current) { clearTimeout(congratsTimer.current); }
-    congratsTimer.current = setTimeout(() => {
-      closeCongrats();
-    }, 3000);
+    congratsTimer.current = setTimeout(() => { closeCongrats(); }, 3000);
   }, [closeCongrats]);
 
   // 선택 모드
@@ -191,7 +270,9 @@ export default function HallOfFameScreen() {
     });
   }, []);
 
+  // 카드 탭 → 인증 목록 이동
   const onPressItem = useCallback((item) => {
+    if (selectMode) return;
     navigation.navigate('EntryList', {
       challengeId: item.id,
       title: item.title,
@@ -202,7 +283,7 @@ export default function HallOfFameScreen() {
       reward: item.reward,
       readOnly: true,
     });
-  }, [navigation]);
+  }, [navigation, selectMode]);
 
   const onLongPressItem = useCallback((item) => {
     if (!selectMode) {
@@ -211,7 +292,7 @@ export default function HallOfFameScreen() {
     }
   }, [selectMode]);
 
-  // 삭제 전 경고창
+  // 삭제
   const removeSelected = useCallback(() => {
     if (!selected.size) { cancelSelectMode(); return; }
     Alert.alert(
@@ -224,10 +305,9 @@ export default function HallOfFameScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const raw = await AsyncStorage.getItem('hallOfFame');
-              const arr = raw ? JSON.parse(raw) : [];
+              const arr = await readHof();
               const next = arr.filter(it => !selected.has(String(it.id)));
-              await AsyncStorage.setItem('hallOfFame', JSON.stringify(next));
+              await writeHof(next);
               setHof(sortHOF(next));
               cancelSelectMode();
             } catch (e) { console.error(e); }
@@ -237,10 +317,10 @@ export default function HallOfFameScreen() {
     );
   }, [cancelSelectMode, selected]);
 
-  const data = useMemo(() => sortHOF(hof), [hof]);
   const keyExtractor = useCallback((it) => String(it.id), []);
   const renderItem = useCallback(({ item }) => {
     const isSelected = selected.has(String(item.id));
+    const isHighlight = highlightId === String(item.id);
     return (
       <HofItem
         item={item}
@@ -249,10 +329,10 @@ export default function HallOfFameScreen() {
         onPress={onPressItem}
         onLongPress={onLongPressItem}
         onToggleSelect={toggleSelect}
-        highlight={highlightId === String(item.id)}
+        highlight={isHighlight}  // ✅ 강조 전달
       />
     );
-  }, [highlightId, onLongPressItem, onPressItem, selectMode, selected, toggleSelect]);
+  }, [onLongPressItem, onPressItem, selectMode, selected, toggleSelect, highlightId]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -263,7 +343,7 @@ export default function HallOfFameScreen() {
 
       <FlatList
         ref={listRef}
-        data={data}
+        data={hof}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl + Math.max(insets.bottom, 8) }}
@@ -275,7 +355,7 @@ export default function HallOfFameScreen() {
         updateCellsBatchingPeriod={50}
       />
 
-      {/* 선택 모드 하단바 */}
+      {/* 선택 모드 하단바 (선택 버튼은 제거) */}
       {selectMode && (
         <View pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
           <TouchableOpacity style={[buttonStyles.outlineSoft.container, { flex: 1, marginRight: spacing.sm }]} onPress={cancelSelectMode}>
@@ -287,16 +367,7 @@ export default function HallOfFameScreen() {
         </View>
       )}
 
-      {/* 선택 버튼: 화면 왼쪽 하단 고정 (selectMode 아닐 때만 표시) */}
-      {!selectMode && (
-        <View style={[styles.fabLeftWrap, { bottom: Math.max(insets.bottom, 8) + 12 }]}>
-          <TouchableOpacity style={styles.fabLeftBtn} onPress={enterSelectMode} activeOpacity={0.9}>
-            <Text style={styles.fabLeftText}>선택</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* 축하 팝업 */}
+      {/* 축하 팝업 (HOF에서만 1회) */}
       <Modal
         visible={showCongrats}
         transparent
@@ -324,6 +395,7 @@ export default function HallOfFameScreen() {
   );
 }
 
+/* ----------------- 스타일 ----------------- */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
@@ -340,11 +412,13 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderColor: CARD_BORDER,     // ✅ 도전 리스트와 동일한 얇은 회색 라인
     borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  // 강조 시 테두리만 잠깐 검정 3px로
+  cardHighlight: { borderColor: '#111' },
 
   // 타이틀 중앙 정렬 + 선택 체크는 오버레이
   titleCenterWrap: {
@@ -362,7 +436,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#FFF',
   },
-  // 선택 아이콘은 검은색 체크 마크
   checkOn: { borderColor: '#111', backgroundColor: '#FFF' },
   checkText: { fontSize: 14, color: 'transparent', fontWeight: '900' },
   checkTextOn: { color: '#111' },
@@ -370,17 +443,15 @@ const styles = StyleSheet.create({
   metaWrap: { marginTop: 2, alignItems: 'center' },
   meta: { fontSize: 12, color: colors.gray600, marginTop: 2, textAlign: 'center' },
 
-  // 보상 섹션 상단 구분선(카드 테두리와 닿지 않게 좌우 마진) — 더 진한 회색
   innerDivider: {
     height: 1,
-    backgroundColor: DIVIDER,
+    backgroundColor: DIVIDER,     // ✅ 기존보다 살짝 진한 회색
     alignSelf: 'stretch',
     marginTop: 10,
     marginBottom: 8,
     marginHorizontal: 4,
   },
 
-  // 보상 강조 박스
   rewardBox: {
     marginTop: 2,
     backgroundColor: colors.gray100,
@@ -403,30 +474,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
   },
-
-  // 왼쪽 하단 고정 선택 버튼
-  fabLeftWrap: {
-    position: 'absolute',
-    left: spacing.lg,
-  },
-  fabLeftBtn: {
-  backgroundColor: '#111',   // 검은 배경
-  borderWidth: 1,
-  borderColor: '#111',       // 테두리도 검은색
-  borderRadius: radius.lg,
-  paddingHorizontal: 14,
-  paddingVertical: 10,
-  shadowColor: '#000',
-  shadowOpacity: 0.06,
-  shadowOffset: { width: 0, height: 2 },
-  shadowRadius: 6,
-  elevation: 3,
-},
-fabLeftText: {
-  fontSize: 14,
-  fontWeight: '700',
-  color: '#FFF',             // 흰 글씨
-},
 
   modalBackdrop: {
     flex: 1,

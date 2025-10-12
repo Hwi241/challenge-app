@@ -199,7 +199,7 @@ export default function SimpleNotificationScreen() {
       <View style={[cardStyles.base, { marginTop: spacing.lg }]}>
         <View style={styles.rowBetween}>
           <Text style={styles.cardTitle}>알림 시간</Text>
-          <Text style={styles.helpText}>하루에 최대 {MAX_TIMES}개</Text>
+          <Text style={styles.helpText}>최대 {MAX_TIMES}개</Text>
         </View>
 
         <View style={styles.timeChips}>

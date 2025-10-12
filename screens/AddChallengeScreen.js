@@ -416,25 +416,37 @@ export default function AddChallengeScreen() {
     }
   }, [busy, title, goalScore, reward, description, startDate, endDate, notification, navigation]);
 
-  // 알림 모달 라우팅 (기존 그대로)
+  // 알림 모달 라우팅 (onDone 콜백 추가)
   const goSimple = useCallback(() => {
     if (busy) return;
     const initial = notification?.mode === 'simple' ? (notification.payload ?? null) : null;
     setShowNotifPicker(false);
-    navigation.navigate('SimpleNotification', { initial, returnTo: 'AddChallenge' });
+    navigation.navigate('SimpleNotification', {
+      initial,
+      returnTo: 'AddChallenge',
+      onDone: (res) => { setNotification(res); },
+    });
   }, [busy, navigation, notification]);
   const goWeekly = useCallback(() => {
     if (busy) return;
     const initial = notification?.mode === 'weekly' ? (notification.payload ?? null) : null;
     setShowNotifPicker(false);
-    navigation.navigate('WeeklyNotification', { initial, returnTo: 'AddChallenge' });
+    navigation.navigate('WeeklyNotification', {
+      initial,
+      returnTo: 'AddChallenge',
+      onDone: (res) => { setNotification(res); },
+    });
   }, [busy, navigation, notification]);
   const goMonthly = useCallback(() => {
     if (busy) return;
     const initial = notification?.mode === 'monthly'
       ? (notification.payload ?? null) : null;
     setShowNotifPicker(false);
-    navigation.navigate('MonthlyNotification', { initial, returnTo: 'AddChallenge' });
+    navigation.navigate('MonthlyNotification', {
+      initial,
+      returnTo: 'AddChallenge',
+      onDone: (res) => { setNotification(res); },
+    });
   }, [busy, navigation, notification]);
   const goFullRange = useCallback(() => {
     if (busy) return;
@@ -454,6 +466,7 @@ export default function AddChallengeScreen() {
       startDate: fmtDate(startDate),
       endDate: fmtDate(endDate),
       returnTo: 'AddChallenge',
+      onDone: (res) => { setNotification(res); },
     });
   }, [busy, navigation, notification, startDate, endDate]);
 
@@ -560,13 +573,15 @@ export default function AddChallengeScreen() {
 
           <View style={styles.rightBtnGroup}>
             {notification?.mode && (
+              // [변경] 원형 X 아이콘 삭제 버튼
               <TouchableOpacity
-                style={styles.deleteBtn}
+                style={styles.notifDeleteCircle}
                 onPress={() => setNotification({ mode: null, payload: null })}
-                activeOpacity={0.9}
+                activeOpacity={0.8}
                 disabled={busy}
+                accessibilityLabel="알림 삭제"
               >
-                <Text style={styles.deleteBtnText}>알림 삭제</Text>
+                <Text style={styles.notifDeleteX}>×</Text>
               </TouchableOpacity>
             )}
 
@@ -618,7 +633,7 @@ export default function AddChallengeScreen() {
         onCancel={() => setShowEndPicker(false)}
       />
 
-      {/* 알림 방식 모달 (기존 그대로) */}
+      {/* 알림 방식 모달 */}
       <Modal
         visible={showNotifPicker}
         transparent
@@ -641,6 +656,23 @@ export default function AddChallengeScreen() {
             <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={goFullRange} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>전체 일정 알림</Text>
             </TouchableOpacity>
+
+            {/* [추가] 얇은 검은 라인 */}
+            <View style={styles.modalDivider} />
+
+            {/* [추가] 알림 기본 설정 버튼 (흰 배경, 검은 글씨) */}
+            <TouchableOpacity
+   style={[buttonStyles.primary.container, styles.modalBasicKeepColor, styles.modalButton]}
+   onPress={()=>{
+     setShowNotifPicker(false);
+     navigation.navigate('NotificationDefaults', { returnTo: 'AddChallenge' });
+   }}
+   activeOpacity={0.9}
+ >
+   <Text style={[buttonStyles.primary.label, styles.modalBasicKeepLabel]}>
+     알림 기본 설정
+   </Text>
+ </TouchableOpacity>
 
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowNotifPicker(false)}>
               <Text style={styles.modalCloseText}>닫기</Text>
@@ -679,21 +711,49 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
   rightBtnGroup: { flexDirection: 'row', alignItems: 'center', columnGap: 8 },
+
+  // (구) 텍스트 삭제 버튼 스타일(호환용 남김, 사용 안 함)
   deleteBtn: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray300, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },
   deleteBtnText: { color: PALETTE.black, fontWeight: '800', fontSize: 12 },
+
+  // [추가] 원형 X 아이콘 삭제 버튼
+  notifDeleteCircle: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: PALETTE.white,
+    borderWidth: 1, borderColor: PALETTE.gray800,
+  },
+  notifDeleteX: { color: PALETTE.gray800, fontSize: 18, lineHeight: 18, fontWeight: '800' },
 
   previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray100, borderRadius: radius.md, padding: spacing.md },
   previewText: { color: PALETTE.gray800 },
   previewTextSmall: { color: PALETTE.gray800, fontSize: 12, marginTop: 6 },
   previewNoteText: { color: PALETTE.gray600, fontSize: 11, marginTop: 2 },
 
-  // …………(프리뷰/달력 관련 기존 스타일 유지)…………
-
   // 모달
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: PALETTE.gray200 },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
   modalButton: { marginTop: spacing.sm },
+
+  // [추가] 얇은 검은 라인 + 알림 기본설정 버튼
+  modalDivider: {
+    marginTop: spacing.md,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: PALETTE.gray800,
+    opacity: 0.2,
+  },
+  // 모양은 primary.container 그대로(라운드/패딩/높이 1:1)
+ // 색상만 기존대로 유지
+ modalBasicKeepColor: {
+   backgroundColor: PALETTE.white,
+   borderWidth: 1,
+   borderColor: PALETTE.gray800,
+ },
+ modalBasicKeepLabel: {
+   color: PALETTE.gray800,
+ },
+
   modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
   modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },
 });

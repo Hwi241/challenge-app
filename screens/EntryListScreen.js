@@ -1,10 +1,13 @@
 // screens/EntryListScreen.js
+
+const KILL_UI_AND_SHOW_RAW = false; // 필요 시 true로 전환(데이터 디버그용)
+
 import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
 import {
-  SafeAreaView, View, Text, FlatList, Image, StyleSheet, TouchableOpacity,
-  Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback
+  SafeAreaView, View, Text, Image, StyleSheet, TouchableOpacity,
+  Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
@@ -13,31 +16,149 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
-import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle, Line, Rect, Text as SvgText, Path, Defs, LinearGradient, Stop,
+} from 'react-native-svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const CAL_HEADER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const ICON = require('../assets/icon.png');
 
-const SCROLL_MODE = 'today';
 const baseBlack = '#111111';
 const progressGrey = '#E5E7EB';
-const textGrey = '#666666'; // ✅ 회색 텍스트 통일
+const textGrey = '#666666';
+const EDGE = 8;
+// ⬇️ 원하는 만큼 숫자만 바꾸면 됨
+const NARROW_PLUS = 20;        // 보상박스/인증목록 좌우를 화면에서 더 띄우는 여유(픽셀)
+// (값이 클수록 더 "좁아짐", 0이면 그래프와 동일 폭)
+
+const LABEL_GAP = 10;
+const LABEL_END_GAP = 16;
+const GRAPH_SIDE_PAD     = 12; // 그래프 좌우 추가 여백(px) — 값 ↑ → 그래프 더 좁아짐
+const CARD_BOTTOM_GAP    = 0;  // 헤더 카드(그래프 포함) 아래 간격
+const REWARD_TOP_GAP    = 0;
+const GRAPH_REWARD_GAP   = 0;  // 그래프 ↔ 보상박스 간격
+const REWARD_BOTTOM_GAP = 30;  // 보상박스 아래 ~ 누적시간/횟수/목록 (클수록 더 멀어짐)
+const REWARD_SUMMARY_GAP = 10; // 보상박스 ↔ 누적시간/횟수(및 목록) 간격
+
+const DEBUG_ON = false; // 느리면 false 권장 (필요할 때만 true)
 
 /* ───────── 유틸 ───────── */
 const pad2 = (n)=>String(n).padStart(2,'0');
 const keyOf = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-function lighten(hex, step = 0) {
-  const p = Math.min(step * 5, 90) / 100;
-  const n = parseInt(hex.slice(1), 16);
-  let r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
-  r = Math.round(r + (255 - r) * p);
-  g = Math.round(g + (255 - g) * p);
-  b = Math.round(b + (255 - b) * p);
-  const toHex = (x)=>x.toString(16).padStart(2,'0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
+const clamp = (v, a, b)=>Math.max(a, Math.min(b, v));
+
+/* ───────── (신규) 스토리지 전수 스캔 백업 로더 ───────── */
+const scoreAsEntries = (arr=[], {rawCID, numCID, chCID})=>{
+  if (!Array.isArray(arr) || arr.length === 0) return -1;
+  let tsLike = 0, hasText = 0, idLike = 0, cidHit = 0;
+  for (const it of arr) {
+    if (it && (typeof it.timestamp === 'number' || typeof it.timestamp === 'string')) tsLike++;
+    if (it && typeof it.text === 'string') hasText++;
+    if (it && (typeof it.id === 'string' || typeof it.id === 'number')) idLike++;
+    const inItemCID = String(it?.challengeId ?? it?.cid ?? '').toLowerCase();
+    if (inItemCID && (
+      inItemCID.includes(String(rawCID).toLowerCase()) ||
+      inItemCID.includes(String(numCID).toLowerCase()) ||
+      inItemCID.includes(String(chCID).toLowerCase())
+    )) cidHit++;
+  }
+  const n = arr.length || 1;
+  return (tsLike/n)*4 + (hasText/n)*1.5 + (idLike/n)*1 + (cidHit>0?2:0) + Math.min(n,50)/50;
+};
+
+const deepPickArray = (v)=>{
+  if (Array.isArray(v)) return [v];
+  if (v && typeof v === 'object') {
+    const out = [];
+    ['entries','items','data','list','logs','records'].forEach(k=>{
+      if (Array.isArray(v[k])) out.push(v[k]);
+    });
+    Object.values(v).forEach(val=>{
+      if (Array.isArray(val)) out.push(val);
+    });
+    return out;
+  }
+  return [];
+};
+
+const scanAllStorageForEntries = async ({rawCID, numCID, chCID})=>{
+  try{
+    const keys = await AsyncStorage.getAllKeys();
+    if (!Array.isArray(keys) || !keys.length) return null;
+    const CHUNK = 20;
+    let best = { score: -1, arr: [] };
+
+    for (let i=0;i<keys.length;i+=CHUNK){
+      const slice = keys.slice(i, i+CHUNK);
+      const pairs = await AsyncStorage.multiGet(slice);
+      for (const [, raw] of pairs){
+        if (!raw || typeof raw !== 'string') continue;
+        let parsed = null;
+        try { parsed = JSON.parse(raw); } catch { parsed = null; }
+        if (!parsed) continue;
+
+        const cands = deepPickArray(parsed);
+        for (const arr of cands){
+          const s = scoreAsEntries(arr, {rawCID, numCID, chCID});
+          if (s > best.score) best = { score: s, arr };
+        }
+      }
+    }
+    return best.score >= 3.5 ? best.arr : null;
+  }catch(e){
+    console.warn('[scanAllStorageForEntries] fail:', e);
+    return null;
+  }
+};
+
+/* ───────── DEBUG 패널 ───────── */
+const DebugPanel = memo(function DebugPanel({ visible, cid, hitKey, allTriedKeys=[], count, onRefresh }) {
+  if (!visible) return null;
+  const uniq = Array.from(new Set(allTriedKeys));
+  return (
+    <View style={{
+      backgroundColor: '#fff4f4', borderColor:'#ffbdbd', borderWidth:1,
+      marginHorizontal: EDGE, marginTop: 10, borderRadius: 8, padding: 10,
+      position:'relative', zIndex: 1
+    }}>
+      <Text style={{ fontWeight:'800', color:'#c00', marginBottom: 6 }}>스토리지 진단</Text>
+      <Text style={{ color:'#c00', marginBottom: 2 }}>CID: <Text style={{fontWeight:'700'}}>{cid || '(빈값)'}</Text></Text>
+      <Text style={{ color:'#c00', marginBottom: 2 }}>적중 키: <Text style={{fontWeight:'700'}}>{hitKey || '(없음)'}</Text></Text>
+      <Text style={{ color:'#c00', marginBottom: 6 }}>읽은 개수: <Text style={{fontWeight:'700'}}>{count}</Text></Text>
+      <Text style={{ color:'#c00', marginBottom: 4 }}>시도 키:</Text>
+      {uniq.map((k, idx)=>(
+        <Text key={`try-${cid}-${idx}-${k}`} style={{ color:'#c00', fontSize:12 }}>
+          - {k}
+        </Text>
+      ))}
+
+      <TouchableOpacity onPress={onRefresh} style={{ alignSelf:'flex-end', paddingTop:8 }}>
+        <Text style={{ color:'#c00', fontWeight:'800' }}>다시 로드</Text>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+const StickyDebugPeek = ({ visible, count, onPress }) => {
+  if (!visible) return null;
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.9}
+      style={{
+        position:'absolute', top: 8, right: 12, zIndex: 9999,
+        backgroundColor: '#e53935', paddingHorizontal: 10, paddingVertical: 6,
+        borderRadius: 12, shadowColor:'#000', shadowOpacity:0.2, shadowRadius:6, elevation:6
+      }}
+    >
+      <Text style={{ color:'#fff', fontWeight: '800' }}>
+        디버그: {count}개 • 새로고침
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 /* ───────── 도넛 ───────── */
 const Donut = memo(function Donut({ targetPercent = 0, progress = 1, size = 110, stroke = 12 }) {
@@ -70,7 +191,7 @@ const Donut = memo(function Donut({ targetPercent = 0, progress = 1, size = 110,
   );
 });
 
-/* ───────── 제목: 2줄 고정 + 넘치면 말줄임 ───────── */
+/* ───────── 제목 2줄 ───────── */
 const TitleTwoLine = memo(function TitleTwoLine({ text, style, containerWidth=SCREEN_WIDTH-120 }) {
   return (
     <Text
@@ -83,9 +204,10 @@ const TitleTwoLine = memo(function TitleTwoLine({ text, style, containerWidth=SC
   );
 });
 
-/* ───────── 알림 미니 프리뷰 (기존 유지, 텍스트 회색 통일) ───────── */
+/* ───────── 알림 미리보기들 ───────── */
 const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
 const sortTimesAsc = (arr=[]) => [...arr].sort((a,b)=>a.localeCompare(b));
+
 const SimplePreviewMini = ({ days=[], times=[], time }) => {
   const toShow = (Array.isArray(times) && times.length) ? sortTimesAsc(times) : (time ? [time] : []);
   return (
@@ -103,10 +225,11 @@ const SimplePreviewMini = ({ days=[], times=[], time }) => {
           );
         })}
       </View>
-      <Text style={{ fontSize:12, color:textGrey, textAlign:'center' }}>{toShow.length? toShow.join('  ') : '시간 미설정'}</Text>
+      <Text style={{ fontSize:12, color:textGrey, textAlign:'left' }}>{toShow.length? toShow.join('  ') : '시간 미설정'}</Text>
     </View>
   );
 };
+
 const WeeklyPreviewMini = ({ byWeekDays=[] })=>{
   const map = useMemo(()=>{ const m=new Map(); for(const {day, times=[]} of byWeekDays) m.set(day, sortTimesAsc(times)); return m; },[byWeekDays]);
   return (
@@ -120,6 +243,7 @@ const WeeklyPreviewMini = ({ byWeekDays=[] })=>{
     </View>
   );
 };
+
 const MonthlyPreviewMini = ({ byDates=[] })=>{
   const map = useMemo(()=>{
     const m=new Map();
@@ -147,6 +271,7 @@ const MonthlyPreviewMini = ({ byDates=[] })=>{
     </View>
   );
 };
+
 const FullRangePreviewMini = ({ payload={}, startDate, endDate }) => {
   if(!startDate || !endDate) return <Text style={{fontSize:12, textAlign:'center', color:textGrey}}>기간이 설정되지 않았습니다.</Text>;
   const byDate = payload.byDate || {};
@@ -181,7 +306,7 @@ const FullRangePreviewMini = ({ payload={}, startDate, endDate }) => {
                       return (
                         <View key={`c${r}-${c}`} style={{ flex:1, padding:4, borderRightWidth:c<6?1:0, borderRightColor:'#eee' }}>
                           {d && <>
-                            <Text style={{ fontSize:11, fontWeight:'800', color: show?textGrey:textGrey, textAlign:'right' }}>{d}</Text>
+                            <Text style={{ fontSize:11, fontWeight:'800', color: textGrey, textAlign:'right' }}>{d}</Text>
                             {show && t.map((x,idx)=><Text key={`${d}-${x}-${idx}`} style={{ fontSize:11, color:textGrey }}>{x}</Text>)}
                           </>}
                         </View>
@@ -197,6 +322,7 @@ const FullRangePreviewMini = ({ payload={}, startDate, endDate }) => {
     </View>
   );
 };
+
 const NotiPreviewSwitch = ({ notification, startDate, endDate })=>{
   if(!notification?.mode) return <Text style={{ fontSize:12, color:textGrey, textAlign:'center' }}>알림 없음</Text>;
   const { mode, payload={} } = notification;
@@ -279,179 +405,351 @@ const MonthCalendar = memo(function MonthCalendar({
   );
 });
 
-/* ───────── 전체일정 그래프(균일폭/반투명/각진) ─────────
-   - N<=7: 7등분 슬롯 / N>7: 균일 폭으로 나누고 날짜가 많아질수록 얇아짐
-   - 회색(횟수) 막대 앞 + 반투명(0.7), 검정(시간) 막대 뒤
-   - 모서리 직각에 가깝게(rx 1~3px), 베이스라인과 3px 갭
-   - 오른쪽 날짜 라벨 "Today " 접두사
-*/
-const TaperedStackedBars = memo(function TaperedStackedBars({
+/* ───────── 일자 집계 ───────── */
+function aggregateByDate(entries){
+  const map = new Map();
+  for(const e of entries){
+    const d = new Date(e.timestamp); d.setHours(0,0,0,0);
+    const k = keyOf(d);
+    const prev = map.get(k) || { minutes:0, count:0, date:new Date(d) };
+    prev.count += 1;
+    if (typeof e.duration === 'number' && e.duration > 0) prev.minutes += e.duration;
+    map.set(k, prev);
+  }
+  return Array.from(map.values()).sort((a,b)=>a.date-b.date);
+}
+
+/* ───────── 라인차트(횟수는 누적 그래프) ───────── */
+const LineGradientChart = memo(function LineGradientChart({
   startDate,
   entries,
-  width = SCREEN_WIDTH - 56,   // 좌우 여백 동일
-  height = 124,
-  introProgress = 1,
-}) {
-  const P = Math.max(0.0001, Number(introProgress||0));
-  const left = 10, right = 10, top = 6, bottom = 28;
-  const w = width, h = height;
-  const cw = w - left - right;
-  const ch = h - top - bottom;
+  metric='count',
+  width=SCREEN_WIDTH - EDGE*2 - 8,
+  height=168,
+  introProgress=1,
+  interactive=true,
+  pagerIndex=0,
+  onSelectPagerIndex=()=>{},
+}){
+  const left = 12, right = 12, top = 16, bottom = 42;
+  const cw = width - left - right;
+  const ch = height - top - bottom;
 
-  // 날짜: 시작~오늘
-  const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; }, []);
-  const days = useMemo(()=>{
-    if(!startDate) return [];
-    const s = new Date(startDate); s.setHours(0,0,0,0);
-    const arr=[]; const d=new Date(s);
-    while(d <= today){ arr.push(new Date(d)); d.setDate(d.getDate()+1); }
-    return arr;
-  }, [startDate, today]);
+  const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
+  const raw = useMemo(()=>aggregateByDate(entries),[entries]);
 
-  // 집계
-  const byDay = useMemo(()=>{
-    const m = new Map();
-    for(const e of entries){
-      const d = new Date(e.timestamp); d.setHours(0,0,0,0);
-      const k = keyOf(d);
-      const prev = m.get(k) || { minutes:0, count:0 };
-      prev.count += 1;
-      if (typeof e.duration === 'number' && e.duration > 0) prev.minutes += e.duration;
-      m.set(k, prev);
+  const baseSeries = useMemo(
+    ()=>raw.map(r=>({d:r.date, v: metric==='count'? r.count : r.minutes})).filter(p=>p.v>0),
+    [raw, metric]
+  );
+
+  const series = useMemo(()=>{
+    if (metric !== 'count') return baseSeries;
+    let cum = 0;
+    return baseSeries.map(p => ({ d: p.d, v: (cum += p.v) }));
+  }, [baseSeries, metric]);
+
+  const start = useMemo(()=>startDate? new Date(new Date(startDate).setHours(0,0,0,0))
+                                     : (series[0]?.d || today), [startDate, series, today]);
+
+  const nodePts = useMemo(()=>{
+    const n = series.length;
+    if (n===0) return [];
+    if (n===1) {
+      const vmax = Math.max(1, series[0].v);
+      const y = top + (1 - (series[0].v / vmax)) * ch * introProgress;
+      const x = left; // 단일점은 왼쪽 끝
+      return [{x, y, v: series[0].v, d: series[0].d}];
     }
-    return m;
-  }, [entries]);
+    const vmax = Math.max(1, ...series.map(p=>p.v));
+    return series.map((p, i)=>{
+      const x = left + (i/(n-1))*cw;
+      const y = top + (1 - (p.v/vmax)) * ch * introProgress;
+      return { x, y, v: p.v, d: p.d };
+    });
+  }, [series, left, cw, top, ch, introProgress]);
 
-  const series = useMemo(()=>days.map(d=>{
-    const stat = byDay.get(keyOf(d)) || { minutes:0, count:0 };
-    return { date:d, minutes:stat.minutes, count:stat.count };
-  }), [days, byDay]);
+  const yScale = useCallback((v, vmax)=> top + (1 - (v/vmax))*ch*introProgress, [top, ch, introProgress]);
 
-  const N = series.length;
-  const maxM = Math.max(1, ...series.map(s=>s.minutes));
-  const maxC = Math.max(1, ...series.map(s=>s.count));
-
-  // 배치: 균일 폭
-  const xs = [];
-  const widths = [];
-  const gap = 2;
-
-  if (N <= 7) {
-    const slots = 7;
-    const slotW = cw / slots;
-    const barW = Math.max(8, Math.min(14, slotW * 0.36));
-    for (let i=0;i<N;i++){
-      const x = left + slotW * i + (slotW - barW) / 2;
-      xs.push(x); widths.push(barW);
+  const pts = useMemo(()=>{
+    const n = series.length;
+    if(n===0) return [];
+    if (n===1) {
+      const vmax = Math.max(1, series[0].v);
+      const y = yScale(series[0].v, vmax);
+      const xleft = left;
+      return [
+        {x:xleft-0.001, y, v:series[0].v, d:series[0].d},
+        {x:xleft+0.001, y, v:series[0].v, d:series[0].d}
+      ];
     }
-  } else {
-    const avail = cw - gap * (N - 1);
-    const barW = Math.max(2.2, avail / N);
-    for (let i=0;i<N;i++){
-      xs.push(left + i * (barW + gap));
-      widths.push(barW);
-    }
+    return nodePts;
+  }, [series, yScale, left, nodePts]);
+
+  const pathD = useMemo(()=>{
+    if(!pts.length) return '';
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for(let i=1;i<pts.length;i++) d += ` L ${pts[i].x} ${pts[i].y}`;
+    return d;
+  }, [pts]);
+
+  const baselineY = top + ch + 0.5;
+  const areaGap = 6;
+  const areaD = useMemo(()=>{
+    if(!pts.length) return '';
+    const bottomY = baselineY - areaGap;
+    let d = `M ${pts[0].x} ${bottomY} L ${pts[0].x} ${pts[0].y}`;
+    for(let i=1;i<pts.length;i++) d += ` L ${pts[i].x} ${pts[i].y}`;
+    d += ` L ${pts[pts.length-1].x} ${bottomY} Z`;
+    return d;
+  }, [pts, baselineY]);
+
+  const defaultLabel = useMemo(()=>{
+    if(series.length===0) return null;
+    const base = series[series.length-1];
+    const v = base.v;
+    const d = base.d;
+    return `${metric==='count'? `${v}회(누적)` : `${v}분`} ${String(d.getFullYear()).slice(2)}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  }, [series, metric]);
+
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  useEffect(()=>{ setSelectedIdx(null); }, [entries, metric]);
+
+  const labelDims = (txt='')=>{
+    const w = Math.max(84, Math.min(140, 12 + txt.length * 6));
+    return { w, h:18 };
+  };
+
+  const placeLabel = (p, text, isEnd=false)=>{
+    const { w, h } = labelDims(text);
+    const vGap = isEnd ? LABEL_END_GAP : LABEL_GAP;
+    const above = p.y - h - vGap;
+    const below = p.y + vGap;
+
+    let ly;
+    if (above >= top + 4)           ly = above;
+    else if (below <= baselineY-16) ly = below;
+    else                            ly = Math.min(Math.max(above, top+4), baselineY - h - 4);
+
+    const lx = Math.min(Math.max(p.x - w/2, left + 2), left + cw - w - 2);
+    return { lx, ly, w, h };
+  };
+
+  const dotCy = baselineY + 14;
+  const dotCx1 = left + cw/2 - 10;
+  const dotCx2 = left + cw/2 + 10;
+
+  
+ const shouldCaptureTouch = useCallback((evt) => {
+  if (!interactive) return false;
+  const { locationX: x, locationY: y } = evt.nativeEvent;
+  const near = (cx, cy, r = 16) => Math.hypot(x - cx, y - cy) <= r;
+
+  // 페이저 점(그래프 내부의 ●●) 근처만 터치 캡처
+  if (near(dotCx1, dotCy) || near(dotCx2, dotCy)) return true;
+
+  // 데이터 노드 근처만 터치 캡처
+  for (let i = 0; i < nodePts.length; i++) {
+    if (near(nodePts[i].x, nodePts[i].y, 16)) return true;
   }
+  // 나머지는 부모(세로 스크롤)로 넘김
+  return false;
+}, [interactive, nodePts, dotCx1, dotCx2, dotCy]);
 
-  // 높이(동일 바닥선)
-  const timeScale  = 0.96;
-  const countScale = 0.82;
+  const handleRelease = useCallback((evt)=>{
+    if(!interactive) return;
+    const { locationX:x } = evt.nativeEvent;
+    const near = (cx, r=16) => Math.abs(x - cx) <= r;
+    if (near(dotCx1)) { onSelectPagerIndex(0); return; }
+    if (near(dotCx2)) { onSelectPagerIndex(1); return; }
+    if (!pts.length) return;
+    let best = 0, bestDx = Infinity;
+    for (let i=0;i<pts.length;i++){
+      const dx = Math.abs(pts[i].x - x);
+      if (dx < bestDx) { bestDx = dx; best = i; }
+    }
+    setSelectedIdx(best);
+  }, [interactive, pts, dotCx1, dotCx2, onSelectPagerIndex]);
 
-  // 횟수 막대 완화: 최소 4회를 시각적 최대치로 가정 + 최소 높이
-  const visualMaxCount = Math.max(4, maxC);
-  const minCountPx = 3;
+  const selectedLabel = useMemo(()=>{
+    if (selectedIdx==null || !series[selectedIdx]) return null;
+    const v = series[selectedIdx].v;
+    const d = series[selectedIdx].d;
+    return `${metric==='count'? `${v}회(누적)` : `${v}분`} ${String(d.getFullYear()).slice(2)}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  }, [selectedIdx, series, metric]);
 
-  const baselineGap = 3;
-  const baseTop = top + ch - baselineGap;
+  const selPoint = useMemo(()=>{
+    if (selectedIdx==null) return null;
+    return pts[selectedIdx] || null;
+  }, [selectedIdx, pts]);
 
-  // 라벨
-  const startLabel = series[0]?.date
-    ? `${String(series[0].date.getFullYear()).slice(2)}-${pad2(series[0].date.getMonth()+1)}-${pad2(series[0].date.getDate())}`
-    : '';
-  const endRaw = series[N-1]?.date
-    ? `${String(series[N-1].date.getFullYear()).slice(2)}-${pad2(series[N-1].date.getMonth()+1)}-${pad2(series[N-1].date.getDate())}`
-    : '';
-  const endLabel = endRaw ? `Today ${endRaw}` : '';
-
-  // 베이스라인(막대 회색)
-  const baselineX1 = left;
-  const baselineX2 = left + cw;
-  const baselineY  = top + ch + 0.5;
+  const endNode = pts[pts.length-1] || null;
 
   return (
-    <View style={{ width: '100%', alignItems:'center' }}>
-      <Svg width={width} height={height}>
-        {series.map((s, i)=>{
-          const x = xs[i];
-          const bw = widths[i] || 8;
+    <View pointerEvents="box-none">
+      <Svg
+  width={width}
+  height={height}
+  onStartShouldSetResponder={shouldCaptureTouch}
+  onMoveShouldSetResponder={() => false}
+  onStartShouldSetResponderCapture={() => false}
+  onMoveShouldSetResponderCapture={() => false}
+  onResponderRelease={handleRelease}
+  onResponderEnd={handleRelease}
+>
 
-          // 모서리: 직각에 가깝게
-          const rx = Math.max(1, Math.min(3, bw * 0.12));
+        <Defs>
+          <LinearGradient id={`grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor={progressGrey} stopOpacity="0.85"/>
+            <Stop offset="100%" stopColor={progressGrey} stopOpacity="0"/>
+          </LinearGradient>
+        </Defs>
 
-          // 시간 막대(뒤)
-          const hTimeRaw  = (s.minutes / maxM) * ch * timeScale;
-          const hTime     = Math.max(0, hTimeRaw * P);
-          const yTime     = baseTop - hTime;
+        {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} />}
+        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={1.6} />}
 
-          // 횟수 막대(앞, 반투명)
-          const hCountRaw = (s.count / visualMaxCount) * ch * countScale;
-          const hCount    = s.count > 0 ? Math.max(minCountPx * P, hCountRaw * P) : 0;
-          const yCount    = baseTop - hCount;
+        {/* X축 */}
+        <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={progressGrey} strokeWidth={1} />
 
+        {/* 좌/우 라벨 */}
+        <SvgText x={left+2} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="start">
+          {`${String(new Date(start).getFullYear()).slice(2)}-${pad2(new Date(start).getMonth()+1)}-${pad2(new Date(start).getDate())}`}
+        </SvgText>
+        <SvgText x={left+cw-2} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="end">
+          {`Today ${String((new Date()).getFullYear()).slice(2)}-${pad2((new Date()).getMonth()+1)}-${pad2((new Date()).getDate())}`}
+        </SvgText>
+
+        {/* 마커/라벨 */}
+        {!selPoint && endNode && (
+          <Circle cx={endNode.x} cy={endNode.y} r={3.2} fill="#fff" stroke={baseBlack} strokeWidth={2}/>
+        )}
+        {selPoint && (
+          <Circle cx={selPoint.x} cy={selPoint.y} r={3.8} fill="#fff" stroke={baseBlack} strokeWidth={2.1}/>
+        )}
+        {selPoint && selectedLabel && (() => {
+          const pos = placeLabel(selPoint, selectedLabel, selectedIdx === series.length - 1);
           return (
-            <React.Fragment key={i}>
-              <Rect x={x} y={yTime}  width={bw} height={hTime}  rx={rx} fill={baseBlack} />
-              <Rect x={x} y={yCount} width={bw} height={hCount} rx={rx} fill={progressGrey} opacity={0.7} />
-            </React.Fragment>
+            <>
+              <Rect x={pos.lx} y={pos.ly} width={pos.w} height={pos.h} rx={6} fill="#111"/>
+              <SvgText x={pos.lx + pos.w/2} y={pos.ly + pos.h - 6} fill="#fff" fontSize={10} fontWeight="700" textAnchor="middle">
+                {selectedLabel}
+              </SvgText>
+            </>
           );
-        })}
+        })()}
+        {!selPoint && defaultLabel && endNode && (() => {
+          const pos = placeLabel(endNode, defaultLabel, true);
+          return (
+            <>
+              <Rect x={pos.lx} y={pos.ly} width={pos.w} height={pos.h} rx={6} fill="#111"/>
+              <SvgText x={pos.lx + pos.w/2} y={pos.ly + pos.h - 6} fill="#fff" fontSize={10} fontWeight="700" textAnchor="middle">
+                {defaultLabel}
+              </SvgText>
+            </>
+          );
+        })()}
 
-        {/* X축 베이스라인 */}
-        <Line x1={baselineX1} y1={baselineY} x2={baselineX2} y2={baselineY} stroke={progressGrey} strokeWidth={0.8} />
-
-        {/* 좌우 날짜 라벨 */}
-        <SvgText x={baselineX1+2} y={top+ch+16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="start">{startLabel}</SvgText>
-        <SvgText x={baselineX2-4} y={top+ch+16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="end">{endLabel}</SvgText>
+        {/* 내장 페이저 점 */}
+        <Circle cx={left + cw/2 - 10} cy={top + ch + 14} r={4} fill={pagerIndex===0 ? '#111' : '#D1D5DB'} />
+        <Circle cx={left + cw/2 + 10} cy={top + ch + 14} r={4} fill={pagerIndex===1 ? '#111' : '#D1D5DB'} />
       </Svg>
     </View>
   );
 });
 
+const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true }) {
+  const pageW = SCREEN_WIDTH - (EDGE + GRAPH_SIDE_PAD) * 2;
+  const scrollRef = useRef(null);
+  const [page, setPage] = useState(0);
+
+  const goPage = useCallback((i)=>{
+    const idx = clamp(i,0,1);
+    scrollRef.current?.scrollTo({ x: idx*pageW, y: 0, animated: true });
+    setPage(idx);
+  }, [pageW]);
+
+  return (
+    <View style={{ width: pageW, alignSelf:'center' }}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        nestedScrollEnabled
+        directionalLockEnabled
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e)=>{
+          const i = Math.round((e.nativeEvent.contentOffset.x || 0)/pageW);
+          setPage(clamp(i,0,1));
+        }}
+        snapToInterval={pageW}
+        snapToAlignment="start"
+        style={{ width: pageW }}
+        onStartShouldSetResponderCapture={() => false}
+        contentContainerStyle={{}}
+        scrollEventThrottle={16}
+      >
+        <View style={{ width: pageW, alignItems:'center' }}>
+          <LineGradientChart
+            startDate={startDate}
+            entries={entries}
+            metric="count"         // 누적 그래프
+            width={pageW-4}
+            introProgress={introProgress}
+            interactive={interactive}
+            pagerIndex={page}
+            onSelectPagerIndex={goPage}
+          />
+        </View>
+        <View style={{ width: pageW, alignItems:'center' }}>
+          <LineGradientChart
+            startDate={startDate}
+            entries={entries}
+            metric="minutes"
+            width={pageW-4}
+            introProgress={introProgress}
+            interactive={interactive}
+            pagerIndex={page}
+            onSelectPagerIndex={goPage}
+          />
+        </View>
+      </ScrollView>
+
+      {/* ⛔️ 외부 점(아래쪽 ●●)은 제거했습니다 — 그래프 내부 점만 남김 */}
+    </View>
+  );
+});
+
+
+
 /* ───────── 주간 뷰 ───────── */
-const WeekView = memo(function WeekView({ weeksData, currentIndex, onIndexChange }) {
+const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1 }) {
   const scrollRef = useRef(null);
   const [pageW, setPageW] = useState(SCREEN_WIDTH);
+
   const onLayout = useCallback((e) => {
     const w = Math.floor(e.nativeEvent.layout.width || SCREEN_WIDTH);
     if (w && w !== pageW) setPageW(w);
   }, [pageW]);
 
-  const PADDING_H = 14;
+  const PADDING_H = EDGE;
   const INNER_W = Math.floor(pageW - PADDING_H * 2);
   const COL_W   = Math.floor(INNER_W / 7);
   const ROW_W   = COL_W * 7;
 
-  const todayWeekIndex = useMemo(() => {
-    if (!weeksData?.length) return 0;
-    const today = new Date();
-    const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    for (let i = 0; i < weeksData.length; i++) {
-      const ws = new Date(weeksData[i].ws);
-      const we = new Date(ws); we.setDate(we.getDate() + 7);
-      if (t0 >= ws && t0 < we) return i;
-    }
-    return Math.max(weeksData.length - 1, 0);
-  }, [weeksData]);
-  const latestWeekIndex = useMemo(() => Math.max(weeksData.length - 1, 0), [weeksData]);
-  const effectiveIndex = typeof currentIndex === 'number'
-    ? currentIndex
-    : (SCROLL_MODE === 'today' ? todayWeekIndex : latestWeekIndex);
+  const initialOffsetX = useMemo(
+    () => Math.max(0, Math.min(currentIndex, Math.max(weeksData.length - 1, 0))) * pageW,
+    [currentIndex, weeksData.length, pageW]
+  );
 
-  const initialOffsetX = useMemo(() => effectiveIndex * pageW, [effectiveIndex, pageW]);
-  useEffect(() => { try { scrollRef.current?.scrollTo({ x: initialOffsetX, y: 0, animated: false }); } catch {} }, [initialOffsetX]);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      try { scrollRef.current?.scrollTo({ x: initialOffsetX, y: 0, animated: false }); } catch {}
+    });
+    return () => cancelAnimationFrame(id);
+  }, [initialOffsetX]);
 
   const renderWeek = useCallback(({ dailyStats }, idx) => {
-    const maxBarHeight = 80;
     const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
     const maxCount = Math.max(...dailyStats.map(s => s.totalCount || 0), 1);
 
@@ -468,43 +766,53 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex, onIndexChange
 
         <View style={{ flexDirection:'row', width: ROW_W, alignSelf:'center', alignItems:'flex-end', height: 120, marginTop: 10 }}>
           {dailyStats.map((stat, i) => {
-            const hTime = stat.duration > 0
-              ? Math.min((stat.duration / maxTime) * maxBarHeight + 10, maxBarHeight + 10)
-              : 1;
-            const onlyCount = stat.duration <= 0 && (stat.totalCount || 0) > 0;
-            const hCount = onlyCount
-              ? Math.min((stat.totalCount / maxCount) * maxBarHeight + 10, maxBarHeight + 10)
-              : 1;
+            const hasTime = (stat.duration || 0) > 0;
+            const hasCount = (stat.totalCount || 0) > 0;
 
-            const segDurations = Array.isArray(stat.durations) ? stat.durations : [];
-            const totalSegDur = segDurations.reduce((a, b) => a + b, 0);
+            if (!hasTime && !hasCount) {
+              return (
+                <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
+                  <Text style={styles.barText}>{' '}</Text>
+                  <View style={{ height: 0 }} />
+                  <Text style={styles.countLabel}>{'—'}</Text>
+                </View>
+              );
+            }
 
-            if (stat.duration > 0) {
+            const hTime = hasTime
+              ? Math.min((stat.duration / maxTime) * 80 + 10, 90) * introProgress
+              : 0;
+            const hCount = (!hasTime && hasCount)
+              ? Math.min((stat.totalCount / maxCount) * 80 + 10, 90) * introProgress
+              : 0;
+
+            if (hasTime) {
+              const segDurations = Array.isArray(stat.durations) ? stat.durations : [];
+              const totalSegDur = segDurations.reduce((a, b) => a + b, 0);
+
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
                   <Text style={styles.barText}>{`${stat.duration}분`}</Text>
-                  {(segDurations.length > 1) ? (
-                    <View style={{ marginVertical: 2, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
-                      {(() => {
-                        const segGap = 2;
-                        const gaps = segGap * (segDurations.length - 1);
-                        const available = Math.max(hTime - gaps, 2 * segDurations.length);
-                        return segDurations.map((dur, s) => {
-                          const ratio = totalSegDur > 0 ? (dur / totalSegDur) : (1 / segDurations.length);
-                          const segH = Math.max(4, ratio * available);
-                          return (
-                            <View key={s} style={{
-                              width: 16, height: segH, borderRadius: 4,
-                              marginBottom: s === segDurations.length - 1 ? 0 : 2,
-                              backgroundColor: lighten(baseBlack, s),
-                            }}/>
-                          );
-                        });
-                      })()}
-                    </View>
-                  ) : (
-                    <View style={[styles.bar, { height: hTime, marginVertical: 2, backgroundColor: baseBlack }]} />
-                  )}
+                  <View style={{ marginVertical: 2, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
+                    {(() => {
+                      if (segDurations.length <= 1) {
+                        return <View style={[styles.bar, { height: hTime, backgroundColor: baseBlack }]} />;
+                      }
+                      const segGap = 2;
+                      const available = Math.max(hTime - segGap * (segDurations.length - 1), 2 * segDurations.length);
+                      return segDurations.map((dur, s) => {
+                        const ratio = totalSegDur > 0 ? (dur / totalSegDur) : (1 / segDurations.length);
+                        const segH = Math.max(4, ratio * available);
+                        return (
+                          <View key={s} style={{
+                            width: 16, height: segH, borderRadius: 4,
+                            marginBottom: s === segDurations.length - 1 ? 0 : 2,
+                            backgroundColor: baseBlack,
+                          }}/>
+                        );
+                      });
+                    })()}
+                  </View>
                   <Text style={styles.countLabel}>{(stat.totalCount || 0) > 0 ? `${stat.totalCount}회` : '—'}</Text>
                 </View>
               );
@@ -517,14 +825,13 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex, onIndexChange
                 <View style={{ marginVertical: 2, height: hCount, justifyContent:'flex-end', alignItems:'center' }}>
                   {(() => {
                     const segGap = 2;
-                    const gaps = segGap * (segCount - 1);
-                    const available = Math.max(hCount - gaps, 2 * segCount);
+                    const available = Math.max(hCount - segGap * (segCount - 1), 2 * segCount);
                     const segH = Math.max(4, available / segCount);
                     return Array.from({ length: segCount }).map((_, s) => (
                       <View key={s} style={{
                         width: 16, height: segH, borderRadius: 4,
                         marginBottom: s === segCount - 1 ? 0 : segGap,
-                        backgroundColor: '#D1D5DB',
+                        backgroundColor: progressGrey,
                       }}/>
                     ));
                   })()}
@@ -536,7 +843,7 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex, onIndexChange
         </View>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, introProgress]);
 
   return (
     <View style={{ height: 180 }} onLayout={onLayout}>
@@ -550,11 +857,14 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex, onIndexChange
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
         style={{ flex: 1 }}
-        contentOffset={{ x: initialOffsetX, y: 0 }}
         onMomentumScrollEnd={(e) => {
           const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
           if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
         }}
+        directionalLockEnabled
+        nestedScrollEnabled
+        scrollEventThrottle={16}
+        onStartShouldSetResponderCapture={() => false}
       >
         {weeksData.map((w, idx) => (
           <View key={`wk-${idx}`} style={{ width: pageW }}>
@@ -565,23 +875,23 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex, onIndexChange
     </View>
   );
 });
-
 /* ───────── 리스트 행 ───────── */
 const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress }) {
   const body = (
     <>
       <Text style={styles.number}>{indexFromEnd}</Text>
-      {item.imageUri && <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />}
+      {item?.imageUri
+        ? <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
+        : <View style={[styles.thumbnail, {backgroundColor:'#F3F4F6'}]} />}
       <View style={styles.textContainer}>
-        <Text style={styles.text}>{item.text}</Text>
-        <Text style={styles.time}>{new Date(item.timestamp).toLocaleString()}</Text>
+        <Text style={styles.text}>{item?.text ?? ''}</Text>
+        <Text style={styles.time}>인증 시간: {new Date(item.timestamp).toLocaleString()}</Text>
         {(typeof item.duration === 'number' && item.duration > 0) && (
           <Text style={styles.duration}>소요 시간: {item.duration}분</Text>
         )}
       </View>
     </>
   );
-
   if (readOnly) return <View style={styles.entry}>{body}</View>;
   return (
     <TouchableOpacity style={styles.entry} onPress={onPress} activeOpacity={0.85}>
@@ -590,18 +900,112 @@ const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress 
   );
 });
 
+/* ───────── 공유 아이콘 ───────── */
+const ShadowIcon = ({ forShare=false }) => {
+  if (!forShare) {
+    return (
+      <View style={styles.iconWrapAbs}>
+        <Image source={ICON} style={styles.iconSquare} />
+      </View>
+    );
+  }
+  return (
+    <View style={styles.iconWrapShare}>
+      <Svg width={46} height={46} style={{ position:'absolute' }}>
+        <Rect x={3} y={4} width={40} height={40} rx={8} fill="#000" opacity={0.28} />
+        <Rect x={2} y={3} width={42} height={42} rx={9} fill="#000" opacity={0.18} />
+      </Svg>
+      <Image source={ICON} style={styles.iconSquare} />
+    </View>
+  );
+};
+
+/* ───────── 헤더 아래: 카운트 행 최소화 ───────── */
+const HeaderWithCountMemo = memo(function HeaderWithCountMemo({ HeaderCard }) {
+  return <View collapsable={false}>{HeaderCard}</View>;
+});
+
+/* ───────── RAW 디버그 리스트 ───────── */
+const RawDebugList = ({
+  entries, sortedEntries, insets, readOnly, navigation, challengeId,
+  HeaderWithCountMemo, HeaderCard, totalMinutes, hours, minutes, currentScore, targetScore, styles
+}) => {
+  return (
+    <React.Fragment>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 12, paddingBottom: (insets?.bottom ?? 0) + 96 }}
+        keyboardShouldPersistTaps="always"
+      >
+        <HeaderWithCountMemo HeaderCard={HeaderCard} />
+
+        <View style={{ padding: 10, borderBottomWidth: 1, borderColor: '#eee', marginBottom: 8 }}>
+          <Text style={{ fontWeight: '800', fontSize: 16 }}>RAW 디버그 리스트</Text>
+          <Text style={{ marginTop: 4, color: '#555' }}>
+            entries: {entries.length} · sorted: {sortedEntries.length}
+          </Text>
+        </View>
+
+        {sortedEntries.length === 0 && (
+          <Text style={{ color: '#999', textAlign: 'center', marginTop: 24 }}>
+            (빈 목록) — AsyncStorage에서 아무 것도 못 읽었습니다.
+          </Text>
+        )}
+
+        {sortedEntries[0] && (
+          <View style={{ padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginBottom: 10 }}>
+            <Text style={{ fontWeight: '700', marginBottom: 6 }}>첫 아이템 원본</Text>
+            <Text selectable style={{ fontSize: 12, color: '#333' }}>
+              {JSON.stringify(sortedEntries[0], null, 2)}
+            </Text>
+          </View>
+        )}
+
+        {sortedEntries.map((it, idx) => {
+          const indexFromEnd = sortedEntries.length - idx;
+          const onPress = readOnly ? undefined : () =>
+            navigation.navigate('EntryDetail', { challengeId, entryId: it?.id });
+
+          return (
+            <View
+              key={it?.id ?? `${it?.timestamp ?? 0}-${idx}`}
+              style={{ paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' }}
+            >
+              <Text style={{ fontWeight: '700' }}>
+                #{indexFromEnd} {new Date(it.timestamp).toLocaleString()}
+              </Text>
+              <Text style={{ marginTop: 4, color: '#111' }}>
+                {typeof it?.text === 'string' ? it.text : '(text 없음)'}
+              </Text>
+              {(typeof it?.duration === 'number' && it.duration > 0) && (
+                <Text style={{ marginTop: 2, color: '#444' }}>소요 시간: {it.duration}분</Text>
+              )}
+              {!!onPress && <Text style={{ color:'#0a84ff', marginTop:6 }} onPress={onPress}>열기</Text>}
+            </View>
+          );
+        })}
+
+        <View style={{ height: (insets?.bottom ?? 0) + 24 }} />
+      </ScrollView>
+    </React.Fragment>
+  );
+};
+
 /* ───────── 본문 ───────── */
 export default function EntryListScreen({ route, navigation }) {
+  const params = route?.params || {};
   const {
     challengeId,
-    title,
+    title: titleFromRoute,
     startDate: startDateFromRoute,
     targetScore = 7,
     endDate: endDateFromRoute,
     rewardTitle: rewardTitleFromRoute,
     reward: rewardFromRoute,
     readOnly = false,
-  } = route.params;
+  } = params;
+
+  const title = titleFromRoute || '도전 기록';
 
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -626,94 +1030,65 @@ export default function EntryListScreen({ route, navigation }) {
   });
   const [showInfo, setShowInfo] = useState(false);
 
+  const [showDebug] = useState(true);
   const shareRef = useRef(null);
 
-  // ===== 인트로 애니메이션(부드럽게) =====
-  const [introK, setIntroK] = useState(0); // 0→1
+  /* ── 인트로 애니메이션 ── */
+  const [introK, setIntroK] = useState(0);
   const rafRef = useRef(null);
+  const lastKRef = useRef(0);
   const runIntro = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    const ease = (t)=> 1 - Math.pow(1 - t, 3); // cubicOut
-    const DUR = 1200;
+    const ease = (t)=> 1 - Math.pow(1 - t, 5);
+    const DUR = 2400;
     const t0 = Date.now();
     const tick = () => {
       const t = Math.min(1, (Date.now() - t0) / DUR);
-      setIntroK(ease(t));
+      const k = ease(t);
+      if (k - lastKRef.current >= 0.02 || t >= 1) {
+        lastKRef.current = k;
+        setIntroK(k);
+      }
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }, []);
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
-  useEffect(() => {
-    if (!isFocused) return;
-    (async () => {
-      const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
-      const list = raw ? JSON.parse(raw) : [];
-      setEntries(list);
-      setCurrentScore(list.length);
+  /* ── 디버그/리로드 ── */
+  const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
+  const [reloadTick, setReloadTick] = useState(0);
+  const reload = useCallback(()=> setReloadTick(t=>t+1), []);
 
-      let loadedMeta = { ...meta };
-      try {
-        const oneRaw = await AsyncStorage.getItem(`challenge_${challengeId}`);
-        if (oneRaw) {
-          const one = JSON.parse(oneRaw);
-          loadedMeta = {
-            startDate: loadedMeta.startDate ?? one.startDate ?? null,
-            endDate:   loadedMeta.endDate   ?? one.endDate   ?? null,
-            rewardTitle: loadedMeta.rewardTitle ?? one.rewardTitle ?? null,
-            reward:      loadedMeta.reward      ?? one.reward      ?? null,
-            description: one.description ?? null,
-            notification: one.notification ?? { mode:null, payload:null },
-          };
-        } else {
-          const listRaw = await AsyncStorage.getItem('challenges');
-          if (listRaw) {
-            const arr = JSON.parse(listRaw);
-            const found = Array.isArray(arr) ? arr.find(c => c.id === challengeId) : null;
-            if (found) {
-              loadedMeta = {
-                startDate: loadedMeta.startDate ?? found.startDate ?? null,
-                endDate:   loadedMeta.endDate   ?? found.endDate   ?? null,
-                rewardTitle: loadedMeta.rewardTitle ?? found.rewardTitle ?? null,
-                reward:      loadedMeta.reward      ?? found.reward      ?? null,
-                description: found.description ?? null,
-                notification: found.notification ?? { mode:null, payload:null },
-              };
-            }
-          }
-        }
-      } catch {}
-      setMeta(loadedMeta);
-
-      buildWeeks(list, loadedMeta.startDate ?? startDateFromRoute);
-
-      if (loadedMeta.startDate && loadedMeta.endDate) {
-        const s = new Date(loadedMeta.startDate);
-        const e = new Date(loadedMeta.endDate);
-        const t = new Date();
-        const clamp = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
-        let md = clamp(t);
-        if (md < clamp(s)) md = clamp(s);
-        if (md > clamp(e)) md = clamp(e);
-        setMonthDate(md);
+  /* ── 안전 파서 & 정규화 ── */
+  const normalizeEntries = useCallback((arr=[]) => {
+    return arr.map((e, i) => {
+      const id = e?.id ?? `${e?.timestamp ?? 'ts'}-${i}`;
+      let ts = e?.timestamp;
+      if (ts instanceof Date) ts = ts.getTime();
+      if (typeof ts === 'string') {
+        const parsed = Date.parse(ts);
+        ts = Number.isNaN(parsed) ? null : parsed;
       }
-    })().catch(console.error);
+      if (typeof ts !== 'number' || Number.isNaN(ts)) ts = Date.now() - i * 1000;
 
-    runIntro();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFocused, challengeId]);
+      let dur = e?.duration;
+      if (typeof dur === 'string') {
+        const n = Number(dur);
+        dur = Number.isFinite(n) ? n : 0;
+      }
+      if (typeof dur !== 'number' || !Number.isFinite(dur)) dur = 0;
 
-  const overallPct = useMemo(
-    () => Math.min(Math.round((currentScore / targetScore) * 100), 100),
-    [currentScore, targetScore]
-  );
+      return { ...e, id: String(id), timestamp: ts, duration: dur };
+    });
+  }, []);
 
-  // 주간 데이터
+  /* ── 주간 데이터 빌더 ── */
   const buildWeeks = useCallback((list, startDateStr) => {
     if (!startDateStr) { setWeeksData([]); return; }
     const start = new Date(startDateStr); start.setHours(0,0,0,0);
     const sd = start.getDay(); start.setDate(start.getDate() - sd); start.setHours(0,0,0,0);
+
     const now = new Date(); const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const td = todayMid.getDay();
     const thisSaturday = new Date(todayMid); thisSaturday.setDate(todayMid.getDate() + (6 - td));
@@ -756,7 +1131,178 @@ export default function EntryListScreen({ route, navigation }) {
     setWeekIndex(initIdx);
   }, []);
 
-  const sortedEntries = useMemo(() => [...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)), [entries]);
+  /* ── 인증목록 + 메타 로더 ── */
+  const loadingRef = useRef(false);
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    if (!isFocused || loadingRef.current) return;
+    loadingRef.current = true;
+    (async () => {
+      const rawCID = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
+      const numCID = (rawCID.match(/\d+/g) || []).join('');
+      const chCID  = rawCID.startsWith('ch_') ? rawCID : (numCID ? `ch_${numCID}` : rawCID);
+
+      const tried = [];
+      const pickArray = (val) => {
+        if (Array.isArray(val)) return val;
+        if (val && typeof val === 'object') {
+          if (Array.isArray(val.entries)) return val.entries;
+          if (Array.isArray(val.items)) return val.items;
+          if (Array.isArray(val.data)) return val.data;
+          if (Array.isArray(val.list)) return val.list;
+        }
+        return [];
+      };
+      const tryGetJSON = async (key) => {
+        const raw = await AsyncStorage.getItem(key);
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return null; }
+      };
+
+      const entryKeys = [
+        `entries_${chCID}`,
+        `entries_${numCID}`,
+        `entries_${rawCID}`,
+        `challenge_${chCID}_entries`,
+        `challenge_${numCID}_entries`,
+        `challenge_${rawCID}_entries`,
+        `challenge:${chCID}:entries`,
+        `challenge:${numCID}:entries`,
+        `challenge:${rawCID}:entries`,
+        `certs_${chCID}`, `certs_${numCID}`, `certs_${rawCID}`,
+        `logs_${chCID}`,  `logs_${numCID}`,  `logs_${rawCID}`,
+        `records_${chCID}`, `records_${numCID}`, `records_${rawCID}`,
+        'entries', 'certs', 'logs', 'records', 'activity', 'history'
+      ];
+
+      let list = [];
+      let hitKey = null;
+
+      for (const k of entryKeys) {
+        tried.push(k);
+        const parsed = await tryGetJSON(k);
+        const arr = pickArray(parsed);
+        if (arr.length) { list = arr; hitKey = k; break; }
+      }
+
+      if (!list.length) {
+        tried.push('challenges');
+        const arr = await tryGetJSON('challenges');
+        if (Array.isArray(arr)) {
+          const found = arr.find(c => String(c.id) === rawCID || String(c.id) === numCID || String(c.id) === chCID);
+          const cand = pickArray(
+            found?.entries?.length ? found :
+            (found?.logs?.length ? {entries: found.logs} : null)
+          );
+          if (cand.length) {
+            list = cand;
+            hitKey = 'challenges[*].entries|logs';
+          }
+        }
+      }
+
+      const normalized = normalizeEntries(Array.isArray(list) ? list : []);
+      if (!aliveRef.current) return;
+      setEntries(normalized);
+      setCurrentScore(normalized.length);
+      if (DEBUG_ON) setDebug({ hitKey, tried, count: normalized.length });
+
+      // ✅ 최후 수단: 전수 스캔
+      if (normalized.length === 0) {
+        const fallback = await scanAllStorageForEntries({ rawCID, numCID, chCID });
+        if (fallback && Array.isArray(fallback) && fallback.length) {
+          const norm2 = normalizeEntries(fallback);
+          if (aliveRef.current) {
+            setEntries(norm2);
+            setCurrentScore(norm2.length);
+            if (DEBUG_ON) setDebug(d => ({ ...d, hitKey: d.hitKey ?? 'FALLBACK_SCAN', count: norm2.length }));
+          }
+        }
+      }
+
+      // 메타
+      const metaKeys = [
+        `challenge_${chCID}`,
+        `challenge_${numCID}`,
+        `challenge_${rawCID}`,
+      ];
+
+      let loadedMeta = {
+        startDate: meta.startDate ?? null,
+        endDate: meta.endDate ?? null,
+        rewardTitle: meta.rewardTitle ?? null,
+        reward: meta.reward ?? null,
+        description: null,
+        notification: { mode: null, payload: null },
+      };
+      for (const k of metaKeys) {
+        tried.push(k);
+        const one = await tryGetJSON(k);
+        if (one) {
+          loadedMeta = {
+            startDate: loadedMeta.startDate ?? one.startDate ?? null,
+            endDate:   loadedMeta.endDate   ?? one.endDate   ?? null,
+            rewardTitle: loadedMeta.rewardTitle ?? one.rewardTitle ?? null,
+            reward:      loadedMeta.reward      ?? one.reward      ?? null,
+            description: one.description ?? loadedMeta.description ?? null,
+            notification: one.notification ?? loadedMeta.notification ?? { mode:null, payload:null },
+          };
+          break;
+        }
+      }
+      if (!loadedMeta.startDate || !loadedMeta.endDate || !loadedMeta.rewardTitle || !loadedMeta.reward) {
+        const arr = await tryGetJSON('challenges');
+        if (Array.isArray(arr)) {
+          const found = arr.find(c =>
+            String(c.id) === rawCID || String(c.id) === numCID || String(c.id) === chCID
+          );
+          if (found) {
+            loadedMeta = {
+              startDate: loadedMeta.startDate ?? found.startDate ?? null,
+              endDate:   loadedMeta.endDate   ?? found.endDate   ?? null,
+              rewardTitle: loadedMeta.rewardTitle ?? found.rewardTitle ?? null,
+              reward:      loadedMeta.reward      ?? found.reward      ?? null,
+              description: found.description ?? loadedMeta.description ?? null,
+              notification: found.notification ?? loadedMeta.notification ?? { mode:null, payload:null },
+            };
+          }
+        }
+      }
+      if (!aliveRef.current) return;
+      setMeta(loadedMeta);
+
+      buildWeeks(normalized, loadedMeta.startDate ?? startDateFromRoute);
+
+      if (loadedMeta.startDate && loadedMeta.endDate) {
+        const s = new Date(loadedMeta.startDate);
+        const e = new Date(loadedMeta.endDate);
+        const t = new Date();
+        const clampMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+        let md = clampMonth(t);
+        if (md < clampMonth(s)) md = clampMonth(s);
+        if (md > clampMonth(e)) md = clampMonth(e);
+        setMonthDate(md);
+      }
+    })()
+      .catch(console.error)
+      .finally(()=>{ loadingRef.current = false; });
+
+    runIntro();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused, challengeId, reloadTick, buildWeeks]);
+
+  useEffect(()=>()=>{ aliveRef.current = false; },[]);
+
+  const overallPct = useMemo(
+    () => Math.min(Math.round((currentScore / targetScore) * 100), 100),
+    [currentScore, targetScore]
+  );
+
+  const sortedEntries = useMemo(
+    () => [...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
+    [entries]
+  );
 
   const fmtDate = useCallback((dStr)=>{
     if (!dStr) return '-';
@@ -791,22 +1337,22 @@ export default function EntryListScreen({ route, navigation }) {
   }, [entries]);
 
   // 누적 시간
-  const totalMinutes = useMemo(() => entries.reduce((sum, e) => sum + (typeof e.duration === 'number' && e.duration > 0 ? e.duration : 0), 0), [entries]);
+  const totalMinutes = useMemo(
+    () => entries.reduce((sum, e) => sum + (typeof e.duration === 'number' && e.duration > 0 ? e.duration : 0), 0),
+    [entries]
+  );
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  // 헤더 카드
+  /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
   const HeaderCard = useMemo(()=>(<View style={styles.card}>
       <View style={styles.headerTop}>
         <TouchableOpacity
           onPress={()=>setShowInfo(true)}
           activeOpacity={0.9}
-          style={styles.iconWrapAbs}
-          collapsable={false}
-          renderToHardwareTextureAndroid
-          shouldRasterizeIOS
+          style={{ position:'absolute', left:0, top:0 }}
         >
-          <Image source={ICON} style={styles.iconSquare} />
+          <ShadowIcon forShare={false} />
         </TouchableOpacity>
 
         <View style={{ paddingHorizontal: 60, alignItems:'center' }}>
@@ -838,191 +1384,275 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
       <View style={styles.sectionBox}>
-        <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} />
+        <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={introK} />
       </View>
 
-      {/* 전체일정 그래프 */}
-      <View style={[styles.sectionBox, { paddingHorizontal: 10, alignItems:'center' }]}>
+      {/* 전체일정 라인 그래프 */}
+      <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
         {meta.startDate ? (
-          <TaperedStackedBars
-            startDate={meta.startDate}
-            entries={entries}
-            width={SCREEN_WIDTH - 56}   // 좌우 동일 여백
-            introProgress={introK}
-          />
+          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={introK} interactive />
         ) : (
           <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
         )}
       </View>
-
-      <View style={styles.sectionBox}>
-        <View style={styles.hr} />
-        <Text style={[styles.sectionLabel, { textAlign:'center', marginBottom: 8 }]}>보상</Text>
-        <View style={styles.rewardBox}><Text style={styles.rewardText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text></View>
-        <View style={[styles.hr, { marginTop: 8 }]} />
-      </View>
     </View>
   ), [
-    title, meta.startDate, meta.endDate, meta.rewardTitle, meta.reward,
+    title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, introK, entries, overallPct
   ]);
 
-  const HeaderWithCount = useMemo(() => (
-    <View>
-      {HeaderCard}
-      <View style={[styles.countBelowRow, totalMinutes === 0 && styles.countBelowRightOnly]}>
-        {totalMinutes > 0 && (<Text style={styles.accumText}>누적시간 : {hours}시간 {minutes}분</Text>)}
-        <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
+  /* ===== 헤더 카드(공유 캡처용) ===== */
+  const HeaderCardForShare = useMemo(()=>(<View style={styles.card}>
+      <View style={styles.headerTop}>
+        <View style={{ position:'absolute', left:0, top:0 }}>
+          <ShadowIcon forShare={true} />
+        </View>
+
+        <View style={{ paddingHorizontal: 60, alignItems:'center' }}>
+          <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
+          <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
+        </View>
+      </View>
+
+      <View style={[styles.row, { marginTop: 16 }]}>
+        <View style={styles.donutArea}>
+          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
+          <View style={{ marginTop: 24 }}>
+            <Donut targetPercent={overallPct} progress={1} />
+          </View>
+        </View>
+
+        <View style={styles.calendarArea}>
+          <MonthCalendar
+            startDate={meta.startDate || new Date()}
+            endDate={meta.endDate || new Date()}
+            entriesByDaySet={entriesByDaySet}
+            monthDate={monthDate}
+            onPrev={prevMonth}
+            onNext={nextMonth}
+            canPrev={canPrevMonth}
+            canNext={canNextMonth}
+          />
+        </View>
+      </View>
+
+      <View style={styles.sectionBox}>
+        <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
+      </View>
+
+      <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
+        {meta.startDate ? (
+          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive={false} />
+        ) : (
+          <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
+        )}
       </View>
     </View>
-  ), [HeaderCard, currentScore, targetScore, totalMinutes, hours, minutes]);
+  ), [
+    title, meta.startDate, meta.endDate,
+    weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
+    weekIndex, entries, overallPct
+  ]);
 
-  const keyExtractor = useCallback((it) => it.id, []);
-  const renderEntry = useCallback(({ item, index }) => {
-    const indexFromEnd = sortedEntries.length - index;
-    const onPress = readOnly ? undefined : () => navigation.navigate('EntryDetail', { challengeId, entryId: item.id });
-    return <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress} />;
-  }, [challengeId, navigation, readOnly, sortedEntries.length]);
+  const cidForDebug = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
 
   const handleShare = useCallback(async ()=>{
     try {
-      await new Promise(r => setTimeout(r, 60));
-      const uri = await captureRef(shareRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      await new Promise(r => setTimeout(r, 80));
+      const node = shareRef.current;
+      if (!node) throw new Error('공유 뷰를 찾지 못했습니다.');
+      const uri = await captureRef(node, { format: 'png', quality: 1, result: 'tmpfile' });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '공유' });
       } else {
-        await Share.share({ url: uri });
+        await Share.share({ url: uri, message: title || '공유', title: '공유' });
       }
       try { await FileSystem.deleteAsync(uri, { idempotent: true }); } catch {}
-    } catch (e) { console.warn(e); }
-  }, []);
+    } catch (e) {
+      console.warn(e);
+      Alert.alert('공유 실패', '이미지 생성/공유 중 문제가 발생했어요. 다시 시도해 주세요.');
+    }
+  }, [title]);
 
-  const ShareContent = (
-    <ViewShot ref={shareRef} options={{ format: 'png', quality: 1 }}>
-      <View style={[styles.container, { backgroundColor: '#fff' }]}>
-        <View style={styles.card}>
-          <View style={styles.headerTop}>
-            <View style={styles.iconWrapAbs} collapsable={false} renderToHardwareTextureAndroid shouldRasterizeIOS>
-              <Image source={ICON} style={styles.iconSquare} />
-            </View>
-            <View style={{ paddingHorizontal: 60, alignItems:'center' }}>
-              <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
-              <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
-            </View>
-          </View>
+  /* ── RAW 모드 ── */
+  if (KILL_UI_AND_SHOW_RAW) {
+    return (
+      <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
+        <StickyDebugPeek visible={DEBUG_ON} count={debug?.count ?? 0} onPress={reload} />
+        <DebugPanel
+          visible={DEBUG_ON && showDebug}
+          cid={cidForDebug}
+          hitKey={debug.hitKey}
+          allTriedKeys={debug.tried}
+          count={debug.count}
+          onRefresh={reload}
+        />
+        <RawDebugList
+          entries={entries}
+          sortedEntries={sortedEntries}
+          insets={insets}
+          readOnly={readOnly}
+          navigation={navigation}
+          challengeId={challengeId}
+          HeaderWithCountMemo={HeaderWithCountMemo}
+          HeaderCard={HeaderCard}
+          totalMinutes={totalMinutes}
+          hours={hours}
+          minutes={minutes}
+          currentScore={currentScore}
+          targetScore={targetScore}
+          styles={styles}
+        />
+      </SafeAreaView>
+    );
+  }
 
-          <View style={[styles.row, { marginTop: 16 }]}>
-            <View style={styles.donutArea}>
-              <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-              <View style={{ marginTop: 24 }}><Donut targetPercent={overallPct} progress={1} /></View>
-            </View>
+  /* ── 일반 화면 ── */
+  return (
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <StickyDebugPeek visible={DEBUG_ON} count={debug?.count ?? 0} onPress={reload} />
 
-            <View style={styles.calendarArea}>
-              <MonthCalendar
-                startDate={meta.startDate || new Date()}
-                endDate={meta.endDate || new Date()}
-                entriesByDaySet={entriesByDaySet}
-                monthDate={monthDate}
-                onPrev={()=>{}}
-                onNext={()=>{}}
-                canPrev={false}
-                canNext={false}
-              />
-            </View>
-          </View>
+      {/* 공유 캡처용: 화면 밖 — 헤더 + 보상 + 요약 + 전체 목록 포함 */}
+<View pointerEvents="none" style={{ position:'absolute', left:-9999, top:-9999, width:SCREEN_WIDTH, opacity:0 }}>
+<ViewShot ref={shareRef} options={{ format: 'png', quality: 1 }}>
+  <View style={[styles.container, { backgroundColor: '#fff' }]} collapsable={false}>
+    {HeaderCardForShare}
 
-          <View style={styles.sectionBox}>
-            <WeekView weeksData={weeksData} currentIndex={weekIndex} />
-          </View>
+   <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
+  <View style={styles.rewardBlackBox}>
+    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+  </View>
+</View>
 
-          <View style={[styles.sectionBox, { paddingHorizontal: 10, alignItems:'center' }]}>
-            {meta.startDate ? (
-              <TaperedStackedBars
-                startDate={meta.startDate}
-                entries={entries}
-                width={SCREEN_WIDTH - 56}
-                introProgress={1}
-              />
-            ) : (
-              <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
-            )}
-          </View>
+    <View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
+      <Text style={styles.accumText}>누적시간 : {hours}시간 {minutes}분</Text>
+      <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
+    </View>
 
-          <View style={styles.sectionBox}>
-            <View style={styles.hr} />
-            <Text style={[styles.sectionLabel, { textAlign:'center', marginBottom: 8 }]}>보상</Text>
-            <View style={styles.rewardBox}><Text style={styles.rewardText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text></View>
-            <View style={[styles.hr, { marginTop: 8 }]} />
-          </View>
-        </View>
+    {sortedEntries.map((item, index) => {
+      const indexFromEnd = sortedEntries.length - index;
+      return (
+        <React.Fragment key={item?.id ?? `${item?.timestamp ?? 0}-${index}`}>
+          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly />
+          <View style={[styles.separator, styles.sectionPadNarrow]} />
+        </React.Fragment>
+      );
+    })}
+    <View style={{ height: EDGE }} />
+  </View>
+</ViewShot>
 
-        <View style={[styles.countBelowRow, totalMinutes === 0 && styles.countBelowRightOnly]}>
-          {totalMinutes > 0 && (<Text style={styles.accumText}>누적시간 : {hours}시간 {minutes}분</Text>)}
-          <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
-        </View>
+</View>
 
-        {sortedEntries.map((item, idx)=>{
-          const indexFromEnd = sortedEntries.length - idx;
-          return (
-            <View key={item.id} style={styles.entry}>
-              <Text style={styles.number}>{indexFromEnd}</Text>
-              {item.imageUri && <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />}
-              <View style={styles.textContainer}>
-                <Text style={styles.text}>{item.text}</Text>
-                <Text style={styles.time}>{new Date(item.timestamp).toLocaleString()}</Text>
-                {(typeof item.duration === 'number' && item.duration > 0) && (<Text style={styles.duration}>소요 시간: {item.duration}분</Text>)}
+
+      <DebugPanel
+        visible={DEBUG_ON && showDebug}
+        cid={cidForDebug}
+        hitKey={debug.hitKey}
+        allTriedKeys={debug.tried}
+        count={debug.count}
+        onRefresh={reload}
+      />
+
+      {/* 정보 모달: 바깥 터치로 닫힘 */}
+      <Modal visible={showInfo} transparent animationType="fade" onRequestClose={()=>setShowInfo(false)}>
+        <TouchableWithoutFeedback onPress={()=>setShowInfo(false)}>
+          <View style={styles.modalBackdrop} />
+        </TouchableWithoutFeedback>
+
+        <TouchableWithoutFeedback>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitleCenter}>{title}</Text>
+
+            <View style={styles.modalField}>
+              <Text style={styles.modalFieldTitle}>기간</Text>
+              <View style={styles.modalFieldBox}>
+                <Text style={styles.modalFieldValue}>
+                  {`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}
+                </Text>
               </View>
             </View>
-          );
-        })}
-      </View>
-    </ViewShot>
-  );
 
-  return (
-    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]} >
-      <View style={{ position:'absolute', left:-9999, top:-9999, width:SCREEN_WIDTH }}>
-        {ShareContent}
-      </View>
+            <View style={styles.modalField}>
+              <Text style={styles.modalFieldTitle}>도전내용</Text>
+              <View style={styles.modalFieldBox}>
+                <Text style={styles.modalFieldValueMultiline}>{meta.description ?? '—'}</Text>
+              </View>
+            </View>
 
-      <FlatList
-        data={sortedEntries}
-        keyExtractor={keyExtractor}
-        renderItem={renderEntry}
-        ListHeaderComponent={HeaderWithCount}
-        ListEmptyComponent={<Text style={styles.empty}>등록된 인증이 없습니다.</Text>}
-        removeClippedSubviews
-        windowSize={7}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        updateCellsBatchingPeriod={60}
-      />
+            <View style={styles.modalField}>
+              <Text style={styles.modalFieldTitle}>보상</Text>
+              <View style={styles.modalFieldBox}>
+                <Text style={styles.modalFieldValue}>
+                  {meta.rewardTitle ?? meta.reward ?? '—'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.modalField}>
+              <Text style={styles.modalFieldTitle}>알림 미리보기</Text>
+              <View style={[styles.modalFieldBox, { paddingVertical: 10 }]}>
+                <NotiPreviewSwitch
+                  notification={meta?.notification}
+                  startDate={meta.startDate ? new Date(meta.startDate) : null}
+                  endDate={meta.endDate ? new Date(meta.endDate) : null}
+                />
+              </View>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* 스크롤 콘텐츠 */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        <HeaderWithCountMemo HeaderCard={HeaderCard} />
+
+        {/* 보상 박스 (위/아래 간격을 상수로 제어) */}
+<View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
+  <View style={styles.rewardBlackBox}>
+    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+  </View>
+</View>
+
+{/* 누적시간 / 전체·남은 횟수 (postSummaryRow는 marginTop:0) */}
+<View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
+  <Text style={styles.accumText}>누적시간 : {hours}시간 {minutes}분</Text>
+  <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
+</View>
+
+
+{/* 인증목록 */}
+{sortedEntries.length === 0 ? (
+  <Text style={[styles.empty, styles.sectionPadNarrow]}>등록된 인증이 없습니다.</Text>
+) : (
+  sortedEntries.map((item, index) => {
+    const indexFromEnd = sortedEntries.length - index;
+    const onPress = readOnly ? undefined : () =>
+      navigation.navigate('EntryDetail', { challengeId, entryId: item.id });
+    return (
+      <React.Fragment key={item?.id ?? `${item?.timestamp ?? 0}-${index}`}>
+        {/* entry 스타일이 이미 NARROW_PLUS 반영됨 */}
+        <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
+        <View style={[styles.separator, styles.sectionPadNarrow]} />
+      </React.Fragment>
+    );
+  })
+)}
+
+
+
+        <View style={{ height: insets.bottom + 24 }} />
+      </ScrollView>
 
       <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.9}>
         <Text style={styles.shareBtnText}>공유</Text>
       </TouchableOpacity>
-
-      <Modal visible={showInfo} transparent animationType="fade" onRequestClose={()=>setShowInfo(false)}>
-        <TouchableWithoutFeedback onPress={()=>setShowInfo(false)}>
-          <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.35)', padding:14, justifyContent:'center' }}>
-            <TouchableWithoutFeedback>
-              <View style={{ width:'100%', backgroundColor:'#fff', borderRadius:12, padding:16 }}>
-                {!!meta?.description && (
-                  <>
-                    <Text style={{ fontSize:12, color:textGrey, marginBottom:6, textAlign:'center' }}>도전 내용</Text>
-                    <Text style={{ fontSize:14, color:'#111', marginBottom:12, textAlign:'center' }}>{meta.description}</Text>
-                  </>
-                )}
-                <Text style={{ fontSize:12, color:textGrey, marginBottom:6, textAlign:'center' }}>알림 미리보기</Text>
-                <View style={{ backgroundColor:'#F3F4F6', borderRadius:10, padding:10 }}>
-                  <NotiPreviewSwitch notification={meta?.notification} startDate={meta?.startDate} endDate={meta?.endDate} />
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1033,23 +1663,34 @@ const styles = StyleSheet.create({
 
   barText: { fontSize: 9, color: textGrey, textAlign:'center' },
 
-  card: { margin: 10, padding: 14, borderRadius: 12, borderWidth: 0, backgroundColor: '#fff' },
+  card: { marginHorizontal: EDGE, marginTop: EDGE, marginBottom: CARD_BOTTOM_GAP, padding: 14, borderRadius: 12, borderWidth: 0, backgroundColor: '#fff' },
+// 동일 좌우 여백 유틸
+sectionPad: { paddingHorizontal: EDGE },
 
-  countBelowRow: {
-    paddingHorizontal: 16,
-    marginTop: 4, marginBottom: 6,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  countBelowRightOnly: { justifyContent: 'flex-end' },
+// ⬇️ 좁게 만들 때 쓰는 패딩 (그래프폭보다 더 좁아짐)
+sectionPadNarrow: { paddingHorizontal: EDGE + NARROW_PLUS },
+
+ // 요약 행(누적시간/횟수)은 크기/색을 이미 그래프 축과 맞춰둠(10px, textGrey)
+postSummaryRow: {
+  flexDirection:'row',
+  justifyContent:'space-between',
+  alignItems:'center',
+  marginTop: 0,     // ← 중요: 간격은 rewardBlockSpacing이 담당
+  marginBottom: 2,
+},
   accumText: { fontSize: 12, color: textGrey, fontWeight: '600' },
   countBelowText: { fontSize: 12, color: textGrey, fontWeight: '700' },
 
   headerTop: { minHeight: 48, alignItems:'center', justifyContent:'center', marginBottom: 6 },
+
   iconWrapAbs: {
-    position:'absolute', left: 0, top: 0,
     width: 42, height: 42, borderRadius: 8, backgroundColor:'#fff',
     shadowColor: '#000', shadowOpacity: 0.38, shadowOffset: {width:0, height:5}, shadowRadius: 12,
     elevation: 14, alignItems:'center', justifyContent:'center',
+  },
+  iconWrapShare: {
+    width: 42, height: 42, borderRadius: 8, backgroundColor:'#fff',
+    alignItems:'center', justifyContent:'center',
   },
   iconSquare: { width: 42, height: 42, borderRadius: 8 },
 
@@ -1058,11 +1699,26 @@ const styles = StyleSheet.create({
 
   progressLabel: { marginTop: 12, color: textGrey },
   row: { flexDirection: 'row', marginTop: 16 },
-  donutArea: { width: SCREEN_WIDTH * 0.4 - 20, alignItems: 'center', justifyContent: 'flex-start' },
-  calendarArea: { flex: 1, paddingLeft: 10 },
+  donutArea: { width: SCREEN_WIDTH * 0.4 - 24, alignItems: 'center', justifyContent: 'flex-start' },
+  calendarArea: { flex: 1, paddingLeft: 8 },
 
   sectionBox: { marginTop: 10 },
   sectionLabel: { fontSize: 12, color: textGrey, marginBottom: 6 },
+
+  // 누적시간/횟수 — 그래프 축 날짜 텍스트와 동일 톤/크기
+accumText:      { fontSize: 10, color: textGrey, fontWeight: '700' },
+countBelowText: { fontSize: 10, color: textGrey, fontWeight: '700' },
+
+// 보상박스는 그대로 두고(배경/모서리/폰트), 높이만 살짝 키우고 싶다면 여기만 조절
+rewardBlackBox: {
+  backgroundColor: '#111',
+  borderRadius: 12,
+  paddingVertical: 16,  // ← 필요하면 18~20 정도로 더 키워도 OK
+  paddingHorizontal: 16,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
 
   hr: { height: 1, backgroundColor: '#C7C7C7', marginHorizontal: 8, marginBottom: 8 },
 
@@ -1087,23 +1743,58 @@ const styles = StyleSheet.create({
   bar: { width: 16, borderRadius: 4, alignSelf:'center' },
   countLabel: { fontSize: 10, color: '#333', marginTop: 2, textAlign:'center' },
 
-  rewardBox: { backgroundColor: 'transparent', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
-  rewardText: { fontSize: 22, fontWeight: '900', color: '#111', textAlign: 'center' },
+  entry: { 
+  flexDirection: 'row',
+  paddingHorizontal: EDGE + NARROW_PLUS,  // ⬅️ 여기만 바뀜
+  paddingVertical: 12
+},
+rewardBlockSpacing: {
+  marginTop: REWARD_TOP_GAP,
+  marginBottom: REWARD_BOTTOM_GAP,
+},
 
-  entry: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12 },
   number: { width: 28, fontWeight: 'bold' },
-  thumbnail: { width: 50, height: 50, borderRadius: 6, backgroundColor: '#f2f2f2' },
+  thumbnail: { width: 50, height: 50, borderRadius: 6 },
   textContainer: { flex: 1, paddingHorizontal: 10 },
-  text: { fontSize: 14, color:'#111' },
-  time: { fontSize: 12, color: textGrey },
+  text: { fontSize: 12, color:'#111' },
+  time: { fontSize: 12, color: textGrey, marginTop: 2 },
   duration: { fontSize: 12, color: '#000', marginTop: 4 },
 
-  empty: { textAlign: 'center', marginTop: 50, color: textGrey },
+  empty: { fontSize: 12,textAlign: 'center', marginTop: 50, color: textGrey },
+
+  separator: { height: 1, backgroundColor: '#F3F4F6' },
 
   shareBtn: {
-    position: 'absolute', right: 14, bottom: 14,
+    position: 'absolute', right: EDGE, bottom: EDGE,
     backgroundColor: '#111', borderRadius: 14,
     paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
   },
   shareBtnText: { color: '#fff', fontWeight: '800' },
+
+  /* ───────── 정보 모달 스타일 ───────── */
+  modalBackdrop: {
+    position:'absolute', left:0, right:0, top:0, bottom:0,
+    backgroundColor:'rgba(0,0,0,0.35)'
+  },
+  modalCard: {
+    position:'absolute',
+    left: EDGE, right: EDGE, top: 90,
+    backgroundColor:'#fff',
+    borderRadius: 14,
+    padding: 14,
+    shadowColor:'#000', shadowOpacity:0.2, shadowRadius:12, elevation:6
+  },
+  modalTitleCenter: { fontSize: 18, fontWeight:'900', color:'#111', textAlign:'center', marginBottom: 10 },
+  modalField: { marginTop: 10 },
+  modalFieldTitle: { fontSize: 12, color: '#777', fontWeight: '700', marginBottom: 6 },
+  modalFieldBox: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#ECECEC',
+  },
+  modalFieldValue: { fontSize: 13, color: '#111' },
+  modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
 });

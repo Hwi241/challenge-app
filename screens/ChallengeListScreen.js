@@ -19,21 +19,26 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 /* ---------- 상수 ---------- */
-const CARD_BORDER = '#E5E7EB';   // 얇은 카드 테두리
+const CARD_BORDER = '#E5E7EB';
 const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
-const ORDER_KEY = 'ch_order';    // ✅ 활성 카드 순서 맵(id -> index)
+const ORDER_KEY = 'ch_order';
+const CHALLENGES_KEY = 'challenges';
 
 /* ---------- 유틸 ---------- */
 const safeStringId = (v) => (v == null ? '' : String(v));
+
 const ensureItemId = (it, idx = 0) => {
   if (!it || typeof it !== 'object') return it;
+  const before = it.id;
   const raw = it.id ?? it.challengeId ?? it.uuid ?? it.key ?? (Number.isFinite(it.createdAt) ? `gen_${it.createdAt}` : null);
   const id = raw != null && String(raw).length ? String(raw) : `gen_${Date.now()}_${idx}`;
-  return it.id === id ? it : { ...it, id };
+  return before === id ? it : { ...it, id };
 };
+
 const parseJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
+
 const dedupeById = (arr = []) => {
   const map = new Map();
   arr.forEach((raw, i) => {
@@ -44,70 +49,104 @@ const dedupeById = (arr = []) => {
   });
   return Array.from(map.values());
 };
+
 const moveInArray = (arr, from, to) => {
   const copy = arr.slice();
   const [picked] = copy.splice(from, 1);
   copy.splice(to, 0, picked);
   return copy;
 };
+
 const readOrderMap = async () => {
   const raw = await AsyncStorage.getItem(ORDER_KEY);
   const obj = raw ? JSON.parse(raw) : {};
-  return (obj && typeof obj === 'object') ? obj : {};
+  const out = (obj && typeof obj === 'object') ? obj : {};
+  console.log('[ChallengeList][readOrderMap] ->', out);
+  return out;
 };
+
 const writeOrderMap = async (map) => {
-  try { await AsyncStorage.setItem(ORDER_KEY, JSON.stringify(map || {})); } catch {}
+  try {
+    await AsyncStorage.setItem(ORDER_KEY, JSON.stringify(map || {}));
+    console.log('[ChallengeList][writeOrderMap] saved:', map || {});
+  } catch (e) {
+    console.warn('[ChallengeList][writeOrderMap] failed', e);
+  }
 };
 
 function asDoneFlags(c) {
   const cs = Number(c?.currentScore ?? 0);
   const gs = Number(c?.goalScore ?? NaN);
   const doneByScore = Number.isFinite(gs) && gs > 0 && cs >= gs;
-  const done = c?.status === 'completed' || doneByScore;
+  const done = c?.status === 'completed' || doneByScore || !!c?.archived;
   return { _isDone: !!done, _completedAt: c?.completedAt ?? 0 };
 }
 
-/* 완료/진행중 정렬 + archived 제외 + ✅ 순서맵 적용 */
-function normalizeWithOrder(arrRaw = [], orderMapIn = {}) {
+/**
+ * 정렬 규칙
+ * - mode='respectArray'  : 들어온 배열에서 활성 카드 등장 순서를 그대로 사용하여 저장(저장 시 사용)
+ * - mode='respectMap'    : orderMap 기반으로 활성 카드를 재정렬(로드 시 사용)
+ * - 완료 카드는 항상 아래로 보내고, 완료 섹션은 completedAt desc
+ */
+function normalizeWithOrder(arrRaw = [], orderMapIn = {}, mode = 'respectMap') {
   const raw = (arrRaw || []).map((c, i) => ({ ...ensureItemId(c, i), ...asDoneFlags(c) }));
-  const list = raw.filter(c => !c.archived);
 
-  const done = list
-    .filter(c => c._isDone)
-    .sort((a, b) => (b._completedAt || 0) - (a._completedAt || 0))
-    .map(c => { const { sortIndex, ...rest } = c; return rest; });
+  const done = raw.filter(c => c._isDone || c.archived).map(c => ({ ...c, archived: true }));
+  const active = raw.filter(c => !(c._isDone || c.archived));
 
-  const active = list.filter(c => !c._isDone);
+  let mergedActive;
+  if (mode === 'respectArray') {
+    // ✅ 현재 배열에서의 활성 등장 순서를 그대로 유지
+    mergedActive = active;
+  } else {
+    // 기존: orderMap 우선 정렬
+    const known = [];
+    const unknown = [];
+    active.forEach(c => {
+      const id = safeStringId(c.id);
+      const idx = Number.isFinite(orderMapIn[id]) ? orderMapIn[id] : null;
+      if (idx === null) unknown.push(c); else known.push({ idx, item: c });
+    });
+    known.sort((a, b) => a.idx - b.idx);
+    unknown.sort((a, b) => {
+      const aHas = Number.isFinite(a.sortIndex); const bHas = Number.isFinite(b.sortIndex);
+      if (aHas && bHas) return a.sortIndex - b.sortIndex;
+      if (aHas) return -1;
+      if (bHas) return 1;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+    mergedActive = [...known.map(k => k.item), ...unknown];
 
-  // ✅ 순서맵 기준으로 활성 카드 정렬
-  const known = [];
-  const unknown = [];
-  active.forEach(c => {
-    const id = safeStringId(c.id);
-    const idx = Number.isFinite(orderMapIn[id]) ? orderMapIn[id] : null;
-    if (idx === null) unknown.push(c); else known.push({ idx, item: c });
-  });
+    const activeKnownIds = active
+      .filter(c => Number.isFinite(orderMapIn[safeStringId(c.id)]))
+      .sort((a,b)=>orderMapIn[safeStringId(a.id)]-orderMapIn[safeStringId(b.id)])
+      .map(c=>safeStringId(c.id));
+    const activeUnknownIds = active
+      .filter(c => !Number.isFinite(orderMapIn[safeStringId(c.id)]))
+      .map(c=>safeStringId(c.id));
 
-  known.sort((a, b) => a.idx - b.idx);
-  // unknown은 기존 sortIndex가 있다면 그 순서, 없으면 createdAt(최신 우선)으로
-  unknown.sort((a, b) => {
-    const aHas = Number.isFinite(a.sortIndex); const bHas = Number.isFinite(b.sortIndex);
-    if (aHas && bHas) return a.sortIndex - b.sortIndex;
-    if (aHas) return -1;
-    if (bHas) return 1;
-    return (b.createdAt || 0) - (a.createdAt || 0);
-  });
+    console.log('[ChallengeList][normalizeWithOrder]');
+    console.log('  mode=respectMap activeKnownIds :', activeKnownIds);
+    console.log('  mode=respectMap activeUnknownIds:', activeUnknownIds);
+  }
 
-  const mergedActive = [...known.map(k => k.item), ...unknown];
-
-  // 활성 카드에 새 sortIndex 부여 + 새로운 orderMap 생성
   const newOrderMap = {};
   const activeNormalized = mergedActive.map((c, i) => {
     newOrderMap[safeStringId(c.id)] = i;
-    return { ...c, sortIndex: i };
+    return { ...c, sortIndex: i, archived: false };
   });
 
-  return { arranged: [...done, ...activeNormalized], newOrderMap };
+  const doneSorted = done.sort((a, b) => (b._completedAt || 0) - (a._completedAt || 0));
+  const arranged = [...activeNormalized, ...doneSorted];
+
+  if (mode === 'respectArray') {
+    console.log('[ChallengeList][normalizeWithOrder]');
+    console.log('  mode=respectArray activeInArrOrder:', active.map(c=>safeStringId(c.id)));
+  }
+  console.log('  arrangedIds    :', arranged.map(c => `${c._isDone ? 'D' : 'A'}:${safeStringId(c.id)}`));
+  console.log('  newOrderMap    :', newOrderMap);
+
+  return { arranged, newOrderMap };
 }
 
 /* ---------- HOF 저장(단일 키 'hof') ---------- */
@@ -137,8 +176,9 @@ async function upsertHof(record) {
     const filtered = arr.filter(h => safeStringId(h.id) !== id && safeStringId(h.challengeId) !== id);
     filtered.unshift(rec);
     await AsyncStorage.setItem('hof', JSON.stringify(filtered));
+    console.log('[ChallengeList][HOF] upserted:', id);
   } catch (e) {
-    console.warn('HOF save failed', e);
+    console.warn('[ChallengeList][HOF] save failed', e);
   }
 }
 
@@ -163,7 +203,6 @@ function CardBody({
 }) {
   const isDone = !!item._isDone;
 
-  // 본문(제목/메타/좌우 컨트롤)만 선택적으로 디밍
   const Content = (
     <View style={[styles.cardContent, isDone && styles.dimmedContent]}>
       <Text style={styles.title}>{item.title ?? '(제목 없음)'}</Text>
@@ -177,7 +216,6 @@ function CardBody({
       </View>
 
       <View style={styles.controlsRow}>
-        {/* 좌측: 순서 화살표 (길게눌렀을 때만 표시, 공간 유지) */}
         <View style={[styles.arrowsInline, !showControls && { opacity: 0 }]}>
           <TouchableOpacity
             onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'up' }) : undefined}
@@ -196,7 +234,6 @@ function CardBody({
           </TouchableOpacity>
         </View>
 
-        {/* 우측: 수정/복제/삭제 (길게눌렀을 때만 표시, 공간 유지) */}
         <View style={[styles.actionsRight, !showControls && { opacity: 0 }]}>
           <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
             <Text style={styles.actionDarkText}>수정</Text>
@@ -220,12 +257,11 @@ function CardBody({
       delayLongPress={160}
       style={[
         styles.card,
-        showControls && styles.selectedCard      // 얇은선 유지
+        showControls && styles.selectedCard
       ]}
     >
       {Content}
 
-      {/* 하단 버튼은 디밍에서 제외 → 글씨 검은색 선명 */}
       {!isDone ? (
         <TouchableOpacity
           style={[buttonStyles.primary.container, styles.bigActionBtn, showControls && styles.disabledBig]}
@@ -242,7 +278,6 @@ function CardBody({
           onPress={() => onPressClaim?.(item)}
           activeOpacity={1}
         >
-          {/* ✅ 글씨만 검은색 — 카드 본문 디밍과 독립 */}
           <Text style={styles.outlineBigText}>보상 받기</Text>
         </TouchableOpacity>
       )}
@@ -281,46 +316,87 @@ export default function ChallengeListScreen() {
 
   const [data, setData] = useState([]);
 
-  // 정렬 상태
+  /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
 
-  // 선택 카드 복제본 좌표
+  /* 플로팅 복제 */
   const floatLeft = useRef(new Animated.Value(0)).current;
   const floatTop  = useRef(new Animated.Value(0)).current;
   const floatWidthRef = useRef(0);
 
-  // 빠른 연타 방지
   const animLockRef = useRef(false);
-
-  // refs
-  const itemRefs = useRef({}); // id -> nativeRef
-
-  // 이전 데이터 보존용(일시적)
+  const itemRefs = useRef({});
   const dataRef = useRef([]);
   useEffect(() => { dataRef.current = data; }, [data]);
 
-  /* 데이터 로드 */
+  /* 저장/정리 — 저장 시엔 배열 우선(respectArray) */
+  const persistChallenges = useCallback(async (arr, tag = '') => {
+    const ensured = (Array.isArray(arr) ? arr : []).map(ensureItemId);
+    const clean = dedupeById(ensured);
+
+    const currentOrder = await readOrderMap();
+    const { arranged, newOrderMap } = normalizeWithOrder(clean, currentOrder, 'respectArray');
+
+    try {
+      await Promise.all([
+        AsyncStorage.setItem(CHALLENGES_KEY, JSON.stringify(arranged)),
+        AsyncStorage.setItem(ORDER_KEY, JSON.stringify(newOrderMap)),
+      ]);
+      console.log(`[ChallengeList][persistChallenges${tag ? ':'+tag : ''}] saved arrangedIds=`, arranged.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
+      console.log(`[ChallengeList][persistChallenges] orderMap=`, newOrderMap);
+    } catch (e) {
+      console.warn('[ChallengeList][persistChallenges] save failed', e);
+    }
+    return arranged;
+  }, []);
+
+  /* 데이터 로드 — 로드시엔 맵 우선(respectMap) */
   useEffect(() => {
     if (!isFocused) return;
     (async () => {
-      const raw = parseJson(await AsyncStorage.getItem('challenges')) || [];
+      const rawStr = await AsyncStorage.getItem(CHALLENGES_KEY);
+      const raw = parseJson(rawStr) || [];
       const ensured = (Array.isArray(raw) ? raw : []).map(ensureItemId);
       const deduped = dedupeById(ensured);
 
-      // ✅ 순서맵과 함께 정규화
       const orderMap = await readOrderMap();
-      const { arranged, newOrderMap } = normalizeWithOrder(deduped, orderMap);
+      const { arranged, newOrderMap } = normalizeWithOrder(deduped, orderMap, 'respectMap');
+
+      console.log('[ChallengeList][load] rawIds=', (raw||[]).map(it=>safeStringId(it?.id||it?.challengeId)));
+      console.log('[ChallengeList][load] arrangedIds=', arranged.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
 
       setData(arranged);
       try {
-        await AsyncStorage.setItem('challenges', JSON.stringify(arranged));
+        await AsyncStorage.setItem(CHALLENGES_KEY, JSON.stringify(arranged));
         await writeOrderMap(newOrderMap);
       } catch {}
-    })().catch(console.error);
+    })().catch(e => console.warn('[ChallengeList][load] error', e));
   }, [isFocused]);
 
+  /* 화면 blur 시 강제 저장 (dataRef.snapshot 기반) */
+  useEffect(() => {
+    if (isFocused) return;
+    (async () => {
+      const snapshot = dataRef.current || [];
+      console.log('[ChallengeList][blur] snapshotIds=', snapshot.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
+      try { await persistChallenges(snapshot, 'blur'); } catch {}
+      setReorderActive(false);
+      setSelectedId(null);
+    })();
+  }, [isFocused, persistChallenges]);
+
   /* 뒤로가기 */
+  const finalizeReorder = useCallback(async () => {
+    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
+    const snapshot = dataRef.current || [];
+    console.log('[ChallengeList][finalizeReorder] snapshotIds=', snapshot.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
+    try { await persistChallenges(snapshot, 'finalize'); } catch {}
+    setSelectedId(null);
+    setReorderActive(false);
+    animLockRef.current = false;
+  }, [persistChallenges]);
+
   useEffect(() => {
     if (!isFocused || Platform.OS !== 'android') return;
     const onBackPress = () => {
@@ -335,23 +411,7 @@ export default function ChallengeListScreen() {
     return () => sub.remove();
   }, [isFocused, reorderActive, finalizeReorder]);
 
-  /* 저장/정리 */
-  const persistChallenges = useCallback(async (arr) => {
-    const ensured = (Array.isArray(arr) ? arr : []).map(ensureItemId);
-    const clean = dedupeById(ensured);
-
-    // ✅ 현재 결과에서 다시 순서맵 생성/적용
-    const currentOrder = await readOrderMap();
-    const { arranged, newOrderMap } = normalizeWithOrder(clean, currentOrder);
-
-    requestAnimationFrame(() => {
-      try { AsyncStorage.setItem('challenges', JSON.stringify(arranged)); } catch {}
-      writeOrderMap(newOrderMap);
-    });
-    return arranged;
-  }, []);
-
-  /* 리스트 애니메이션(부드럽게) */
+  /* 애니메이션 */
   const animateList = useCallback(() => {
     LayoutAnimation.configureNext({
       duration: 180,
@@ -360,20 +420,6 @@ export default function ChallengeListScreen() {
       delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
     });
   }, []);
-
-  /* finalizeReorder: 단일 정의 */
-  const finalizeReorder = useCallback(() => {
-    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
-    setData(prev => {
-      const next = prev.slice();
-      // 저장 시 persistChallenges가 newOrderMap을 갱신
-      persistChallenges(next);
-      return next;
-    });
-    setSelectedId(null);
-    setReorderActive(false);
-    animLockRef.current = false;
-  }, [persistChallenges]);
 
   /* 좌표 측정 */
   const measureNow = useCallback((id) => {
@@ -388,57 +434,64 @@ export default function ChallengeListScreen() {
     });
     return did;
   }, [floatLeft, floatTop, insets.top]);
+
   const rafMeasureSelected = useCallback((id) => {
     requestAnimationFrame(() => requestAnimationFrame(() => measureNow(id)));
   }, [measureNow]);
 
   /* CRUD/네비 */
-  const onDelete = useCallback((item) => {
+  const navigationRef = useRef(navigation);
+
+  const onDelete = useCallback(async (item) => {
     Alert.alert('삭제 확인', `'${item.title}' 도전을 삭제할까요?`, [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제', style: 'destructive', onPress: async () => {
           try { await cancelAllForChallenge(item.id).catch(() => {}); } catch {}
           animateList();
-          setData(prev => prev.filter(c => safeStringId(c.id) !== safeStringId(item.id)));
-          // 저장
-          setTimeout(() => { persistChallenges(dataRef.current); }, 0);
+
+          const prev = dataRef.current || [];
+          const nextArr = prev.filter(c => safeStringId(c.id) !== safeStringId(item.id));
+
+          console.log('[ChallengeList][onDelete] nextArrIds=', nextArr.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
+
+          setData(nextArr);
+          try { await persistChallenges(nextArr, 'delete'); } catch {}
           try { await AsyncStorage.removeItem(`entries_${item.id}`); } catch {}
-          finalizeReorder();
+          await finalizeReorder();
         },
       },
     ]);
   }, [finalizeReorder, animateList, persistChallenges]);
 
-  const onDuplicate = useCallback((item) => {
+  const onDuplicate = useCallback(async (item) => {
     if (asDoneFlags(item)._isDone) return;
     animateList();
-    setData(prev => {
-      // 활성 맨 위(0번)로 넣고, 나머지 +1은 persist에서 newOrderMap 생성 시 반영
-      const copy = {
-        ...ensureItemId(item),
-        id: `ch_${Date.now()}`,
-        title: `${item.title} (복제)`,
-        currentScore: 0,
-        status: 'active',
-        createdAt: Date.now(),
-        completedAt: undefined,
-        sortIndex: 0,
-      };
-      const arr = prev.slice();
-      // done 이후 위치(활성 구간의 맨 앞)에 삽입
-      const doneCount = arr.reduce((acc, c) => acc + (asDoneFlags(c)._isDone ? 1 : 0), 0);
-      arr.splice(doneCount, 0, copy);
-      return arr;
-    });
-    // 저장(순서맵 갱신)
-    setTimeout(() => { persistChallenges(dataRef.current); }, 0);
-    finalizeReorder();
+
+    const prev = dataRef.current || [];
+    const copy = {
+      ...ensureItemId(item),
+      id: `ch_${Date.now()}`,
+      title: `${item.title} (복제)`,
+      currentScore: 0,
+      status: 'active',
+      createdAt: Date.now(),
+      completedAt: undefined,
+      sortIndex: 0,
+      archived: false,
+    };
+    const nextArr = [copy, ...prev];
+
+    console.log('[ChallengeList][onDuplicate] nextArrIds=', nextArr.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
+
+    setData(nextArr);
+    try { await persistChallenges(nextArr, 'duplicate'); } catch {}
+    await finalizeReorder();
   }, [persistChallenges, finalizeReorder, animateList]);
 
   const goEntryList = useCallback((item) => {
-    if (item?._upload) { navigation.navigate('Upload', { challengeId: item.id }); return; }
-    navigation.navigate('EntryList', {
+    if (item?._upload) { navigationRef.current.navigate('Upload', { challengeId: item.id }); return; }
+    navigationRef.current.navigate('EntryList', {
       challengeId: item.id,
       title: item.title,
       startDate: item.startDate,
@@ -447,21 +500,19 @@ export default function ChallengeListScreen() {
       rewardTitle: item.rewardTitle,
       reward: item.reward,
     });
-  }, [navigation]);
+  }, []);
 
-  /* 보상 수령 — 모달 없이 즉시 처리 후 HOF로 이동 */
+  /* 보상 수령 */
   const onClaimReward = useCallback(async (item) => {
     const flags = asDoneFlags(item);
     if (!flags._isDone) {
       Alert.alert('아직 완료 전이에요', '목표를 달성하면 보상을 받을 수 있어요.');
       return;
     }
-
-    // ✅ 항상 동일한 ms 타임스탬프 사용
     const completedAtTs = Date.now();
 
-    // 1) 메인 리스트에서 archived 처리
-    setData(prev => prev.map(c =>
+    const prev = dataRef.current || [];
+    const nextArr = prev.map(c =>
       String(c.id) === String(item.id)
         ? {
             ...c,
@@ -472,14 +523,15 @@ export default function ChallengeListScreen() {
             archived: true
           }
         : c
-    ));
-    // 저장(순서맵 갱신)
-    setTimeout(() => { persistChallenges(dataRef.current); }, 0);
+    );
 
-    // 2) 알림 취소
+    console.log('[ChallengeList][onClaimReward] nextArrIds=', nextArr.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
+
+    setData(nextArr);
+    try { await persistChallenges(nextArr, 'claim'); } catch {}
+
     try { await cancelAllForChallenge(item.id).catch(() => {}); } catch {}
 
-    // 3) HOF 저장 (동일 ts 사용)
     const hofRecord = {
       ...item,
       id: String(item.id),
@@ -492,33 +544,39 @@ export default function ChallengeListScreen() {
     };
     await upsertHof(hofRecord);
 
-    // 4) HOF로 이동 — 팝업은 HOF에서만 한 번 표시
-    navigation.navigate('HallOfFameScreen', {
+    navigationRef.current.navigate('HallOfFameScreen', {
       highlightId: hofRecord.id,
       justClaimed: true,
       ts: completedAtTs,
     });
-  }, [navigation, persistChallenges]);
+  }, [persistChallenges]);
 
-  /* 정렬 모드 */
+  /* 정렬 모드 (활성 0..activeCount-1) */
   const doneCount = data.reduce((acc, c) => acc + (asDoneFlags(c)._isDone ? 1 : 0), 0);
-  const indexOfId = useCallback((id) => data.findIndex(c => safeStringId(c.id) === safeStringId(id)), [data]);
+  const activeCount = Math.max(0, data.length - doneCount);
 
   const moveSelected = useCallback((dir) => {
     if (!reorderActive || !selectedId) return;
     if (animLockRef.current) return;
     animLockRef.current = true;
 
-    const idx = indexOfId(selectedId);
+    const prev = dataRef.current || [];
+    const idx = prev.findIndex(c => safeStringId(c.id) === safeStringId(selectedId));
     if (idx < 0) { animLockRef.current = false; return; }
 
-    const minIdx = doneCount;
-    const maxIdx = data.length - 1;
+    const minIdx = 0;
+    const maxIdx = Math.max(0, activeCount - 1);
     const to = Math.max(minIdx, Math.min(maxIdx, idx + (dir === 'up' ? -1 : +1)));
     if (to === idx) { animLockRef.current = false; return; }
 
     LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
-    setData(prev => moveInArray(prev, idx, to));
+
+    const nextArr = moveInArray(prev, idx, to);
+
+    console.log('[ChallengeList][moveSelected]', { selectedId, dir, from: idx, to, activeCount });
+
+    setData(nextArr);
+    (async () => { try { await persistChallenges(nextArr, 'move'); } catch {} })();
 
     setTimeout(() => {
       const ref = itemRefs.current[safeStringId(selectedId)];
@@ -536,7 +594,7 @@ export default function ChallengeListScreen() {
         animLockRef.current = false;
       }
     }, 16);
-  }, [reorderActive, selectedId, indexOfId, doneCount, data.length, insets.top, floatTop]);
+  }, [reorderActive, selectedId, activeCount, insets.top, floatTop, persistChallenges]);
 
   const enterReorder = useCallback((item) => {
     if (asDoneFlags(item)._isDone) {
@@ -546,16 +604,14 @@ export default function ChallengeListScreen() {
     setSelectedId(item.id);
     const ok = measureNow(item.id);
     setReorderActive(true);
+    console.log('[ChallengeList][enterReorder] id=', safeStringId(item.id), 'okMeasure=', ok);
     if (!ok) rafMeasureSelected(item.id);
   }, [measureNow, rafMeasureSelected]);
 
-  const onOverlayPress = useCallback(() => finalizeReorder(), [finalizeReorder]);
+  const onOverlayPress = useCallback(() => { finalizeReorder(); }, [finalizeReorder]);
 
   /* 렌더 */
-  const keyExtractor = useCallback(
-    (it, index) => `${safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? `idx_${index}`)}__${index}`,
-    []
-  );
+  const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
   const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
 
   const renderRow = useCallback(
@@ -571,7 +627,7 @@ export default function ChallengeListScreen() {
           onLongPress={() => enterReorder(item)}
           onPressCard={(it) => {
             if (reorderActive) return;
-            if (it?._upload) { navigation.navigate('Upload', { challengeId: it.id }); return; }
+            if (it?._upload) { navigationRef.current.navigate('Upload', { challengeId: it.id }); return; }
             goEntryList(it);
           }}
           onPressEdit={() => {}}
@@ -581,7 +637,7 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, navigation, goEntryList, enterReorder, onClaimReward]
+    [reorderActive, selectedId, goEntryList, enterReorder, onClaimReward]
   );
 
   const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));
@@ -593,7 +649,7 @@ export default function ChallengeListScreen() {
         <Text style={styles.headerTitle}>THE - PUSH</Text>
         <TouchableOpacity
           style={[buttonStyles.compactRight, styles.headerRight, styles.hofBtn]}
-          onPress={() => navigation.navigate('HallOfFameScreen')}
+          onPress={() => navigationRef.current.navigate('HallOfFameScreen')}
           activeOpacity={0.9}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           disabled={reorderActive}
@@ -620,7 +676,7 @@ export default function ChallengeListScreen() {
       <View pointerEvents="box-none" style={[styles.addFloatingWrap, { bottom: Math.max(insets.bottom, 8) + spacing.lg }]}>
         <TouchableOpacity
           style={styles.addFab}
-          onPress={() => navigation.navigate('AddChallenge', { resetNonce: Date.now() })}
+          onPress={() => navigationRef.current.navigate('AddChallenge', { resetNonce: Date.now() })}
           activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           disabled={reorderActive}
@@ -632,7 +688,7 @@ export default function ChallengeListScreen() {
       <View pointerEvents="box-none" style={[styles.settingsFloatingWrap, { bottom: Math.max(insets.bottom, 8) + spacing.lg }]}>
         <TouchableOpacity
           style={styles.settingsBtn}
-          onPress={() => navigation.navigate('Settings')}
+          onPress={() => navigationRef.current.navigate('Settings')}
           activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           disabled={reorderActive}
@@ -641,7 +697,7 @@ export default function ChallengeListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 정렬 스크림 — 유지 */}
+      {/* 정렬 스크림 */}
       {reorderActive && (
         <TouchableWithoutFeedback onPress={onOverlayPress}>
           <View style={styles.fullOverlay} />
@@ -665,7 +721,7 @@ export default function ChallengeListScreen() {
               if (it?.__move === 'up') { moveSelected('up'); return; }
               if (it?.__move === 'down') { moveSelected('down'); return; }
             }}
-            onPressEdit={(it) => { finalizeReorder(); navigation.navigate('EditChallenge', { challenge: it }); }}
+            onPressEdit={(it) => { finalizeReorder(); navigationRef.current.navigate('EditChallenge', { challenge: it }); }}
             onPressDuplicate={(it) => { onDuplicate(it); finalizeReorder(); }}
             onPressDelete={(it) => { onDelete(it); }}
             onPressClaim={() => {}}
@@ -699,15 +755,14 @@ const styles = StyleSheet.create({
   cardWrap: { marginTop: spacing.md },
   card: {
     backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: CARD_BORDER,   // 얇은선 통일
+    borderWidth: 1, borderColor: CARD_BORDER,
     borderRadius: radius.lg,
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
   },
-  // 카드 본문(제목/메타/상단 컨트롤)만 디밍 — 하단 버튼은 영향 없음
   cardContent: { },
-  dimmedContent: { opacity: 0.55 },  // ✅ 완료시 본문만 흐리게
+  dimmedContent: { opacity: 0.55 },
 
-  selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 }, // 선택 상태도 얇은선 유지
+  selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },
   title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
   metaWrap: { marginTop: 6 },
   meta: { fontSize: 12, color: colors.gray600, marginTop: 2 },
@@ -734,7 +789,6 @@ const styles = StyleSheet.create({
   bigActionText: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
   disabledBig: { opacity: 0.5 },
 
-  // 완료 도전용 버튼(배경 아님, 테두리만) + 글씨만 블랙 — 본문 디밍과 분리
   outlineBigBtn: {
     backgroundColor: colors.background,
     borderWidth: 2, borderColor: '#000',
@@ -762,6 +816,6 @@ const styles = StyleSheet.create({
   /* 정렬 스크림 */
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },
 
-  /* 선택 카드 복제본(스크림 위) */
+  /* 선택 카드 복제본 */
   floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12 },
 });

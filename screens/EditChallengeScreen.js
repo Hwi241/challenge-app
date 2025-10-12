@@ -478,12 +478,14 @@ export default function EditChallengeScreen(){
           <Text style={styles.cardTitle}>알림</Text>
           <View style={styles.rightBtnGroup}>
             {notification?.mode && (
+              // [변경] 삭제 버튼을 원형 X 로
               <TouchableOpacity
-                style={styles.deleteBtn}
+                style={styles.notifDeleteCircle}
                 onPress={()=>setNotification({ mode:null, payload:null })}
-                activeOpacity={0.9}
+                activeOpacity={0.8}
+                accessibilityLabel="알림 삭제"
               >
-                <Text style={styles.deleteBtnText}>알림 삭제</Text>
+                <Text style={styles.notifDeleteX}>×</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -525,27 +527,46 @@ export default function EditChallengeScreen(){
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>알림 방식 선택</Text>
 
+            {/* ① 간단 알림 — onDone/returnTo 추가 */}
             <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={()=>{
               setShowNotifPicker(false);
               const initial = notification?.mode==='simple' ? (notification.payload??null) : null;
-              navigation.navigate('SimpleNotification', { initial });
+              navigation.navigate('SimpleNotification', {
+                initial,
+                returnTo: 'EditChallenge',
+                onDone: (res) => { setNotification(res); },
+              });
             }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>간단 알림</Text>
             </TouchableOpacity>
+
+            {/* ② 주간 알림 — onDone/returnTo 추가 */}
             <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={()=>{
               setShowNotifPicker(false);
               const initial = notification?.mode==='weekly' ? (notification.payload??null) : null;
-              navigation.navigate('WeeklyNotification', { initial });
+              navigation.navigate('WeeklyNotification', {
+                initial,
+                returnTo: 'EditChallenge',
+                onDone: (res) => { setNotification(res); },
+              });
             }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>주간 알림</Text>
             </TouchableOpacity>
+
+            {/* ③ 월간 알림 — onDone/returnTo 추가 */}
             <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={()=>{
               setShowNotifPicker(false);
               const initial = notification?.mode==='monthly' ? (notification.payload??null) : null;
-              navigation.navigate('MonthlyNotification', { initial });
+              navigation.navigate('MonthlyNotification', {
+                initial,
+                returnTo: 'EditChallenge',
+                onDone: (res) => { setNotification(res); },
+              });
             }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>월간 알림</Text>
             </TouchableOpacity>
+
+            {/* ④ 전체 일정 알림 — onDone/returnTo 추가(+ 기간 체크 유지) */}
             <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={()=>{
               if (!startDate || !endDate) { Alert.alert('확인','시작일과 종료일을 먼저 선택해주세요.'); return; }
               if (endDate.getTime() < startDate.getTime()) { Alert.alert('확인','종료일이 시작일보다 빠를 수 없습니다.'); return; }
@@ -555,9 +576,30 @@ export default function EditChallengeScreen(){
                 initial,
                 startDate: fmtDate(startDate),
                 endDate: fmtDate(endDate),
+                returnTo: 'EditChallenge',
+                onDone: (res) => { setNotification(res); },
               });
             }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>전체 일정 알림</Text>
+            </TouchableOpacity>
+
+            {/* [추가] 얇은 검은 라인 */}
+            <View style={styles.modalDivider} />
+
+             {/* 알림 기본 설정 — 모양은 위 버튼들과 1:1, 색만 유지 */}
+            <TouchableOpacity
+              style={[buttonStyles.primary.container, styles.modalBasicKeepColor, styles.modalButton]}
+              onPress={()=>{
+                setShowNotifPicker(false);
+                navigation.navigate('NotificationDefaults', {
+                  returnTo: 'EditChallenge',
+                });
+              }}
+              activeOpacity={0.9}
+            >
+              <Text style={[buttonStyles.primary.label, styles.modalBasicKeepLabel]}>
+                알림 기본 설정
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.modalClose} onPress={()=>setShowNotifPicker(false)}>
@@ -596,8 +638,19 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
   rightBtnGroup: { flexDirection: 'row', alignItems: 'center', columnGap: 8 },
+
+  // 기존 텍스트형 삭제 버튼(안씀, 호환 위해 유지)
   deleteBtn: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray300, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },
   deleteBtnText: { color: PALETTE.black, fontWeight: '800', fontSize: 12 },
+
+  // [추가] 원형 X 삭제 버튼 스타일
+  notifDeleteCircle: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: PALETTE.white,
+    borderWidth: 1, borderColor: PALETTE.gray800,
+  },
+  notifDeleteX: { color: PALETTE.gray800, fontSize: 18, lineHeight: 18, fontWeight: '800' },
 
   previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray100, borderRadius: radius.md, padding: spacing.md },
   previewText: { color: PALETTE.gray800 },
@@ -641,6 +694,24 @@ const styles = StyleSheet.create({
   modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: PALETTE.gray200 },
   modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
   modalButton: { marginTop: spacing.sm },
+
+  // [추가] 모달 가는 얇은 검은 라인 + 기본설정 버튼
+  modalDivider: {
+    marginTop: spacing.md,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: PALETTE.gray800,
+    opacity: 0.2,
+  },
+    // 알림 기본 설정 버튼: 모양은 위 버튼과 1:1, 색만 유지
+  modalBasicKeepColor: {
+    backgroundColor: PALETTE.white,
+    borderWidth: 1,
+    borderColor: PALETTE.gray800,
+  },
+  modalBasicKeepLabel: {
+    color: PALETTE.gray800,
+  },
+
   modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
   modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },
 });

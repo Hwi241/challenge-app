@@ -6,7 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
+import NotificationDefaultsScreen from './screens/NotificationDefaultsScreen'; 
 import ChallengeListScreen from './screens/ChallengeListScreen';
 import AddChallengeScreen from './screens/AddChallengeScreen';
 import EditChallengeScreen from './screens/EditChallengeScreen';
@@ -85,6 +85,13 @@ export default function App() {
                 component={require('./screens/FullRangeNotificationScreen').default}
                 options={{ title: '전체 일정 알림' }}
               />
+
+              <Stack.Screen 
+              name="NotificationDefaults" 
+              component={NotificationDefaultsScreen} 
+              options={{ title: '알림 기본 설정' }} />
+
+
             </Stack.Navigator>
           )}
         </NavigationContainer>

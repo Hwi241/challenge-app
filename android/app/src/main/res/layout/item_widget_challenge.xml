@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:orientation="horizontal"
+  android:layout_width="match_parent"
+  android:layout_height="56dp"
+  android:background="@drawable/card_bg"
+  android:padding="8dp">
+
+  <TextView
+    android:id="@+id/title"
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:gravity="center_vertical"
+    android:textColor="#111111"
+    android:textSize="14sp"
+    android:maxLines="1"
+    android:ellipsize="end"/>
+
+  <FrameLayout
+    android:layout_width="110dp"
+    android:layout_height="match_parent"
+    android:gravity="center_vertical">
+
+    <ProgressBar
+      style="@android:style/Widget.ProgressBar.Horizontal"
+      android:id="@+id/progressBar"
+      android:layout_width="match_parent"
+      android:layout_height="10dp"
+      android:max="100"
+      android:progressTint="#111111"
+      android:progressBackgroundTint="#E5E7EB"/>
+
+    <TextView
+      android:id="@+id/percentText"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:textColor="#111111"
+      android:textSize="12sp"
+      android:layout_gravity="center"/>
+  </FrameLayout>
+
+  <TextView
+    android:id="@+id/button"
+    android:layout_width="84dp"
+    android:layout_height="40dp"
+    android:layout_gravity="center_vertical"
+    android:gravity="center"
+    android:text="인증하기"
+    android:textSize="12sp"
+    android:textColor="#FFFFFF"
+    android:background="@drawable/btn_black_round"/>
+</LinearLayout>

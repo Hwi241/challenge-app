@@ -20,6 +20,9 @@ import Svg, {
   Circle, Line, Rect, Text as SvgText, Path, Defs, LinearGradient, Stop,
 } from 'react-native-svg';
 
+import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
+
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const CAL_HEADER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -1653,6 +1656,20 @@ export default function EntryListScreen({ route, navigation }) {
       <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.9}>
         <Text style={styles.shareBtnText}>공유</Text>
       </TouchableOpacity>
+     {/* 위젯 1×1 캡처(오프스크린) */}
+<WidgetDonutCapture1x1
+  challengeId={challengeId}
+  deps={[overallPct /* 또는 progressPct 등 진행률 변수 */]}
+  renderDonut={(size) => (
+   <Donut targetPercent={overallPct} progress={1} size={size} />
+  )}
+/>
+
+
+
+
+
+
     </SafeAreaView>
   );
 }

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:orientation="vertical"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="#66000000"
+  android:gravity="bottom">
+
+  <LinearLayout
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/white"
+    android:padding="16dp">
+
+    <TextView
+      android:id="@+id/actionUpload"
+      android:layout_width="match_parent"
+      android:layout_height="48dp"
+      android:gravity="center"
+      android:text="인증하기"
+      android:textColor="#FFFFFF"
+      android:background="@drawable/btn_black_round"/>
+
+    <View android:layout_width="match_parent" android:layout_height="8dp"/>
+
+    <TextView
+      android:id="@+id/actionDashboard"
+      android:layout_width="match_parent"
+      android:layout_height="48dp"
+      android:gravity="center"
+      android:text="도전 대시보드"
+      android:textColor="#FFFFFF"
+      android:background="@drawable/btn_black_round"/>
+
+    <View android:layout_width="match_parent" android:layout_height="8dp"/>
+
+    <TextView
+      android:id="@+id/actionCancel"
+      android:layout_width="match_parent"
+      android:layout_height="48dp"
+      android:gravity="center"
+      android:text="닫기"
+      android:textColor="#777777"/>
+  </LinearLayout>
+</LinearLayout>

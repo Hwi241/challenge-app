@@ -12,7 +12,12 @@
       <data android:scheme="https"/>
     </intent>
   </queries>
-  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true">
+ <application
+    android:name=".MainApplication"
+    android:label="@string/app_name"
+    android:icon="@mipmap/ic_launcher"
+    android:allowBackup="false"
+    android:usesCleartextTraffic="true">
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
@@ -29,5 +34,73 @@
         <data android:scheme="exp+thepush"/>
       </intent-filter>
     </activity>
+     
+     <!-- 리스트형 -->
+<receiver
+  android:name=".widgets.list.ListWidgetProvider"
+  android:exported="false">
+  <intent-filter>
+    <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    <action android:name="com.hwiject.thepush.ACTION_LIST_DATA_CHANGED" />
+  </intent-filter>
+  <meta-data
+    android:name="android.appwidget.provider"
+    android:resource="@xml/widget_list" />
+</receiver>
+
+<!-- 단일 1x1 -->
+ <receiver
+        android:name="com.hwiject.thepush.widgets.single.Single1x1Provider"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent-filter>
+
+        <meta-data
+            android:name="android.appwidget.provider"
+            android:resource="@xml/widget_single_1x1_info" />
+    </receiver>
+
+<!-- 단일 2x5 -->
+<receiver
+  android:name=".widgets.single.Single2x5Provider"
+  android:exported="false">
+  <intent-filter>
+    <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+  </intent-filter>
+  <meta-data
+    android:name="android.appwidget.provider"
+    android:resource="@xml/widget_single_2x5" />
+</receiver>
+
+<!-- 단일 4x5 -->
+<receiver
+  android:name=".widgets.single.Single4x5Provider"
+  android:exported="false">
+  <intent-filter>
+    <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+  </intent-filter>
+  <meta-data
+    android:name="android.appwidget.provider"
+    android:resource="@xml/widget_single_4x5" />
+</receiver>
+
+<!-- 리스트용 RemoteViewsService -->
+<service
+  android:name=".widgets.list.ListRemoteViewsService"
+  android:permission="android.permission.BIND_REMOTEVIEWS"
+  android:exported="false" />
+
+<!-- 선택/설정 액티비티 -->
+ <activity
+        android:name="com.hwiject.thepush.widgets.single.ui.ConfigActivity"
+        android:exported="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+        />
+
+
+
+
   </application>
 </manifest>
+

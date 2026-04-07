@@ -32,9 +32,11 @@
     "web": {
       "favicon": "assets/icon.png"
     },
+
     "plugins": [
       "expo-notifications",
-      "expo-mail-composer"
+      "expo-mail-composer",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

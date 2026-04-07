@@ -24,6 +24,7 @@ import BackupScreen from './screens/BackupScreen';
 
 import { colors } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
+import { initializeNotificationsAsync } from './utils/notificationScheduler';
 
 const Stack = createNativeStackNavigator();
 
@@ -99,6 +100,11 @@ export default function App() {
         await FileSystem.writeAsStringAsync(p, '');
       } catch {}
     })();
+  }, []);
+
+  // 알림 초기화 설정
+  useEffect(() => {
+    initializeNotificationsAsync();
   }, []);
 
   return (

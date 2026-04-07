@@ -2,6 +2,11 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+// 알림 응답 핸들러 추가: 버튼 누르면 알림이 사라지도록 처리
+Notifications.addNotificationResponseReceivedListener(response => {
+  Notifications.dismissNotificationAsync(response.notification.request.identifier);
+});
+
 // ===== 권한 =====
 export async function ensureNotificationPermissionAsync() {
   const settings = await Notifications.getPermissionsAsync();
@@ -41,6 +46,7 @@ export async function registerNotificationsForChallenge(challenge) {
           title: '도전 알림',
           body: `${challenge.title} — 인증할 시간이에요!`,
           data: { challengeId: challenge.id },
+          categoryIdentifier: 'challenge', // 카테고리 식별자 추가
         },
         trigger: {
           weekday: mapKoWeekdayToExpo(d), // 1=Sun ... 7=Sat (Expo 기준)
@@ -76,6 +82,13 @@ export async function initializeNotificationsAsync() {
       importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
+
+  // 알림 액션 카테고리 추가
+  await Notifications.setNotificationCategoryAsync('challenge', [
+    { identifier: 'dashboard', buttonTitle: '도전으로' },
+    { identifier: 'upload', buttonTitle: '인증하기' },
+  ]);
+
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true, shouldPlaySound: false, shouldSetBadge: false,

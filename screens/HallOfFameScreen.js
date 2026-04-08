@@ -346,7 +346,7 @@ export default function HallOfFameScreen() {
         data={hof}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl + Math.max(insets.bottom, 8) }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl + Math.max(insets.bottom, 8) + 50 }}
         ListEmptyComponent={<Text style={styles.empty}>아직 완료된 도전이 없습니다.</Text>}
         removeClippedSubviews
         windowSize={7}
@@ -494,6 +494,12 @@ const styles = StyleSheet.create({
   congratsTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800, marginBottom: 4, textAlign: 'center' },
   congratsDesc: { color: colors.gray600, textAlign: 'center' },
   congratsDivider: { height: 1, backgroundColor: CARD_BORDER, alignSelf: 'stretch', marginTop: 10, marginBottom: 10, marginHorizontal: 4 },
+  congratsRewardLabel: { fontSize: 12, color: colors.gray500, marginBottom: 4, textAlign: 'center' },
+  congratsRewardName: { fontSize: 20, fontWeight: '900', color: colors.gray800, textAlign: 'center' },
+});
+extAlign: 'center' },
+});
+tretch', marginTop: 10, marginBottom: 10, marginHorizontal: 4 },
   congratsRewardLabel: { fontSize: 12, color: colors.gray500, marginBottom: 4, textAlign: 'center' },
   congratsRewardName: { fontSize: 20, fontWeight: '900', color: colors.gray800, textAlign: 'center' },
 });

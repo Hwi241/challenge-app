@@ -5,13 +5,13 @@
 // - 사진 미리보기 우상단에 반투명 회색 원형 X 버튼으로 삭제
 // - 🔧 폴리싱: 중복 탭 방지(busy), try/finally로 상태 복구
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
@@ -39,29 +39,96 @@ export default function UploadScreen() {
   const [duration, setDuration] = useState('');
   const [imageUri, setImageUri] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [challengeTitle, setChallengeTitle] = useState('');
 
-  // 사진 선택
+  // 화면 포커스될 때마다 state 초기화
+  useFocusEffect(
+    useCallback(() => {
+      setText('');
+      setTextHeight(140);
+      setDuration('');
+      setImageUri(null);
+      setBusy(false);
+
+      if (challengeId) {
+        AsyncStorage.getItem('challenges').then(raw => {
+          const list = raw ? JSON.parse(raw) : [];
+          const found = list.find(c => String(c.id) === String(challengeId));
+          if (found) setChallengeTitle(found.title || '');
+        }).catch(() => {});
+      }
+    }, [challengeId])
+  );
+
+  // 뒤로가기 시 경고
+  useEffect(() => {
+    const onBack = navigation.addListener('beforeRemove', (e) => {
+      const hasContent = text.trim() || imageUri || duration;
+      if (!hasContent) return;
+      e.preventDefault();
+      Alert.alert(
+        '작성 중인 내용이 있어요',
+        '뒤로 가면 작성한 내용이 삭제됩니다.',
+        [
+          { text: '계속 작성', style: 'cancel' },
+          { text: '나가기', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+        ]
+      );
+    });
+    return onBack;
+  }, [navigation, text, imageUri, duration]);
+
+  // 사진 선택 (카메라/앨범 선택지)
   const onPickImage = useCallback(async () => {
     if (busy) return;
-    try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (perm.status !== 'granted') {
-        Alert.alert('권한 필요', '사진 보관함 접근 권한이 필요합니다.');
-        return;
-      }
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.8,
-        exif: false,
-      });
-      if (res.canceled) return;
-      const asset = res.assets?.[0];
-      if (asset?.uri) setImageUri(asset.uri);
-    } catch (e) {
-      console.error(e);
-      Alert.alert('오류', '사진 선택 중 문제가 발생했습니다.');
-    }
+    Alert.alert('사진 추가', '방법을 선택해주세요', [
+      {
+        text: '카메라',
+        onPress: async () => {
+          try {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (perm.status !== 'granted') {
+              Alert.alert('권한 필요', '카메라 접근 권한이 필요합니다.');
+              return;
+            }
+            const res = await ImagePicker.launchCameraAsync({
+              allowsEditing: false,
+              quality: 0.8,
+              exif: false,
+            });
+            if (res.canceled) return;
+            const asset = res.assets?.[0];
+            if (asset?.uri) setImageUri(asset.uri);
+          } catch (e) {
+            Alert.alert('오류', '카메라 실행 중 문제가 발생했습니다.');
+          }
+        },
+      },
+      {
+        text: '앨범',
+        onPress: async () => {
+          try {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (perm.status !== 'granted') {
+              Alert.alert('권한 필요', '사진 보관함 접근 권한이 필요합니다.');
+              return;
+            }
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: false,
+              quality: 0.8,
+              exif: false,
+            });
+            if (res.canceled) return;
+            const asset = res.assets?.[0];
+            if (asset?.uri) setImageUri(asset.uri);
+          } catch (e) {
+            Alert.alert('오류', '사진 선택 중 문제가 발생했습니다.');
+          }
+        },
+      },
+      { text: '취소', style: 'cancel' },
+    ]);
   }, [busy]);
 
   // 사진 삭제
@@ -129,6 +196,10 @@ export default function UploadScreen() {
         nextReward = challenges[idx]?.reward;
       }
 
+      if (Math.random() < 0.3) {
+        console.log('[AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치');
+      }
+
       Alert.alert('완료', '인증이 등록되었습니다.', [
         {
           text: '확인',
@@ -156,8 +227,14 @@ export default function UploadScreen() {
       {/* 제목 중앙 정렬 */}
       <Text style={styles.screenTitle}>인증 업로드</Text>
 
+      {!!challengeTitle && (
+        <View style={styles.titleBox}>
+          <Text style={styles.titleBoxText}>{challengeTitle}</Text>
+        </View>
+      )}
+
       <View style={styles.card}>
-        {/* "내용"과 "사진 선택"을 가로 한 줄로 */}
+        {/* "내용"과 "사진 넣기"를 가로 한 줄로 */}
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>내용</Text>
           <TouchableOpacity
@@ -166,7 +243,7 @@ export default function UploadScreen() {
             activeOpacity={0.9}
             disabled={busy}
           >
-            <Text style={buttonStyles.compactRightText}>사진 선택</Text>
+            <Text style={buttonStyles.compactRightText}>사진 넣기</Text>
           </TouchableOpacity>
         </View>
 
@@ -233,6 +310,22 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
   screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign: 'center' },
 
+  titleBox: {
+    backgroundColor: PALETTE.white,
+    borderWidth: 1,
+    borderColor: PALETTE.gray200,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: spacing.lg,
+  },
+  titleBoxText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: PALETTE.gray800,
+    textAlign: 'center',
+  },
+
   card: {
     backgroundColor: PALETTE.white,
     borderWidth: 1,
@@ -240,7 +333,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.lg,
   },
-  // "내용"과 "사진 선택"을 한 줄로, 간격 살짝 줄임
+  // "내용"과 "사진 넣기"를 한 줄로, 간격 살짝 줄임
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -283,6 +376,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(229, 231, 235, 0.85)', // 회색(Gray-200) 반투명
+  },
+  previewDeleteX: {
+    fontSize: 18,
+    lineHeight: 18,
+    color: '#000', // 검은색 X
+    fontWeight: '900',
+    includeFontPadding: false,
+  },
+});
+
+  },
+});
+) 반투명
   },
   previewDeleteX: {
     fontSize: 18,

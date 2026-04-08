@@ -490,7 +490,7 @@ export default function AddChallengeScreen() {
         />
        
 
-        <Text style={[styles.label, { marginTop: spacing.md }]}>목표 점수</Text>
+        <Text style={[styles.label, { marginTop: spacing.md }]}>목표 점수 혹은 횟수</Text>
         <TextInput
           value={goalScore}
           onChangeText={handleGoalChange}
@@ -552,8 +552,7 @@ export default function AddChallengeScreen() {
 
    {/* 보상 */}
 <View style={[styles.card, { marginTop: spacing.lg }]}>
-  <Text style={styles.cardTitle}>보상</Text>
-  <Text style={styles.label}>보상 내용</Text>
+  <Text style={styles.cardTitle}>보상 또는 목표</Text>
   <TextInput
     value={reward}
     onChangeText={(t)=>setReward(t.slice(0, LIMITS.reward))}
@@ -654,7 +653,7 @@ export default function AddChallengeScreen() {
               <Text style={buttonStyles.primary.label}>월간 알림</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={goFullRange} activeOpacity={0.9}>
-              <Text style={buttonStyles.primary.label}>전체 일정 알림</Text>
+              <Text style={buttonStyles.primary.label}>전체 일정 세부 알림</Text>
             </TouchableOpacity>
 
             {/* [추가] 얇은 검은 라인 */}
@@ -756,4 +755,10 @@ const styles = StyleSheet.create({
 
   modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
   modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },
+});
+},
+});
+te, fontWeight: '700', fontSize: 12 },
+});
+},
 });

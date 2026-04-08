@@ -202,14 +202,24 @@ function CardBody({
   onLongPress,
 }) {
   const isDone = !!item._isDone;
+  const pct = Math.min(100, Math.max(0,
+    item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
+  ));
 
   const Content = (
     <View style={[styles.cardContent, isDone && styles.dimmedContent]}>
-      <Text style={styles.title}>{item.title ?? '(제목 없음)'}</Text>
+      <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
+        <Text style={[styles.title, { flex:1, marginRight: 8 }]} numberOfLines={2}>
+          {item.title ?? '(제목 없음)'}
+        </Text>
+        <View style={styles.pctCircle}>
+          <Text style={styles.pctCircleText}>{pct}%</Text>
+        </View>
+      </View>
 
       <View style={styles.metaWrap}>
         <Text style={styles.meta}>기간 {item.startDate ?? '-'} ~ {item.endDate ?? '-'}</Text>
-        <Text style={styles.meta}>점수 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
+        <Text style={styles.meta}>진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
         {!!(item.rewardTitle || item.reward) && (
           <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
         )}
@@ -264,12 +274,13 @@ function CardBody({
 
       {!isDone ? (
         <TouchableOpacity
-          style={[buttonStyles.primary.container, styles.bigActionBtn, showControls && styles.disabledBig]}
+          style={[styles.progressBtn, showControls && styles.disabledBig]}
           disabled={!!showControls}
           onPress={() => onPressCard?.({ ...item, _upload: true })}
           activeOpacity={0.9}
         >
-          <Text style={[buttonStyles.primary.label, styles.bigActionText]}>인증하기</Text>
+          <View style={[styles.progressFill, { width: `${pct}%` }]} />
+          <Text style={styles.progressBtnText}>인증하기</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
@@ -343,6 +354,7 @@ export default function ChallengeListScreen() {
         AsyncStorage.setItem(CHALLENGES_KEY, JSON.stringify(arranged)),
         AsyncStorage.setItem(ORDER_KEY, JSON.stringify(newOrderMap)),
       ]);
+      await syncWidgetChallengeList();
       console.log(`[ChallengeList][persistChallenges${tag ? ':'+tag : ''}] saved arrangedIds=`, arranged.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
       console.log(`[ChallengeList][persistChallenges] orderMap=`, newOrderMap);
     } catch (e) {
@@ -762,6 +774,49 @@ const styles = StyleSheet.create({
   cardContent: { },
   dimmedContent: { opacity: 0.55 },
 
+  pctCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  pctCircleText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#111',
+  },
+  progressBtn: {
+    marginTop: 10,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  progressFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: '#111',
+    borderRadius: 14,
+  },
+  progressBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#fff',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+    zIndex: 1,
+  },
+
   selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },
   title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
   metaWrap: { marginTop: 6 },
@@ -818,4 +873,6 @@ const styles = StyleSheet.create({
 
   /* 선택 카드 복제본 */
   floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12 },
+});
+3, elevation: 12 },
 });

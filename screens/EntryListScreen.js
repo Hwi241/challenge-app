@@ -7,7 +7,8 @@ import React, {
 } from 'react';
 import {
   SafeAreaView, View, Text, Image, StyleSheet, TouchableOpacity,
-  Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform
+  Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform,
+  PanResponder
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
@@ -27,6 +28,19 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const CAL_HEADER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const ICON = require('../assets/icon.png');
+
+const AdBannerPlaceholder = () => (
+  <View style={{
+    height: 50,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  }}>
+    <Text style={{ color: '#9CA3AF', fontSize: 12 }}>광고 영역</Text>
+  </View>
+);
 
 const baseBlack = '#111111';
 const progressGrey = '#E5E7EB';
@@ -338,7 +352,7 @@ const NotiPreviewSwitch = ({ notification, startDate, endDate })=>{
 
 /* ───────── 달력 ───────── */
 const MonthCalendar = memo(function MonthCalendar({
-  startDate, endDate, entriesByDaySet, onPrev, onNext, monthDate, canPrev, canNext,
+  startDate, endDate, entriesByDaySet, onPrev, onNext, monthDate, canPrev, canNext, highlightDate = null,
 }) {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -362,14 +376,33 @@ const MonthCalendar = memo(function MonthCalendar({
     return entriesByDaySet.has(`${y}-${m}-${dd}`);
   };
 
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 10,
+    onPanResponderRelease: (_, gs) => {
+      if (gs.dx < -40 && canNext) onNext();
+      else if (gs.dx > 40 && canPrev) onPrev();
+    },
+  });
+
   return (
-    <View style={styles.calWrap}>
+    <View style={styles.calWrap} {...panResponder.panHandlers}>
       <View style={styles.calHeaderRow}>
-        <TouchableOpacity onPress={canPrev ? onPrev : undefined} disabled={!canPrev} style={[styles.calNavBtn, !canPrev && {opacity:0.3}]}>
+        <TouchableOpacity 
+          onPress={canPrev ? onPrev : undefined} 
+          disabled={!canPrev} 
+          style={[styles.calNavBtn, !canPrev && {opacity:0.3}]}
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+        >
           <Text style={styles.calNavText}>{'‹'}</Text>
         </TouchableOpacity>
         <Text style={styles.calTitle}>{`${month + 1}월`}</Text>
-        <TouchableOpacity onPress={canNext ? onNext : undefined} disabled={!canNext} style={[styles.calNavBtn, !canNext && {opacity:0.3}]}>
+        <TouchableOpacity 
+          onPress={canNext ? onNext : undefined} 
+          disabled={!canNext} 
+          style={[styles.calNavBtn, !canNext && {opacity:0.3}]}
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+        >
           <Text style={styles.calNavText}>{'›'}</Text>
         </TouchableOpacity>
       </View>
@@ -379,30 +412,43 @@ const MonthCalendar = memo(function MonthCalendar({
       </View>
 
       <View style={styles.calGrid}>
-        {cells.map((d, idx)=>{
-          if (!d) return <View key={`e${idx}`} style={styles.calCell}/>;
-          const ranged = inRange(d);
-          const isThisMonth = d.getMonth()===month;
-          if (!isThisMonth) return <View key={`o${idx}`} style={styles.calCell} />;
+        {(() => {
+          const today = new Date(); today.setHours(0,0,0,0);
+          return cells.map((d, idx) => {
+            if (!d) return <View key={`e${idx}`} style={styles.calCell}/>;
+            const ranged = inRange(d);
+            const isThisMonth = d.getMonth()===month;
+            if (!isThisMonth) return <View key={`o${idx}`} style={styles.calCell} />;
 
-          const cert = isCert(d);
-          if (cert) {
+            const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+
+            if (cert) {
+              return (
+                <View key={`d${idx}`} style={styles.calCell}>
+                  <View style={[styles.calBadge, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
+                    <Text style={styles.calBadgeText}>{d.getDate()}</Text>
+                  </View>
+                </View>
+              );
+            }
+
+            const isFuture = d > today;
+            const isToday = d.getTime() === today.getTime();
             return (
               <View key={`d${idx}`} style={styles.calCell}>
-                <View style={styles.calBadge}>
-                  <Text style={styles.calBadgeText}>{d.getDate()}</Text>
-                </View>
+                {isToday || isHighlight ? (
+                  <View style={styles.calTodayBadge}>
+                    <Text style={[styles.calTodayText, isHighlight && !isToday && { color: '#111' }]}>{d.getDate()}</Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.calCellText, (!ranged || isFuture) && styles.calCellTextDim]}>
+                    {d.getDate()}
+                  </Text>
+                )}
               </View>
             );
-          }
-          return (
-            <View key={`d${idx}`} style={styles.calCell}>
-              <Text style={[styles.calCellText, !ranged && styles.calCellTextDim]}>
-                {d.getDate()}
-              </Text>
-            </View>
-          );
-        })}
+          });
+        })()}
       </View>
     </View>
   );
@@ -458,21 +504,28 @@ const LineGradientChart = memo(function LineGradientChart({
   const nodePts = useMemo(()=>{
     const n = series.length;
     if (n===0) return [];
+    const BOTTOM_PADDING_RATIO = 0.15;
+    const usableCh = ch * (1 - BOTTOM_PADDING_RATIO);
+
     if (n===1) {
       const vmax = Math.max(1, series[0].v);
-      const y = top + (1 - (series[0].v / vmax)) * ch * introProgress;
+      const y = top + (1 - (series[0].v / vmax)) * usableCh * introProgress;
       const x = left; // 단일점은 왼쪽 끝
       return [{x, y, v: series[0].v, d: series[0].d}];
     }
     const vmax = Math.max(1, ...series.map(p=>p.v));
     return series.map((p, i)=>{
       const x = left + (i/(n-1))*cw;
-      const y = top + (1 - (p.v/vmax)) * ch * introProgress;
+      const y = top + (1 - (p.v/vmax)) * usableCh * introProgress;
       return { x, y, v: p.v, d: p.d };
     });
   }, [series, left, cw, top, ch, introProgress]);
 
-  const yScale = useCallback((v, vmax)=> top + (1 - (v/vmax))*ch*introProgress, [top, ch, introProgress]);
+  const yScale = useCallback((v, vmax)=> {
+    const BOTTOM_PADDING_RATIO = 0.15;
+    const usableCh = ch * (1 - BOTTOM_PADDING_RATIO);
+    return top + (1 - (v/vmax)) * usableCh * introProgress;
+  }, [top, ch, introProgress]);
 
   const pts = useMemo(()=>{
     const n = series.length;
@@ -726,7 +779,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
 
 
 /* ───────── 주간 뷰 ───────── */
-const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1 }) {
+const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1, onPressDay }) {
   const scrollRef = useRef(null);
   const [pageW, setPageW] = useState(SCREEN_WIDTH);
 
@@ -760,10 +813,15 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
       <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: 10 }}>
         <View style={{ flexDirection:'row', width: ROW_W, alignSelf:'center' }}>
           {dailyStats.map((stat, i) => (
-            <View key={i} style={{ width: COL_W, alignItems:'center' }}>
+            <TouchableOpacity 
+              key={i} 
+              style={{ width: COL_W, alignItems:'center' }}
+              onPress={() => onPressDay?.(stat.date, weeksData[idx]?.ws, i)}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.dateLabel, { marginBottom: 2 }]}>{stat.date}</Text>
               <Text style={styles.dayLabel}>{DAY_LABELS[i]}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -878,14 +936,120 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
     </View>
   );
 });
+
+const STREAK_COLORS = [
+  '#F3F4F6', // 도전기간 외 (아주 연한)
+  '#E5E7EB', // 베이스 (도전기간 내, 미인증)
+  '#D1D5DB', // 1일 연속
+  '#9CA3AF', // 2일 연속
+  '#6B7280', // 3일 연속
+  '#374151', // 4일 연속
+  '#111111', // 5일+ 연속
+];
+
+const GRASS_ROWS = 7;
+const GRASS_MIN_COLS = 20;
+
+const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
+  const cellSize = Math.floor((SCREEN_WIDTH - EDGE * 2 - 8) / GRASS_MIN_COLS) - 2;
+
+  const { cells, cols } = useMemo(() => {
+    if (!startDate || !endDate) {
+      return { cells: Array(GRASS_MIN_COLS * GRASS_ROWS).fill(0), cols: GRASS_MIN_COLS };
+    }
+
+    // 인증된 날짜 set
+    const certSet = new Set();
+    for (const e of entries) {
+      const d = new Date(e.timestamp);
+      certSet.add(keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate())));
+    }
+
+    // 도전 기간 날짜 배열
+    const start = new Date(startDate); start.setHours(0,0,0,0);
+    const end = new Date(endDate); end.setHours(0,0,0,0);
+    const rangeDays = [];
+    const cur = new Date(start);
+    while (cur <= end) {
+      rangeDays.push(keyOf(new Date(cur)));
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    // 필요한 열 수 계산
+    const neededCols = Math.ceil(rangeDays.length / GRASS_ROWS);
+    const cols = Math.max(GRASS_MIN_COLS, neededCols);
+    const total = cols * GRASS_ROWS;
+
+    // streak 계산
+    const streakMap = new Map();
+    let streak = 0;
+    for (const key of rangeDays) {
+      if (certSet.has(key)) streak += 1;
+      else streak = 0;
+      streakMap.set(key, streak);
+    }
+
+    // 세로 우선으로 배치
+    const cells = Array(total).fill(0); // 0 = 도전기간 외
+    for (let i = 0; i < rangeDays.length; i++) {
+      const col = Math.floor(i / GRASS_ROWS);
+      const row = i % GRASS_ROWS;
+      const idx = col * GRASS_ROWS + row;
+      const s = streakMap.get(rangeDays[i]) || 0;
+      cells[idx] = certSet.has(rangeDays[i]) ? Math.min(s + 1, 6) : 1;
+    }
+
+    return { cells, cols };
+  }, [entries, startDate, endDate]);
+
+  const needsScroll = cols > GRASS_MIN_COLS;
+
+  const GridContent = (
+    <View style={{ flexDirection: 'row' }}>
+      {Array.from({ length: cols }).map((_, col) => (
+        <View key={col} style={{ marginRight: 2 }}>
+          {Array.from({ length: GRASS_ROWS }).map((_, row) => {
+            const idx = col * GRASS_ROWS + row;
+            const level = cells[idx] ?? 0;
+            return (
+              <View
+                key={row}
+                style={{
+                  width: cellSize,
+                  height: cellSize,
+                  borderRadius: 2,
+                  backgroundColor: STREAK_COLORS[level],
+                  marginBottom: 2,
+                }}
+              />
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+
+  return (
+    <View style={{ marginHorizontal: EDGE, marginTop: 10 }}>
+      {needsScroll ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {GridContent}
+        </ScrollView>
+      ) : (
+        GridContent
+      )}
+    </View>
+  );
+});
+
 /* ───────── 리스트 행 ───────── */
 const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress }) {
   const body = (
     <>
       <Text style={styles.number}>{indexFromEnd}</Text>
-      {item?.imageUri
-        ? <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
-        : <View style={[styles.thumbnail, {backgroundColor:'#F3F4F6'}]} />}
+      {!!item?.imageUri && (
+        <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
+      )}
       <View style={styles.textContainer}>
         <Text style={styles.text}>{item?.text ?? ''}</Text>
         <Text style={styles.time}>인증 시간: {new Date(item.timestamp).toLocaleString()}</Text>
@@ -1031,7 +1195,21 @@ export default function EntryListScreen({ route, navigation }) {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
+  const [highlightDate, setHighlightDate] = useState(null); // 'YYYY-MM-DD'
   const [showInfo, setShowInfo] = useState(false);
+
+  const handlePressDay = useCallback((statDate, ws, dayIndex) => {
+    if (!ws) return;
+    const actual = new Date(ws);
+    actual.setDate(actual.getDate() + dayIndex);
+    // 달력 월 이동
+    setMonthDate(new Date(actual.getFullYear(), actual.getMonth(), 1));
+    // 강조 날짜 설정
+    const key = keyOf(new Date(actual.getFullYear(), actual.getMonth(), actual.getDate()));
+    setHighlightDate(key);
+    // 1.2초 후 강조 해제
+    setTimeout(() => setHighlightDate(null), 1200);
+  }, []);
 
   const [showDebug] = useState(true);
   const shareRef = useRef(null);
@@ -1140,6 +1318,11 @@ export default function EntryListScreen({ route, navigation }) {
   useEffect(() => {
     aliveRef.current = true;
     if (!isFocused || loadingRef.current) return;
+
+    if (isFocused && Math.random() < 0.3) {
+      console.log('[AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치');
+    }
+
     loadingRef.current = true;
     (async () => {
       const rawCID = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
@@ -1382,12 +1565,27 @@ export default function EntryListScreen({ route, navigation }) {
             onNext={nextMonth}
             canPrev={canPrevMonth}
             canNext={canNextMonth}
+            highlightDate={highlightDate}
           />
         </View>
       </View>
 
       <View style={styles.sectionBox}>
-        <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={introK} />
+        <WeekView 
+          weeksData={weeksData} 
+          currentIndex={weekIndex} 
+          onIndexChange={setWeekIndex} 
+          introProgress={introK} 
+          onPressDay={handlePressDay}
+        />
+      </View>
+
+      <View style={styles.sectionBox}>
+        <GrassGraph
+          entries={entries}
+          startDate={meta.startDate}
+          endDate={meta.endDate}
+        />
       </View>
 
       {/* 전체일정 라인 그래프 */}
@@ -1402,7 +1600,7 @@ export default function EntryListScreen({ route, navigation }) {
   ), [
     title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, introK, entries, overallPct
+    weekIndex, introK, entries, overallPct, highlightDate
   ]);
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
@@ -1442,6 +1640,14 @@ export default function EntryListScreen({ route, navigation }) {
 
       <View style={styles.sectionBox}>
         <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
+      </View>
+
+      <View style={styles.sectionBox}>
+        <GrassGraph
+          entries={entries}
+          startDate={meta.startDate}
+          endDate={meta.endDate}
+        />
       </View>
 
       <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
@@ -1648,7 +1854,13 @@ export default function EntryListScreen({ route, navigation }) {
   })
 )}
 
-
+        <TouchableOpacity
+          style={styles.uploadBtn}
+          onPress={() => navigation.navigate('Upload', { challengeId })}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.uploadBtnText}>인증하기</Text>
+        </TouchableOpacity>
 
         <View style={{ height: insets.bottom + 24 }} />
       </ScrollView>
@@ -1755,6 +1967,21 @@ rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
   calCellText: { fontSize: 10.5, color: '#111' },
   calCellTextDim: { color: textGrey },
 
+  calTodayBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: '#111111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calTodayText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111111',
+  },
+
   dateLabel: { fontSize: 10, color: textGrey },
   dayLabel: { fontSize: 9, color: '#333' },
   bar: { width: 16, borderRadius: 4, alignSelf:'center' },
@@ -1788,6 +2015,20 @@ rewardBlockSpacing: {
   },
   shareBtnText: { color: '#fff', fontWeight: '800' },
 
+  uploadBtn: {
+    marginHorizontal: EDGE + NARROW_PLUS,
+    marginTop: 20,
+    backgroundColor: '#111',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  uploadBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+
   /* ───────── 정보 모달 스타일 ───────── */
   modalBackdrop: {
     position:'absolute', left:0, right:0, top:0, bottom:0,
@@ -1808,6 +2049,14 @@ rewardBlockSpacing: {
     backgroundColor: '#F3F4F6',
     borderRadius: 10,
     paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#ECECEC',
+  },
+  modalFieldValue: { fontSize: 13, color: '#111' },
+  modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
+});
+rizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#ECECEC',

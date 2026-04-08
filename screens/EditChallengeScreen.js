@@ -580,7 +580,7 @@ export default function EditChallengeScreen(){
                 onDone: (res) => { setNotification(res); },
               });
             }} activeOpacity={0.9}>
-              <Text style={buttonStyles.primary.label}>전체 일정 알림</Text>
+              <Text style={buttonStyles.primary.label}>전체 일정 세부 알림</Text>
             </TouchableOpacity>
 
             {/* [추가] 얇은 검은 라인 */}

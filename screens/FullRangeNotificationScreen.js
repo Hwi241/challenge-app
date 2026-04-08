@@ -268,7 +268,7 @@ export default function FullRangeNotificationScreen(){
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 160 /* 고정 바 높이만큼 여백 */ }}
       >
-        <Text style={styles.title}>전체 일정 알림</Text>
+        <Text style={styles.title}>전체 일정 세부 알림</Text>
         <Text style={styles.desc}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
 
         {months.map(({y,mi})=>{

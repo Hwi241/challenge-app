@@ -497,9 +497,3 @@ const styles = StyleSheet.create({
   congratsRewardLabel: { fontSize: 12, color: colors.gray500, marginBottom: 4, textAlign: 'center' },
   congratsRewardName: { fontSize: 20, fontWeight: '900', color: colors.gray800, textAlign: 'center' },
 });
-extAlign: 'center' },
-});
-tretch', marginTop: 10, marginBottom: 10, marginHorizontal: 4 },
-  congratsRewardLabel: { fontSize: 12, color: colors.gray500, marginBottom: 4, textAlign: 'center' },
-  congratsRewardName: { fontSize: 20, fontWeight: '900', color: colors.gray800, textAlign: 'center' },
-});

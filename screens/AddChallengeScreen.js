@@ -756,9 +756,3 @@ const styles = StyleSheet.create({
   modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
   modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },
 });
-},
-});
-te, fontWeight: '700', fontSize: 12 },
-});
-},
-});

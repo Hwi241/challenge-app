@@ -385,16 +385,3 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-
-  },
-});
-) 반투명
-  },
-  previewDeleteX: {
-    fontSize: 18,
-    lineHeight: 18,
-    color: '#000', // 검은색 X
-    fontWeight: '900',
-    includeFontPadding: false,
-  },
-});

@@ -874,5 +874,3 @@ const styles = StyleSheet.create({
   /* 선택 카드 복제본 */
   floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12 },
 });
-3, elevation: 12 },
-});

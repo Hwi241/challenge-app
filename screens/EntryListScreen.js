@@ -2056,11 +2056,3 @@ rewardBlockSpacing: {
   modalFieldValue: { fontSize: 13, color: '#111' },
   modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
 });
-rizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#ECECEC',
-  },
-  modalFieldValue: { fontSize: 13, color: '#111' },
-  modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
-});

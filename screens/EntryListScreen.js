@@ -420,6 +420,14 @@ const MonthCalendar = memo(function MonthCalendar({
             const cert = isCert(d);
             const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
 
+            const isFuture = d > today;
+            const isPast = !isFuture && d.getTime() !== today.getTime();
+            let cellColor = '#D1D5DB'; 
+            if (ranged) {
+              if (!isFuture) cellColor = '#111111'; 
+              else cellColor = '#9CA3AF'; 
+            }
+
             if (cert) {
               return (
                 <View key={`d${idx}`} style={styles.calCell}>
@@ -430,19 +438,11 @@ const MonthCalendar = memo(function MonthCalendar({
               );
             }
 
-            const isFuture = d > today;
-            const isToday = d.getTime() === today.getTime();
             return (
               <View key={`d${idx}`} style={styles.calCell}>
-                {isToday || isHighlight ? (
-                  <View style={styles.calTodayBadge}>
-                    <Text style={[styles.calTodayText, isHighlight && !isToday && { color: '#111' }]}>{d.getDate()}</Text>
-                  </View>
-                ) : (
-                  <Text style={[styles.calCellText, (!ranged || isFuture) && styles.calCellTextDim]}>
-                    {d.getDate()}
-                  </Text>
-                )}
+                <Text style={[styles.calCellText, { color: cellColor }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+                  {d.getDate()}
+                </Text>
               </View>
             );
           });
@@ -472,7 +472,7 @@ const LineGradientChart = memo(function LineGradientChart({
   entries,
   metric='count',
   width=SCREEN_WIDTH - EDGE*2 - 8,
-  height=168,
+  height=185,
   introProgress=1,
   interactive=true,
   pagerIndex=0,
@@ -749,6 +749,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             entries={entries}
             metric="count"         // 누적 그래프
             width={pageW-4}
+            height={185}
             introProgress={introProgress}
             interactive={interactive}
             pagerIndex={page}
@@ -761,6 +762,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             entries={entries}
             metric="minutes"
             width={pageW-4}
+            height={185}
             introProgress={introProgress}
             interactive={interactive}
             pagerIndex={page}
@@ -935,91 +937,105 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
   );
 });
 
-const STREAK_COLORS = [
-  '#F3F4F6', // 도전기간 외 (아주 연한)
-  '#E5E7EB', // 베이스 (도전기간 내, 미인증)
-  '#D1D5DB', // 1일 연속
-  '#9CA3AF', // 2일 연속
-  '#6B7280', // 3일 연속
-  '#374151', // 4일 연속
-  '#111111', // 5일+ 연속
-];
-
 const GRASS_ROWS = 7;
 const GRASS_MIN_COLS = 20;
+const CELL_GAP = 2;
+const LEFT_LABEL_W = 32;
+const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DOW_SHOW = [1, 3, 5]; // 월, 수, 금만 표시
+
+const GRASS_ROWS = 7;
+const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
 const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
-  const cellSize = Math.floor((SCREEN_WIDTH - EDGE * 2 - 8) / GRASS_MIN_COLS) - 2;
+  const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
 
-  const { cells, cols } = useMemo(() => {
-    if (!startDate || !endDate) {
-      return { cells: Array(GRASS_MIN_COLS * GRASS_ROWS).fill(0), cols: GRASS_MIN_COLS };
-    }
+  const onLayout = useCallback((e) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setContainerWidth(w);
+  }, []);
 
-    // 인증된 날짜 set
+  const LEFT_LABEL_W = 28;
+  const CELL_GAP = 3;
+  const availableW = containerWidth - LEFT_LABEL_W;
+
+  const { cellData, monthLabels, weekStarts } = useMemo(() => {
+    if (!startDate || !endDate) return { cellData: [], monthLabels: [], weekStarts: [] };
+
     const certSet = new Set();
     for (const e of entries) {
       const d = new Date(e.timestamp);
       certSet.add(keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate())));
     }
 
-    // 도전 기간 날짜 배열
     const start = new Date(startDate); start.setHours(0,0,0,0);
     const end = new Date(endDate); end.setHours(0,0,0,0);
-    const rangeDays = [];
-    const cur = new Date(start);
-    while (cur <= end) {
-      rangeDays.push(keyOf(new Date(cur)));
-      cur.setDate(cur.getDate() + 1);
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    const gridStart = new Date(start);
+    gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+
+    const cells = [];
+    const weekStartCols = [];
+    const monthLabelMap = {};
+
+    const cur = new Date(gridStart);
+    let col = 0;
+
+    while (cur <= end || (cur.getDay() !== 0 && cells.length > 0)) {
+      if (cur.getDay() === 0) {
+        weekStartCols.push({ col, date: new Date(cur) });
+        const monthKey = `${cur.getFullYear()}-${cur.getMonth()}`;
+        if (!monthLabelMap[monthKey]) {
+          monthLabelMap[monthKey] = { col, label: cur.toLocaleString('en-US', { month: 'short' }) };
+        }
+      }
+      for (let row = 0; row < GRASS_ROWS; row++) {
+        const cellDate = new Date(cur);
+        cellDate.setDate(cur.getDate() + row);
+        const k = keyOf(cellDate);
+        const inRange = cellDate >= start && cellDate <= end;
+        const certified = certSet.has(k);
+        const isFuture = cellDate > today;
+
+        let level = 0;
+        if (!inRange) level = 0;
+        else if (certified) level = 3;
+        else if (isFuture) level = 1;
+        else level = 2;
+
+        cells.push({ col, row, date: new Date(cellDate), level });
+      }
+      cur.setDate(cur.getDate() + GRASS_ROWS);
+      col++;
+      if (col > 60) break;
     }
 
-    // 필요한 열 수 계산
-    const neededCols = Math.ceil(rangeDays.length / GRASS_ROWS);
-    const cols = Math.max(GRASS_MIN_COLS, neededCols);
-    const total = cols * GRASS_ROWS;
-
-    // streak 계산
-    const streakMap = new Map();
-    let streak = 0;
-    for (const key of rangeDays) {
-      if (certSet.has(key)) streak += 1;
-      else streak = 0;
-      streakMap.set(key, streak);
-    }
-
-    // 세로 우선으로 배치
-    const cells = Array(total).fill(0); // 0 = 도전기간 외
-    for (let i = 0; i < rangeDays.length; i++) {
-      const col = Math.floor(i / GRASS_ROWS);
-      const row = i % GRASS_ROWS;
-      const idx = col * GRASS_ROWS + row;
-      const s = streakMap.get(rangeDays[i]) || 0;
-      cells[idx] = certSet.has(rangeDays[i]) ? Math.min(s + 1, 6) : 1;
-    }
-
-    return { cells, cols };
+    return { cellData: cells, monthLabels: Object.values(monthLabelMap), weekStarts: weekStartCols };
   }, [entries, startDate, endDate]);
 
-  const needsScroll = cols > GRASS_MIN_COLS;
+  const totalCols = weekStarts.length || 20;
+  const cellSize = Math.min(13, Math.floor((availableW - CELL_GAP * (totalCols - 1)) / totalCols));
+  const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
+
+  const LEVEL_COLORS = ['transparent', '#F3F4F6', '#D1D5DB', '#111111'];
+  const TOP_LABEL_H = 18;
 
   const GridContent = (
-    <View style={{ flexDirection: 'row' }}>
-      {Array.from({ length: cols }).map((_, col) => (
-        <View key={col} style={{ marginRight: 2 }}>
-          {Array.from({ length: GRASS_ROWS }).map((_, row) => {
-            const idx = col * GRASS_ROWS + row;
-            const level = cells[idx] ?? 0;
+    <View style={{ flexDirection: 'row', width: graphWidth }}>
+      {Array.from({ length: totalCols }).map((_, col) => (
+        <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
+          {Array.from({ length: GRASS_ROWS }).map((__, row) => {
+            const cell = cellData.find(c => c.col === col && c.row === row);
+            const level = cell?.level ?? 0;
             return (
-              <View
-                key={row}
-                style={{
-                  width: cellSize,
-                  height: cellSize,
-                  borderRadius: 2,
-                  backgroundColor: STREAK_COLORS[level],
-                  marginBottom: 2,
-                }}
-              />
+              <View key={row} style={{
+                width: cellSize, height: cellSize,
+                borderRadius: 2,
+                backgroundColor: level === 0 ? 'transparent' : LEVEL_COLORS[level],
+                marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
+              }} />
             );
           })}
         </View>
@@ -1028,14 +1044,116 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
   );
 
   return (
-    <View style={{ marginHorizontal: EDGE, marginTop: 10 }}>
-      {needsScroll ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+    <View style={{ marginTop: 10 }} onLayout={onLayout}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={{ paddingLeft: LEFT_LABEL_W }}>
+        <View>
+          <View style={{ height: TOP_LABEL_H, width: graphWidth, position: 'relative', marginBottom: 4 }}>
+            {monthLabels.map((ml, i) => (
+              <Text key={i} style={{ position: 'absolute', left: ml.col * (cellSize + CELL_GAP), fontSize: 10, color: '#6B7280', fontWeight: '700' }}>{ml.label}</Text>
+            ))}
+          </View>
           {GridContent}
-        </ScrollView>
-      ) : (
-        GridContent
-      )}
+        </View>
+      </ScrollView>
+      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W }}>
+        {DOW_SHOW.map(rowIdx => (
+          <View key={rowIdx} style={{ position: 'absolute', top: rowIdx * (cellSize + CELL_GAP), width: LEFT_LABEL_W - 4, alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 9, color: '#6B7280', fontWeight: '700' }}>{DOW_LABELS[rowIdx]}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+});
+        const monthKey = `${cur.getFullYear()}-${cur.getMonth()}`;
+        if (!monthLabelMap[monthKey]) {
+          monthLabelMap[monthKey] = { col, label: cur.toLocaleString('en-US', { month: 'short' }) };
+        }
+      }
+      for (let row = 0; row < GRASS_ROWS; row++) {
+        const cellDate = new Date(cur);
+        cellDate.setDate(cur.getDate() + row);
+        const k = keyOf(cellDate);
+        const inRange = cellDate >= start && cellDate <= end;
+        const certified = certSet.has(k);
+        const isFuture = cellDate > today;
+
+        let level = 0;
+        if (!inRange) level = 0;
+        else if (certified) level = 3;
+        else if (isFuture) level = 1;
+        else level = 2;
+
+        cells.push({ col, row, date: new Date(cellDate), level, inRange });
+      }
+      cur.setDate(cur.getDate() + GRASS_ROWS);
+      col++;
+      if (col > 60) break;
+    }
+
+    const monthLabelsArr = Object.values(monthLabelMap);
+    return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
+  }, [entries, startDate, endDate]);
+
+  const totalCols = weekStarts.length || 20;
+  const cellSize = Math.min(13, Math.floor((availableW - CELL_GAP * (totalCols - 1)) / totalCols));
+  const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
+
+  const LEVEL_COLORS = ['transparent', '#F3F4F6', '#D1D5DB', '#111111'];
+  const TOP_LABEL_H = 18;
+
+  return (
+    <View style={{ marginTop: 10 }} onLayout={onLayout}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        nestedScrollEnabled
+        contentContainerStyle={{ paddingLeft: LEFT_LABEL_W }}
+      >
+        <View style={{ height: TOP_LABEL_H, width: graphWidth, position: 'relative', marginBottom: 4 }}>
+          {monthLabels.map((ml, i) => (
+            <Text key={i} style={{
+              position: 'absolute',
+              left: ml.col * (cellSize + CELL_GAP),
+              fontSize: 10, color: '#6B7280', fontWeight: '700',
+            }}>{ml.label}</Text>
+          ))}
+        </View>
+
+        <View style={{ flexDirection: 'row', width: graphWidth }}>
+          {Array.from({ length: totalCols }).map((_, col) => (
+            <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
+              {Array.from({ length: GRASS_ROWS }).map((__, row) => {
+                const cell = cellData.find(c => c.col === col && c.row === row);
+                const level = cell?.level ?? 0;
+                return (
+                  <View key={row} style={{
+                    width: cellSize, height: cellSize,
+                    borderRadius: 2,
+                    backgroundColor: level === 0 ? 'transparent' : LEVEL_COLORS[level],
+                    marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
+                  }} />
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W }}>
+        {DOW_SHOW.map(rowIdx => (
+          <View key={rowIdx} style={{
+            position: 'absolute',
+            top: rowIdx * (cellSize + CELL_GAP),
+            width: LEFT_LABEL_W - 4,
+            alignItems: 'flex-end',
+          }}>
+            <Text style={{ fontSize: 9, color: '#6B7280', fontWeight: '700' }}>
+              {DOW_LABELS[rowIdx]}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 });
@@ -1045,8 +1163,12 @@ const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress 
   const body = (
     <>
       <Text style={styles.number}>{indexFromEnd}</Text>
-      {!!item?.imageUri && (
-        <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
+      {!!item?.imageUri && typeof item.imageUri === 'string' && item.imageUri.length > 0 && (
+        <Image 
+          source={{ uri: item.imageUri }} 
+          style={styles.thumbnail} 
+          onError={() => {}} 
+        />
       )}
       <View style={styles.textContainer}>
         <Text style={styles.text}>{item?.text ?? ''}</Text>
@@ -1853,18 +1975,10 @@ export default function EntryListScreen({ route, navigation }) {
   })
 )}
 
-        <TouchableOpacity
-          style={styles.uploadBtn}
-          onPress={() => navigation.navigate('Upload', { challengeId })}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.uploadBtnText}>인증하기</Text>
-        </TouchableOpacity>
-
         <View style={{ height: insets.bottom + 24 }} />
       </ScrollView>
 
-      <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.9}>
+      <TouchableOpacity style={[styles.shareBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]} onPress={handleShare} activeOpacity={0.9}>
         <Text style={styles.shareBtnText}>공유</Text>
       </TouchableOpacity>
      {/* 위젯 1×1 캡처(오프스크린) */}
@@ -1966,20 +2080,8 @@ rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
   calCellText: { fontSize: 10.5, color: '#111' },
   calCellTextDim: { color: textGrey },
 
-  calTodayBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: '#111111',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calTodayText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111111',
-  },
+  
+  
 
   dateLabel: { fontSize: 10, color: textGrey },
   dayLabel: { fontSize: 9, color: '#333' },
@@ -2008,25 +2110,18 @@ rewardBlockSpacing: {
   separator: { height: 1, backgroundColor: '#F3F4F6' },
 
   shareBtn: {
-    position: 'absolute', right: EDGE, bottom: EDGE,
+    position: 'absolute', right: EDGE, 
     backgroundColor: '#111', borderRadius: 14,
     paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
   },
   shareBtnText: { color: '#fff', fontWeight: '800' },
 
-  uploadBtn: {
-    marginHorizontal: EDGE + NARROW_PLUS,
-    marginTop: 20,
-    backgroundColor: '#111',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
+  uploadFloatingBtn: {
+    position: 'absolute', left: EDGE,
+    backgroundColor: '#111', borderRadius: 14,
+    paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
   },
-  uploadBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
+  uploadFloatingText: { color: '#fff', fontWeight: '800' },
 
   /* ───────── 정보 모달 스타일 ───────── */
   modalBackdrop: {

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 사진 미리보기 우상단에 반투명 회색 원형 X 버튼으로 삭제
 // - 🔧 폴리싱: 중복 탭 방지(busy), try/finally로 상태 복구
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,6 +40,7 @@ export default function UploadScreen() {
   const [imageUri, setImageUri] = useState(null);
   const [busy, setBusy] = useState(false);
   const [challengeTitle, setChallengeTitle] = useState('');
+  const submittedRef = useRef(false);
 
   // 화면 포커스될 때마다 state 초기화
   useFocusEffect(
@@ -49,6 +50,8 @@ export default function UploadScreen() {
       setDuration('');
       setImageUri(null);
       setBusy(false);
+      submittedRef.current = false;
+      submittedRef.current = false;
 
       if (challengeId) {
         AsyncStorage.getItem('challenges').then(raw => {
@@ -64,7 +67,7 @@ export default function UploadScreen() {
   useEffect(() => {
     const onBack = navigation.addListener('beforeRemove', (e) => {
       const hasContent = text.trim() || imageUri || duration;
-      if (!hasContent) return;
+      if (!hasContent || submittedRef.current) return;
       e.preventDefault();
       Alert.alert(
         '작성 중인 내용이 있어요',
@@ -150,6 +153,8 @@ export default function UploadScreen() {
   const onSubmit = useCallback(async () => {
     if (busy) return;
     setBusy(true);
+    submittedRef.current = false;
+    submittedRef.current = false;
     try {
       if (!challengeId) {
         Alert.alert('오류', '도전 정보를 찾을 수 없습니다.');
@@ -204,6 +209,8 @@ export default function UploadScreen() {
         {
           text: '확인',
           onPress: () => {
+            submittedRef.current = true;
+            submittedRef.current = true;
             setText(''); setImageUri(null); setDuration('');
             navigation.replace('EntryList', {
               challengeId,
@@ -221,6 +228,7 @@ export default function UploadScreen() {
       Alert.alert('오류', '인증을 저장하지 못했습니다.');
     } finally {
       setBusy(false);
+      submittedRef.current = false;
     }
   }, [busy, challengeId, text, imageUri, duration, navigation]);
 

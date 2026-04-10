@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Ale
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 
 import { buttonStyles, colors, spacing, radius } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
@@ -207,8 +208,18 @@ function CardBody({
         <Text style={[styles.title, { flex:1, marginRight: 8 }]} numberOfLines={2}>
           {item.title ?? '(제목 없음)'}
         </Text>
-        <View style={styles.pctCircle}>
-          <Text style={styles.pctCircleText}>{pct}%</Text>
+        <View style={styles.pctCircleWrap}>
+          <Svg width={32} height={32}>
+            <Circle cx={16} cy={16} r={12} stroke="#E5E7EB" strokeWidth={3} fill="none" />
+            <Circle
+              cx={16} cy={16} r={12}
+              stroke="#111" strokeWidth={3} fill="none"
+              strokeDasharray={`${(pct/100)*(2*Math.PI*12)} ${2*Math.PI*12}`}
+              strokeLinecap="round"
+              rotation="-90" origin="16,16"
+            />
+          </Svg>
+          <Text style={styles.pctCircleLabel}>{pct}%</Text>
         </View>
       </View>
 
@@ -269,13 +280,12 @@ function CardBody({
 
       {!isDone ? (
         <TouchableOpacity
-          style={[styles.progressBtn, showControls && styles.disabledBig]}
+          style={[styles.uploadNowBtn, showControls && styles.disabledBig]}
           disabled={!!showControls}
           onPress={() => onPressCard?.({ ...item, _upload: true })}
           activeOpacity={0.9}
         >
-          <View style={[styles.progressFill, { width: `${pct}%` }]} />
-          <Text style={styles.progressBtnText}>인증하기</Text>
+          <Text style={styles.uploadNowText}>인증하기</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
@@ -443,7 +453,7 @@ export default function ChallengeListScreen() {
   }, [floatLeft, floatTop, insets.top]);
 
   const rafMeasureSelected = useCallback((id) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => measureNow(id)));
+    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => measureNow(id))));
   }, [measureNow]);
 
   /* CRUD/네비 */
@@ -485,6 +495,8 @@ export default function ChallengeListScreen() {
       createdAt: Date.now(),
       completedAt: undefined,
       sortIndex: 0,
+      _isDone: false,
+      _completedAt: 0,
       archived: false,
     };
     const nextArr = [copy, ...prev];
@@ -534,7 +546,8 @@ export default function ChallengeListScreen() {
 
     console.log('[ChallengeList][onClaimReward] nextArrIds=', nextArr.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
 
-    setData(nextArr);
+    const enriched = nextArr.map(c => ({ ...c, ...asDoneFlags(c) }));
+    setData(enriched);
     try { await persistChallenges(nextArr, 'claim'); } catch {}
 
     try { await cancelAllForChallenge(item.id).catch(() => {}); } catch {}
@@ -769,45 +782,14 @@ const styles = StyleSheet.create({
   cardContent: { },
   dimmedContent: { opacity: 0.55 },
 
-  pctCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    borderColor: '#111',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+  pctCircleWrap: { alignItems:'center', justifyContent:'center', position:'relative', width:32, height:32 },
+  pctCircleLabel: { position:'absolute', fontSize:7, fontWeight:'800', color:'#111', textAlign:'center', includeFontPadding:false },
+
+  uploadNowBtn: {
+    marginTop: 10, height: 48, borderRadius: 14,
+    backgroundColor: '#111', alignItems:'center', justifyContent:'center',
   },
-  pctCircleText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#111',
-  },
-  progressBtn: {
-    marginTop: 10,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#E5E7EB',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  progressFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: '#111',
-    borderRadius: 14,
-  },
-  progressBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#fff',
-    textShadowColor: '#000',
-    textShadowOffset: { width: 0, height: 1 },
+  uploadNowText: { fontSize:16, fontWeight:'800', color:'#fff' },
     textShadowRadius: 4,
     zIndex: 1,
   },
@@ -853,12 +835,12 @@ const styles = StyleSheet.create({
   /* 플로팅 버튼들 */
   addFloatingWrap: { position: 'absolute', right: spacing.lg },
   addFab: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 50, height: 50, borderRadius: 25,
     backgroundColor: colors.black,
     alignItems: 'center', justifyContent: 'center',
     elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
   },
-  addFabPlus: { color: colors.background, fontSize: 28, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
+  addFabPlus: { color: colors.background, fontSize: 25, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
 
   settingsFloatingWrap: { position: 'absolute', left: spacing.lg },
   settingsBtn: { backgroundColor: 'transparent', borderWidth: 0, padding: 2, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -867,5 +849,5 @@ const styles = StyleSheet.create({
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },
 
   /* 선택 카드 복제본 */
-  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12 },
+  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
 });

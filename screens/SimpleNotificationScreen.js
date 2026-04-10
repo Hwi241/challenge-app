@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/SimpleNotificationScreen.js
 // - 요일 원형(중앙정렬), 폰트 작게
 // - '매일 반복' + '매주 반복' 버튼(동일 높이): 매주는 모달로 1~5번째주 또는 매주 선택, 라벨 동적 변경
@@ -9,6 +10,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, ScrollView } fr
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, colors, spacing, radius, card as cardStyles } from '../styles/common';
+import BackButton from '../components/BackButton';
 
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 const CIRCLE = 40;
@@ -147,7 +149,9 @@ export default function SimpleNotificationScreen() {
   }, [navigation, returnTo, route.params?.onDone, selectedDays, times, weeks]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <BackButton />
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.screenTitle}>간단 알림 설정</Text>
 
       {/* 요일 선택 */}
@@ -271,7 +275,8 @@ export default function SimpleNotificationScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

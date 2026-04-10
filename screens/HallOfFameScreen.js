@@ -7,14 +7,13 @@
 // 5) 축하 닫힘 직후 해당 카드 외곽선 1회 깜빡임(원복)
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
-import {
-  SafeAreaView, View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Pressable, Alert, Animated
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Pressable, Alert, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 
 import { colors, spacing, radius, buttonStyles } from '../styles/common';
+import BackButton from '../components/BackButton';
 
 const CARD_BORDER = '#E5E7EB';   // gray-200: 도전 리스트와 동일
 const DIVIDER = '#D1D5DB';       // gray-300 (살짝 더 진하게)
@@ -336,6 +335,7 @@ export default function HallOfFameScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <BackButton />
       {/* 헤더 — 중앙 정렬 타이틀 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle} numberOfLines={1}>명예의 전당</Text>

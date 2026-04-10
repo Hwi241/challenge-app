@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/MonthlyNotificationScreen.js
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -5,6 +6,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal } fr
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
+import BackButton from '../components/BackButton';
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtHHMM(date) { return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`; }
@@ -228,7 +230,9 @@ const onChangeScope = useCallback((scope)=>{
   }, []);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <BackButton />
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.screenTitle}>월간 알림 설정</Text>
       <Text style={styles.desc}>각 날짜 최대 {MAX_PER_DATE}개</Text>
       {/* 추가 설명 문구 */}
@@ -422,7 +426,8 @@ const onChangeScope = useCallback((scope)=>{
           is24Hour
         />
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

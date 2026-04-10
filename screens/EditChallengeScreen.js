@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/EditChallengeScreen.js
 // - UI 변경 없음(레이아웃/텍스트 그대로)
 // - 제목 50자, 보상 50자, 내용 500자: 입력 단계에서 잘라냄 + 저장 시 재검증
@@ -5,9 +6,7 @@
 // - 나머지 로직/프리뷰/모달은 기존과 동일
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -15,6 +14,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
+import BackButton from '../components/BackButton';
 
 const PALETTE = {
   white: '#FFFFFF',
@@ -392,7 +392,9 @@ export default function EditChallengeScreen(){
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <BackButton />
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.screenTitle}>도전 수정</Text>
 
       {/* 기본 정보 */}
@@ -608,7 +610,8 @@ export default function EditChallengeScreen(){
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

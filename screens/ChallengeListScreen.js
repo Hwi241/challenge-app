@@ -1,14 +1,9 @@
 // screens/ChallengeListScreen.js
 import React, { useEffect, useState, useCallback, memo, useRef } from 'react';
-import {
-  SafeAreaView, View, Text, StyleSheet,
-  TouchableOpacity, TouchableWithoutFeedback, Alert,
-  BackHandler, Platform, FlatList, UIManager, LayoutAnimation,
-  Animated, Easing
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, UIManager, LayoutAnimation, Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 
 import { buttonStyles, colors, spacing, radius } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
@@ -441,7 +436,7 @@ export default function ChallengeListScreen() {
     ref.measureInWindow((x, y, width) => {
       did = true;
       floatLeft.setValue(x);
-      floatTop.setValue(Math.max(0, y - insets.top));
+      floatTop.setValue(y);
       floatWidthRef.current = width;
     });
     return did;
@@ -594,7 +589,7 @@ export default function ChallengeListScreen() {
       const ref = itemRefs.current[safeStringId(selectedId)];
       if (ref && ref.measureInWindow) {
         ref.measureInWindow((_x, y) => {
-          const nextTop = Math.max(0, y - insets.top);
+          const nextTop = y;
           Animated.timing(floatTop, {
             toValue: nextTop,
             duration: 180,

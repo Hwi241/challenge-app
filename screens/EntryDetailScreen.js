@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/EntryDetailScreen.js
 // - 업로드 화면과 동일한 UX 적용
 // - 사진 선택(추가/변경), 미리보기 우상단 X로 삭제
@@ -6,16 +7,14 @@
 // - 저장/삭제 중 중복 탭 방지(busy)
 
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  SafeAreaView, View, Text, TextInput, Image, StyleSheet,
-  TouchableOpacity, Alert, ScrollView
-} from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
+import BackButton from '../components/BackButton';
 
 const MAX_TEXT_LEN = 500;
 const MAX_MINUTES = 1440;
@@ -194,6 +193,7 @@ export default function EntryDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+      <BackButton />
         <Text style={{ color: '#666' }}>불러오는 중…</Text>
       </SafeAreaView>
     );

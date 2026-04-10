@@ -1,7 +1,7 @@
 // App.js
 import 'react-native-gesture-handler'; // ✅ 반드시 최상단에!
 import React, { useEffect, useState } from 'react';
-import { Image, View, StyleSheet, Platform } from 'react-native';
+import { Image, View, StyleSheet, Platform, StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -109,6 +109,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar translucent={false} backgroundColor={colors.background} barStyle="dark-content" />
       <SafeAreaProvider>
         <NavigationContainer linking={linking}>
           <Stack.Navigator

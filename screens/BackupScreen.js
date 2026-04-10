@@ -1,13 +1,13 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/BackupScreen.js
 import React, { useCallback, useState } from 'react';
-import {
-  SafeAreaView, View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 
 import { colors, spacing, radius, buttonStyles } from '../styles/common';
 import { exportBackup, importSnapshot, validateSnapshot } from '../utils/backup';
+import BackButton from '../components/BackButton';
 
 export default function BackupScreen() {
   const [loading, setLoading] = useState(false);
@@ -95,6 +95,7 @@ export default function BackupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <BackButton />
       <Text style={styles.title}>데이터 백업/복원</Text>
 
       <View style={styles.card}>

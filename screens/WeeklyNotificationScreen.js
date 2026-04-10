@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/WeeklyNotificationScreen.js
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -5,6 +6,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal } fr
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
+import BackButton from '../components/BackButton';
 
 const WEEK = ['월','화','수','목','금','토','일'];
 const MAX_PER_DAY = 10;
@@ -185,7 +187,9 @@ export default function WeeklyNotificationScreen(){
   const scopeIsCustom = useMemo(()=>bulkScope==='custom', [bulkScope]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <BackButton />
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>주간 알림 설정</Text>
       <Text style={styles.desc}>각 요일 최대 10개</Text>
 
@@ -346,7 +350,8 @@ export default function WeeklyNotificationScreen(){
           is24Hour
         />
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

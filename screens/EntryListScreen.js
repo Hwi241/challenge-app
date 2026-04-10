@@ -5,12 +5,8 @@ const KILL_UI_AND_SHOW_RAW = false; // 필요 시 true로 전환(데이터 디�
 import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
-import {
-  SafeAreaView, View, Text, Image, StyleSheet, TouchableOpacity,
-  Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform,
-  PanResponder
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform, PanResponder } from 'react-native';
+import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -22,6 +18,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
+import BackButton from '../components/BackButton';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -420,6 +417,7 @@ const MonthCalendar = memo(function MonthCalendar({
             const isThisMonth = d.getMonth()===month;
             if (!isThisMonth) return <View key={`o${idx}`} style={styles.calCell} />;
 
+            const cert = isCert(d);
             const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
 
             if (cert) {
@@ -1533,15 +1531,16 @@ export default function EntryListScreen({ route, navigation }) {
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
   const HeaderCard = useMemo(()=>(<View style={styles.card}>
       <View style={styles.headerTop}>
+              <BackButton />
         <TouchableOpacity
           onPress={()=>setShowInfo(true)}
           activeOpacity={0.9}
-          style={{ position:'absolute', left:0, top:0 }}
+          style={{ position:'absolute', right:0, top:0 }}
         >
           <ShadowIcon forShare={false} />
         </TouchableOpacity>
 
-        <View style={{ paddingHorizontal: 60, alignItems:'center' }}>
+        <View style={{ paddingLeft: 60, paddingRight: 60, alignItems:'center' }}>
           <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>
@@ -1610,7 +1609,7 @@ export default function EntryListScreen({ route, navigation }) {
           <ShadowIcon forShare={true} />
         </View>
 
-        <View style={{ paddingHorizontal: 60, alignItems:'center' }}>
+        <View style={{ paddingLeft: 60, paddingRight: 60, alignItems:'center' }}>
           <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>

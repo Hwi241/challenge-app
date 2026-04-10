@@ -1,20 +1,11 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/SettingsScreen.js
 // - 앱 리뷰 버튼: 인앱 리뷰 요청 후에도 항상 안내창을 띄워서 반응 보이게 하고,
 //   "스토어 열기"로 마켓/앱스토어 페이지를 여는 확실한 fallback 추가
 // - 개선의견 메일: FEEDBACK_EMAIL을 설정(Expo extra → 상수)하고, 미설정/플레이스홀더면 안내
 
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  Switch,
-  TouchableOpacity,
-  Alert,
-  Platform,
-  Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Linking,  } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Application from 'expo-application';
@@ -24,6 +15,7 @@ import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 
 import { colors, spacing, radius, buttonStyles } from '../styles/common';
+import BackButton from '../components/BackButton';
 
 const STORAGE_KEY = 'settings.notificationsEnabled';
 
@@ -188,6 +180,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <BackButton />
       {/* 알림 토글 */}
       <View style={styles.card}>
         <View style={styles.row}>

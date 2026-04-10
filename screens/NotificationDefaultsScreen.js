@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Switch, Modal, TextInput, Alert, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import BackButton from '../components/BackButton';
 
 const PALETTE = {
   white: '#FFFFFF',
@@ -86,6 +87,7 @@ export default function NotificationDefaultsScreen() {
       activeOpacity={0.9}
     >
       <View style={[styles.radioOuter, sound===value && styles.radioOuterOn]}>
+      <BackButton />
         {sound===value ? <View style={styles.radioInner}/> : null}
       </View>
       <Text style={styles.radioLabel}>{label}</Text>

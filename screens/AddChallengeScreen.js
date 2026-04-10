@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/AddChallengeScreen.js
 // - 시작/종료일 역순 즉시 경고(되돌리기)
 // - 알림 모달 라벨: 주간 알림 / 월간 알림 / 전체 일정 알림
@@ -8,9 +9,7 @@
 // - ✅ 뒤로가기로 나갈 때 초안 초기화 + 폼 리셋
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -18,6 +17,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
+import BackButton from '../components/BackButton';
 
 const PALETTE = {
   white: '#FFFFFF',
@@ -471,7 +471,9 @@ export default function AddChallengeScreen() {
   }, [busy, navigation, notification, startDate, endDate]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <BackButton />
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.screenTitle}>도전 추가</Text>
 
       {/* 기본 정보 */}
@@ -679,7 +681,8 @@ export default function AddChallengeScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

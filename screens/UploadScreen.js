@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/UploadScreen.js
 // - 제목 중앙, "내용"+“사진 선택” 한 줄, "텍스트" 라벨 제거
 // - 인증내용 500자 제한(표시 X), 입력에 따라 자동 높이 확장
@@ -6,15 +7,14 @@
 // - 🔧 폴리싱: 중복 탭 방지(busy), try/finally로 상태 복구
 
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView
-} from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
+import BackButton from '../components/BackButton';
 
 const PALETTE = {
   white: '#FFFFFF',
@@ -203,7 +203,8 @@ export default function UploadScreen() {
       Alert.alert('완료', '인증이 등록되었습니다.', [
         {
           text: '확인',
-          onPress: () =>
+          onPress: () => {
+            setText(''); setImageUri(null); setDuration('');
             navigation.replace('EntryList', {
               challengeId,
               title: nextTitle,
@@ -211,7 +212,8 @@ export default function UploadScreen() {
               endDate: nextEnd,
               targetScore: nextGoal,
               reward: nextReward,
-            }),
+            });
+          },
         },
       ]);
     } catch (e) {
@@ -223,7 +225,9 @@ export default function UploadScreen() {
   }, [busy, challengeId, text, imageUri, duration, navigation]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <BackButton />
+      <ScrollView contentContainerStyle={styles.container}>
       {/* 제목 중앙 정렬 */}
       <Text style={styles.screenTitle}>인증 업로드</Text>
 
@@ -302,7 +306,8 @@ export default function UploadScreen() {
       >
         <Text style={buttonStyles.primary.label}>제출하기</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

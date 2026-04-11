@@ -418,8 +418,6 @@ const MonthCalendar = memo(function MonthCalendar({
             if (!isThisMonth) return <View key={`o${idx}`} style={styles.calCell} />;
 
                         const isFuture = d > today;
-            const cert = isCert(d);
-            const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
             let cellColor = '#D1D5DB'; 
             if (ranged) {
               if (!isFuture) cellColor = '#111111'; 

@@ -14,11 +14,33 @@ Compressing project files and uploading to EAS Build. Learn more: https://expo.f
 - Computing project fingerprint
 ✔ Computed project fingerprint
 
-See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/e10f01ca-16ed-415b-92d0-245b930e4f17
+See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/9aa403c7-c6a9-4dc6-953e-d9a2cacfac5f
 
 Waiting for build to complete. You can press Ctrl+C to exit.
 - Waiting for build to complete.
-✖ Build failed
+✔ Build finished
 
-🤖 Android build failed:
-Gradle build failed with unknown error. See logs for the "Run gradlew" (https://expo.dev/accounts/phsang/projects/thepush/builds/e10f01ca-16ed-415b-92d0-245b930e4f17#run-gradlew) phase for more information.
+  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+  █ ▄▄▄▄▄ █▄▄▄ ▀  █▀▄ ▀▀ ▄███▄█ █ ▄▄▄▄▄ █
+  █ █   █ ██▄▀ █ ▄█ ▀▀█▄ ▄ ▀ ▄█▀█ █   █ █
+  █ █▄▄▄█ ██▀▄ ▄▀▄█ ▀▀▄ ▄▄▀ ███ █ █▄▄▄█ █
+  █▄▄▄▄▄▄▄█ ▀▄█ ▀▄▀▄█▄█ █ █ ▀ ▀ █▄▄▄▄▄▄▄█
+  █▄▄█▄ ▀▄█▀ ▀█▄█  ▀   █▀▀ ▄█▄▀▄█▄▀▀██▀▄█
+  █ █▀▀ ▄▄▄▄█▄█▄▄█▄  ██▀▄█▄▀▄▄▄ ▄▄▄▄▄ ▄▄█
+  █ ▀▄ ▄ ▄ ▄█▄█▀▀▀  █▄█ ▀█ ██▀  █▄▄▀ ▀ ▄█
+  █▄▄▄  ▄▄▀█▄ █▀▄█▄▀█▀ ▄▄▀███▄ ▀▀▄▀▄█▀▄ █
+  █▄▄█▄▀▀▄ ▄█▀ ▄▄█▀ ▀▀▀██ ▄█ █ ▄▀▄██ ▄▄▄█
+  █▀▄ █ ▄▄▄▀ ▄▀▄▀▄▄ ▄▀▄▀▄█▄ ▀ ▄▄▀█▄▀▀██ █
+  █  ▄  ▀▄▀▀▄█▄▀██ ▄▄▀ ███▀██ ▀▄ ▄▀  ▀ ▄█
+  █▄██▄▀▄▄  █▄ ▀█▀▄▄▀▄▀███ ██▀▄▀█  ▄▀▀▀ █
+  █▀▄▀█▀▄▄▀█▄▀▄▄▀▀▀▄█▄▄▀▀▄ ▄▀▀ ▀█▄▄▀█▀▀▄█
+  █ ▄▄ ██▄▀█▀▄ ▄█ ▄█▄▀▄▀███ ██ █▄█ ▀  ▄ █
+  █▄█████▄█▀▀▀▀▀▀▄ ██ ▀█▀██▄▄▀█ ▄▄▄ █  ██
+  █ ▄▄▄▄▄ ██▀▄▄▀█▀ █▄█ ▄▄ ▄▄ ▀█ █▄█  ▄▀ █
+  █ █   █ █ ▀▀█▄▄  ▀ ▄  █▀▀██▄ ▄  ▄▄ █ ▀█
+  █ █▄▄▄█ █▀▄▄█▄█ ▄▄ ▄██▄█▄█▄  ██▀▄ █ ▀ █
+  █▄▄▄▄▄▄▄█▄▄███▄▄▄██▄▄▄███▄█▄█▄▄▄██▄██▄█
+
+
+🤖 Open this link on your Android devices (or scan the QR code) to install the app:
+https://expo.dev/accounts/phsang/projects/thepush/builds/9aa403c7-c6a9-4dc6-953e-d9a2cacfac5f

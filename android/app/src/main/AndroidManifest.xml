@@ -35,22 +35,9 @@
       </intent-filter>
     </activity>
      
-     <!-- 리스트형 -->
-<receiver
-  android:name=".widgets.list.ListWidgetProvider"
-  android:exported="false">
-  <intent-filter>
-    <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-    <action android:name="com.hwiject.thepush.ACTION_LIST_DATA_CHANGED" />
-  </intent-filter>
-  <meta-data
-    android:name="android.appwidget.provider"
-    android:resource="@xml/widget_list" />
-</receiver>
-
-<!-- 단일 1x1 -->
- <receiver
-        android:name="com.hwiject.thepush.widgets.single.Single1x1Provider"
+    <!-- 4x1 진행률 위젯 Provider -->
+    <receiver
+        android:name=".widgets.progress.ProgressWidgetProvider"
         android:exported="true">
         <intent-filter>
             <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -58,48 +45,17 @@
 
         <meta-data
             android:name="android.appwidget.provider"
-            android:resource="@xml/widget_single_1x1_info" />
+            android:resource="@xml/progress_widget_info" />
     </receiver>
 
-<!-- 단일 2x5 -->
-<receiver
-  android:name=".widgets.single.Single2x5Provider"
-  android:exported="false">
-  <intent-filter>
-    <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-  </intent-filter>
-  <meta-data
-    android:name="android.appwidget.provider"
-    android:resource="@xml/widget_single_2x5" />
-</receiver>
-
-<!-- 단일 4x5 -->
-<receiver
-  android:name=".widgets.single.Single4x5Provider"
-  android:exported="false">
-  <intent-filter>
-    <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-  </intent-filter>
-  <meta-data
-    android:name="android.appwidget.provider"
-    android:resource="@xml/widget_single_4x5" />
-</receiver>
-
-<!-- 리스트용 RemoteViewsService -->
-<service
-  android:name=".widgets.list.ListRemoteViewsService"
-  android:permission="android.permission.BIND_REMOTEVIEWS"
-  android:exported="false" />
-
-<!-- 선택/설정 액티비티 -->
- <activity
-        android:name="com.hwiject.thepush.widgets.single.ui.ConfigActivity"
-        android:exported="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-        />
-
-
-
+    <!-- 4x1 진행률 위젯 설정 화면 -->
+    <activity
+        android:name=".widgets.progress.ProgressWidgetConfigActivity"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+        </intent-filter>
+    </activity>
 
   </application>
 </manifest>

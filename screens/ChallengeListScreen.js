@@ -209,14 +209,14 @@ function CardBody({
           {item.title ?? '(제목 없음)'}
         </Text>
         <View style={styles.pctCircleWrap}>
-          <Svg width={32} height={32}>
-            <Circle cx={16} cy={16} r={12} stroke="#E5E7EB" strokeWidth={3} fill="none" />
+          <Svg width={26} height={26}>
+            <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
             <Circle
-              cx={16} cy={16} r={12}
-              stroke="#111" strokeWidth={3} fill="none"
-              strokeDasharray={`${(pct/100)*(2*Math.PI*12)} ${2*Math.PI*12}`}
+              cx={13} cy={13} r={9}
+              stroke="#111" strokeWidth={4.5} fill="none"
+              strokeDasharray={`${(pct/100)*(2*Math.PI*9)} ${2*Math.PI*9}`}
               strokeLinecap="round"
-              rotation="-90" origin="16,16"
+              rotation="-90" origin="13,13"
             />
           </Svg>
           <Text style={styles.pctCircleLabel}>{pct}%</Text>
@@ -782,17 +782,14 @@ const styles = StyleSheet.create({
   cardContent: { },
   dimmedContent: { opacity: 0.55 },
 
-  pctCircleWrap: { alignItems:'center', justifyContent:'center', position:'relative', width:32, height:32 },
-  pctCircleLabel: { position:'absolute', fontSize:7, fontWeight:'800', color:'#111', textAlign:'center', includeFontPadding:false },
+  pctCircleWrap: { alignItems:'center', justifyContent:'center', position:'relative', width:26, height:26 },
+  pctCircleLabel: { position:'absolute', fontSize:6, fontWeight:'800', color:'#111', textAlign:'center', includeFontPadding:false },
 
   uploadNowBtn: {
     marginTop: 10, height: 48, borderRadius: 14,
     backgroundColor: '#111', alignItems:'center', justifyContent:'center',
   },
   uploadNowText: { fontSize:16, fontWeight:'800', color:'#fff' },
-    textShadowRadius: 4,
-    zIndex: 1,
-  },
 
   selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },
   title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
@@ -803,7 +800,7 @@ const styles = StyleSheet.create({
 
   arrowsInline: { flexDirection: 'row', alignItems: 'center', height: CONTROLS_H },
   circleArrowSmall: {
-    width: ARROW_SIZE, height: ARROW_SIZE, borderRadius: ARROW_SIZE / 2,
+    width: ARROW_SIZE, height: ARROW_SIZE, borderRadius: 20,
     backgroundColor: colors.black, borderWidth: 1, borderColor: colors.black,
     alignItems: 'center', justifyContent: 'center',
     elevation: 3, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 2 },

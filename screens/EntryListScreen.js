@@ -417,11 +417,7 @@ const MonthCalendar = memo(function MonthCalendar({
             const isThisMonth = d.getMonth()===month;
             if (!isThisMonth) return <View key={`o${idx}`} style={styles.calCell} />;
 
-            const cert = isCert(d);
-            const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-
-            const isFuture = d > today;
-            const isPast = !isFuture && d.getTime() !== today.getTime();
+                        const isFuture = d > today;
             let cellColor = '#D1D5DB'; 
             if (ranged) {
               if (!isFuture) cellColor = '#111111'; 
@@ -437,6 +433,14 @@ const MonthCalendar = memo(function MonthCalendar({
                 </View>
               );
             }
+
+            return (
+              <View key={`d${idx}`} style={styles.calCell}>
+                <Text style={[styles.calCellText, { color: cellColor }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+                  {d.getDate()}
+                </Text>
+              </View>
+            );
 
             return (
               <View key={`d${idx}`} style={styles.calCell}>
@@ -938,13 +942,6 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
 });
 
 const GRASS_ROWS = 7;
-const GRASS_MIN_COLS = 20;
-const CELL_GAP = 2;
-const LEFT_LABEL_W = 32;
-const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DOW_SHOW = [1, 3, 5]; // 월, 수, 금만 표시
-
-const GRASS_ROWS = 7;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
@@ -960,8 +957,8 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
   const CELL_GAP = 3;
   const availableW = containerWidth - LEFT_LABEL_W;
 
-  const { cellData, monthLabels, weekStarts } = useMemo(() => {
-    if (!startDate || !endDate) return { cellData: [], monthLabels: [], weekStarts: [] };
+  const { cellData, weekStarts, monthLabels } = useMemo(() => {
+    if (!startDate || !endDate) return { cellData: [], weekStarts: [], monthLabels: [] };
 
     const certSet = new Set();
     for (const e of entries) {
@@ -1012,11 +1009,12 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
       if (col > 60) break;
     }
 
-    return { cellData: cells, monthLabels: Object.values(monthLabelMap), weekStarts: weekStartCols };
+    const monthLabelsArr = Object.values(monthLabelMap);
+    return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
   }, [entries, startDate, endDate]);
 
   const totalCols = weekStarts.length || 20;
-  const cellSize = Math.min(13, Math.floor((availableW - CELL_GAP * (totalCols - 1)) / totalCols));
+  const cellSize = 12;
   const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
 
   const LEVEL_COLORS = ['transparent', '#F3F4F6', '#D1D5DB', '#111111'];
@@ -1045,98 +1043,21 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
 
   return (
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={{ paddingLeft: LEFT_LABEL_W }}>
-        <View>
-          <View style={{ height: TOP_LABEL_H, width: graphWidth, position: 'relative', marginBottom: 4 }}>
-            {monthLabels.map((ml, i) => (
-              <Text key={i} style={{ position: 'absolute', left: ml.col * (cellSize + CELL_GAP), fontSize: 10, color: '#6B7280', fontWeight: '700' }}>{ml.label}</Text>
-            ))}
-          </View>
-          {GridContent}
-        </View>
-      </ScrollView>
-      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W }}>
-        {DOW_SHOW.map(rowIdx => (
-          <View key={rowIdx} style={{ position: 'absolute', top: rowIdx * (cellSize + CELL_GAP), width: LEFT_LABEL_W - 4, alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 9, color: '#6B7280', fontWeight: '700' }}>{DOW_LABELS[rowIdx]}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-});
-        const monthKey = `${cur.getFullYear()}-${cur.getMonth()}`;
-        if (!monthLabelMap[monthKey]) {
-          monthLabelMap[monthKey] = { col, label: cur.toLocaleString('en-US', { month: 'short' }) };
-        }
-      }
-      for (let row = 0; row < GRASS_ROWS; row++) {
-        const cellDate = new Date(cur);
-        cellDate.setDate(cur.getDate() + row);
-        const k = keyOf(cellDate);
-        const inRange = cellDate >= start && cellDate <= end;
-        const certified = certSet.has(k);
-        const isFuture = cellDate > today;
-
-        let level = 0;
-        if (!inRange) level = 0;
-        else if (certified) level = 3;
-        else if (isFuture) level = 1;
-        else level = 2;
-
-        cells.push({ col, row, date: new Date(cellDate), level, inRange });
-      }
-      cur.setDate(cur.getDate() + GRASS_ROWS);
-      col++;
-      if (col > 60) break;
-    }
-
-    const monthLabelsArr = Object.values(monthLabelMap);
-    return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
-  }, [entries, startDate, endDate]);
-
-  const totalCols = weekStarts.length || 20;
-  const cellSize = Math.min(13, Math.floor((availableW - CELL_GAP * (totalCols - 1)) / totalCols));
-  const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
-
-  const LEVEL_COLORS = ['transparent', '#F3F4F6', '#D1D5DB', '#111111'];
-  const TOP_LABEL_H = 18;
-
-  return (
-    <View style={{ marginTop: 10 }} onLayout={onLayout}>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
         nestedScrollEnabled
         contentContainerStyle={{ paddingLeft: LEFT_LABEL_W }}
       >
-        <View style={{ height: TOP_LABEL_H, width: graphWidth, position: 'relative', marginBottom: 4 }}>
-          {monthLabels.map((ml, i) => (
-            <Text key={i} style={{
-              position: 'absolute',
-              left: ml.col * (cellSize + CELL_GAP),
-              fontSize: 10, color: '#6B7280', fontWeight: '700',
-            }}>{ml.label}</Text>
-          ))}
-        </View>
-
-        <View style={{ flexDirection: 'row', width: graphWidth }}>
-          {Array.from({ length: totalCols }).map((_, col) => (
-            <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
-              {Array.from({ length: GRASS_ROWS }).map((__, row) => {
-                const cell = cellData.find(c => c.col === col && c.row === row);
-                const level = cell?.level ?? 0;
-                return (
-                  <View key={row} style={{
-                    width: cellSize, height: cellSize,
-                    borderRadius: 2,
-                    backgroundColor: level === 0 ? 'transparent' : LEVEL_COLORS[level],
-                    marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
-                  }} />
-                );
-              })}
-            </View>
-          ))}
+        <View>
+          <View style={{ height: TOP_LABEL_H, width: graphWidth, position: 'relative', marginBottom: 4 }}>
+            {monthLabels.map((ml, i) => (
+              <Text key={i} style={{
+                position: 'absolute',
+                left: ml.col * (cellSize + CELL_GAP),
+                fontSize: 10, color: '#6B7280', fontWeight: '700',
+              }}>{ml.label}</Text>
+            ))}
+          </View>
+          {GridContent}
         </View>
       </ScrollView>
 
@@ -1978,7 +1899,15 @@ export default function EntryListScreen({ route, navigation }) {
         <View style={{ height: insets.bottom + 24 }} />
       </ScrollView>
 
-      <TouchableOpacity style={[styles.shareBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]} onPress={handleShare} activeOpacity={0.9}>
+            <TouchableOpacity
+        style={[styles.uploadFloatingBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]}
+        onPress={() => navigation.navigate('Upload', { challengeId })}
+        activeOpacity={0.9}
+      >
+        <Text style={styles.uploadFloatingText}>인증</Text>
+      </TouchableOpacity>
+
+<TouchableOpacity style={[styles.shareBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]} onPress={handleShare} activeOpacity={0.9}>
         <Text style={styles.shareBtnText}>공유</Text>
       </TouchableOpacity>
      {/* 위젯 1×1 캡처(오프스크린) */}

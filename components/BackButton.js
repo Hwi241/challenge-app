@@ -1,10 +1,9 @@
 // components/BackButton.js
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 export default function BackButton({ onPress, color = '#111' }) {
-  if (Platform.OS !== 'ios') return null;
   const navigation = useNavigation();
   return (
     <TouchableOpacity

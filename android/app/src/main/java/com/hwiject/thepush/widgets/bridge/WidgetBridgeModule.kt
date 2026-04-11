@@ -7,7 +7,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import com.hwiject.thepush.widgets.single.Single1x1Provider
+import com.hwiject.thepush.widgets.progress.ProgressWidgetProvider
 import com.hwiject.thepush.widgets.utils.Prefs
 
 class WidgetBridgeModule(private val reactContext: ReactApplicationContext) :
@@ -26,12 +26,12 @@ class WidgetBridgeModule(private val reactContext: ReactApplicationContext) :
     val ctx: Context = reactContext
     val mgr = AppWidgetManager.getInstance(ctx)
 
-    // 1x1 위젯만 갱신
-    val idsSingle = mgr.getAppWidgetIds(ComponentName(ctx, Single1x1Provider::class.java))
-    if (idsSingle != null && idsSingle.isNotEmpty()) {
-      val intent = Intent(ctx, Single1x1Provider::class.java).apply {
+    // 신규 진행률 위젯 갱신
+    val ids = mgr.getAppWidgetIds(ComponentName(ctx, ProgressWidgetProvider::class.java))
+    if (ids != null && ids.isNotEmpty()) {
+      val intent = Intent(ctx, ProgressWidgetProvider::class.java).apply {
         action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, idsSingle)
+        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
       }
       ctx.sendBroadcast(intent)
     }

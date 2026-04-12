@@ -546,7 +546,9 @@ export default function ChallengeListScreen() {
 
     console.log('[ChallengeList][onClaimReward] nextArrIds=', nextArr.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
 
-    const enriched = nextArr.map(c => ({ ...c, ...asDoneFlags(c) }));
+    // 보상 완료 후 해당 카드를 목록에서 즉시 제거
+    const withoutClaimed = nextArr.filter(c => String(c.id) !== String(item.id));
+    const enriched = withoutClaimed.map(c => ({ ...c, ...asDoneFlags(c) }));
     setData(enriched);
     try { await persistChallenges(nextArr, 'claim'); } catch {}
 
@@ -846,5 +848,5 @@ const styles = StyleSheet.create({
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },
 
   /* 선택 카드 복제본 */
-  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4}, marginTop: 0 },
+  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
 });

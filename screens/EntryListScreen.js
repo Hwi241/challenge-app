@@ -420,10 +420,10 @@ const MonthCalendar = memo(function MonthCalendar({
                         const isFuture = d > today;
             const cert = isCert(d);
             const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-            let cellColor = '#D1D5DB'; 
+            let cellColor = '#B0B0B0'; 
             if (ranged) {
               if (!isFuture) cellColor = '#111111'; 
-              else cellColor = '#9CA3AF'; 
+              else cellColor = '#808080'; 
             }
 
             if (cert) {
@@ -955,7 +955,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
     if (w > 0) setContainerWidth(w);
   }, []);
 
-  const LEFT_LABEL_W = 28;
+  const LEFT_LABEL_W = 36;
   const CELL_GAP = 3;
   const availableW = containerWidth - LEFT_LABEL_W;
 
@@ -999,10 +999,26 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
         const isFuture = cellDate > today;
 
         let level = 0;
-        if (!inRange) level = 0;
-        else if (certified) level = 3;
-        else if (isFuture) level = 1;
-        else level = 2;
+        if (!inRange) {
+          level = 0; // 일정 밖 빈칸 (아주 연한 회색)
+        } else if (isFuture) {
+          level = 1; // 일정이지만 미래(미인증)
+        } else if (!certified) {
+          level = 1; // 일정이지만 미인증
+        } else {
+          // 인증됨 - 연속 일수 계산
+          let streak = 1;
+          for (let s = 1; s <= 2; s++) {
+            const prevDate = new Date(cellDate);
+            prevDate.setDate(prevDate.getDate() - s);
+            const prevKey = keyOf(prevDate);
+            if (certSet.has(prevKey)) streak++;
+            else break;
+          }
+          if (streak >= 3) level = 4; // 3일+ 연속: 가장 진함
+          else if (streak === 2) level = 3; // 2일 연속
+          else level = 2; // 1일 인증
+        }
 
         cells.push({ col, row, date: new Date(cellDate), level });
       }
@@ -1019,7 +1035,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
   const cellSize = 12;
   const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
 
-  const LEVEL_COLORS = ['transparent', '#F3F4F6', '#D1D5DB', '#111111'];
+  const LEVEL_COLORS = ['#F0F0F0', '#D1D5DB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
   const GridContent = (
@@ -1033,7 +1049,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
               <View key={row} style={{
                 width: cellSize, height: cellSize,
                 borderRadius: 2,
-                backgroundColor: level === 0 ? 'transparent' : LEVEL_COLORS[level],
+                backgroundColor: LEVEL_COLORS[level] ?? '#F0F0F0',
                 marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
               }} />
             );
@@ -1594,7 +1610,7 @@ export default function EntryListScreen({ route, navigation }) {
       <View style={[styles.row, { marginTop: 16 }]}>
         <View style={styles.donutArea}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 24 }}>
+          <View style={{ marginTop: 8 }}>
             <Donut targetPercent={overallPct} progress={introK} />
           </View>
         </View>
@@ -1970,7 +1986,7 @@ postSummaryRow: {
   title: { fontSize: 20, fontWeight: '800', color: '#111', lineHeight: 26 },
   period: { fontSize: 12, color: textGrey, marginTop: 4 },
 
-  progressLabel: { marginTop: 12, color: textGrey },
+  progressLabel: { marginTop: 0, color: textGrey },
   row: { flexDirection: 'row', marginTop: 16 },
   donutArea: { width: SCREEN_WIDTH * 0.4 - 24, alignItems: 'center', justifyContent: 'flex-start' },
   calendarArea: { flex: 1, paddingLeft: 8 },

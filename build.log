@@ -9,38 +9,38 @@ EAS Build will use the value found in the native code.
 ✔ Using Keystore from configuration: Build Credentials 9xXcuMvE0c (default)
 
 Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
-- Uploading to EAS Build (0 / 1.0 MB)
+- Uploading to EAS Build (0 / 1.1 MB)
 ✔ Uploaded to EAS 1s
 - Computing project fingerprint
 ✔ Computed project fingerprint
 
-See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/9aa403c7-c6a9-4dc6-953e-d9a2cacfac5f
+See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/f1926b2b-ed85-4aa0-86f7-97c3f7b4f6cb
 
 Waiting for build to complete. You can press Ctrl+C to exit.
 - Waiting for build to complete.
 ✔ Build finished
 
   ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-  █ ▄▄▄▄▄ █▄▄▄ ▀  █▀▄ ▀▀ ▄███▄█ █ ▄▄▄▄▄ █
-  █ █   █ ██▄▀ █ ▄█ ▀▀█▄ ▄ ▀ ▄█▀█ █   █ █
-  █ █▄▄▄█ ██▀▄ ▄▀▄█ ▀▀▄ ▄▄▀ ███ █ █▄▄▄█ █
-  █▄▄▄▄▄▄▄█ ▀▄█ ▀▄▀▄█▄█ █ █ ▀ ▀ █▄▄▄▄▄▄▄█
-  █▄▄█▄ ▀▄█▀ ▀█▄█  ▀   █▀▀ ▄█▄▀▄█▄▀▀██▀▄█
-  █ █▀▀ ▄▄▄▄█▄█▄▄█▄  ██▀▄█▄▀▄▄▄ ▄▄▄▄▄ ▄▄█
-  █ ▀▄ ▄ ▄ ▄█▄█▀▀▀  █▄█ ▀█ ██▀  █▄▄▀ ▀ ▄█
-  █▄▄▄  ▄▄▀█▄ █▀▄█▄▀█▀ ▄▄▀███▄ ▀▀▄▀▄█▀▄ █
-  █▄▄█▄▀▀▄ ▄█▀ ▄▄█▀ ▀▀▀██ ▄█ █ ▄▀▄██ ▄▄▄█
-  █▀▄ █ ▄▄▄▀ ▄▀▄▀▄▄ ▄▀▄▀▄█▄ ▀ ▄▄▀█▄▀▀██ █
-  █  ▄  ▀▄▀▀▄█▄▀██ ▄▄▀ ███▀██ ▀▄ ▄▀  ▀ ▄█
-  █▄██▄▀▄▄  █▄ ▀█▀▄▄▀▄▀███ ██▀▄▀█  ▄▀▀▀ █
-  █▀▄▀█▀▄▄▀█▄▀▄▄▀▀▀▄█▄▄▀▀▄ ▄▀▀ ▀█▄▄▀█▀▀▄█
-  █ ▄▄ ██▄▀█▀▄ ▄█ ▄█▄▀▄▀███ ██ █▄█ ▀  ▄ █
-  █▄█████▄█▀▀▀▀▀▀▄ ██ ▀█▀██▄▄▀█ ▄▄▄ █  ██
-  █ ▄▄▄▄▄ ██▀▄▄▀█▀ █▄█ ▄▄ ▄▄ ▀█ █▄█  ▄▀ █
-  █ █   █ █ ▀▀█▄▄  ▀ ▄  █▀▀██▄ ▄  ▄▄ █ ▀█
-  █ █▄▄▄█ █▀▄▄█▄█ ▄▄ ▄██▄█▄█▄  ██▀▄ █ ▀ █
-  █▄▄▄▄▄▄▄█▄▄███▄▄▄██▄▄▄███▄█▄█▄▄▄██▄██▄█
+  █ ▄▄▄▄▄ █▀ █▀▀▀ ▀█▄▀▄█▄█▄█ ▀▀▀█ ▄▄▄▄▄ █
+  █ █   █ █▀ ▄ █▀ ▀▄▀ █▄▄▀ ▀▀ ▀▄█ █   █ █
+  █ █▄▄▄█ █▀█ █▄▀█▀ ██▄   ▄ █▄▀▄█ █▄▄▄█ █
+  █▄▄▄▄▄▄▄█▄█▄█ █▄█▄█▄█ ▀ █ █▄█ █▄▄▄▄▄▄▄█
+  █▄   ▄█▄  ▄▄█▄▄▀▄▄  ▀▀█▄ ▄▄ █▀▄█ █ ▀ ██
+  █▄▀█ ▀ ▄▀▀▄▄ ▄█▄▄▄███  ▀▀▀▄█ ▄▀▄▄█ ▄▀▄█
+  █▄▀▀▄▀▄▄▄▀▀▀▄▀▄▄▄▀▄▄ ██▄▀█ ▄▄▀▄▄▀▄▄ ▀▄█
+  █▄ █▀ █▄ ▀█ █▀▄▄▄ █▀▀█ ▄██▄ ▄▄▀▄  ▀▄▄ █
+  ██▄▄█▄▄▄   ▀█▄▄▀▄▄▄▀▀▀▀▄▀█ ▄▄ ▄▄█▄▄ ▀▄█
+  █▀█▀▄▀ ▄▀█ █ ▄▄▄ ▄█▄▀█ ▄█ ▄█ █ █▀▄█▄▄ █
+  █▄▄▄▀▄▄▄██ █▄▀▄▄█▄▄▀▀▄▀ ▀█▄▄█▀ ▄ ▄▄▄ ▄█
+  ██▀▄▄  ▄▄ ▄ █▀▄▀  █▄▀█▀▀███  █   ███▄ █
+  █▀█ ▄ █▄ ▀▄▀█▄▄▄██▄▄▀▀██▀▄▄▄▄ ▄▄▀▄▀  ▄█
+  █ █ ██▄▄▄█ █ ▄▄█▄ █ ▀▀▀ █ ▄▀▄ ▄█▀█▄█▄ █
+  █▄██▄██▄▄ █▄▄▀▀█▄▄  ▀▄▀▄ ▄▄ ▀ ▄▄▄ ▀▄███
+  █ ▄▄▄▄▄ █▄▀ █▀ ▄▄▀██▀█▀▄█▄█▄▀ █▄█ ▄█  █
+  █ █   █ █ ▄ █▄█▄▄▀ ▄▀▄▀▀▀█▄ ▄   ▄ ▄  ▀█
+  █ █▄▄▄█ █  ▀ ▄█▀▄▀█ █▄ ▀▀█▄▀▄▀ ▀▄▀▀▄▄ █
+  █▄▄▄▄▄▄▄█▄▄▄▄███▄▄▄▄▄▄██▄▄▄████▄▄▄▄▄▄▄█
 
 
 🤖 Open this link on your Android devices (or scan the QR code) to install the app:
-https://expo.dev/accounts/phsang/projects/thepush/builds/9aa403c7-c6a9-4dc6-953e-d9a2cacfac5f
+https://expo.dev/accounts/phsang/projects/thepush/builds/f1926b2b-ed85-4aa0-86f7-97c3f7b4f6cb

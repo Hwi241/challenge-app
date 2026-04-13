@@ -188,9 +188,9 @@ export default function WeeklyNotificationScreen(){
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton />
+      <BackButton title="주간 알림 설정" />
       <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>주간 알림 설정</Text>
+      
       <Text style={styles.desc}>각 요일 최대 10개</Text>
 
       <View style={{ marginTop: spacing.sm }}>

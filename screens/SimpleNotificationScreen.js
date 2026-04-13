@@ -150,9 +150,9 @@ export default function SimpleNotificationScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton />
+      <BackButton title="간단 알림 설정" />
       <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.screenTitle}>간단 알림 설정</Text>
+      
 
       {/* 요일 선택 */}
       <View style={cardStyles.base}>

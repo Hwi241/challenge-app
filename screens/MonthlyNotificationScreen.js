@@ -231,9 +231,9 @@ const onChangeScope = useCallback((scope)=>{
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton />
+      <BackButton title="월간 알림 설정" />
       <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.screenTitle}>월간 알림 설정</Text>
+      
       <Text style={styles.desc}>각 날짜 최대 {MAX_PER_DATE}개</Text>
       {/* 추가 설명 문구 */}
       <Text style={styles.desc}>매월 같은 날 알람 설정</Text>

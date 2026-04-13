@@ -180,7 +180,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackButton />
+      <BackButton title="설정" />
       {/* 알림 토글 */}
       <View style={styles.card}>
         <View style={styles.row}>

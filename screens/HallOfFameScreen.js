@@ -335,11 +335,8 @@ export default function HallOfFameScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackButton />
-      {/* 헤더 — 중앙 정렬 타이틀 */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle} numberOfLines={1}>명예의 전당</Text>
-      </View>
+      <BackButton title="명예의 전당" />
+
 
       <FlatList
         ref={listRef}

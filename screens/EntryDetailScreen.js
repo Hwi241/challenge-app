@@ -193,7 +193,7 @@ export default function EntryDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-      <BackButton />
+      <BackButton title="인증 수정" />
         <Text style={{ color: '#666' }}>불러오는 중…</Text>
       </SafeAreaView>
     );
@@ -203,7 +203,7 @@ export default function EntryDetailScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
         {/* 제목 중앙 정렬 */}
-        <Text style={styles.screenTitle}>인증 수정</Text>
+        
 
         <View style={styles.card}>
           {/* "내용" + "사진 선택"을 한 줄로 */}

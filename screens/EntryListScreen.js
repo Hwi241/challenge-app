@@ -40,7 +40,7 @@ const AdBannerPlaceholder = () => (
 );
 
 const baseBlack = '#111111';
-const progressGrey = '#E5E7EB';
+const progressGrey = '#D1D5DB';
 const textGrey = '#666666';
 const EDGE = 8;
 // ⬇️ 원하는 만큼 숫자만 바꾸면 됨
@@ -420,10 +420,11 @@ const MonthCalendar = memo(function MonthCalendar({
                         const isFuture = d > today;
             const cert = isCert(d);
             const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-            let cellColor = '#B0B0B0'; 
+            const isToday = d.toDateString() === today.toDateString();
+            let cellColor = '#D1D5DB';
             if (ranged) {
-              if (!isFuture) cellColor = '#111111'; 
-              else cellColor = '#808080'; 
+              if (isFuture) cellColor = '#A0A0A0';
+              else cellColor = '#111111';
             }
 
             if (cert) {
@@ -438,7 +439,7 @@ const MonthCalendar = memo(function MonthCalendar({
 
             return (
               <View key={`d${idx}`} style={styles.calCell}>
-                <Text style={[styles.calCellText, { color: cellColor }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+                <Text style={[styles.calCellText, { color: cellColor }, isToday && !cert && { fontWeight: '900' }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
                   {d.getDate()}
                 </Text>
               </View>
@@ -446,7 +447,7 @@ const MonthCalendar = memo(function MonthCalendar({
 
             return (
               <View key={`d${idx}`} style={styles.calCell}>
-                <Text style={[styles.calCellText, { color: cellColor }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+                <Text style={[styles.calCellText, { color: cellColor }, isToday && !cert && { fontWeight: '900' }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
                   {d.getDate()}
                 </Text>
               </View>
@@ -839,9 +840,7 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
             if (!hasTime && !hasCount) {
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
-                  <Text style={styles.barText}>{' '}</Text>
-                  <View style={{ height: 0 }} />
-                  <Text style={styles.countLabel}>{'—'}</Text>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginBottom: 2 }} />
                 </View>
               );
             }
@@ -947,8 +946,23 @@ const GRASS_ROWS = 7;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
-const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
+const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1 }) {
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
+  const [sparkleMap, setSparkleMap] = useState({});
+  const [sparkling, setSparkling] = useState(true);
+
+  useEffect(() => {
+    setSparkling(true);
+    const map = {};
+    for (let col = 0; col < 60; col++) {
+      for (let row = 0; row < 7; row++) {
+        map[`${col}-${row}`] = Math.floor(Math.random() * 4) + 1;
+      }
+    }
+    setSparkleMap(map);
+    const t = setTimeout(() => setSparkling(false), 900);
+    return () => clearTimeout(t);
+  }, [entries]);
 
   const onLayout = useCallback((e) => {
     const w = e.nativeEvent.layout.width;
@@ -1031,11 +1045,12 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
     return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
   }, [entries, startDate, endDate]);
 
-  const totalCols = weekStarts.length || 20;
   const cellSize = 12;
+  const minCols = Math.ceil((containerWidth - LEFT_LABEL_W) / (cellSize + 4 /* CELL_GAP */));
+  const totalCols = Math.max(weekStarts.length, minCols);
   const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
 
-  const LEVEL_COLORS = ['#F0F0F0', '#D1D5DB', '#A0A0A0', '#555555', '#111111'];
+  const LEVEL_COLORS = ['#EEEEEE', '#D1D5DB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
   const GridContent = (
@@ -1044,12 +1059,14 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
         <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
           {Array.from({ length: GRASS_ROWS }).map((__, row) => {
             const cell = cellData.find(c => c.col === col && c.row === row);
-            const level = cell?.level ?? 0;
+            const baseLevel = cell?.level ?? 0;
+            const sparkKey = `${col}-${row}`;
+            const level = sparkling ? (sparkleMap[sparkKey] ?? baseLevel) : baseLevel;
             return (
               <View key={row} style={{
                 width: cellSize, height: cellSize,
                 borderRadius: 2,
-                backgroundColor: LEVEL_COLORS[level] ?? '#F0F0F0',
+                backgroundColor: LEVEL_COLORS[level] ?? '#EEEEEE',
                 marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
               }} />
             );
@@ -1063,6 +1080,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         nestedScrollEnabled
+        scrollEnabled={graphWidth + LEFT_LABEL_W > containerWidth}
         contentContainerStyle={{ paddingLeft: LEFT_LABEL_W }}
       >
         <View>
@@ -1079,7 +1097,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate }) {
         </View>
       </ScrollView>
 
-      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W }}>
+      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W, zIndex: 2, backgroundColor: '#fff' }}>
         {DOW_SHOW.map(rowIdx => (
           <View key={rowIdx} style={{
             position: 'absolute',
@@ -1407,18 +1425,11 @@ export default function EntryListScreen({ route, navigation }) {
 
       const entryKeys = [
         `entries_${chCID}`,
-        `entries_${numCID}`,
         `entries_${rawCID}`,
+        `entries_${numCID}`,
         `challenge_${chCID}_entries`,
-        `challenge_${numCID}_entries`,
         `challenge_${rawCID}_entries`,
-        `challenge:${chCID}:entries`,
-        `challenge:${numCID}:entries`,
-        `challenge:${rawCID}:entries`,
-        `certs_${chCID}`, `certs_${numCID}`, `certs_${rawCID}`,
-        `logs_${chCID}`,  `logs_${numCID}`,  `logs_${rawCID}`,
-        `records_${chCID}`, `records_${numCID}`, `records_${rawCID}`,
-        'entries', 'certs', 'logs', 'records', 'activity', 'history'
+        `challenge_${numCID}_entries`,
       ];
 
       let list = [];
@@ -1592,7 +1603,7 @@ export default function EntryListScreen({ route, navigation }) {
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
   const HeaderCard = useMemo(()=>(<View style={styles.card}>
       <View style={styles.headerTop}>
-              <BackButton />
+        <BackButton />
         <TouchableOpacity
           onPress={()=>setShowInfo(true)}
           activeOpacity={0.9}
@@ -1986,9 +1997,9 @@ postSummaryRow: {
   title: { fontSize: 20, fontWeight: '800', color: '#111', lineHeight: 26 },
   period: { fontSize: 12, color: textGrey, marginTop: 4 },
 
-  progressLabel: { marginTop: 0, color: textGrey },
+  progressLabel: { marginTop: 10, color: textGrey },
   row: { flexDirection: 'row', marginTop: 16 },
-  donutArea: { width: SCREEN_WIDTH * 0.4 - 24, alignItems: 'center', justifyContent: 'flex-start' },
+  donutArea: { width: SCREEN_WIDTH * 0.4 - 24, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 10 },
   calendarArea: { flex: 1, paddingLeft: 8 },
 
   sectionBox: { marginTop: 10 },

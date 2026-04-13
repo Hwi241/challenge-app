@@ -472,9 +472,9 @@ export default function AddChallengeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton />
+      <BackButton title="도전 추가" />
       <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.screenTitle}>도전 추가</Text>
+      
 
       {/* 기본 정보 */}
       <View style={styles.card}>

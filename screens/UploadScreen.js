@@ -234,10 +234,10 @@ export default function UploadScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton />
+      <BackButton title="인증 업로드" />
       <ScrollView contentContainerStyle={styles.container}>
       {/* 제목 중앙 정렬 */}
-      <Text style={styles.screenTitle}>인증 업로드</Text>
+      
 
       {!!challengeTitle && (
         <View style={styles.titleBox}>

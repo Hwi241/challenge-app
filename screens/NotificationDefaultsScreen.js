@@ -87,7 +87,7 @@ export default function NotificationDefaultsScreen() {
       activeOpacity={0.9}
     >
       <View style={[styles.radioOuter, sound===value && styles.radioOuterOn]}>
-      <BackButton />
+      <BackButton title="알림 기본 설정" />
         {sound===value ? <View style={styles.radioInner}/> : null}
       </View>
       <Text style={styles.radioLabel}>{label}</Text>
@@ -98,7 +98,7 @@ export default function NotificationDefaultsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>알림 기본 설정</Text>
+      
 
       {/* 알림음 */}
       <View style={styles.card}>

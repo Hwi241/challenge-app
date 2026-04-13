@@ -393,9 +393,9 @@ export default function EditChallengeScreen(){
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton />
+      <BackButton title="도전 수정" />
       <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.screenTitle}>도전 수정</Text>
+      
 
       {/* 기본 정보 */}
       <View style={styles.card}>

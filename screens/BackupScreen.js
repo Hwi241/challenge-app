@@ -95,8 +95,8 @@ export default function BackupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackButton />
-      <Text style={styles.title}>데이터 백업/복원</Text>
+      <BackButton title="데이터 백업/복원" />
+      
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>내보내기</Text>

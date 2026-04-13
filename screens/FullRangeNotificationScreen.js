@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, Modal, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import BackButton from '../components/BackButton';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
 
 const pad2 = (n)=>String(n).padStart(2,'0');
@@ -268,7 +269,7 @@ export default function FullRangeNotificationScreen(){
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 160 /* 고정 바 높이만큼 여백 */ }}
       >
-        <Text style={styles.title}>전체 일정 세부 알림</Text>
+        
         <Text style={styles.desc}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
 
         {months.map(({y,mi})=>{
@@ -593,4 +594,6 @@ const styles = StyleSheet.create({
   modalGhostText:{ color: colors.gray800, fontWeight:'800' },
   modalPrimary:{ backgroundColor: colors.gray800 },
   modalPrimaryText:{ color:'#FFF', fontWeight:'800' },
+});
+,
 });

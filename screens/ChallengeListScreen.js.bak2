@@ -446,8 +446,8 @@ export default function ChallengeListScreen() {
     ref.measureInWindow((x, y, width) => {
       did = true;
       floatLeft.setValue(x);
-      floatTop.setValue(y - insets.top);
-      floatWidthRef.current = width - (spacing.lg * 2);
+      floatTop.setValue(y);
+      floatWidthRef.current = width;
     });
     return did;
   }, [floatLeft, floatTop, insets.top]);
@@ -668,18 +668,9 @@ export default function ChallengeListScreen() {
     <SafeAreaView style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.hamburgerBtn}
-          onPress={() => navigationRef.current.navigate('Settings')}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          disabled={reorderActive}
-        >
-          <Text style={styles.hamburgerIcon}>☰</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>THE - PUSH</Text>
         <TouchableOpacity
-          style={[buttonStyles.compactRight, styles.hofBtn]}
+          style={[buttonStyles.compactRight, styles.headerRight, styles.hofBtn]}
           onPress={() => navigationRef.current.navigate('HallOfFameScreen')}
           activeOpacity={0.9}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -704,16 +695,29 @@ export default function ChallengeListScreen() {
       />
 
       {/* 플로팅 버튼 */}
-      <TouchableOpacity
-        style={[styles.addFloatingBtn, { bottom: Math.max(insets.bottom, 16) + EDGE }]}
-        onPress={() => navigationRef.current.navigate('AddChallenge', { resetNonce: Date.now() })}
-        activeOpacity={0.9}
-        disabled={reorderActive}
-      >
-        <Text style={styles.addFloatingText}>+</Text>
-      </TouchableOpacity>
+      <View pointerEvents="box-none" style={[styles.addFloatingWrap, { bottom: Math.max(insets.bottom, 8) + spacing.lg }]}>
+        <TouchableOpacity
+          style={styles.addFab}
+          onPress={() => navigationRef.current.navigate('AddChallenge', { resetNonce: Date.now() })}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          disabled={reorderActive}
+        >
+          <Text allowFontScaling={false} style={styles.addFabPlus}>+</Text>
+        </TouchableOpacity>
+      </View>
 
-
+      <View pointerEvents="box-none" style={[styles.settingsFloatingWrap, { bottom: Math.max(insets.bottom, 8) + spacing.lg }]}>
+        <TouchableOpacity
+          style={styles.settingsBtn}
+          onPress={() => navigationRef.current.navigate('Settings')}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          disabled={reorderActive}
+        >
+          <GearIcon width={52} height={52} fill={colors.gray600} />
+        </TouchableOpacity>
+      </View>
 
       {/* 정렬 스크림 */}
       {reorderActive && (
@@ -728,7 +732,7 @@ export default function ChallengeListScreen() {
           pointerEvents="box-none"
           style={[
             styles.floatingCardWrap,
-            { left: spacing.lg, top: floatTop, width: floatWidthRef.current },
+            { left: floatLeft, top: floatTop, width: floatWidthRef.current },
           ]}
         >
           <CardBody
@@ -837,15 +841,8 @@ const styles = StyleSheet.create({
   },
   addFabPlus: { color: colors.background, fontSize: 25, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
 
-  hamburgerBtn: { paddingHorizontal: 4, paddingVertical: 4 },
-  hamburgerIcon: { fontSize: 22, color: colors.gray800, fontWeight: '400' },
-
-  addFloatingBtn: {
-    position: 'absolute', right: EDGE,
-    backgroundColor: '#111', borderRadius: 14,
-    paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
-  },
-  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  settingsFloatingWrap: { position: 'absolute', left: spacing.lg },
+  settingsBtn: { backgroundColor: 'transparent', borderWidth: 0, padding: 2, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
   /* 정렬 스크림 */
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },

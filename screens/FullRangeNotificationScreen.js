@@ -595,5 +595,3 @@ const styles = StyleSheet.create({
   modalPrimary:{ backgroundColor: colors.gray800 },
   modalPrimaryText:{ color:'#FFF', fontWeight:'800' },
 });
-,
-});

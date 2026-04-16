@@ -1,3 +1,8 @@
+★ eas-cli@18.7.0 is now available.
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
 Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
 No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.
 
@@ -14,5 +19,5 @@ Compressing project files and uploading to EAS Build. Learn more: https://expo.f
 - Computing project fingerprint
 ✔ Computed project fingerprint
 
-See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/3e711d0e-1279-4c11-b68a-0d875e157d0d
+See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/0081a243-3402-41e9-9953-a0f7470aa783
 

@@ -15,9 +15,9 @@ EAS Build will use the value found in the native code.
 
 Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
 - Uploading to EAS Build (0 / 1.1 MB)
-✔ Uploaded to EAS 1s
+✔ Uploaded to EAS 
 - Computing project fingerprint
 ✔ Computed project fingerprint
 
-See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/0081a243-3402-41e9-9953-a0f7470aa783
+See logs: https://expo.dev/accounts/phsang/projects/thepush/builds/a043e0b0-cf03-47c0-88e0-afafb581238f
 

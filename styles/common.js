@@ -2,6 +2,8 @@
 import { StyleSheet } from 'react-native';
 
 export const colors = {
+  white: '#FFFFFF',
+  gray500: '#737373',
   background: '#FFFFFF',
   surface: '#FFFFFF',
   primary: '#111111',
@@ -23,6 +25,7 @@ export const spacing = {
 };
 
 export const radius = {
+  pill: 999,
   sm: 8,
   md: 12,
   lg: 16,

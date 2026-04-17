@@ -1140,9 +1140,6 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
           {GridContent}
         </View>
       </ScrollView>
-
-        ))}
-      </View>
     </View>
   );
 });

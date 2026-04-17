@@ -506,6 +506,8 @@ export default function ChallengeListScreen() {
 
     setData(nextArr);
     try { await persistChallenges(nextArr, 'duplicate'); } catch {}
+    // 복제된 도전의 인증 목록을 빈 배열로 명시적 초기화
+    try { await AsyncStorage.setItem(`entries_${copy.id}`, JSON.stringify([])); } catch {}
     await finalizeReorder();
   }, [persistChallenges, finalizeReorder, animateList]);
 
@@ -619,17 +621,37 @@ export default function ChallengeListScreen() {
     }, 16);
   }, [reorderActive, selectedId, activeCount, insets.top, floatTop, persistChallenges]);
 
-  const enterReorder = useCallback((item) => {
+    const enterReorder = useCallback((item) => {
     if (asDoneFlags(item)._isDone) {
       Alert.alert('안내', '완료된 도전은 순서를 변경할 수 없어요.');
       return;
     }
-    setSelectedId(item.id);
-    const ok = measureNow(item.id);
-    setReorderActive(true);
-    console.log('[ChallengeList][enterReorder] id=', safeStringId(item.id), 'okMeasure=', ok);
-    if (!ok) rafMeasureSelected(item.id);
-  }, [measureNow, rafMeasureSelected]);
+    const id = item.id;
+    const ref = itemRefs.current[safeStringId(id)];
+    if (ref && ref.measureInWindow) {
+      ref.measureInWindow((x, y, width, height) => {
+        floatLeft.setValue(x);
+        floatTop.setValue(y);
+        floatWidthRef.current = width;
+        setSelectedId(id);
+        setReorderActive(true);
+      });
+    } else {
+      setSelectedId(id);
+      setReorderActive(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const r = itemRefs.current[safeStringId(id)];
+        if (r && r.measureInWindow) {
+          r.measureInWindow((x, y, width) => {
+            floatLeft.setValue(x);
+            floatTop.setValue(y);
+            floatWidthRef.current = width;
+          });
+        }
+      }));
+    }
+    console.log('[ChallengeList][enterReorder] id=', safeStringId(id));
+  }, [floatLeft, floatTop]);
 
   const onOverlayPress = useCallback(() => { finalizeReorder(); }, [finalizeReorder]);
 

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 나머지 로직/프리뷰/모달은 기존과 동일
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -300,6 +300,40 @@ export default function EditChallengeScreen(){
       navigation.setParams?.({ notificationResult: undefined, _nonce: undefined });
     }
   },[route.params?.notificationResult, route.params?._nonce, navigation]);
+
+  // 안드로이드 하드웨어/제스처 뒤로가기 + beforeRemove 경고
+  useEffect(() => {
+    const hasChanged = () => !!(
+      title.trim() || goalScore || reward.trim() || description.trim() || 
+      startDate || endDate || notification?.mode
+    );
+
+    const confirmExit = (onConfirm) => {
+      if (!hasChanged()) { onConfirm(); return; }
+      Alert.alert(
+        '수정 중인 내용이 있어요',
+        '뒤로 가면 수정한 내용이 저장되지 않습니다.',
+        [
+          { text: '계속 수정', style: 'cancel' },
+          { text: '나가기', style: 'destructive', onPress: onConfirm },
+        ]
+      );
+    };
+
+    const onHardwareBack = () => {
+      confirmExit(() => navigation.goBack());
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+
+    const remove = navigation.addListener('beforeRemove', (e) => {
+      if (!hasChanged()) return;
+      e.preventDefault();
+      confirmExit(() => navigation.dispatch(e.data.action));
+    });
+
+    return () => { sub.remove(); remove(); };
+  }, [navigation, title, goalScore, reward, description, startDate, endDate, notification]);
 
   // 날짜 역순 즉시 경고
   useEffect(()=>{ if (showStartPicker) lastChangedRef.current='start'; },[showStartPicker]);

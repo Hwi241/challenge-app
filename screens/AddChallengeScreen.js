@@ -309,21 +309,39 @@ export default function AddChallengeScreen() {
     setNotification({ mode: null, payload: null });
   }, []);
 
-  useFocusEffect(
+useFocusEffect(
     useCallback(() => {
-      const onBack = () => {
+      const hasContent = () => {
+        return !!(title.trim() || goalScore !== 66 || reward.trim() || description.trim() || notification?.mode !== 'none');
+      };
+
+      const doExit = () => {
         clearDraftAndReset();
         navigation.navigate('ChallengeList');
-        return true;
       };
+
+      const confirmExit = () => {
+        if (!hasContent()) { doExit(); return; }
+        Alert.alert(
+          '작성 중인 내용이 있어요',
+          '뒤로 가면 작성한 내용이 삭제됩니다.',
+          [
+            { text: '계속 작성', style: 'cancel' },
+            { text: '나가기', style: 'destructive', onPress: doExit },
+          ]
+        );
+      };
+
+      const onBack = () => { confirmExit(); return true; };
       const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
       const remove = navigation.addListener('beforeRemove', (e) => {
-        e.preventDefault();
-        clearDraftAndReset();
-        navigation.navigate('ChallengeList');
+        if (e.data.action.type === 'GO_BACK' || e.data.action.type === 'POP') {
+           e.preventDefault();
+           confirmExit();
+        }
       });
-      return () => { sub.remove(); navigation.removeListener('beforeRemove', remove); };
-    }, [navigation, clearDraftAndReset])
+      return () => { sub.remove(); if(remove) remove(); };
+    }, [navigation, clearDraftAndReset, title, goalScore, reward, description, notification])
   );
 
   // 날짜 역순 즉시 경고(되돌리기)

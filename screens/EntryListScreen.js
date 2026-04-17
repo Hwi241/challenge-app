@@ -983,12 +983,12 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     setSparkleMap({ ...baseMap });
 
     // 셀마다 순차적으로 밝게 켰다가 꺼지는 효과
-    const WAVE_DURATION = 1200; // 전체 파도 시간(ms)
+    const WAVE_DURATION = 800; // 전체 파도 시간(ms)
     const CELL_INTERVAL = WAVE_DURATION / cells.length;
 
     cells.forEach((key, idx) => {
       const onTimer = setTimeout(() => {
-        setSparkleMap(prev => ({ ...prev, [key]: 4 })); // 밝게
+        setSparkleMap(prev => ({ ...prev, [key]: 3 })); // 밝게
       }, idx * CELL_INTERVAL);
 
       const offTimer = setTimeout(() => {
@@ -1012,9 +1012,9 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     if (w > 0) setContainerWidth(w);
   }, []);
 
-  const LEFT_LABEL_W = 36;
+  const LEFT_LABEL_W = 0;
   const CELL_GAP = 3;
-  const availableW = containerWidth - LEFT_LABEL_W;
+  const availableW = containerWidth;
 
   const { cellData, weekStarts, monthLabels } = useMemo(() => {
     if (!startDate || !endDate) return { cellData: [], weekStarts: [], monthLabels: [] };
@@ -1093,7 +1093,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const totalCols = Math.max(weekStarts.length, minCols);
   const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
 
-  const LEVEL_COLORS = ['#EEEEEE', '#D1D5DB', '#A0A0A0', '#555555', '#111111'];
+  const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
   const GridContent = (
@@ -1123,8 +1123,8 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         nestedScrollEnabled
-        scrollEnabled={graphWidth + LEFT_LABEL_W > containerWidth}
-        contentContainerStyle={{ paddingLeft: LEFT_LABEL_W }}
+        scrollEnabled={graphWidth > containerWidth}
+        contentContainerStyle={{}}
         style={{ overflow: 'hidden' }}
       >
         <View>
@@ -1141,18 +1141,6 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         </View>
       </ScrollView>
 
-      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W, zIndex: 10, backgroundColor: '#ffffff', overflow: 'hidden' }}>
-        {DOW_SHOW.map(rowIdx => (
-          <View key={rowIdx} style={{
-            position: 'absolute',
-            top: rowIdx * (cellSize + CELL_GAP),
-            width: LEFT_LABEL_W - 4,
-            alignItems: 'flex-end',
-          }}>
-            <Text style={{ fontSize: 9, color: '#6B7280', fontWeight: '700' }}>
-              {DOW_LABELS[rowIdx]}
-            </Text>
-          </View>
         ))}
       </View>
     </View>
@@ -1658,20 +1646,19 @@ export default function EntryListScreen({ route, navigation }) {
 
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
   const HeaderCard = useMemo(()=>(<View style={styles.card}>
-      <View style={styles.headerTop}>
+            <View style={styles.headerTop}>
         <BackButton onPress={() => navigation.navigate('ChallengeList')} />
-        <TouchableOpacity
-          onPress={()=>setShowInfo(true)}
-          activeOpacity={0.9}
-          style={{ position:'absolute', right:0, top:0 }}
-        >
-          <ShadowIcon forShare={false} />
-        </TouchableOpacity>
-
-        <View style={{ paddingLeft: 60, paddingRight: 60, alignItems:'center' }}>
+        <View style={styles.headerTitleWrap}>
           <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>
+        <TouchableOpacity
+          onPress={()=>setShowInfo(true)}
+          activeOpacity={0.9}
+          style={styles.headerInfoBtn}
+        >
+          <ShadowIcon forShare={false} />
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.row, { marginTop: 16 }]}>
@@ -1732,15 +1719,15 @@ export default function EntryListScreen({ route, navigation }) {
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
   const HeaderCardForShare = useMemo(()=>(<View style={styles.card}>
-      <View style={styles.headerTop}>
-        <View style={{ position:'absolute', left:0, top:0 }}>
-          <ShadowIcon forShare={true} />
+            <View style={styles.headerTop}>
+        <View style={styles.headerInfoBtn}>
+           <ShadowIcon forShare={true} />
         </View>
-
-        <View style={{ paddingLeft: 60, paddingRight: 60, alignItems:'center' }}>
+        <View style={styles.headerTitleWrap}>
           <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>
+        <View style={styles.headerInfoBtn} />
       </View>
 
       <View style={[styles.row, { marginTop: 16 }]}>
@@ -2037,7 +2024,9 @@ postSummaryRow: {
   accumText: { fontSize: 12, color: textGrey, fontWeight: '600' },
   countBelowText: { fontSize: 12, color: textGrey, fontWeight: '700' },
 
-  headerTop: { minHeight: 48, alignItems:'center', justifyContent:'center', marginBottom: 6 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', height: 52, marginBottom: 6 },
+  headerTitleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerInfoBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
 
   iconWrapAbs: {
     width: 42, height: 42, borderRadius: 8, backgroundColor:'#fff',

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 저장/삭제 중 중복 탭 방지(busy)
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -72,6 +72,43 @@ export default function EntryDetailScreen() {
     })();
     return () => { mounted = false; };
   }, [challengeId, entryId, navigation]);
+
+  // 안드로이드 하드웨어/제스처 뒤로가기 + beforeRemove 경고
+  useEffect(() => {
+    // 초기 로드시의 값과 비교하기 위해 별도의 ref를 쓰거나 
+    // 여기서는 단순히 현재 값들의 변화 여부만 체크하는 요청 로직을 따름
+    // (사용자 요청서에는 originalText 등을 useEffect 내부 변수로 정의함)
+    
+    const hasChanged = () => !!(
+      text.trim() || duration || imageUri
+    );
+
+    const confirmExit = (onConfirm) => {
+      if (!hasChanged()) { onConfirm(); return; }
+      Alert.alert(
+        '수정 중인 내용이 있어요',
+        '뒤로 가면 수정한 내용이 저장되지 않습니다.',
+        [
+          { text: '계속 수정', style: 'cancel' },
+          { text: '나가기', style: 'destructive', onPress: onConfirm },
+        ]
+      );
+    };
+
+    const onHardwareBack = () => {
+      confirmExit(() => navigation.goBack());
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+
+    const remove = navigation.addListener('beforeRemove', (e) => {
+      if (!hasChanged()) return;
+      e.preventDefault();
+      confirmExit(() => navigation.dispatch(e.data.action));
+    });
+
+    return () => { sub.remove(); if(remove) remove(); };
+  }, [navigation, text, duration, imageUri]);
 
   // 사진 선택(추가/교체)
   const onPickImage = useCallback(async () => {

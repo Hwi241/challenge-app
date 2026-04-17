@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 개선의견 메일: FEEDBACK_EMAIL을 설정(Expo extra → 상수)하고, 미설정/플레이스홀더면 안내
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Linking,  } from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Linking, ScrollView  } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Application from 'expo-application';
@@ -178,9 +178,10 @@ export default function SettingsScreen() {
     }
   }, [openStorePage]);
 
-  return (
-    <SafeAreaView style={styles.container}>
+    return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <BackButton title="설정" />
+      <ScrollView contentContainerStyle={styles.container}>
       {/* 알림 토글 */}
       <View style={styles.card}>
         <View style={styles.row}>
@@ -247,12 +248,13 @@ export default function SettingsScreen() {
           <Text style={styles.kVal}>{build}</Text>
         </View>
       </View>
+          </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.lg },
+  container: { padding: spacing.lg },
 
   card: {
     backgroundColor: colors.surface,

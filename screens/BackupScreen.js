@@ -1,7 +1,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 // screens/BackupScreen.js
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 
@@ -93,9 +93,10 @@ export default function BackupScreen() {
     setMode((m) => (m === 'replace' ? 'merge' : 'replace'));
   }, []);
 
-  return (
-    <SafeAreaView style={styles.container}>
+    return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <BackButton title="데이터 백업/복원" />
+      <ScrollView contentContainerStyle={styles.container}>
       
 
       <View style={styles.card}>
@@ -133,18 +134,19 @@ export default function BackupScreen() {
         </TouchableOpacity>
       </View>
 
-      {loading && (
+            {loading && (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.black} />
           <Text style={{ marginTop: 8, color: colors.gray600 }}>처리 중…</Text>
         </View>
       )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.lg },
+  container: { padding: spacing.lg },
   title: { fontSize: 20, fontWeight: '800', color: colors.gray800, marginBottom: spacing.lg },
 
   card: {

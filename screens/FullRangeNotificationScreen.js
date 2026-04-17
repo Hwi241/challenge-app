@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput,
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import BackButton from '../components/BackButton';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
 
 const pad2 = (n)=>String(n).padStart(2,'0');
@@ -24,6 +25,7 @@ export default function FullRangeNotificationScreen(){
   const initial = route.params?.initial || null;
   const returnTo = route.params?.returnTo || 'AddChallenge';
 
+  const insets = useSafeAreaInsets();
   const start = parseDateStr(startStr);
   const end = parseDateStr(endStr);
 
@@ -270,7 +272,8 @@ export default function FullRangeNotificationScreen(){
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 160 /* 고정 바 높이만큼 여백 */ }}
       >
         
-        <Text style={styles.desc}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
+        <BackButton title="전체 일정 알림 설정" />
+      <Text style={styles.desc}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
 
         {months.map(({y,mi})=>{
           const first = new Date(y,mi,1);
@@ -340,7 +343,7 @@ export default function FullRangeNotificationScreen(){
       </ScrollView>
 
       {/* ▼ 하단 고정 바 */}
-      <View style={styles.fixedBar} pointerEvents="box-none">
+      <View style={[styles.fixedBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]} pointerEvents="box-none">
         <View style={styles.fixedTopRow}>
           <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
             <Text style={styles.resetBtnText}>초기화</Text>
@@ -533,7 +536,6 @@ const styles = StyleSheet.create({
     left:0, right:0, bottom:0,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: Platform.select({ ios: spacing.lg, android: spacing.md }),
     backgroundColor: colors.gray50,
     borderTopWidth: 0,
     borderTopColor: '#E5E7EB',

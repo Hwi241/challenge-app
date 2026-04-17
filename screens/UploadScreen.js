@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 🔧 폴리싱: 중복 탭 방지(busy), try/finally로 상태 복구
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -80,6 +80,26 @@ export default function UploadScreen() {
     });
     return onBack;
   }, [navigation, text, imageUri, duration]);
+  // 안드로이드 하드웨어/제스처 뒤로가기
+  useEffect(() => {
+    const onHardwareBack = () => {
+      const hasContent = text.trim() || imageUri || duration;
+      if (!hasContent || submittedRef.current) return false;
+      Alert.alert(
+        '작성 중인 내용이 있어요',
+        '뒤로 가면 작성한 내용이 삭제됩니다.',
+        [
+          { text: '계속 작성', style: 'cancel' },
+          { text: '나가기', style: 'destructive', onPress: () => navigation.goBack() },
+        ]
+      );
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => sub.remove();
+  }, [navigation, text, imageUri, duration]);
+
+  
 
   // 사진 선택 (카메라/앨범 선택지)
   const onPickImage = useCallback(async () => {

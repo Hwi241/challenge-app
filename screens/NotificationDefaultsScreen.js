@@ -1,6 +1,6 @@
 // screens/NotificationDefaultsScreen.js
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Switch, Modal, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Switch, Modal, TextInput, Alert, ScrollView, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../components/BackButton';
@@ -95,9 +95,10 @@ export default function NotificationDefaultsScreen() {
 
   const isCustomSelected = !PRESETS.includes(snoozeMinutes);
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
+    return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.gray50 }}>
       <BackButton title="알림 기본 설정" />
+      <ScrollView contentContainerStyle={styles.container}>
       
 
       {/* 알림음 */}
@@ -175,12 +176,13 @@ export default function NotificationDefaultsScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+          </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
+  container: { padding: spacing.lg },
   title: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign:'center' },
 
   card: {

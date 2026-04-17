@@ -44,8 +44,10 @@ const styles = StyleSheet.create({
  fontSize: 20,
  fontWeight: '800',
  color: '#111',
- flex: 1,
+ position: 'absolute',
+ left: 0,
+ right: 0,
  textAlign: 'center',
- marginRight: 40,
+ zIndex: -1,
  },
 });

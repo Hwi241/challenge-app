@@ -17,6 +17,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
+import { syncWidgetChallengeList } from '../utils/widgetSync';
 import BackButton from '../components/BackButton';
 
 const PALETTE = {
@@ -397,6 +398,7 @@ export default function AddChallengeScreen() {
       const arr = raw ? JSON.parse(raw) : [];
       await AsyncStorage.setItem('challenges', JSON.stringify([newChallenge, ...arr]));
       await AsyncStorage.setItem(`challenge_${id}`, JSON.stringify(newChallenge));
+      await syncWidgetChallengeList();
 
       // 저장 후 초기화 + 초안 삭제
       try { await AsyncStorage.removeItem(DRAFT_KEY); } catch {}

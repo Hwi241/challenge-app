@@ -19,6 +19,7 @@ import Svg, {
 
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import BackButton from '../components/BackButton';
+import { useFocusEffect } from '@react-navigation/native';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -423,7 +424,7 @@ const MonthCalendar = memo(function MonthCalendar({
             const isToday = d.toDateString() === today.toDateString();
             let cellColor = '#D1D5DB';
             if (ranged) {
-              if (isFuture) cellColor = '#A0A0A0';
+              if (isFuture) cellColor = '#777777';
               else cellColor = '#111111';
             }
 
@@ -840,7 +841,7 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
             if (!hasTime && !hasCount) {
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginBottom: 2 }} />
+                  <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', marginBottom: 2 }} />
                 </View>
               );
             }
@@ -948,20 +949,62 @@ const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
 const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1 }) {
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
-  const [sparkleMap, setSparkleMap] = useState({});
+    const [sparkleMap, setSparkleMap] = useState({});
   const [sparkling, setSparkling] = useState(true);
+  const sparkTimersRef = React.useRef([]);
 
   useEffect(() => {
+    // 이전 타이머 정리
+    sparkTimersRef.current.forEach(t => clearTimeout(t));
+    sparkTimersRef.current = [];
+
     setSparkling(true);
-    const map = {};
+
+    // 전체 셀 목록 생성 후 섞기
+    const cells = [];
     for (let col = 0; col < 60; col++) {
       for (let row = 0; row < 7; row++) {
-        map[`${col}-${row}`] = Math.floor(Math.random() * 4) + 1;
+        cells.push(`${col}-${row}`);
       }
     }
-    setSparkleMap(map);
-    const t = setTimeout(() => setSparkling(false), 900);
-    return () => clearTimeout(t);
+    // Fisher-Yates 셔플
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cells[i], cells[j]] = [cells[j], cells[i]];
+    }
+
+    // 초기 맵 (모두 실제값)
+    const baseMap = {};
+    for (let col = 0; col < 60; col++) {
+      for (let row = 0; row < 7; row++) {
+        baseMap[`${col}-${row}`] = Math.floor(Math.random() * 4) + 1;
+      }
+    }
+    setSparkleMap({ ...baseMap });
+
+    // 셀마다 순차적으로 밝게 켰다가 꺼지는 효과
+    const WAVE_DURATION = 1200; // 전체 파도 시간(ms)
+    const CELL_INTERVAL = WAVE_DURATION / cells.length;
+
+    cells.forEach((key, idx) => {
+      const onTimer = setTimeout(() => {
+        setSparkleMap(prev => ({ ...prev, [key]: 4 })); // 밝게
+      }, idx * CELL_INTERVAL);
+
+      const offTimer = setTimeout(() => {
+        setSparkleMap(prev => ({ ...prev, [key]: baseMap[key] })); // 원래값
+      }, idx * CELL_INTERVAL + 180);
+
+      sparkTimersRef.current.push(onTimer, offTimer);
+    });
+
+    const endTimer = setTimeout(() => setSparkling(false), WAVE_DURATION + 300);
+    sparkTimersRef.current.push(endTimer);
+
+    return () => {
+      sparkTimersRef.current.forEach(t => clearTimeout(t));
+      sparkTimersRef.current = [];
+    };
   }, [entries]);
 
   const onLayout = useCallback((e) => {
@@ -1082,6 +1125,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         nestedScrollEnabled
         scrollEnabled={graphWidth + LEFT_LABEL_W > containerWidth}
         contentContainerStyle={{ paddingLeft: LEFT_LABEL_W }}
+        style={{ overflow: 'hidden' }}
       >
         <View>
           <View style={{ height: TOP_LABEL_H, width: graphWidth, position: 'relative', marginBottom: 4 }}>
@@ -1097,7 +1141,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         </View>
       </ScrollView>
 
-      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W, zIndex: 2, backgroundColor: '#fff' }}>
+      <View style={{ position: 'absolute', left: 0, top: TOP_LABEL_H + 4, width: LEFT_LABEL_W, zIndex: 10, backgroundColor: '#ffffff', overflow: 'hidden' }}>
         {DOW_SHOW.map(rowIdx => (
           <View key={rowIdx} style={{
             position: 'absolute',
@@ -1253,6 +1297,18 @@ export default function EntryListScreen({ route, navigation }) {
 
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+
+  // 뒤로가기 항상 ChallengeList로
+  React.useEffect(() => {
+    const sub = require('react-native').BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        navigation.navigate('ChallengeList');
+        return true;
+      }
+    );
+    return () => sub.remove();
+  }, [navigation]);
 
   const [entries, setEntries] = useState([]);
   const [weeksData, setWeeksData] = useState([]);
@@ -1603,7 +1659,7 @@ export default function EntryListScreen({ route, navigation }) {
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
   const HeaderCard = useMemo(()=>(<View style={styles.card}>
       <View style={styles.headerTop}>
-        <BackButton />
+        <BackButton onPress={() => navigation.navigate('ChallengeList')} />
         <TouchableOpacity
           onPress={()=>setShowInfo(true)}
           activeOpacity={0.9}
@@ -1621,7 +1677,7 @@ export default function EntryListScreen({ route, navigation }) {
       <View style={[styles.row, { marginTop: 16 }]}>
         <View style={styles.donutArea}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 8 }}>
+          <View style={{ marginTop: 24 }}>
             <Donut targetPercent={overallPct} progress={introK} />
           </View>
         </View>

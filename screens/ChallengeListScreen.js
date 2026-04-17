@@ -8,13 +8,14 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { buttonStyles, colors, spacing, radius } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
-import GearIcon from '../assets/icons/gear.svg';
+import { syncWidgetChallengeList } from '../utils/widgetSync';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 /* ---------- 상수 ---------- */
+const EDGE = 8;
 const CARD_BORDER = '#E5E7EB';
 const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
@@ -443,14 +444,14 @@ export default function ChallengeListScreen() {
     const ref = itemRefs.current[safeStringId(id)];
     if (!ref || !ref.measureInWindow) return false;
     let did = false;
-    ref.measureInWindow((x, y, width) => {
+    ref.measureInWindow((x, y, width, height) => {
       did = true;
       floatLeft.setValue(x);
-      floatTop.setValue(y - insets.top);
-      floatWidthRef.current = width - (spacing.lg * 2);
+      floatTop.setValue(y);
+      floatWidthRef.current = width;
     });
     return did;
-  }, [floatLeft, floatTop, insets.top]);
+  }, [floatLeft, floatTop]);
 
   const rafMeasureSelected = useCallback((id) => {
     requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => measureNow(id))));
@@ -710,7 +711,7 @@ export default function ChallengeListScreen() {
         activeOpacity={0.9}
         disabled={reorderActive}
       >
-        <Text style={styles.addFloatingText}>+</Text>
+        <Text style={styles.addFloatingText}>추가</Text>
       </TouchableOpacity>
 
 
@@ -727,9 +728,9 @@ export default function ChallengeListScreen() {
         <Animated.View
           pointerEvents="box-none"
           style={[
-            styles.floatingCardWrap,
-            { left: spacing.lg, top: floatTop, width: floatWidthRef.current },
-          ]}
+              styles.floatingCardWrap,
+              { left: floatLeft, top: floatTop, width: floatWidthRef.current },
+            ]}
         >
           <CardBody
             item={selected}
@@ -756,17 +757,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
   header: {
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 0,
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800, textAlign: 'center' },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.gray800,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    zIndex: -1,
+  },
   headerRight: { position: 'absolute', right: spacing.lg, top: '50%', transform: [{ translateY: -12 }] },
-  hofBtn: { paddingVertical: 4, paddingHorizontal: 10, marginTop: 15 },
+  hofBtn: { paddingVertical: 4, paddingHorizontal: 10 },
   hofBtnText: { fontSize: 13, fontWeight: '700' },
 
   /* 카드 */
@@ -845,7 +855,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 14,
     paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
   },
-  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
   /* 정렬 스크림 */
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },

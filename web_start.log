@@ -1,0 +1,12 @@
+  --non-interactive is not supported, use $CI=1 instead
+Starting project at /home/hwi/challenge-app
+Starting Metro Bundler
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Web ./index.js ▓▓▓▓▓▓░░░░░░░░░░ 42.4% (41/63)
+Web ./index.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 57.8% (219/415)
+Web ./index.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 74.5% (609/709)
+Web ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 89.2% (917/971)
+Web Bundled 13982ms index.js (1161 modules)
+ LOG  [web] Logs will appear in the browser console
+Killed

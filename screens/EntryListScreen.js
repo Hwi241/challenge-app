@@ -993,7 +993,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
     const [sparkleMap, setSparkleMap] = useState({});
   const [sparkling, setSparkling] = useState(true);
-  const sparkleOpacity = useRef(new Animated.Value(1)).current;
+  const sparkleOpacity = useMemo(() => new Animated.Value(1), []);
   const sparkTimersRef = React.useRef([]);
 
   useEffect(() => {

@@ -1,7 +1,5 @@
+  --non-interactive is not supported, use $CI=1 instead
 Starting project at /home/hwi/challenge-app
-Metro is running in CI mode, reloads are disabled. Remove CI=true to enable watch mode.
 Starting Metro Bundler
-Tunnel connected.
-Tunnel ready.
 Waiting on http://localhost:8081
 Logs for your project will appear below.

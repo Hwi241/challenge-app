@@ -1,6 +1,6 @@
 // screens/ChallengeListScreen.js
 import React, { useEffect, useState, useCallback, memo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, UIManager, LayoutAnimation, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, UIManager, LayoutAnimation, Animated, Easing, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
@@ -187,7 +187,7 @@ const EmptyState = memo(() => (
 ));
 
 /* ---------- 카드 UI ---------- */
-function CardBody({
+const CardBody = React.forwardRef(function CardBody({
   item,
   showControls,
   canReorder,
@@ -197,7 +197,7 @@ function CardBody({
   onPressDelete,
   onPressClaim,
   onLongPress,
-}) {
+}, ref) {
   const isDone = !!item._isDone;
   const pct = Math.min(100, Math.max(0,
     item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
@@ -268,6 +268,7 @@ function CardBody({
 
   return (
     <TouchableOpacity
+      ref={ref}
       activeOpacity={0.85}
       onPress={() => onPressCard?.(item)}
       onLongPress={(!showControls && !isDone) ? onLongPress : undefined}
@@ -300,7 +301,7 @@ function CardBody({
       )}
     </TouchableOpacity>
   );
-}
+});
 
 /* ---------- 리스트 셀 ---------- */
 const ItemCard = memo(React.forwardRef(function ItemCard({
@@ -309,8 +310,8 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
   onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
 }, ref) {
   return (
-    <View ref={ref} style={[styles.cardWrap, hidden && { opacity: 0 }]}>
-      <CardBody
+    <View style={[styles.cardWrap, hidden && { opacity: 0 }]}>
+      <CardBody ref={ref}
         item={item}
         showControls={false}
         canReorder={!asDoneFlags(item)._isDone}
@@ -632,6 +633,7 @@ export default function ChallengeListScreen() {
     const ref = itemRefs.current[safeStringId(id)];
     if (ref && ref.measureInWindow) {
       ref.measureInWindow((x, y, width, height) => {
+        console.log('[Reorder] measureInWindow x:', x, 'y:', y, 'width:', width, 'height:', height, 'insets.top:', insets.top);
         floatLeft.setValue(x);
         floatTop.setValue(y);
         setFloatWidth(width);
@@ -738,17 +740,12 @@ export default function ChallengeListScreen() {
         <Text style={styles.addFloatingText}>추가</Text>
       </TouchableOpacity>
 
-
-
-      {/* 정렬 스크림 */}
-      {reorderActive && (
-        <TouchableWithoutFeedback onPress={onOverlayPress}>
-          <View style={styles.fullOverlay} />
-        </TouchableWithoutFeedback>
-      )}
-
       {/* 정렬 중 선택 카드 복제본 */}
       {reorderActive && selected && floatWidth > 0 && (
+        <Modal visible transparent animationType="none">
+          <TouchableWithoutFeedback onPress={onOverlayPress}>
+            <View style={styles.fullOverlay} />
+          </TouchableWithoutFeedback>
         <Animated.View
           pointerEvents="box-none"
           style={[
@@ -771,6 +768,7 @@ export default function ChallengeListScreen() {
             onLongPress={undefined}
           />
         </Animated.View>
+        </Modal>
       )}
     </SafeAreaView>
   );

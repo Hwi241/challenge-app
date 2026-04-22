@@ -1025,32 +1025,44 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     }
     setSparkleMap({ ...baseMap });
 
-    // 셀마다 순차적으로 밝게 켰다가 꺼지는 효과
-    const WAVE_DURATION = 600; // 전체 파도 시간(ms)
-    const CELL_INTERVAL = WAVE_DURATION / cells.length;
+    // 켜질 순서(랜덤) / 꺼질 순서(별도 랜덤) 따로 셔플
+    // 전체 셀 중 70%만 켜지도록 제한
+    const shuffledAll = [...cells];
+    for (let i = shuffledAll.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledAll[i], shuffledAll[j]] = [shuffledAll[j], shuffledAll[i]];
+    }
+    const onOrder = shuffledAll.slice(0, Math.floor(shuffledAll.length * 0.7));
+    const offOrder = [...onOrder];
+    for (let i = offOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [offOrder[i], offOrder[j]] = [offOrder[j], offOrder[i]];
+    }
 
-    cells.forEach((key, idx) => {
+    const ON_DURATION = 350;
+    const OFF_DURATION = 500;
+    const ON_INTERVAL = ON_DURATION / onOrder.length;
+    const OFF_INTERVAL = OFF_DURATION / offOrder.length;
+    const OFF_START = ON_DURATION + 100;
+
+    onOrder.forEach((key, idx) => {
       const onTimer = setTimeout(() => {
-        setSparkleMap(prev => ({ ...prev, [key]: 3 })); // 밝게
-      }, idx * CELL_INTERVAL);
+        setSparkleMap(prev => ({ ...prev, [key]: 3 }));
+      }, idx * ON_INTERVAL);
+      sparkTimersRef.current.push(onTimer);
+    });
 
+    offOrder.forEach((key, idx) => {
       const offTimer = setTimeout(() => {
-        setSparkleMap(prev => ({ ...prev, [key]: baseMap[key] })); // 원래값
-      }, idx * CELL_INTERVAL + 180);
-
-      sparkTimersRef.current.push(onTimer, offTimer);
+        setSparkleMap(prev => ({ ...prev, [key]: baseMap[key] }));
+      }, OFF_START + idx * OFF_INTERVAL);
+      sparkTimersRef.current.push(offTimer);
     });
 
     const endTimer = setTimeout(() => {
-      Animated.timing(sparkleOpacity, {
-        toValue: 0.3,
-        duration: 400,
-        useNativeDriver: true,
-      }).start(() => {
-        setSparkling(false);
-        sparkleOpacity.setValue(1);
-      });
-    }, WAVE_DURATION + 300);
+      setSparkling(false);
+      sparkleOpacity.setValue(1);
+    }, OFF_START + OFF_DURATION + 50);
     sparkTimersRef.current.push(endTimer);
 
     return () => {

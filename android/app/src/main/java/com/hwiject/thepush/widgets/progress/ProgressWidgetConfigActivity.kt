@@ -66,12 +66,11 @@ class ProgressWidgetConfigActivity : Activity() {
         val challenges = ProgressWidgetProvider.loadChallenges(this)
 
         if (challenges.isEmpty()) {
-                textEmpty.visibility = View.VISIBLE
-                textEmpty.text = "도전 목록을 불러올 수 없습니다.
-앱을 먼저 실행한 뒤 위젯을 추가해 주세요."
-            } else {
-                textEmpty.visibility = View.GONE
-            }
+            textEmpty.visibility = View.VISIBLE
+            textEmpty.text = "도전 목록을 불러올 수 없습니다.\n앱을 먼저 실행한 뒤 위젯을 추가해 주세요."
+        } else {
+            textEmpty.visibility = View.GONE
+        }
 
         val titles = challenges.map { ch ->
             val title =

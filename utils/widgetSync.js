@@ -36,7 +36,7 @@ function shapeForWidget(c) {
     pct = (Number(c.currentScore) / Number(c.goalScore)) * 100;
   }
   pct = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
-  return { id, title, progressPct: Math.round(pct) };
+  return { id, title, percent: Math.round(pct), progressPct: Math.round(pct) };
 }
 
 // 목록 JSON + Prefs 동기화

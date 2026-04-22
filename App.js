@@ -37,11 +37,11 @@ const linking = {
     screens: {
       ChallengeList: 'home',
       Upload: {
-        path: 'upload',
+        path: 'upload/:challengeId',
         parse: { challengeId: v => String(v) },
       },
       EntryList: {
-        path: 'dashboard',
+        path: 'dashboard/:challengeId',
         parse: { challengeId: v => String(v) },
       },
       SimpleNotification: 'simple-noti',

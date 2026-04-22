@@ -340,7 +340,7 @@ export default function ChallengeListScreen() {
   /* 플로팅 복제 */
   const floatLeft = useRef(new Animated.Value(0)).current;
   const floatTop  = useRef(new Animated.Value(0)).current;
-  const floatWidthRef = useRef(0);
+  const [floatWidth, setFloatWidth] = useState(0);
 
   const animLockRef = useRef(false);
   const itemRefs = useRef({});
@@ -401,6 +401,7 @@ export default function ChallengeListScreen() {
       try { await persistChallenges(snapshot, 'blur'); } catch {}
       setReorderActive(false);
       setSelectedId(null);
+      setFloatWidth(0);
     })();
   }, [isFocused, persistChallenges]);
 
@@ -412,6 +413,7 @@ export default function ChallengeListScreen() {
     try { await persistChallenges(snapshot, 'finalize'); } catch {}
     setSelectedId(null);
     setReorderActive(false);
+    setFloatWidth(0);
     animLockRef.current = false;
   }, [persistChallenges]);
 
@@ -448,7 +450,7 @@ export default function ChallengeListScreen() {
       did = true;
       floatLeft.setValue(x);
       floatTop.setValue(y);
-      floatWidthRef.current = width;
+      setFloatWidth(width);
     });
     return did;
   }, [floatLeft, floatTop]);
@@ -505,9 +507,9 @@ export default function ChallengeListScreen() {
     console.log('[ChallengeList][onDuplicate] nextArrIds=', nextArr.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
 
     setData(nextArr);
-    try { await persistChallenges(nextArr, 'duplicate'); } catch {}
-    // 복제된 도전의 인증 목록을 빈 배열로 명시적 초기화
+    // 복제된 도전의 인증 목록을 빈 배열로 먼저 초기화 (전수스캔 폴백 방지)
     try { await AsyncStorage.setItem(`entries_${copy.id}`, JSON.stringify([])); } catch {}
+    try { await persistChallenges(nextArr, 'duplicate'); } catch {}
     await finalizeReorder();
   }, [persistChallenges, finalizeReorder, animateList]);
 
@@ -632,7 +634,7 @@ export default function ChallengeListScreen() {
       ref.measureInWindow((x, y, width, height) => {
         floatLeft.setValue(x);
         floatTop.setValue(y);
-        floatWidthRef.current = width;
+        setFloatWidth(width);
         setSelectedId(id);
         setReorderActive(true);
       });
@@ -645,7 +647,7 @@ export default function ChallengeListScreen() {
           r.measureInWindow((x, y, width) => {
             floatLeft.setValue(x);
             floatTop.setValue(y);
-            floatWidthRef.current = width;
+            setFloatWidth(width);
           });
         }
       }));
@@ -746,12 +748,12 @@ export default function ChallengeListScreen() {
       )}
 
       {/* 정렬 중 선택 카드 복제본 */}
-      {reorderActive && selected && (
+      {reorderActive && selected && floatWidth > 0 && (
         <Animated.View
           pointerEvents="box-none"
           style={[
               styles.floatingCardWrap,
-              { left: floatLeft, top: floatTop, width: floatWidthRef.current },
+              { left: floatLeft, top: floatTop, width: floatWidth },
             ]}
         >
           <CardBody
@@ -873,7 +875,7 @@ const styles = StyleSheet.create({
   hamburgerIcon: { fontSize: 22, color: colors.gray800, fontWeight: '400' },
 
   addFloatingBtn: {
-    position: 'absolute', right: EDGE,
+    position: 'absolute', right: 12,
     backgroundColor: '#111', borderRadius: 14,
     paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
   },

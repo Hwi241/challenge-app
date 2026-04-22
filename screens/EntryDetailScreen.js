@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 소요시간 숫자만, 최대 1440(표시 X), 비워도 저장 시 0
 // - 저장/삭제 중 중복 탭 방지(busy)
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,6 +26,8 @@ export default function EntryDetailScreen() {
   const { challengeId, entryId } = route.params || {};
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const originalRef = useRef({ text: "", duration: "", imageUri: null });
+  const savedRef = useRef(false);
 
   const [text, setText] = useState('');
   const [textHeight, setTextHeight] = useState(120);
@@ -55,14 +57,14 @@ export default function EntryDetailScreen() {
         }
         if (!mounted) return;
 
-        setText(String(found.text || ''));
-        setDuration(
-          typeof found.duration === 'number' && found.duration > 0
-            ? String(found.duration)
-            : ''
-        );
-        setImageUri(found.imageUri || null);
-        setTimestamp(found.timestamp || Date.now());
+        const loadedText = String(found.text || '');
+      const loadedDuration = typeof found.duration === 'number' && found.duration > 0 ? String(found.duration) : '';
+      const loadedImageUri = found.imageUri || null;
+      setText(loadedText);
+      setDuration(loadedDuration);
+      setImageUri(loadedImageUri);
+      setTimestamp(found.timestamp || Date.now());
+      originalRef.current = { text: loadedText, duration: loadedDuration, imageUri: loadedImageUri };
       } catch (e) {
         console.error(e);
         Alert.alert('오류', '인증 정보를 불러오지 못했습니다.');
@@ -79,9 +81,11 @@ export default function EntryDetailScreen() {
     // 여기서는 단순히 현재 값들의 변화 여부만 체크하는 요청 로직을 따름
     // (사용자 요청서에는 originalText 등을 useEffect 내부 변수로 정의함)
     
-    const hasChanged = () => !!(
-      text.trim() || duration || imageUri
-    );
+    const hasChanged = () => {
+      if (savedRef.current) return false;
+      const orig = originalRef.current;
+      return text.trim() !== orig.text.trim() || duration !== orig.duration || imageUri !== orig.imageUri;
+    };
 
     const confirmExit = (onConfirm) => {
       if (!hasChanged()) { onConfirm(); return; }

@@ -5,7 +5,7 @@ const KILL_UI_AND_SHOW_RAW = false; // 필요 시 true로 전환(데이터 디�
 import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform, PanResponder } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform, PanResponder, Animated } from 'react-native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,7 +18,6 @@ import Svg, {
 } from 'react-native-svg';
 
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
-import BackButton from '../components/BackButton';
 import { useFocusEffect } from '@react-navigation/native';
 
 
@@ -493,15 +492,55 @@ const LineGradientChart = memo(function LineGradientChart({
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
 
-  const baseSeries = useMemo(
-    ()=>raw.map(r=>({d:r.date, v: metric==='count'? r.count : r.minutes})).filter(p=>p.v>0),
-    [raw, metric]
-  );
+  const baseSeries = useMemo(()=>{
+    if (metric === 'count') {
+      // 횟수는 인증한 날만 (series useMemo에서 전체 날짜 채움)
+      return raw.map(r=>({d:r.date, v: r.count})).filter(p=>p.v>0);
+    }
+    // 분 그래프: 시작일부터 오늘까지 모든 날짜 채우고 인증 없는 날은 0
+    if (raw.length === 0) return [];
+    const minuteMap = new Map();
+    for (const r of raw) minuteMap.set(keyOf(r.date), r.minutes);
+    const startD = raw[0].date;
+    const endD = new Date(); endD.setHours(0,0,0,0);
+    const result = [];
+    const cur = new Date(startD);
+    while (cur <= endD) {
+      const k = keyOf(new Date(cur));
+      result.push({ d: new Date(cur), v: minuteMap.get(k) || 0 });
+      cur.setDate(cur.getDate() + 1);
+    }
+    return result;
+  }, [raw, metric]);
 
   const series = useMemo(()=>{
     if (metric !== 'count') return baseSeries;
+    if (baseSeries.length === 0) return [];
+
+    // 시작일부터 오늘까지 모든 날짜를 채워서 누적값 유지
+    const startD = baseSeries[0].d;
+    const endD = new Date(); endD.setHours(0,0,0,0);
+
+    // 인증한 날짜별 횟수 맵
+    const countMap = new Map();
+    for (const p of baseSeries) countMap.set(keyOf(p.d), p.v);
+
+    // 시작일 하루 전을 0값 시작점으로 추가(분 그래프 0값 위치와 일치)
+    const result = [];
+    const dayBefore = new Date(startD);
+    dayBefore.setDate(dayBefore.getDate() - 1);
+    result.push({ d: dayBefore, v: 0 });
+
+    // 시작일~오늘 모든 날짜 순회하며 누적
     let cum = 0;
-    return baseSeries.map(p => ({ d: p.d, v: (cum += p.v) }));
+    const cur = new Date(startD);
+    while (cur <= endD) {
+      const k = keyOf(new Date(cur));
+      cum += (countMap.get(k) || 0);
+      result.push({ d: new Date(cur), v: cum });
+      cur.setDate(cur.getDate() + 1);
+    }
+    return result;
   }, [baseSeries, metric]);
 
   const start = useMemo(()=>startDate? new Date(new Date(startDate).setHours(0,0,0,0))
@@ -530,7 +569,10 @@ const LineGradientChart = memo(function LineGradientChart({
   const yScale = useCallback((v, vmax)=> {
     const BOTTOM_PADDING_RATIO = 0.15;
     const usableCh = ch * (1 - BOTTOM_PADDING_RATIO);
-    return top + (1 - (v/vmax)) * usableCh * introProgress;
+    // 0값이 x축에 딱 붙지 않도록 가상의 최솟값(-vmax*0.08)을 기준으로 스케일
+    const vmin = -vmax * 0.08;
+    const range = vmax - vmin;
+    return top + (1 - (v - vmin) / range) * usableCh * introProgress;
   }, [top, ch, introProgress]);
 
   const pts = useMemo(()=>{
@@ -951,13 +993,14 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
     const [sparkleMap, setSparkleMap] = useState({});
   const [sparkling, setSparkling] = useState(true);
+  const sparkleOpacity = useRef(new Animated.Value(1)).current;
   const sparkTimersRef = React.useRef([]);
 
   useEffect(() => {
     // 이전 타이머 정리
     sparkTimersRef.current.forEach(t => clearTimeout(t));
     sparkTimersRef.current = [];
-
+    sparkleOpacity.setValue(1);
     setSparkling(true);
 
     // 전체 셀 목록 생성 후 섞기
@@ -977,13 +1020,13 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     const baseMap = {};
     for (let col = 0; col < 60; col++) {
       for (let row = 0; row < 7; row++) {
-        baseMap[`${col}-${row}`] = Math.floor(Math.random() * 4) + 1;
+        baseMap[`${col}-${row}`] = Math.floor(Math.random() * 3) + 1;
       }
     }
     setSparkleMap({ ...baseMap });
 
     // 셀마다 순차적으로 밝게 켰다가 꺼지는 효과
-    const WAVE_DURATION = 800; // 전체 파도 시간(ms)
+    const WAVE_DURATION = 600; // 전체 파도 시간(ms)
     const CELL_INTERVAL = WAVE_DURATION / cells.length;
 
     cells.forEach((key, idx) => {
@@ -998,7 +1041,16 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
       sparkTimersRef.current.push(onTimer, offTimer);
     });
 
-    const endTimer = setTimeout(() => setSparkling(false), WAVE_DURATION + 300);
+    const endTimer = setTimeout(() => {
+      Animated.timing(sparkleOpacity, {
+        toValue: 0.3,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        setSparkling(false);
+        sparkleOpacity.setValue(1);
+      });
+    }, WAVE_DURATION + 300);
     sparkTimersRef.current.push(endTimer);
 
     return () => {
@@ -1097,7 +1149,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const TOP_LABEL_H = 18;
 
   const GridContent = (
-    <View style={{ flexDirection: 'row', width: graphWidth }}>
+    <Animated.View style={{ flexDirection: 'row', width: graphWidth, opacity: sparkling ? sparkleOpacity : 1 }}>
       {Array.from({ length: totalCols }).map((_, col) => (
         <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
           {Array.from({ length: GRASS_ROWS }).map((__, row) => {
@@ -1116,8 +1168,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
           })}
         </View>
       ))}
-    </View>
-  );
+    </Animated.View>);
 
   return (
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
@@ -1505,9 +1556,11 @@ export default function EntryListScreen({ route, navigation }) {
       setCurrentScore(normalized.length);
       if (DEBUG_ON) setDebug({ hitKey, tried, count: normalized.length });
 
-      // ✅ 최후 수단: 전수 스캔
-      if (normalized.length === 0) {
-        const fallback = await scanAllStorageForEntries({ rawCID, numCID, chCID });
+          // ✅ 최후 수단: 전수 스캔 (단, 키가 명시적으로 존재하면 건너뜀)
+    const primaryKey = `entries_${chCID}`;
+    const primaryExists = (await AsyncStorage.getItem(primaryKey)) !== null;
+    if (normalized.length === 0 && !primaryExists) {
+      const fallback = await scanAllStorageForEntries({ rawCID, numCID, chCID });
         if (fallback && Array.isArray(fallback) && fallback.length) {
           const norm2 = normalizeEntries(fallback);
           if (aliveRef.current) {
@@ -1644,7 +1697,14 @@ export default function EntryListScreen({ route, navigation }) {
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
   const HeaderCard = useMemo(()=>(<View style={styles.card}>
             <View style={styles.headerTop}>
-        <BackButton onPress={() => navigation.navigate('ChallengeList')} />
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ChallengeList')}
+          style={styles.headerBackBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.headerBackArrow}>‹</Text>
+        </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
           <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
@@ -2022,6 +2082,8 @@ postSummaryRow: {
   countBelowText: { fontSize: 12, color: textGrey, fontWeight: '700' },
 
   headerTop: { flexDirection: 'row', alignItems: 'center', height: 52, marginBottom: 6 },
+  headerBackBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  headerBackArrow: { fontSize: 32, fontWeight: '300', color: '#111', lineHeight: 32, includeFontPadding: false },
   headerTitleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerInfoBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
 
@@ -2110,14 +2172,14 @@ rewardBlockSpacing: {
   separator: { height: 1, backgroundColor: '#F3F4F6' },
 
   shareBtn: {
-    position: 'absolute', right: EDGE, 
+    position: 'absolute', right: 12, 
     backgroundColor: '#111', borderRadius: 14,
     paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
   },
   shareBtnText: { color: '#fff', fontWeight: '800' },
 
   uploadFloatingBtn: {
-    position: 'absolute', left: EDGE,
+    position: 'absolute', left: 12,
     backgroundColor: '#111', borderRadius: 14,
     paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
   },

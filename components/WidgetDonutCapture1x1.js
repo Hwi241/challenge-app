@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as FileSystem from 'expo-file-system';
 import { writeDonut1x1Image } from '../utils/widgetSnapshot';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
 
 /**
  * 위젯 1×1 도넛 캡처 (기본 렌더러 내장)
@@ -68,23 +68,17 @@ export default function WidgetDonutCapture1x1({
         {/* 중앙 디스크 */}
         <Circle cx={R} cy={R} r={innerR} fill={centerColor} />
 
-        {/* 퍼센트 텍스트(크게, 굵게) */}
-        <Text
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            textAlign: 'center',
-            textAlignVertical: 'center',
-            fontSize: Math.round(size * 0.26), // 크게
-            fontWeight: '800',
-            color: textColor,
-          }}
-        >
-          {`${Math.round(pct)}%`}
-        </Text>
+              {/* 퍼센트 텍스트(크게, 굵게) - SVG Text 사용 */}
+      <SvgText
+        x={R}
+        y={R + Math.round(size * 0.26) * 0.35}
+        textAnchor="middle"
+        fontSize={Math.round(size * 0.26)}
+        fontWeight="800"
+        fill={textColor}
+      >
+        {`${Math.round(pct)}%`}
+      </SvgText>
       </Svg>
     );
   };

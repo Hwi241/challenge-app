@@ -84,7 +84,10 @@ export default function EntryDetailScreen() {
     const hasChanged = () => {
       if (savedRef.current) return false;
       const orig = originalRef.current;
-      return text.trim() !== orig.text.trim() || duration !== orig.duration || imageUri !== orig.imageUri;
+      const durChanged = (duration || '') !== (orig.duration || '');
+      const imgChanged = (imageUri || null) !== (orig.imageUri || null);
+      const textChanged = text.trim() !== orig.text.trim();
+      return textChanged || durChanged || imgChanged;
     };
 
     const confirmExit = (onConfirm) => {
@@ -182,6 +185,7 @@ export default function EntryDetailScreen() {
       list[idx] = updated;
 
       await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
+      savedRef.current = true;
       Alert.alert('완료', '인증이 수정되었습니다.', [
         { text: '확인', onPress: () => navigation.goBack() },
       ]);
@@ -217,6 +221,7 @@ export default function EntryDetailScreen() {
               await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
             }
 
+            savedRef.current = true;
             Alert.alert('삭제됨', '인증이 삭제되었습니다.', [
               { text: '확인', onPress: () => navigation.goBack() },
             ]);

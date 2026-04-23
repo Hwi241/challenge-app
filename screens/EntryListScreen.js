@@ -2040,13 +2040,15 @@ export default function EntryListScreen({ route, navigation }) {
         <View style={{ height: insets.bottom + 24 }} />
       </ScrollView>
 
-            <TouchableOpacity
-        style={[styles.uploadFloatingBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]}
-        onPress={() => navigation.navigate('Upload', { challengeId })}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.uploadFloatingText}>인증</Text>
-      </TouchableOpacity>
+            {!readOnly && (
+        <TouchableOpacity
+          style={[styles.uploadFloatingBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]}
+          onPress={() => navigation.navigate('Upload', { challengeId })}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.uploadFloatingText}>인증</Text>
+        </TouchableOpacity>
+      )}
 
 <TouchableOpacity style={[styles.shareBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]} onPress={handleShare} activeOpacity={0.9}>
         <Text style={styles.shareBtnText}>공유</Text>

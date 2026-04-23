@@ -1893,3 +1893,551 @@ API reference and examples are available in the filesystem docs: https://docs.ex
  WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
  LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1776524413262"]
  LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 470ms index.js (1 module)
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ WARN  setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture.
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ WARN  Non-serializable values were found in the navigation state. Check:
+
+FullRangeNotification > params.onDone (Function)
+
+This can break usage such as persisting and restoring state. This might happen if you passed non-serializable values such as function, class instances etc. in params. If you need to use components with callbacks in your options, you can use 'navigation.setOptions' instead. See https://reactnavigation.org/docs/troubleshooting#i-get-the-warning-non-serializable-values-were-found-in-the-navigation-state for more details.
+ LOG  [ChallengeStore] upserted: ch_1776934498689
+ LOG  [ChallengeStore] cancel schedules start: ch_1776934498689
+ LOG  [ChallengeStore] cancel schedules done: ch_1776934498689
+ LOG  [ChallengeStore] register schedules start: ch_1776934498689
+ LOG  [ChallengeStore] register schedules done: ch_1776934498689
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: ["ch_1776934498689"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934498689"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934498689": 1}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776934498689", "ch_1776934498689", "ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "A:ch_1776934498689"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0, "ch_1776934498689": 1}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262", "A:ch_1776934498689"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934498689": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262", "ch_1776934498689"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934498689"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934498689": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262", "A:ch_1776934498689"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0, "ch_1776934498689": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934498689": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262", "ch_1776934498689"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934498689"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934498689": 1}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262", "ch_1776934498689"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "A:ch_1776934498689"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0, "ch_1776934498689": 1}
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 1053ms index.js (1 module)
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ WARN  setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture.
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ LOG  [AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ WARN  Non-serializable values were found in the navigation state. Check:
+
+WeeklyNotification > params.onDone (Function)
+
+This can break usage such as persisting and restoring state. This might happen if you passed non-serializable values such as function, class instances etc. in params. If you need to use components with callbacks in your options, you can use 'navigation.setOptions' instead. See https://reactnavigation.org/docs/troubleshooting#i-get-the-warning-non-serializable-values-were-found-in-the-navigation-state for more details.
+ LOG  [ChallengeStore] upserted: ch_1776934902806
+ LOG  [ChallengeStore] cancel schedules start: ch_1776934902806
+ LOG  [ChallengeStore] cancel schedules done: ch_1776934902806
+ LOG  [ChallengeStore] register schedules start: ch_1776934902806
+ LOG  [ChallengeStore] register schedules done: ch_1776934902806
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: ["ch_1776934902806"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776934902806", "ch_1776934902806", "ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262", "ch_1776934902806"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262", "ch_1776934902806"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262", "ch_1776934902806"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262", "ch_1776934902806"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262", "ch_1776934902806"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262", "ch_1776934902806"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262", "ch_1776934902806"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262", "A:ch_1776934902806"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0, "ch_1776934902806": 1}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262", "ch_1776934902806"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262", "ch_1776934902806"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262", "ch_1776934902806"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][onClaimReward] nextArrIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:claim] saved arrangedIds= ["A:ch_1776524413262", "D:ch_1776934902806"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ LOG  [ChallengeList][HOF] upserted: ch_1776934902806
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ LOG  [AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method getInfoAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetDonutCapture1x1] capture fail: Method copyAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1776524413262"]
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  [WidgetSync] writeChallengeList fail: Cannot read property 'UTF8' of undefined
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1776524413262": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1776524413262": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1776524413262"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1776524413262"]
+ LOG    newOrderMap    : {"ch_1776524413262": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1776524413262"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1776524413262"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1776524413262": 0}

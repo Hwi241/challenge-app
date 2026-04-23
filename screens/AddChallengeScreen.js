@@ -312,7 +312,7 @@ export default function AddChallengeScreen() {
 useFocusEffect(
     useCallback(() => {
       const hasContent = () => {
-        return !!(title.trim() || goalScore !== 66 || reward.trim() || description.trim() || notification?.mode !== 'none');
+        return !!(title.trim() || goalScore.toString().trim() || reward.trim() || description.trim() || notification?.mode);
       };
 
       const doExit = () => {
@@ -416,6 +416,7 @@ useFocusEffect(
       const arr = raw ? JSON.parse(raw) : [];
       await AsyncStorage.setItem('challenges', JSON.stringify([newChallenge, ...arr]));
       await AsyncStorage.setItem(`challenge_${id}`, JSON.stringify(newChallenge));
+      await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
       await syncWidgetChallengeList();
 
       // 저장 후 초기화 + 초안 삭제

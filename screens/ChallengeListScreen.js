@@ -741,7 +741,7 @@ export default function ChallengeListScreen() {
         activeOpacity={0.9}
         disabled={reorderActive}
       >
-        <Text style={styles.addFloatingText}>추가</Text>
+        <Text style={styles.addFloatingText}>+</Text>
       </TouchableOpacity>
 
       {/* 정렬 중 선택 카드 복제본 */}

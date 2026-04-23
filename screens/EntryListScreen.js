@@ -983,89 +983,64 @@ const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
 const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1 }) {
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
-    const [sparkleMap, setSparkleMap] = useState({});
-  const [sparkling, setSparkling] = useState(true);
-  const sparkleOpacity = useMemo(() => new Animated.Value(1), []);
+    // 파도 강도: 각 col의 0~1 값 (그레이 오버레이 강도)
+  const [waveIntensity, setWaveIntensity] = useState(() => new Array(60).fill(0));
   const sparkTimersRef = React.useRef([]);
+  const waveRafRef = React.useRef(null);
 
-  useEffect(() => {
-    // 이전 타이머 정리
-    sparkTimersRef.current.forEach(t => clearTimeout(t));
-    sparkTimersRef.current = [];
-    sparkleOpacity.setValue(1);
-    setSparkling(true);
-
-    // 전체 셀 목록 생성 후 섞기
-    const cells = [];
-    for (let col = 0; col < 60; col++) {
-      for (let row = 0; row < 7; row++) {
-        cells.push(`${col}-${row}`);
-      }
-    }
-    // Fisher-Yates 셔플
-    for (let i = cells.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [cells[i], cells[j]] = [cells[j], cells[i]];
-    }
-
-    // 초기 맵 (모두 실제값)
-    const baseMap = {};
-    for (let col = 0; col < 60; col++) {
-      for (let row = 0; row < 7; row++) {
-        baseMap[`${col}-${row}`] = Math.floor(Math.random() * 3) + 1;
-      }
-    }
-    setSparkleMap({ ...baseMap });
-
-    // 켜질 순서(랜덤) / 꺼질 순서(별도 랜덤) 따로 셔플
-    // 전체 셀 중 70%만 켜지도록 제한
-    const shuffledAll = [...cells];
-    for (let i = shuffledAll.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledAll[i], shuffledAll[j]] = [shuffledAll[j], shuffledAll[i]];
-    }
-    const onOrder = shuffledAll.slice(0, Math.floor(shuffledAll.length * 0.7));
-    const offOrder = [...onOrder];
-    for (let i = offOrder.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [offOrder[i], offOrder[j]] = [offOrder[j], offOrder[i]];
-    }
-
-    const ON_DURATION = 350;
-    const OFF_DURATION = 500;
-    const ON_INTERVAL = ON_DURATION / onOrder.length;
-    const OFF_INTERVAL = OFF_DURATION / offOrder.length;
-    const OFF_START = ON_DURATION + 100;
-
-    onOrder.forEach((key, idx) => {
-      const onTimer = setTimeout(() => {
-        setSparkleMap(prev => ({ ...prev, [key]: 3 }));
-      }, idx * ON_INTERVAL);
-      sparkTimersRef.current.push(onTimer);
-    });
-
-    offOrder.forEach((key, idx) => {
-      const offTimer = setTimeout(() => {
-        setSparkleMap(prev => ({ ...prev, [key]: baseMap[key] }));
-      }, OFF_START + idx * OFF_INTERVAL);
-      sparkTimersRef.current.push(offTimer);
-    });
-
-    const endTimer = setTimeout(() => {
-      setSparkling(false);
-      sparkleOpacity.setValue(1);
-    }, OFF_START + OFF_DURATION + 50);
-    sparkTimersRef.current.push(endTimer);
-
-    return () => {
-      sparkTimersRef.current.forEach(t => clearTimeout(t));
-      sparkTimersRef.current = [];
-    };
-  }, [entries.length]);
 
   const onLayout = useCallback((e) => {
     const w = e.nativeEvent.layout.width;
     if (w > 0) setContainerWidth(w);
+  }, []);
+
+  // RAF 기반 파도 useEffect - JS 스레드 분리로 다른 애니메이션과 충돌 없음
+  useEffect(() => {
+    sparkTimersRef.current.forEach(t => clearTimeout(t));
+    sparkTimersRef.current = [];
+    if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
+
+    const TOTAL_COLS = 60;
+    const TOTAL_ROWS = 7;
+    const WAVE_WIDTH = 4; // 파도 너비 (col 단위)
+    const WAVE_SPEED = 0.02; // 파도 속도 줄임 (느리게)
+    const DIAGONAL = 0.6; // 사선 기울기 (row당 col 오프셋)
+
+    const startTime = performance.now();
+
+    const tick = (now) => {
+      const elapsed = now - startTime;
+      const wavePos = elapsed * WAVE_SPEED;
+
+      if (wavePos > TOTAL_COLS + WAVE_WIDTH + TOTAL_ROWS * DIAGONAL) {
+        setWaveIntensity(new Array(TOTAL_COLS * TOTAL_ROWS).fill(0));
+        return;
+      }
+
+      // col x row 2D 배열로 확장 (사선 효과)
+      const intensities = new Array(TOTAL_COLS * TOTAL_ROWS).fill(0);
+      for (let col = 0; col < TOTAL_COLS; col++) {
+        for (let row = 0; row < TOTAL_ROWS; row++) {
+          // row가 증가할수록 파도가 오른쪽으로 밀림 -> 사선
+          const diagOffset = row * DIAGONAL;
+          const dist = Math.abs((col + diagOffset) - wavePos);
+          if (dist < WAVE_WIDTH) {
+            intensities[col * TOTAL_ROWS + row] = 
+              Math.sin((1 - dist / WAVE_WIDTH) * Math.PI * 0.5);
+          }
+        }
+      }
+      setWaveIntensity(intensities);
+      waveRafRef.current = requestAnimationFrame(tick);
+    };
+
+    waveRafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
+      sparkTimersRef.current.forEach(t => clearTimeout(t));
+      sparkTimersRef.current = [];
+    };
   }, []);
 
   const LEFT_LABEL_W = 0;
@@ -1143,6 +1118,8 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     const monthLabelsArr = Object.values(monthLabelMap);
     return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
   }, [entries, startDate, endDate]);
+  
+
 
   const cellSize = 12;
   const minCols = Math.ceil((containerWidth - LEFT_LABEL_W) / (cellSize + 4 /* CELL_GAP */));
@@ -1152,27 +1129,37 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
-  const GridContent = (
-    <Animated.View style={{ flexDirection: 'row', width: graphWidth, opacity: sparkling ? sparkleOpacity : 1 }}>
-      {Array.from({ length: totalCols }).map((_, col) => (
-        <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
-          {Array.from({ length: GRASS_ROWS }).map((__, row) => {
-            const cell = cellData.find(c => c.col === col && c.row === row);
-            const baseLevel = cell?.level ?? 0;
-            const sparkKey = `${col}-${row}`;
-            const level = sparkling ? (sparkleMap[sparkKey] ?? baseLevel) : baseLevel;
-            return (
-              <View key={row} style={{
-                width: cellSize, height: cellSize,
-                borderRadius: 2,
-                backgroundColor: LEVEL_COLORS[level] ?? '#EEEEEE',
-                marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
-              }} />
-            );
-          })}
-        </View>
-      ))}
-    </Animated.View>);
+            const GridContent = (
+    <View style={{ flexDirection: 'row', width: graphWidth }}>
+      {Array.from({ length: totalCols }).map((_, col) => {
+        // col x row 2D 인덱스로 intensity 읽기
+        return (
+          <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
+            {Array.from({ length: GRASS_ROWS }).map((__, row) => {
+              const cell = cellData.find(c => c.col === col && c.row === row);
+              const baseLevel = cell?.level ?? 0;
+              const intensity2D = waveIntensity[col * GRASS_ROWS + row] ?? 0;
+              const wave = intensity2D;
+              const baseColor = LEVEL_COLORS[baseLevel] ?? '#F3F4F6';
+              // LEVEL_COLORS 기반 파도 + 중심부 검은색 라인
+              let waveColor = baseColor;
+              if (wave > 0.85) waveColor = '#111111'; // 중심부 검은색
+              else if (wave > 0.6) waveColor = '#555555'; // level 3
+              else if (wave > 0.25) waveColor = '#A0A0A0'; // level 2
+              else if (wave > 0.05) waveColor = '#E5E7EB'; // level 1
+              return (
+                <View key={row} style={{
+                  width: cellSize, height: cellSize,
+                  borderRadius: 2,
+                  backgroundColor: wave > 0.05 ? waveColor : baseColor,
+                  marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
+                }} />
+              );
+            })}
+          </View>
+        );
+      })}
+    </View>);
 
   return (
     <View style={{ marginTop: 10 }} onLayout={onLayout}>

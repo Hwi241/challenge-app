@@ -1,0 +1,73 @@
+Starting project at /home/hwi/challenge-app
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Tunnel connected.
+Tunnel ready.
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android ./index.js ▓▓▓░░░░░░░░░░░░░ 24.1% (156/318)
+Android ./index.js ▓▓▓▓▓▓░░░░░░░░░░ 40.2% (438/691)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 64.0% (749/936)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 87.1% (1151/1259)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 88.6% (1361/1446)
+Android Bundling failed 19905ms index.js (1639 modules)
+ ERROR  SyntaxError: /home/hwi/challenge-app/screens/EntryListScreen.js: Expected corresponding JSX closing tag for <TouchableOpacity>. (1727:8)
+
+  1725 |             <Donut targetPercent={overallPct} progress={introK} />
+  1726 |           </View>
+> 1727 |         </View>
+       |         ^
+  1728 |
+  1729 |         <View style={styles.calendarArea}>
+  1730 |           <MonthCalendar
+    at constructor (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:365:19)
+    at FlowParserMixin.raise (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:6599:19)
+    at FlowParserMixin.jsxParseElementAt (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:4727:16)
+    at FlowParserMixin.jsxParseElementAt (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:4698:32)
+    at FlowParserMixin.jsxParseElementAt (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:4698:32)
+    at FlowParserMixin.jsxParseElement (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:4749:17)
+    at FlowParserMixin.parseExprAtom (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:4759:19)
+    at FlowParserMixin.parseExprSubscripts (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11081:23)
+    at FlowParserMixin.parseUpdate (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11066:21)
+    at FlowParserMixin.parseMaybeUnary (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11046:23)
+    at FlowParserMixin.parseMaybeUnaryOrPrivate (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10899:61)
+    at FlowParserMixin.parseExprOps (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10904:23)
+    at FlowParserMixin.parseMaybeConditional (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10881:23)
+    at FlowParserMixin.parseMaybeAssign (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10831:21)
+    at /home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:3498:39
+    at FlowParserMixin.tryParse (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:6907:20)
+    at FlowParserMixin.parseMaybeAssign (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:3498:18)
+    at /home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10800:39
+    at FlowParserMixin.allowInAnd (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:12426:12)
+    at FlowParserMixin.parseMaybeAssignAllowIn (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10800:17)
+    at FlowParserMixin.parseMaybeAssignAllowInOrVoidPattern (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:12493:17)
+    at FlowParserMixin.parseParenAndDistinguishExpression (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11675:28)
+    at FlowParserMixin.parseParenAndDistinguishExpression (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:3591:18)
+    at FlowParserMixin.parseExprAtom (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11331:23)
+    at FlowParserMixin.parseExprAtom (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:4764:20)
+    at FlowParserMixin.parseExprSubscripts (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11081:23)
+    at FlowParserMixin.parseUpdate (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11066:21)
+    at FlowParserMixin.parseMaybeUnary (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11046:23)
+    at FlowParserMixin.parseMaybeUnaryOrPrivate (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10899:61)
+    at FlowParserMixin.parseExprOps (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10904:23)
+    at FlowParserMixin.parseMaybeConditional (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10881:23)
+    at FlowParserMixin.parseMaybeAssign (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10831:21)
+    at FlowParserMixin.parseMaybeAssign (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:3549:18)
+    at FlowParserMixin.parseFunctionBody (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:12093:24)
+    at /home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:2892:63
+    at FlowParserMixin.forwardNoArrowParamsConversionAt (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:3068:16)
+    at FlowParserMixin.parseFunctionBody (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:2892:12)
+    at FlowParserMixin.parseArrowExpression (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:12075:10)
+    at FlowParserMixin.parseParenAndDistinguishExpression (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11687:12)
+    at FlowParserMixin.parseParenAndDistinguishExpression (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:3591:18)
+    at FlowParserMixin.parseExprAtom (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11331:23)
+    at FlowParserMixin.parseExprAtom (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:4764:20)
+    at FlowParserMixin.parseExprSubscripts (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11081:23)
+    at FlowParserMixin.parseUpdate (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11066:21)
+    at FlowParserMixin.parseMaybeUnary (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:11046:23)
+    at FlowParserMixin.parseMaybeUnaryOrPrivate (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10899:61)
+    at FlowParserMixin.parseExprOps (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10904:23)
+    at FlowParserMixin.parseMaybeConditional (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10881:23)
+    at FlowParserMixin.parseMaybeAssign (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:10831:21)
+    at FlowParserMixin.parseMaybeAssign (/home/hwi/challenge-app/node_modules/@babel/parser/lib/index.js:3549:18)

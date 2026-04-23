@@ -981,7 +981,7 @@ const GRASS_ROWS = 7;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
-const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1 }) {
+const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap }) {
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
     // 파도 강도: 각 col의 0~1 값 (그레이 오버레이 강도)
   const [waveIntensity, setWaveIntensity] = useState(() => new Array(60).fill(0));
@@ -993,6 +993,9 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     const w = e.nativeEvent.layout.width;
     if (w > 0) setContainerWidth(w);
   }, []);
+
+  const [waveTrigger, setWaveTrigger] = useState(0);
+  useEffect(() => { if (onTap) onTap(() => setWaveTrigger(t => t + 1)); }, [onTap]);
 
   // RAF 기반 파도 useEffect - JS 스레드 분리로 다른 애니메이션과 충돌 없음
   useEffect(() => {
@@ -1041,7 +1044,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
       sparkTimersRef.current.forEach(t => clearTimeout(t));
       sparkTimersRef.current = [];
     };
-  }, []);
+  }, [waveTrigger]);
 
   const LEFT_LABEL_W = 0;
   const CELL_GAP = 3;
@@ -1373,11 +1376,13 @@ export default function EntryListScreen({ route, navigation }) {
 
   const [showDebug] = useState(true);
   const shareRef = useRef(null);
+  const grassTapRef = useRef(null);
 
   /* ── 인트로 애니메이션 ── */
   const [introK, setIntroK] = useState(0);
   const rafRef = useRef(null);
   const lastKRef = useRef(0);
+
   const runIntro = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     const ease = (t)=> 1 - Math.pow(1 - t, 5);
@@ -1714,7 +1719,7 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
       <View style={[styles.row, { marginTop: 16 }]}>
-        <View style={styles.donutArea}>
+        <TouchableOpacity style={styles.donutArea} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
           <View style={{ marginTop: 24 }}>
             <Donut targetPercent={overallPct} progress={introK} />
@@ -1736,7 +1741,7 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       </View>
 
-      <View style={styles.sectionBox}>
+      <TouchableOpacity style={styles.sectionBox} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
         <WeekView 
           weeksData={weeksData} 
           currentIndex={weekIndex} 
@@ -1744,24 +1749,25 @@ export default function EntryListScreen({ route, navigation }) {
           introProgress={introK} 
           onPressDay={handlePressDay}
         />
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.sectionBox}>
+      <TouchableOpacity style={styles.sectionBox} onPress={() => grassTapRef.current && grassTapRef.current()} activeOpacity={0.85}>
         <GrassGraph
           entries={entries}
           startDate={meta.startDate}
           endDate={meta.endDate}
+          onTap={(fn) => { grassTapRef.current = fn; }}
         />
-      </View>
+      </TouchableOpacity>
 
       {/* 전체일정 라인 그래프 */}
-      <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
+      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
         {meta.startDate ? (
           <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={introK} interactive />
         ) : (
           <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
         )}
-      </View>
+      </TouchableOpacity>
     </View>
   ), [
     title, meta.startDate, meta.endDate,
@@ -1783,7 +1789,7 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
       <View style={[styles.row, { marginTop: 16 }]}>
-        <View style={styles.donutArea}>
+        <TouchableOpacity style={styles.donutArea} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
           <View style={{ marginTop: 24 }}>
             <Donut targetPercent={overallPct} progress={1} />
@@ -1808,21 +1814,22 @@ export default function EntryListScreen({ route, navigation }) {
         <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
       </View>
 
-      <View style={styles.sectionBox}>
+      <TouchableOpacity style={styles.sectionBox} onPress={() => grassTapRef.current && grassTapRef.current()} activeOpacity={0.85}>
         <GrassGraph
           entries={entries}
           startDate={meta.startDate}
           endDate={meta.endDate}
+          onTap={(fn) => { grassTapRef.current = fn; }}
         />
-      </View>
+      </TouchableOpacity>
 
-      <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
+      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
         {meta.startDate ? (
           <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive={false} />
         ) : (
           <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
         )}
-      </View>
+      </TouchableOpacity>
     </View>
   ), [
     title, meta.startDate, meta.endDate,

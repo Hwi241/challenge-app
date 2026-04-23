@@ -444,14 +444,6 @@ const MonthCalendar = memo(function MonthCalendar({
                 </Text>
               </View>
             );
-
-            return (
-              <View key={`d${idx}`} style={styles.calCell}>
-                <Text style={[styles.calCellText, { color: cellColor }, isToday && !cert && { fontWeight: '900' }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
-                  {d.getDate()}
-                </Text>
-              </View>
-            );
           });
         })()}
       </View>
@@ -1069,7 +1061,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
       sparkTimersRef.current.forEach(t => clearTimeout(t));
       sparkTimersRef.current = [];
     };
-  }, [entries]);
+  }, [entries.length]);
 
   const onLayout = useCallback((e) => {
     const w = e.nativeEvent.layout.width;
@@ -1568,10 +1560,11 @@ export default function EntryListScreen({ route, navigation }) {
       setCurrentScore(normalized.length);
       if (DEBUG_ON) setDebug({ hitKey, tried, count: normalized.length });
 
-          // ✅ 최후 수단: 전수 스캔 (단, 키가 명시적으로 존재하면 건너뜀)
+          // ✅ 최후 수단: 전수 스캔 (키가 없거나 빈 배열이면 실행)
     const primaryKey = `entries_${chCID}`;
-    const primaryExists = (await AsyncStorage.getItem(primaryKey)) !== null;
-    if (normalized.length === 0 && !primaryExists) {
+    const primaryRaw = await AsyncStorage.getItem(primaryKey);
+    const primaryIsEmpty = primaryRaw === null || (()=>{ try { const p=JSON.parse(primaryRaw); return Array.isArray(p) && p.length === 0; } catch { return false; }})();
+    if (normalized.length === 0 && primaryIsEmpty) {
       const fallback = await scanAllStorageForEntries({ rawCID, numCID, chCID });
         if (fallback && Array.isArray(fallback) && fallback.length) {
           const norm2 = normalizeEntries(fallback);
@@ -1654,7 +1647,10 @@ export default function EntryListScreen({ route, navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, challengeId, reloadTick, buildWeeks]);
 
-  useEffect(()=>()=>{ aliveRef.current = false; },[]);
+  useEffect(()=>()=>{
+    aliveRef.current = false;
+    loadingRef.current = false;
+  },[]);
 
   const overallPct = useMemo(
     () => Math.min(Math.round((currentScore / targetScore) * 100), 100),

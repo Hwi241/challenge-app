@@ -511,7 +511,11 @@ export default function ChallengeListScreen() {
     // 복제된 도전의 인증 목록을 빈 배열로 먼저 초기화 (전수스캔 폴백 방지)
     try { await AsyncStorage.setItem(`entries_${copy.id}`, JSON.stringify([])); } catch {}
     try { await persistChallenges(nextArr, 'duplicate'); } catch {}
-    await finalizeReorder();
+    // finalizeReorder 대신 상태만 초기화 (이중 저장 방지)
+    setSelectedId(null);
+    setReorderActive(false);
+    setFloatWidth(0);
+    animLockRef.current = false;
   }, [persistChallenges, finalizeReorder, animateList]);
 
   const goEntryList = useCallback((item) => {

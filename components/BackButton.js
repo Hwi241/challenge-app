@@ -35,11 +35,12 @@ const styles = StyleSheet.create({
  marginRight: 4,
  },
  arrow: {
- fontSize: 32,
- fontWeight: '300',
- lineHeight: 32,
- includeFontPadding: false,
- },
+    fontSize: 32,
+    fontWeight: '300',
+    lineHeight: 32,
+    includeFontPadding: false,
+    marginTop: -8,
+  },
  title: {
  fontSize: 20,
  fontWeight: '800',

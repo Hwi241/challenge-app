@@ -2097,7 +2097,7 @@ postSummaryRow: {
 
   headerTop: { flexDirection: 'row', alignItems: 'center', height: 52, marginBottom: 6 },
   headerBackBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
-  headerBackArrow: { fontSize: 32, fontWeight: '300', color: '#111', lineHeight: 32, includeFontPadding: false },
+  headerBackArrow: { fontSize: 32, fontWeight: '300', color: '#111', lineHeight: 32, includeFontPadding: false, marginTop: -8 },
   headerTitleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerInfoBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
 

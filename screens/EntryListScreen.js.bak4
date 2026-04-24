@@ -1695,50 +1695,146 @@ export default function EntryListScreen({ route, navigation }) {
   const minutes = totalMinutes % 60;
 
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
-    const HeaderCard = useMemo(()=>(<View style={styles.card}>
-    <View style={styles.headerTop}>
-      <TouchableOpacity
-        onPress={() => navigation.navigate('ChallengeList')}
-        style={styles.headerBackBtn}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.headerBackArrow}>‹</Text>
-      </TouchableOpacity>
-      <View style={styles.headerTitleWrap}>
-        <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
-        <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
+  const HeaderCard = useMemo(()=>(<View style={styles.card}>
+            <View style={styles.headerTop}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ChallengeList')}
+          style={styles.headerBackBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.headerBackArrow}>‹</Text>
+        </TouchableOpacity>
+        <View style={styles.headerTitleWrap}>
+          <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
+          <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={()=>setShowInfo(true)}
+          activeOpacity={0.9}
+          style={styles.headerInfoBtn}
+        >
+          <ShadowIcon forShare={false} />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        onPress={()=>setShowInfo(true)}
-        activeOpacity={0.9}
-        style={styles.headerInfoBtn}
-      >
-        <ShadowIcon forShare={false} />
+
+      <View style={[styles.row, { marginTop: 16 }]}>
+        <TouchableOpacity style={styles.donutArea} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.8}>
+          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
+          <View style={{ marginTop: 24 }}>
+            <Donut targetPercent={overallPct} progress={introK} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.calendarArea}>
+          <MonthCalendar
+            startDate={meta.startDate || new Date()}
+            endDate={meta.endDate || new Date()}
+            entriesByDaySet={entriesByDaySet}
+            monthDate={monthDate}
+            onPrev={prevMonth}
+            onNext={nextMonth}
+            canPrev={canPrevMonth}
+            canNext={canNextMonth}
+            highlightDate={highlightDate}
+          />
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.sectionBox} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
+        <WeekView 
+          weeksData={weeksData} 
+          currentIndex={weekIndex} 
+          onIndexChange={setWeekIndex} 
+          introProgress={introK} 
+          onPressDay={handlePressDay}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.sectionBox} onPress={() => grassTapRef.current && grassTapRef.current()} activeOpacity={0.85}>
+        <GrassGraph
+          entries={entries}
+          startDate={meta.startDate}
+          endDate={meta.endDate}
+          onTap={(fn) => { grassTapRef.current = fn; }}
+        />
+      </TouchableOpacity>
+
+      {/* 전체일정 라인 그래프 */}
+      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
+        {meta.startDate ? (
+          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={introK} interactive />
+        ) : (
+          <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
+        )}
       </TouchableOpacity>
     </View>
-    {/* 컴포넌트 분리를 위해 내부 그래프는 ScrollView로 이동됨 */}
-  </View>
   ), [
-    title, meta.startDate, meta.endDate
+    title, meta.startDate, meta.endDate,
+    weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
+    weekIndex, introK, entries, overallPct, highlightDate
   ]);
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
-    const HeaderCardForShare = useMemo(()=>(<View style={styles.card}>
-    <View style={styles.headerTop}>
-      <View style={styles.headerInfoBtn}>
-        <ShadowIcon forShare={true} />
+  const HeaderCardForShare = useMemo(()=>(<View style={styles.card}>
+            <View style={styles.headerTop}>
+        <View style={styles.headerInfoBtn}>
+           <ShadowIcon forShare={true} />
+        </View>
+        <View style={styles.headerTitleWrap}>
+          <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
+          <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
+        </View>
+        <View style={styles.headerInfoBtn} />
       </View>
-      <View style={styles.headerTitleWrap}>
-        <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
-        <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
+
+      <View style={[styles.row, { marginTop: 16 }]}>
+        <TouchableOpacity style={styles.donutArea} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.8}>
+          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
+          <View style={{ marginTop: 24 }}>
+            <Donut targetPercent={overallPct} progress={1} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.calendarArea}>
+          <MonthCalendar
+            startDate={meta.startDate || new Date()}
+            endDate={meta.endDate || new Date()}
+            entriesByDaySet={entriesByDaySet}
+            monthDate={monthDate}
+            onPrev={prevMonth}
+            onNext={nextMonth}
+            canPrev={canPrevMonth}
+            canNext={canNextMonth}
+          />
+        </View>
       </View>
-      <View style={styles.headerInfoBtn} />
+
+      <View style={styles.sectionBox}>
+        <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
+      </View>
+
+      <TouchableOpacity style={styles.sectionBox} onPress={() => grassTapRef.current && grassTapRef.current()} activeOpacity={0.85}>
+        <GrassGraph
+          entries={entries}
+          startDate={meta.startDate}
+          endDate={meta.endDate}
+          onTap={(fn) => { grassTapRef.current = fn; }}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
+        {meta.startDate ? (
+          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive={false} />
+        ) : (
+          <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
+        )}
+      </TouchableOpacity>
     </View>
-    {/* 공유용 이미지 생성을 위해 내부 그래프는 ViewShot 내부로 이동됨 */}
-  </View>
   ), [
-    title, meta.startDate, meta.endDate
+    title, meta.startDate, meta.endDate,
+    weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
+    weekIndex, entries, overallPct
   ]);
 
   const cidForDebug = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
@@ -1805,48 +1901,7 @@ export default function EntryListScreen({ route, navigation }) {
   <View style={[styles.container, { backgroundColor: '#fff' }]} collapsable={false}>
     {HeaderCardForShare}
 
-        <View style={[styles.row, { marginTop: 16, paddingHorizontal: EDGE, backgroundColor: '#fff' }]}>
-          <View style={styles.donutArea}>
-            <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-            <View style={{ marginTop: 24 }}>
-              <Donut targetPercent={overallPct} progress={1} />
-            </View>
-          </View>
-          <View style={styles.calendarArea}>
-            <MonthCalendar
-              startDate={meta.startDate || new Date()}
-              endDate={meta.endDate || new Date()}
-              entriesByDaySet={entriesByDaySet}
-              monthDate={monthDate}
-              onPrev={prevMonth}
-              onNext={nextMonth}
-              canPrev={canPrevMonth}
-              canNext={canNextMonth}
-            />
-          </View>
-        </View>
-
-        <View style={[styles.sectionBox, { backgroundColor: '#fff' }]}>
-          <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
-        </View>
-
-        <View style={[styles.sectionBox, { backgroundColor: '#fff' }]}>
-          <GrassGraph
-            entries={entries}
-            startDate={meta.startDate}
-            endDate={meta.endDate}
-          />
-        </View>
-
-        <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center', backgroundColor: '#fff' }]}>
-          {meta.startDate ? (
-            <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive={false} />
-          ) : (
-            <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
-          )}
-        </View>
-
-        <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
+   <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
   <View style={styles.rewardBlackBox}>
     <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
   </View>
@@ -1939,56 +1994,6 @@ export default function EntryListScreen({ route, navigation }) {
         nestedScrollEnabled
       >
         <HeaderWithCountMemo HeaderCard={HeaderCard} />
-
-        <View style={[styles.row, { marginTop: 16, paddingHorizontal: EDGE }]}>
-          <TouchableOpacity style={styles.donutArea} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.8}>
-            <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-            <View style={{ marginTop: 24 }}>
-              <Donut targetPercent={overallPct} progress={introK} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.calendarArea}>
-            <MonthCalendar
-              startDate={meta.startDate || new Date()}
-              endDate={meta.endDate || new Date()}
-              entriesByDaySet={entriesByDaySet}
-              monthDate={monthDate}
-              onPrev={prevMonth}
-              onNext={nextMonth}
-              canPrev={canPrevMonth}
-              canNext={canNextMonth}
-              highlightDate={highlightDate}
-            />
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.sectionBox} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
-          <WeekView 
-            weeksData={weeksData} 
-            currentIndex={weekIndex} 
-            onIndexChange={setWeekIndex} 
-            introProgress={introK} 
-            onPressDay={handlePressDay}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.sectionBox, {marginHorizontal: EDGE}]} onPress={() => grassTapRef.current && grassTapRef.current()} activeOpacity={0.85}>
-          <GrassGraph
-            entries={entries}
-            startDate={meta.startDate}
-            endDate={meta.endDate}
-            onTap={onGrassTap}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
-          {meta.startDate ? (
-            <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={introK} interactive />
-          ) : (
-            <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
-          )}
-        </TouchableOpacity>
 
         {/* 보상 박스 (위/아래 간격을 상수로 제어) */}
 <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>

@@ -753,7 +753,7 @@ const LineGradientChart = memo(function LineGradientChart({
   );
 });
 
-const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true }) {
+const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true, onPageChange }) {
   const pageW = SCREEN_WIDTH - (EDGE + GRAPH_SIDE_PAD) * 2;
   const scrollRef = useRef(null);
   const [page, setPage] = useState(0);
@@ -762,7 +762,8 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
     const idx = clamp(i,0,1);
     scrollRef.current?.scrollTo({ x: idx*pageW, y: 0, animated: true });
     setPage(idx);
-  }, [pageW]);
+    if (typeof onPageChange === 'function') onPageChange(idx);
+  }, [pageW, onPageChange]);
 
   return (
     <View style={{ width: pageW, alignSelf:'center' }}>
@@ -776,7 +777,9 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e)=>{
           const i = Math.round((e.nativeEvent.contentOffset.x || 0)/pageW);
-          setPage(clamp(i,0,1));
+          const idx = clamp(i,0,1);
+          setPage(idx);
+          if (typeof onPageChange === 'function') onPageChange(idx);
         }}
         snapToInterval={pageW}
         snapToAlignment="start"
@@ -1379,27 +1382,32 @@ export default function EntryListScreen({ route, navigation }) {
   const grassTapRef = useRef(null);
 
   /* ── 인트로 애니메이션 ── */
-  const [introK, setIntroK] = useState(0);
-  const rafRef = useRef(null);
-  const lastKRef = useRef(0);
+  const [donutK, setDonutK] = useState(0);
+ const [weekK, setWeekK] = useState(0);
+ const [lineK, setLineK] = useState(0);
 
-  const runIntro = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    const ease = (t)=> 1 - Math.pow(1 - t, 5);
-    const DUR = 2400;
-    const t0 = Date.now();
-    const tick = () => {
-      const t = Math.min(1, (Date.now() - t0) / DUR);
-      const k = ease(t);
-      if (k - lastKRef.current >= 0.02 || t >= 1) {
-        lastKRef.current = k;
-        setIntroK(k);
-      }
-      if (t < 1) rafRef.current = requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, []);
-  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+ const animateK = useCallback((setter) => {
+ const ease = (t)=> 1 - Math.pow(1 - t, 5);
+ const DUR = 2400;
+ const t0 = Date.now();
+ let raf;
+ const tick = () => {
+ const t = Math.min(1, (Date.now() - t0) / DUR);
+ const k = ease(t);
+ setter(k);
+ if (t < 1) raf = requestAnimationFrame(tick);
+ };
+ raf = requestAnimationFrame(tick);
+ return raf;
+ }, []);
+
+ const runDonut = useCallback(() => { setDonutK(0); animateK(setDonutK); }, [animateK]);
+ const runWeek = useCallback(() => { setWeekK(0); animateK(setWeekK); }, [animateK]);
+ const runLine = useCallback(() => { setLineK(0); animateK(setLineK); }, [animateK]);
+ const runAllIntro = useCallback(() => {
+ setDonutK(0); setWeekK(0); setLineK(0);
+ animateK(setDonutK); animateK(setWeekK); animateK(setLineK);
+ }, [animateK]);
 
   /* ── 디버그/리로드 ── */
   const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
@@ -1635,7 +1643,7 @@ export default function EntryListScreen({ route, navigation }) {
       .catch(console.error)
       .finally(()=>{ loadingRef.current = false; });
 
-    runIntro();
+    runAllIntro();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, challengeId, reloadTick, buildWeeks]);
 
@@ -1719,10 +1727,10 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
       <View style={[styles.row, { marginTop: 16 }]}>
-        <TouchableOpacity style={styles.donutArea} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
           <View style={{ marginTop: 24 }}>
-            <Donut targetPercent={overallPct} progress={introK} />
+            <Donut targetPercent={overallPct} progress={donutK} />
           </View>
         </TouchableOpacity>
 
@@ -1741,12 +1749,12 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.sectionBox} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.sectionBox} onPress={() => { runDonut(); }} activeOpacity={0.85}>
         <WeekView 
           weeksData={weeksData} 
           currentIndex={weekIndex} 
           onIndexChange={setWeekIndex} 
-          introProgress={introK} 
+          introProgress={weekK} 
           onPressDay={handlePressDay}
         />
       </TouchableOpacity>
@@ -1761,18 +1769,18 @@ export default function EntryListScreen({ route, navigation }) {
       </TouchableOpacity>
 
       {/* 전체일정 라인 그래프 */}
-      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
+      <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
         {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={introK} interactive />
+          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={lineK} interactive onPageChange={runLine} />
         ) : (
           <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
         )}
-      </TouchableOpacity>
+      </View>
     </View>
   ), [
     title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, introK, entries, overallPct, highlightDate
+    weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate
   ]);
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
@@ -1789,7 +1797,7 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
       <View style={[styles.row, { marginTop: 16 }]}>
-        <TouchableOpacity style={styles.donutArea} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
           <View style={{ marginTop: 24 }}>
             <Donut targetPercent={overallPct} progress={1} />
@@ -1823,7 +1831,7 @@ export default function EntryListScreen({ route, navigation }) {
         />
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { setIntroK(0); runIntro(); }} activeOpacity={0.85}>
+      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { runDonut(); }} activeOpacity={0.85}>
         {meta.startDate ? (
           <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive={false} />
         ) : (

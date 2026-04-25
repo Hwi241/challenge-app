@@ -986,21 +986,20 @@ const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
 const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap }) {
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
-    // 파도 강도: 각 col의 0~1 값 (그레이 오버레이 강도)
-  const [waveIntensity, setWaveIntensity] = useState(() => new Array(60).fill(0));
+  const [waveIntensity, setWaveIntensity] = useState(() => new Array(60 * 7).fill(0));
   const sparkTimersRef = React.useRef([]);
+  const grassScrollRef = useRef(null);
   const waveRafRef = React.useRef(null);
-
+  const [waveTrigger, setWaveTrigger] = useState(0);
+  const [scrollPos, setScrollPos] = useState({ x: 0, w: 0 });
 
   const onLayout = useCallback((e) => {
     const w = e.nativeEvent.layout.width;
     if (w > 0) setContainerWidth(w);
   }, []);
 
-  const [waveTrigger, setWaveTrigger] = useState(0);
   useEffect(() => { if (onTap) onTap(() => setWaveTrigger(t => t + 1)); }, [onTap]);
 
-  // RAF 기반 파도 useEffect - JS 스레드 분리로 다른 애니메이션과 충돌 없음
   useEffect(() => {
     sparkTimersRef.current.forEach(t => clearTimeout(t));
     sparkTimersRef.current = [];
@@ -1008,74 +1007,59 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
 
     const TOTAL_COLS = 60;
     const TOTAL_ROWS = 7;
-    const WAVE_WIDTH = 4; // 파도 너비 (col 단위)
-    const WAVE_SPEED = 0.02; // 파도 속도 줄임 (느리게)
-    const DIAGONAL = 0.6; // 사선 기울기 (row당 col 오프셋)
-
+    const WAVE_WIDTH = 4;
+    const WAVE_SPEED = 0.02;
+    const DIAGONAL = 0.6;
     const startTime = performance.now();
 
     const tick = (now) => {
       const elapsed = now - startTime;
       const wavePos = elapsed * WAVE_SPEED;
-
       if (wavePos > TOTAL_COLS + WAVE_WIDTH + TOTAL_ROWS * DIAGONAL) {
         setWaveIntensity(new Array(TOTAL_COLS * TOTAL_ROWS).fill(0));
         return;
       }
-
-      // col x row 2D 배열로 확장 (사선 효과)
       const intensities = new Array(TOTAL_COLS * TOTAL_ROWS).fill(0);
       for (let col = 0; col < TOTAL_COLS; col++) {
         for (let row = 0; row < TOTAL_ROWS; row++) {
-          // row가 증가할수록 파도가 오른쪽으로 밀림 -> 사선
           const diagOffset = row * DIAGONAL;
           const dist = Math.abs((col + diagOffset) - wavePos);
           if (dist < WAVE_WIDTH) {
-            intensities[col * TOTAL_ROWS + row] = 
-              Math.sin((1 - dist / WAVE_WIDTH) * Math.PI * 0.5);
+            intensities[col * TOTAL_ROWS + row] = Math.sin((1 - dist / WAVE_WIDTH) * Math.PI * 0.5);
           }
         }
       }
       setWaveIntensity(intensities);
       waveRafRef.current = requestAnimationFrame(tick);
     };
-
     waveRafRef.current = requestAnimationFrame(tick);
-
     return () => {
       if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
       sparkTimersRef.current.forEach(t => clearTimeout(t));
-      sparkTimersRef.current = [];
     };
   }, [waveTrigger]);
 
   const LEFT_LABEL_W = 0;
   const CELL_GAP = 3;
-  const availableW = containerWidth;
+  const cellSize = 12;
 
   const { cellData, weekStarts, monthLabels } = useMemo(() => {
     if (!startDate || !endDate) return { cellData: [], weekStarts: [], monthLabels: [] };
-
     const certSet = new Set();
     for (const e of entries) {
       const d = new Date(e.timestamp);
       certSet.add(keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate())));
     }
-
     const start = new Date(startDate); start.setHours(0,0,0,0);
     const end = new Date(endDate); end.setHours(0,0,0,0);
     const today = new Date(); today.setHours(0,0,0,0);
-
     const gridStart = new Date(start);
     gridStart.setDate(gridStart.getDate() - gridStart.getDay());
-
     const cells = [];
     const weekStartCols = [];
     const monthLabelMap = {};
-
     const cur = new Date(gridStart);
     let col = 0;
-
     while (cur <= end || (cur.getDay() !== 0 && cells.length > 0)) {
       if (cur.getDay() === 0) {
         weekStartCols.push({ col, date: new Date(cur) });
@@ -1091,16 +1075,11 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         const inRange = cellDate >= start && cellDate <= end;
         const certified = certSet.has(k);
         const isFuture = cellDate > today;
-
         let level = 0;
-        if (!inRange) {
-          level = 0; // 일정 밖 빈칸 (아주 연한 회색)
-        } else if (isFuture) {
-          level = 1; // 일정이지만 미래(미인증)
-        } else if (!certified) {
-          level = 1; // 일정이지만 미인증
-        } else {
-          // 인증됨 - 연속 일수 계산
+        if (!inRange) level = 0;
+        else if (isFuture) level = 1;
+        else if (!certified) level = 1;
+        else {
           let streak = 1;
           for (let s = 1; s <= 2; s++) {
             const prevDate = new Date(cellDate);
@@ -1109,50 +1088,41 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
             if (certSet.has(prevKey)) streak++;
             else break;
           }
-          if (streak >= 3) level = 4; // 3일+ 연속: 가장 진함
-          else if (streak === 2) level = 3; // 2일 연속
-          else level = 2; // 1일 인증
+          if (streak >= 3) level = 4;
+          else if (streak === 2) level = 3;
+          else level = 2;
         }
-
         cells.push({ col, row, date: new Date(cellDate), level });
       }
       cur.setDate(cur.getDate() + GRASS_ROWS);
       col++;
       if (col > 60) break;
     }
-
     const monthLabelsArr = Object.values(monthLabelMap);
     return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
   }, [entries, startDate, endDate]);
-  
 
-
-  const cellSize = 12;
-  const minCols = Math.ceil((containerWidth - LEFT_LABEL_W) / (cellSize + 4 /* CELL_GAP */));
+  const minCols = Math.floor(containerWidth / (cellSize + CELL_GAP));
   const totalCols = Math.max(weekStarts.length, minCols);
   const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
-
   const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
-            const GridContent = (
+  const GridContent = (
     <View style={{ flexDirection: 'row', width: graphWidth }}>
       {Array.from({ length: totalCols }).map((_, col) => {
-        // col x row 2D 인덱스로 intensity 읽기
         return (
           <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
             {Array.from({ length: GRASS_ROWS }).map((__, row) => {
               const cell = cellData.find(c => c.col === col && c.row === row);
               const baseLevel = cell?.level ?? 0;
-              const intensity2D = waveIntensity[col * GRASS_ROWS + row] ?? 0;
-              const wave = intensity2D;
+              const wave = waveIntensity[col * GRASS_ROWS + row] ?? 0;
               const baseColor = LEVEL_COLORS[baseLevel] ?? '#F3F4F6';
-              // LEVEL_COLORS 기반 파도 + 중심부 검은색 라인
               let waveColor = baseColor;
-              if (wave > 0.85) waveColor = '#111111'; // 중심부 검은색
-              else if (wave > 0.6) waveColor = '#555555'; // level 3
-              else if (wave > 0.25) waveColor = '#A0A0A0'; // level 2
-              else if (wave > 0.05) waveColor = '#E5E7EB'; // level 1
+              if (wave > 0.85) waveColor = '#111111';
+              else if (wave > 0.6) waveColor = '#555555';
+              else if (wave > 0.25) waveColor = '#A0A0A0';
+              else if (wave > 0.05) waveColor = '#E5E7EB';
               return (
                 <View key={row} style={{
                   width: cellSize, height: cellSize,
@@ -1165,29 +1135,56 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
           </View>
         );
       })}
-    </View>);
+    </View>
+  );
 
   return (
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        nestedScrollEnabled
-        scrollEnabled={graphWidth > containerWidth}
-        contentContainerStyle={{}}
-        style={{ overflow: 'hidden' }}
-      >
-        <View>
-          <View style={{ height: TOP_LABEL_H, width: graphWidth, position: 'relative', marginBottom: 4 }}>
-            {monthLabels.map((ml, i) => (
-              <Text key={i} style={{
-                position: 'absolute',
-                left: ml.col * (cellSize + CELL_GAP),
-                fontSize: 10, color: '#6B7280', fontWeight: '700',
-              }}>{ml.label}</Text>
-            ))}
+      <View style={{ width: containerWidth }}>
+        <ScrollView 
+          ref={grassScrollRef} 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          onStartShouldSetResponderCapture={() => false}
+          nestedScrollEnabled
+          scrollEnabled={graphWidth > containerWidth}
+          scrollEventThrottle={16}
+          onScroll={(e) => setScrollPos({ x: e.nativeEvent.contentOffset.x, w: e.nativeEvent.contentSize.width })}
+        >
+          <View style={{ paddingRight: 30 }}>
+            {/* 월 라벨 영역 */}
+            <View style={{ height: TOP_LABEL_H, width: graphWidth, position: "relative", marginBottom: 4 }}>
+              {monthLabels.map((ml, i) => (
+                <Text key={i} style={{
+                  position: "absolute",
+                  left: ml.col * (cellSize + CELL_GAP),
+                  fontSize: 10, color: "#6B7280", fontWeight: "700",
+                }}>{ml.label}</Text>
+              ))}
+            </View>
+            {/* 잔디 블록 영역 */}
+            {GridContent}
           </View>
-          {GridContent}
-        </View>
-      </ScrollView>
+        </ScrollView>
+
+        {/* 좌측 화살표 (Absolute) - 월 글씨 위치에 맞춤 */}
+        {graphWidth > containerWidth && scrollPos.x > 5 && (
+          <View style={{ position: 'absolute', left: -4, top: 0, height: TOP_LABEL_H, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
+            <TouchableOpacity onPress={() => grassScrollRef.current?.scrollTo({x: 0, animated: true})} hitSlop={{top:15, bottom:15, left:15, right:15}}>
+              <Text style={{ fontSize: 18, fontWeight: "900", color: "#6B7280", marginTop: -6 }}>{"‹"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 우측 화살표 (Absolute) */}
+        {graphWidth > containerWidth && scrollPos.x + containerWidth < graphWidth - 5 && (
+          <View style={{ position: 'absolute', right: -4, top: 0, height: TOP_LABEL_H, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
+            <TouchableOpacity onPress={() => grassScrollRef.current?.scrollToEnd({animated: true})} hitSlop={{top:15, bottom:15, left:15, right:15}}>
+              <Text style={{ fontSize: 18, fontWeight: "900", color: "#6B7280", marginTop: -6 }}>{"›"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
 });
@@ -1749,7 +1746,7 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.sectionBox} onPress={() => { runDonut(); }} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.sectionBox} onPress={() => { runWeek(); }} activeOpacity={0.85}>
         <WeekView 
           weeksData={weeksData} 
           currentIndex={weekIndex} 

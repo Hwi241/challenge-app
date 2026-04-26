@@ -1023,7 +1023,7 @@ const GRASS_ROWS = 7;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
-const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap }) {
+const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass }) {
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
   const [waveIntensity, setWaveIntensity] = useState(() => new Array(60 * 7).fill(0));
   const sparkTimersRef = React.useRef([]);
@@ -1141,14 +1141,14 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
   }, [entries, startDate, endDate]);
 
-  const minCols = Math.floor(containerWidth / (cellSize + CELL_GAP));
-  const totalCols = Math.max(weekStarts.length, minCols);
+  const totalCols = weekStarts.length || 1;
   const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
   const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
   const GridContent = (
-    <View style={{ flexDirection: 'row', width: graphWidth }}>
+    <TouchableOpacity onPress={onTapGrass} activeOpacity={1}>
+            <View style={{ flexDirection: 'row', width: graphWidth }}>
       {Array.from({ length: totalCols }).map((_, col) => {
         return (
           <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
@@ -1179,18 +1179,18 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
 
   return (
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
-      <View style={{ width: containerWidth }}>
+      <View style={{ width: containerWidth, height: 124 }}>
         <ScrollView 
           ref={grassScrollRef} 
           horizontal 
           showsHorizontalScrollIndicator={false}
-          onStartShouldSetResponderCapture={() => false}
           nestedScrollEnabled
+          directionalLockEnabled
           scrollEnabled={graphWidth > containerWidth}
           scrollEventThrottle={16}
           onScroll={(e) => setScrollPos({ x: e.nativeEvent.contentOffset.x, w: e.nativeEvent.contentSize.width })}
         >
-          <View style={{ paddingRight: 30 }}>
+          <View>
             {/* 월 라벨 영역 */}
             <View style={{ height: TOP_LABEL_H, width: graphWidth, position: "relative", marginBottom: 4 }}>
               {monthLabels.map((ml, i) => (
@@ -1820,23 +1820,20 @@ export default function EntryListScreen({ route, navigation }) {
         />
       </TouchableOpacity>
 
-      <TouchableOpacity 
-        style={styles.sectionBox} 
-        onPress={() => {
-          if (isGrassAnimatingRef.current) return;
-          isGrassAnimatingRef.current = true;
-          setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
-          grassTapRef.current && grassTapRef.current();
-        }} 
-        activeOpacity={0.85}
-      >
+      <View style={styles.sectionBox}>
         <GrassGraph
           entries={entries}
           startDate={meta.startDate}
           endDate={meta.endDate}
           onTap={(fn) => { grassTapRef.current = fn; }}
+          onTapGrass={() => {
+            if (isGrassAnimatingRef.current) return;
+            isGrassAnimatingRef.current = true;
+            setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
+            grassTapRef.current && grassTapRef.current();
+          }}
         />
-      </TouchableOpacity>
+      </View>
 
       {/* 전체일정 라인 그래프 */}
       <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>

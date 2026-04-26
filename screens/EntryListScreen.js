@@ -949,6 +949,9 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
     );
   }, [pageW, PADDING_H, ROW_W, COL_W, introProgress]);
 
+  const canPrevWeek = currentIndex > 0;
+  const canNextWeek = currentIndex < weeksData.length - 1;
+
   return (
     <View style={{ height: 180 }} onLayout={onLayout}>
       <ScrollView
@@ -965,6 +968,10 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
           const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
           if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
         }}
+        onScrollEndDrag={(e) => {
+          const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
+          if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
+        }}
         directionalLockEnabled
         nestedScrollEnabled
         scrollEventThrottle={16}
@@ -976,6 +983,38 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
           </View>
         ))}
       </ScrollView>
+
+      {/* 좌측 화살표 */}
+      {canPrevWeek && (
+        <View style={{ position: 'absolute', left: -4, top: 0, height: 24, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
+          <TouchableOpacity
+            onPress={() => {
+              const prev = Math.max(0, currentIndex - 1);
+              scrollRef.current?.scrollTo({ x: prev * pageW, animated: true });
+              if (typeof onIndexChange === 'function') onIndexChange(prev);
+            }}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: '900', color: '#6B7280', marginTop: -6 }}>{'‹'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* 우측 화살표 */}
+      {canNextWeek && (
+        <View style={{ position: 'absolute', right: -4, top: 0, height: 24, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
+          <TouchableOpacity
+            onPress={() => {
+              const next = Math.min(weeksData.length - 1, currentIndex + 1);
+              scrollRef.current?.scrollTo({ x: next * pageW, animated: true });
+              if (typeof onIndexChange === 'function') onIndexChange(next);
+            }}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: '900', color: '#6B7280', marginTop: -6 }}>{'›'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 });
@@ -1377,34 +1416,59 @@ export default function EntryListScreen({ route, navigation }) {
   const [showDebug] = useState(true);
   const shareRef = useRef(null);
   const grassTapRef = useRef(null);
+  const isDonutAnimatingRef = useRef(false);
+  const isWeekAnimatingRef = useRef(false);
+  const isGrassAnimatingRef = useRef(false);
 
   /* ── 인트로 애니메이션 ── */
   const [donutK, setDonutK] = useState(0);
  const [weekK, setWeekK] = useState(0);
- const [lineK, setLineK] = useState(0);
+ const [lineK, setLineK] = useState(1);
 
- const animateK = useCallback((setter) => {
- const ease = (t)=> 1 - Math.pow(1 - t, 5);
- const DUR = 2400;
- const t0 = Date.now();
- let raf;
- const tick = () => {
- const t = Math.min(1, (Date.now() - t0) / DUR);
- const k = ease(t);
- setter(k);
- if (t < 1) raf = requestAnimationFrame(tick);
- };
- raf = requestAnimationFrame(tick);
- return raf;
- }, []);
+  const animateK = useCallback((setter, onDone) => {
+    const ease = (t) => 1 - Math.pow(1 - t, 5);
+    const DUR = 2400;
+    const t0 = Date.now();
+    let raf;
+    const tick = () => {
+      const t = Math.min(1, (Date.now() - t0) / DUR);
+      const k = ease(t);
+      setter(k);
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        if (typeof onDone === 'function') onDone();
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return raf;
+  }, []);
 
- const runDonut = useCallback(() => { setDonutK(0); animateK(setDonutK); }, [animateK]);
- const runWeek = useCallback(() => { setWeekK(0); animateK(setWeekK); }, [animateK]);
- const runLine = useCallback(() => { setLineK(0); animateK(setLineK); }, [animateK]);
- const runAllIntro = useCallback(() => {
- setDonutK(0); setWeekK(0); setLineK(0);
- animateK(setDonutK); animateK(setWeekK); animateK(setLineK);
- }, [animateK]);
+  const runDonut = useCallback(() => {
+    if (isDonutAnimatingRef.current) return;
+    isDonutAnimatingRef.current = true;
+    setDonutK(0);
+    animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
+  }, [animateK]);
+  const runWeek = useCallback(() => {
+    if (isWeekAnimatingRef.current) return;
+    isWeekAnimatingRef.current = true;
+    setWeekK(0);
+    animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
+  }, [animateK]);
+ const runLine = useCallback(() => {  animateK(setLineK); }, [animateK]);
+  const runAllIntro = useCallback(() => {
+    if (!isDonutAnimatingRef.current) {
+      isDonutAnimatingRef.current = true;
+      setDonutK(0);
+      animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
+    }
+    if (!isWeekAnimatingRef.current) {
+      isWeekAnimatingRef.current = true;
+      setWeekK(0);
+      animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
+    }
+  }, [animateK]);
 
   /* ── 디버그/리로드 ── */
   const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
@@ -1756,7 +1820,16 @@ export default function EntryListScreen({ route, navigation }) {
         />
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.sectionBox} onPress={() => grassTapRef.current && grassTapRef.current()} activeOpacity={0.85}>
+      <TouchableOpacity 
+        style={styles.sectionBox} 
+        onPress={() => {
+          if (isGrassAnimatingRef.current) return;
+          isGrassAnimatingRef.current = true;
+          setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
+          grassTapRef.current && grassTapRef.current();
+        }} 
+        activeOpacity={0.85}
+      >
         <GrassGraph
           entries={entries}
           startDate={meta.startDate}
@@ -1768,7 +1841,7 @@ export default function EntryListScreen({ route, navigation }) {
       {/* 전체일정 라인 그래프 */}
       <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
         {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={lineK} interactive onPageChange={runLine} />
+          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive onPageChange={runLine} />
         ) : (
           <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
         )}
@@ -1819,7 +1892,16 @@ export default function EntryListScreen({ route, navigation }) {
         <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
       </View>
 
-      <TouchableOpacity style={styles.sectionBox} onPress={() => grassTapRef.current && grassTapRef.current()} activeOpacity={0.85}>
+      <TouchableOpacity 
+        style={styles.sectionBox} 
+        onPress={() => {
+          if (isGrassAnimatingRef.current) return;
+          isGrassAnimatingRef.current = true;
+          setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
+          grassTapRef.current && grassTapRef.current();
+        }} 
+        activeOpacity={0.85}
+      >
         <GrassGraph
           entries={entries}
           startDate={meta.startDate}
@@ -2181,16 +2263,20 @@ rewardBlockSpacing: {
   separator: { height: 1, backgroundColor: '#F3F4F6' },
 
   shareBtn: {
-    position: 'absolute', right: 12, 
+    position: 'absolute', right: 12,
     backgroundColor: '#111', borderRadius: 14,
-    paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
+    width: 52, height: 42,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 3,
   },
   shareBtnText: { color: '#fff', fontWeight: '800' },
 
   uploadFloatingBtn: {
     position: 'absolute', left: 12,
     backgroundColor: '#111', borderRadius: 14,
-    paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
+    width: 52, height: 42,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 3,
   },
   uploadFloatingText: { color: '#fff', fontWeight: '800' },
 

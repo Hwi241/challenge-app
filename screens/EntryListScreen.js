@@ -824,7 +824,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
 
 
 /* ───────── 주간 뷰 ───────── */
-const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1, onPressDay }) {
+const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1, onPressDay, onTapBar }) {
   const scrollRef = useRef(null);
   const [pageW, setPageW] = useState(SCREEN_WIDTH);
 
@@ -870,7 +870,7 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
           ))}
         </View>
 
-        <View style={{ flexDirection:'row', width: ROW_W, alignSelf:'center', alignItems:'flex-end', height: 120, marginTop: 10 }}>
+        <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, alignSelf:'center', alignItems:'flex-end', height: 120, marginTop: 10 }}>
           {dailyStats.map((stat, i) => {
             const hasTime = (stat.duration || 0) > 0;
             const hasCount = (stat.totalCount || 0) > 0;
@@ -944,10 +944,10 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
               </View>
             );
           })}
-        </View>
+        </TouchableOpacity>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, introProgress]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, introProgress, weeksData, onPressDay, onTapBar]);
 
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
@@ -1811,15 +1811,16 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.sectionBox} onPress={() => { runWeek(); }} activeOpacity={0.85}>
+      <View style={styles.sectionBox}>
         <WeekView 
           weeksData={weeksData} 
           currentIndex={weekIndex} 
           onIndexChange={setWeekIndex} 
           introProgress={weekK} 
           onPressDay={handlePressDay}
+          onTapBar={runWeek}
         />
-      </TouchableOpacity>
+      </View>
 
       <View style={styles.sectionBox}>
         <GrassGraph

@@ -1147,8 +1147,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const TOP_LABEL_H = 18;
 
   const GridContent = (
-    <TouchableOpacity onPress={onTapGrass} activeOpacity={1}>
-            <View style={{ flexDirection: 'row', width: graphWidth }}>
+    <View style={{ flexDirection: 'row', width: graphWidth }}>
       {Array.from({ length: totalCols }).map((_, col) => {
         return (
           <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
@@ -1175,7 +1174,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         );
       })}
     </View>
-  );
+);
 
   return (
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
@@ -1202,7 +1201,9 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
               ))}
             </View>
             {/* 잔디 블록 영역 */}
-            {GridContent}
+            <TouchableOpacity onPress={onTapGrass} activeOpacity={1} style={{ flexDirection: 'row' }}>
+              {GridContent}
+            </TouchableOpacity>
           </View>
         </ScrollView>
 

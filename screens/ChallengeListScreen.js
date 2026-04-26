@@ -879,9 +879,11 @@ const styles = StyleSheet.create({
   addFloatingBtn: {
     position: 'absolute', right: 12,
     backgroundColor: '#111', borderRadius: 14,
-    paddingVertical: 10, paddingHorizontal: 14, elevation: 3,
+    width: 52, height: 42,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 3,
   },
-  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 20, lineHeight: 22, includeFontPadding: false },
 
   /* 정렬 스크림 */
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },

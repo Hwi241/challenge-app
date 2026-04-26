@@ -232,6 +232,8 @@ export default function EditChallengeScreen(){
   const baseChallenge = route.params?.challenge || route.params?.backParams?.challenge || null;
 
   const [loading,setLoading] = useState(true);
+  const originalRef = useRef(null);
+  const savedRef = useRef(false);
 
   // 폼
   const [title,setTitle] = useState('');
@@ -283,6 +285,15 @@ export default function EditChallengeScreen(){
         setStartDate(latest?.startDate ? parseDateStr(latest.startDate) : null);
         setEndDate(latest?.endDate ? parseDateStr(latest.endDate) : null);
         if (latest?.notification?.mode) setNotification(latest.notification);
+        originalRef.current = {
+          title: String(latest?.title ?? '').trim(),
+          goalScore: typeof latest?.goalScore === 'number' && latest.goalScore > 0 ? String(latest.goalScore) : '',
+          reward: String(latest?.reward ?? '').trim(),
+          description: String(latest?.description ?? '').trim(),
+          startDate: latest?.startDate ?? null,
+          endDate: latest?.endDate ?? null,
+          notificationMode: latest?.notification?.mode ?? null,
+        };
       } catch(e){
         console.error('[EditChallenge] load error', e);
         Alert.alert('오류','도전 정보를 불러오지 못했습니다.');
@@ -303,10 +314,28 @@ export default function EditChallengeScreen(){
 
   // 안드로이드 하드웨어/제스처 뒤로가기 + beforeRemove 경고
   useEffect(() => {
-    const hasChanged = () => !!(
-      title.trim() || goalScore || reward.trim() || description.trim() || 
-      startDate || endDate || notification?.mode
-    );
+    const hasChanged = () => {
+      if (savedRef.current) return false;
+      const orig = originalRef.current;
+      if (!orig) return false;
+      const curTitle = title.trim();
+      const curGoal  = goalScore;
+      const curReward = reward.trim();
+      const curDesc  = description.trim();
+      const curStart = startDate ? fmtDate(startDate) : null;
+      const curEnd   = endDate ? fmtDate(endDate) : null;
+      const curNotif = notification?.mode ?? null;
+
+      return (
+        curTitle !== orig.title ||
+        curGoal  !== orig.goalScore ||
+        curReward !== orig.reward ||
+        curDesc  !== orig.description ||
+        curStart !== orig.startDate ||
+        curEnd   !== orig.endDate ||
+        curNotif !== orig.notificationMode
+      );
+    };
 
     const confirmExit = (onConfirm) => {
       if (!hasChanged()) { onConfirm(); return; }
@@ -408,6 +437,7 @@ export default function EditChallengeScreen(){
         await AsyncStorage.setItem(`challenge_${updated.id}`, JSON.stringify(updated));
       }catch{}
 
+      savedRef.current = true;
       Alert.alert('저장 완료','도전이 수정되었습니다.',[
         { text:'확인', onPress:()=>navigation.goBack() }
       ]);
@@ -547,12 +577,14 @@ export default function EditChallengeScreen(){
       <DateTimePickerModal
         isVisible={showStartPicker}
         mode="date"
+        date={startDate ?? new Date()}
         onConfirm={(d)=>{ setShowStartPicker(false); setStartDate(d); lastChangedRef.current='start'; }}
         onCancel={()=>setShowStartPicker(false)}
       />
       <DateTimePickerModal
         isVisible={showEndPicker}
         mode="date"
+        date={endDate ?? new Date()}
         onConfirm={(d)=>{ setShowEndPicker(false); setEndDate(d); lastChangedRef.current='end'; }}
         onCancel={()=>setShowEndPicker(false)}
       />

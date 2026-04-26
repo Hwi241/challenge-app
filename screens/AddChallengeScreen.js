@@ -645,12 +645,14 @@ useFocusEffect(
       <DateTimePickerModal
         isVisible={showStartPicker}
         mode="date"
+        date={startDate ?? new Date()}
         onConfirm={(d) => { setShowStartPicker(false); setStartDate(d); lastChangedRef.current='start'; }}
         onCancel={() => setShowStartPicker(false)}
       />
       <DateTimePickerModal
         isVisible={showEndPicker}
         mode="date"
+        date={endDate ?? new Date()}
         onConfirm={(d) => { setShowEndPicker(false); setEndDate(d); lastChangedRef.current='end'; }}
         onCancel={() => setShowEndPicker(false)}
       />

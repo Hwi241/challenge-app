@@ -639,25 +639,32 @@ const LineGradientChart = memo(function LineGradientChart({
  const shouldCaptureTouch = useCallback((evt) => {
   if (!interactive) return false;
   const { locationX: x, locationY: y } = evt.nativeEvent;
-  const near = (cx, cy, r = 16) => Math.hypot(x - cx, y - cy) <= r;
+  const nearX = (cx, r = 16) => Math.abs(x - cx) <= r;
 
-  // 페이저 점(그래프 내부의 ●●) 근처만 터치 캡처
-  if (near(dotCx1, dotCy) || near(dotCx2, dotCy)) return true;
-
-  // 데이터 노드 근처만 터치 캡처
-  for (let i = 0; i < nodePts.length; i++) {
-    if (near(nodePts[i].x, nodePts[i].y, 16)) return true;
+  // 페이저 점(●●) 터치 캡처 - Y 범위도 체크
+  if (y >= dotCy - 16 && y <= dotCy + 16) {
+    if (nearX(dotCx1) || nearX(dotCx2)) return true;
   }
-  // 나머지는 부모(세로 스크롤)로 넘김
+
+  // 데이터 노드 - X좌표 기준 세로 직선 방식 (그래프 영역 내에서만)
+  if (y >= top && y <= top + ch + bottom && nodePts.length > 0) {
+    return true;
+  }
   return false;
-}, [interactive, nodePts, dotCx1, dotCx2, dotCy]);
+}, [interactive, nodePts, dotCx1, dotCx2, dotCy, top, ch, bottom]);
 
   const handleRelease = useCallback((evt)=>{
     if(!interactive) return;
-    const { locationX:x } = evt.nativeEvent;
-    const near = (cx, r=16) => Math.abs(x - cx) <= r;
-    if (near(dotCx1)) { onSelectPagerIndex(0); return; }
-    if (near(dotCx2)) { onSelectPagerIndex(1); return; }
+    const { locationX:x, locationY:y } = evt.nativeEvent;
+    const nearX = (cx, r=16) => Math.abs(x - cx) <= r;
+
+    // 페이저 점 터치 - Y 범위 체크
+    if (y >= dotCy - 16 && y <= dotCy + 16) {
+      if (nearX(dotCx1)) { onSelectPagerIndex(0); return; }
+      if (nearX(dotCx2)) { onSelectPagerIndex(1); return; }
+    }
+
+    // 그래프 영역 내 X좌표 기준으로 가장 가까운 노드 선택
     if (!pts.length) return;
     let best = 0, bestDx = Infinity;
     for (let i=0;i<pts.length;i++){
@@ -665,7 +672,7 @@ const LineGradientChart = memo(function LineGradientChart({
       if (dx < bestDx) { bestDx = dx; best = i; }
     }
     setSelectedIdx(best);
-  }, [interactive, pts, dotCx1, dotCx2, onSelectPagerIndex]);
+  }, [interactive, pts, dotCx1, dotCx2, dotCy, onSelectPagerIndex]);
 
   const selectedLabel = useMemo(()=>{
     if (selectedIdx==null || !series[selectedIdx]) return null;
@@ -1998,15 +2005,6 @@ export default function EntryListScreen({ route, navigation }) {
       <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
     </View>
 
-    {sortedEntries.map((item, index) => {
-      const indexFromEnd = sortedEntries.length - index;
-      return (
-        <React.Fragment key={item?.id ?? `${item?.timestamp ?? 0}-${index}`}>
-          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly />
-          <View style={[styles.separator, styles.sectionPadNarrow]} />
-        </React.Fragment>
-      );
-    })}
     <View style={{ height: EDGE }} />
   </View>
 </ViewShot>

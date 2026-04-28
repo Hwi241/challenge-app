@@ -9,6 +9,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { buttonStyles, colors, spacing, radius } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
+import { moveToTrash } from '../utils/trash';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -76,7 +77,13 @@ function asDoneFlags(c) {
   const gs = Number(c?.goalScore ?? NaN);
   const doneByScore = Number.isFinite(gs) && gs > 0 && cs >= gs;
   const done = c?.status === 'completed' || doneByScore || !!c?.archived;
-  return { _isDone: !!done, _completedAt: c?.completedAt ?? 0 };
+  let isExpired = false;
+  if (!done && c?.endDate) {
+    const end = new Date(c.endDate);
+    end.setHours(23, 59, 59, 999);
+    isExpired = end < new Date();
+  }
+  return { _isDone: !!done, _completedAt: c?.completedAt ?? 0, _isExpired: isExpired };
 }
 
 /**
@@ -89,7 +96,8 @@ function normalizeWithOrder(arrRaw = [], orderMapIn = {}, mode = 'respectMap') {
   const raw = (arrRaw || []).map((c, i) => ({ ...ensureItemId(c, i), ...asDoneFlags(c) }));
 
   const done = raw.filter(c => c._isDone || c.archived).map(c => ({ ...c, archived: true }));
-  const active = raw.filter(c => !(c._isDone || c.archived));
+  const expired = raw.filter(c => !c._isDone && !c.archived && c._isExpired);
+  const active = raw.filter(c => !(c._isDone || c.archived) && !c._isExpired);
 
   let mergedActive;
   if (mode === 'respectArray') {
@@ -134,7 +142,8 @@ function normalizeWithOrder(arrRaw = [], orderMapIn = {}, mode = 'respectMap') {
   });
 
   const doneSorted = done.sort((a, b) => (b._completedAt || 0) - (a._completedAt || 0));
-  const arranged = [...activeNormalized, ...doneSorted];
+  const expiredSorted = expired.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+  const arranged = [...activeNormalized, ...expiredSorted, ...doneSorted];
 
   if (mode === 'respectArray') {
     console.log('[ChallengeList][normalizeWithOrder]');
@@ -199,15 +208,16 @@ const CardBody = React.forwardRef(function CardBody({
   onLongPress,
 }, ref) {
   const isDone = !!item._isDone;
+  const isExpired = !!item._isExpired;
   const pct = Math.min(100, Math.max(0,
     item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
   ));
 
   const Content = (
-    <View style={[styles.cardContent, isDone && styles.dimmedContent]}>
+    <View style={[styles.cardContent, (isDone || isExpired) && styles.dimmedContent]}>
       <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
         <Text style={[styles.title, { flex:1, marginRight: 8 }]} numberOfLines={2}>
-          {item.title ?? '(제목 없음)'}
+          {item.title ?? '(제목 없음)'}{isExpired ? ' ⏰' : ''}
         </Text>
         <View style={styles.pctCircleWrap}>
           <Svg width={26} height={26}>
@@ -255,9 +265,11 @@ const CardBody = React.forwardRef(function CardBody({
           <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
             <Text style={styles.actionDarkText}>수정</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
-            <Text style={styles.actionDarkText}>복제</Text>
-          </TouchableOpacity>
+          {!isExpired && (
+            <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
+              <Text style={styles.actionDarkText}>복제</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDelete?.(item) : undefined} activeOpacity={0.9}>
             <Text style={styles.actionDarkText}>삭제</Text>
           </TouchableOpacity>
@@ -280,7 +292,7 @@ const CardBody = React.forwardRef(function CardBody({
     >
       {Content}
 
-      {!isDone ? (
+      {!isDone && !isExpired ? (
         <TouchableOpacity
           style={[styles.uploadNowBtn, showControls && styles.disabledBig]}
           disabled={!!showControls}
@@ -289,7 +301,7 @@ const CardBody = React.forwardRef(function CardBody({
         >
           <Text style={styles.uploadNowText}>인증하기</Text>
         </TouchableOpacity>
-      ) : (
+      ) : isDone ? (
         <TouchableOpacity
           style={[styles.outlineBigBtn, showControls && styles.disabledBig]}
           disabled={!!showControls}
@@ -298,7 +310,7 @@ const CardBody = React.forwardRef(function CardBody({
         >
           <Text style={styles.outlineBigText}>보상 받기</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
     </TouchableOpacity>
   );
 });
@@ -464,7 +476,7 @@ export default function ChallengeListScreen() {
   const navigationRef = useRef(navigation);
 
   const onDelete = useCallback(async (item) => {
-    Alert.alert('삭제 확인', `'${item.title}' 도전을 삭제할까요?`, [
+    Alert.alert('삭제 확인', `'${item.title}' 도전을 삭제할까요?\n설정 > 휴지통에서 30일간 보관됩니다.`, [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제', style: 'destructive', onPress: async () => {
@@ -478,7 +490,7 @@ export default function ChallengeListScreen() {
 
           setData(nextArr);
           try { await persistChallenges(nextArr, 'delete'); } catch {}
-          try { await AsyncStorage.removeItem(`entries_${item.id}`); } catch {}
+          try { await moveToTrash(item); } catch {}
           await finalizeReorder();
         },
       },
@@ -509,7 +521,10 @@ export default function ChallengeListScreen() {
 
     setData(nextArr);
     // 복제된 도전의 인증 목록을 빈 배열로 먼저 초기화 (전수스캔 폴백 방지)
-    try { await AsyncStorage.setItem(`entries_${copy.id}`, JSON.stringify([])); } catch {}
+    try {
+            await AsyncStorage.removeItem(`entries_${copy.id}`);
+            await AsyncStorage.setItem(`entries_${copy.id}`, JSON.stringify([]));
+          } catch {}
     try { await persistChallenges(nextArr, 'duplicate'); } catch {}
     // finalizeReorder 대신 상태만 초기화 (이중 저장 방지)
     setSelectedId(null);
@@ -633,6 +648,7 @@ export default function ChallengeListScreen() {
       Alert.alert('안내', '완료된 도전은 순서를 변경할 수 없어요.');
       return;
     }
+    // 만료 도전은 수정/삭제만 가능 (복제 버튼은 플로팅 카드에서 숨김)
     const id = item.id;
     const ref = itemRefs.current[safeStringId(id)];
     if (ref && ref.measureInWindow) {
@@ -766,7 +782,7 @@ export default function ChallengeListScreen() {
               if (it?.__move === 'down') { moveSelected('down'); return; }
             }}
             onPressEdit={(it) => { finalizeReorder(); navigationRef.current.navigate('EditChallenge', { challenge: it }); }}
-            onPressDuplicate={(it) => { onDuplicate(it); finalizeReorder(); }}
+            onPressDuplicate={selected?._isExpired ? undefined : (it) => { onDuplicate(it); finalizeReorder(); }}
             onPressDelete={(it) => { onDelete(it); }}
             onPressClaim={() => {}}
             onLongPress={undefined}

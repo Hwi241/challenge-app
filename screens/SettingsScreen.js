@@ -236,6 +236,18 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* 휴지통 */}
+      <View style={[styles.card, { marginTop: spacing.lg }]}>
+        <Text style={[styles.label, { marginBottom: spacing.sm }]}>휴지통</Text>
+        <TouchableOpacity
+          style={buttonStyles.outlineSoft.container}
+          onPress={() => navigation.navigate('Trash')}
+          activeOpacity={0.9}
+        >
+          <Text style={buttonStyles.outlineSoft.label}>삭제된 도전 보기</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* 버전 정보 */}
       <View style={[styles.card, { marginTop: spacing.lg }]}>
         <Text style={[styles.label, { marginBottom: spacing.sm }]}>버전 정보</Text>

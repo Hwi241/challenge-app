@@ -1148,7 +1148,8 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
   }, [entries, startDate, endDate]);
 
-  const totalCols = weekStarts.length || 1;
+  const minCols = Math.ceil(containerWidth / (cellSize + CELL_GAP));
+  const totalCols = Math.max(weekStarts.length || 1, minCols);
   const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
   const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
@@ -1632,7 +1633,8 @@ export default function EntryListScreen({ route, navigation }) {
           // ✅ 최후 수단: 전수 스캔 (키가 없거나 빈 배열이면 실행)
     const primaryKey = `entries_${chCID}`;
     const primaryRaw = await AsyncStorage.getItem(primaryKey);
-    const primaryIsEmpty = primaryRaw === null || (()=>{ try { const p=JSON.parse(primaryRaw); return Array.isArray(p) && p.length === 0; } catch { return false; }})();
+    // 키 자체가 없을 때만 폴백 스캔 (빈 배열로 초기화된 경우는 스캔 안 함)
+    const primaryIsEmpty = primaryRaw === null;
     if (normalized.length === 0 && primaryIsEmpty) {
       const fallback = await scanAllStorageForEntries({ rawCID, numCID, chCID });
         if (fallback && Array.isArray(fallback) && fallback.length) {

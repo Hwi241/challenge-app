@@ -1,0 +1,846 @@
+  --non-interactive is not supported, use $CI=1 instead
+Starting project at /home/hwi/challenge-app
+Starting Metro Bundler
+Tunnel connected.
+Tunnel ready.
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android ./index.js ▓▓▓░░░░░░░░░░░░░ 21.4% (143/309)
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android ./index.js ▓▓▓▓▓▓░░░░░░░░░░ 38.3% (386/668)
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 63.5% (740/929)
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.8% (1124/1218)
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 87.8% (1338/1428)
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 20979ms index.js (1656 modules)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1656/1656)
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 18184ms index.js (1 module)
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ WARN  setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture.
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777367024482"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777367024482"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777367024482": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777367024482"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777367024482"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777367024482": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 310.0952453613281 height: 222.85714721679688 insets.top: 0
+ LOG  [ChallengeList][enterReorder] id= ch_1777367024482
+ LOG  [ChallengeList][onDuplicate] nextArrIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376157571", "ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 0}
+ LOG  [ChallengeList][persistChallenges:duplicate] saved arrangedIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 310.0952453613281 height: 222.85714721679688 insets.top: 0
+ LOG  [ChallengeList][enterReorder] id= ch_1777376157571
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376157571", "ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376157571", "ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeStore] upserted: ch_1777376157571
+ LOG  [ChallengeStore] cancel schedules start: ch_1777376157571
+ LOG  [ChallengeStore] cancel schedules done: ch_1777376157571
+ LOG  [ChallengeStore] register schedules start: ch_1777376157571
+ LOG  [ChallengeStore] register schedules done: ch_1777376157571
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777376157571", "ch_1777367024482"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376157571", "ch_1777367024482"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376157571", "ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777376157571", "ch_1777367024482"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376157571", "ch_1777367024482"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376157571", "A:ch_1777367024482"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 310.0952453613281 height: 222.85714721679688 insets.top: 0
+ LOG  [ChallengeList][enterReorder] id= ch_1777376157571
+ LOG  [ChallengeList][onDelete] nextArrIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 1, "ch_1777376157571": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][persistChallenges:delete] saved arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 0}
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777367024482"]
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777367024482": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777367024482": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777367024482"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777367024482"]
+ LOG    newOrderMap    : {"ch_1777367024482": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777367024482"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777367024482"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777367024482": 0}
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 540ms index.js (1 module)
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ WARN  setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture.
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376554840": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777376554840"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777376554840"]
+ LOG    newOrderMap    : {"ch_1777376554840": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376554840"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376554840"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376554840": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 312.3809509277344 height: 222.85714721679688 insets.top: 32.380950927734375
+ LOG  [ChallengeList][enterReorder] id= ch_1777376554840
+ LOG  [ChallengeList][onDelete] nextArrIds= []
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376554840": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : []
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:delete] saved arrangedIds= []
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= []
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : []
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= []
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeList][blur] snapshotIds= []
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : []
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= []
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeStore] upserted: ch_1777376607796
+ LOG  [ChallengeStore] cancel schedules start: ch_1777376607796
+ LOG  [ChallengeStore] cancel schedules done: ch_1777376607796
+ LOG  [ChallengeStore] register schedules start: ch_1777376607796
+ LOG  [ChallengeStore] register schedules done: ch_1777376607796
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : []
+ LOG    mode=respectMap activeUnknownIds: ["ch_1777376607796"]
+ LOG    arrangedIds    : ["A:ch_1777376607796"]
+ LOG    newOrderMap    : {"ch_1777376607796": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376607796", "ch_1777376607796"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376607796"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376607796": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777376607796"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376607796": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376607796"]
+ LOG    arrangedIds    : ["A:ch_1777376607796"]
+ LOG    newOrderMap    : {"ch_1777376607796": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777376607796"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376607796": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376607796": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777376607796"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777376607796"]
+ LOG    newOrderMap    : {"ch_1777376607796": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376607796"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376607796"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376607796": 0}
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 1124ms index.js (1 module)
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ WARN  setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture.
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376706119": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777376706119"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777376706119"]
+ LOG    newOrderMap    : {"ch_1777376706119": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376706119"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376706119"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376706119": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 283.80950927734375 height: 222.85714721679688 insets.top: 0
+ LOG  [ChallengeList][enterReorder] id= ch_1777376706119
+ LOG  [ChallengeList][onDelete] nextArrIds= []
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376706119": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : []
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:delete] saved arrangedIds= []
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= []
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : []
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= []
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeList][blur] snapshotIds= []
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : []
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= []
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeStore] upserted: ch_1777376986869
+ LOG  [ChallengeStore] cancel schedules start: ch_1777376986869
+ LOG  [ChallengeStore] cancel schedules done: ch_1777376986869
+ LOG  [ChallengeStore] register schedules start: ch_1777376986869
+ LOG  [ChallengeStore] register schedules done: ch_1777376986869
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : []
+ LOG    mode=respectMap activeUnknownIds: ["ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376986869", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376986869": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777376986869"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376986869": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777376986869"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376986869": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: -174.09524536132812 width: 283.80950927734375 height: 222.85714721679688 insets.top: 0
+ LOG  [ChallengeList][enterReorder] id= ch_1777376986869
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 283.80950927734375 height: 222.85714721679688 insets.top: 0
+ LOG  [ChallengeList][enterReorder] id= ch_1777376986869
+ LOG  [ChallengeList][onDuplicate] nextArrIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242", "ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 0}
+ LOG  [ChallengeList][persistChallenges:duplicate] saved arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242", "ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242", "ch_1777376986869"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376986869": 1, "ch_1777377025242": 0}
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 1125ms index.js (1 module)
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ WARN  setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture.
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242", "ch_1777376986869"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242", "ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242", "ch_1777376986869"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242", "ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242", "ch_1777376986869"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 309.3333435058594 width: 312.3809509277344 height: 223.23806762695312 insets.top: 32.380950927734375
+ LOG  [ChallengeList][enterReorder] id= ch_1777376986869
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242", "ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242", "ch_1777376986869"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "A:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeStore] upserted: ch_1777376986869
+ LOG  [ChallengeStore] cancel schedules start: ch_1777376986869
+ LOG  [ChallengeStore] cancel schedules done: ch_1777376986869
+ LOG  [ChallengeStore] register schedules start: ch_1777376986869
+ LOG  [ChallengeStore] register schedules done: ch_1777376986869
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777376986869": 1, "ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242", "ch_1777376986869"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [ChallengeList][onClaimReward] nextArrIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:claim] saved arrangedIds= ["A:ch_1777377025242", "D:ch_1777376986869"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ LOG  [ChallengeList][HOF] upserted: ch_1777376986869
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 312.3809509277344 height: 222.85714721679688 insets.top: 32.380950927734375
+ LOG  [ChallengeList][enterReorder] id= ch_1777377025242
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ LOG  [ChallengeStore] upserted: ch_1777377025242
+ LOG  [ChallengeStore] cancel schedules start: ch_1777377025242
+ LOG  [ChallengeStore] cancel schedules done: ch_1777377025242
+ LOG  [ChallengeStore] register schedules start: ch_1777377025242
+ LOG  [ChallengeStore] register schedules done: ch_1777377025242
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 312.3809509277344 height: 222.85714721679688 insets.top: 32.380950927734375
+ LOG  [ChallengeList][enterReorder] id= ch_1777377025242
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ LOG  [ChallengeStore] upserted: ch_1777377025242
+ LOG  [ChallengeStore] cancel schedules start: ch_1777377025242
+ LOG  [ChallengeStore] cancel schedules done: ch_1777377025242
+ LOG  [ChallengeStore] register schedules start: ch_1777377025242
+ LOG  [ChallengeStore] register schedules done: ch_1777377025242
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+ LOG  [AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777377025242": 0}
+ WARN  Method deleteAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777377025242"]
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 0}
+Android ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 366ms index.js (1 module)
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ WARN  setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture.
+ WARN  Method writeAsStringAsync imported from "expo-file-system" is deprecated.
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777377025242": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : []
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : []
+ LOG    mode=respectMap activeUnknownIds: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {}
+ LOG  [Reorder] measureInWindow x: 16 y: 74.28570556640625 width: 312.3809509277344 height: 164.952392578125 insets.top: 32.380950927734375
+ LOG  [ChallengeList][enterReorder] id= ch_1777377025242
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: []
+ LOG    arrangedIds    : ["A:ch_1777377025242"]
+ LOG    newOrderMap    : {}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {}
+ LOG  [ChallengeStore] upserted: ch_1777378699893
+ LOG  [ChallengeStore] cancel schedules start: ch_1777378699893
+ LOG  [ChallengeStore] cancel schedules done: ch_1777378699893
+ LOG  [ChallengeStore] register schedules start: ch_1777378699893
+ LOG  [ChallengeStore] register schedules done: ch_1777378699893
+ LOG  [ChallengeList][readOrderMap] -> {}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : []
+ LOG    mode=respectMap activeUnknownIds: ["ch_1777378699893"]
+ LOG    arrangedIds    : ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777378699893": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777378699893", "ch_1777378699893", "ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777378699893": 0}
+ LOG  [Reorder] measureInWindow x: 16 y: 309.3333435058594 width: 312.3809509277344 height: 164.95236206054688 insets.top: 32.380950927734375
+ LOG  [ChallengeList][enterReorder] id= ch_1777377025242
+ LOG  [ChallengeList][finalizeReorder] snapshotIds= ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG  [ChallengeList][blur] snapshotIds= ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777378699893": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777378699893"]
+ LOG    arrangedIds    : ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777378699893": 0}
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777378699893": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectArray activeInArrOrder: ["ch_1777378699893"]
+ LOG    arrangedIds    : ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777378699893": 0}
+ LOG  [ChallengeList][persistChallenges:finalize] saved arrangedIds= ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777378699893": 0}
+ LOG  [ChallengeList][persistChallenges:blur] saved arrangedIds= ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG  [ChallengeList][persistChallenges] orderMap= {"ch_1777378699893": 0}
+ LOG  [ChallengeStore] upserted: ch_1777377025242
+ LOG  [ChallengeStore] cancel schedules start: ch_1777377025242
+ LOG  [ChallengeStore] cancel schedules done: ch_1777377025242
+ LOG  [ChallengeStore] register schedules start: ch_1777377025242
+ LOG  [ChallengeStore] register schedules done: ch_1777377025242
+ LOG  [ChallengeList][readOrderMap] -> {"ch_1777378699893": 0}
+ LOG  [ChallengeList][normalizeWithOrder]
+ LOG    mode=respectMap activeKnownIds : ["ch_1777378699893"]
+ LOG    mode=respectMap activeUnknownIds: ["ch_1777377025242"]
+ LOG    arrangedIds    : ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG    newOrderMap    : {"ch_1777377025242": 1, "ch_1777378699893": 0}
+ LOG  [ChallengeList][load] rawIds= ["ch_1777378699893", "ch_1777377025242"]
+ LOG  [ChallengeList][load] arrangedIds= ["A:ch_1777378699893", "A:ch_1777377025242"]
+ LOG  [ChallengeList][writeOrderMap] saved: {"ch_1777377025242": 1, "ch_1777378699893": 0}

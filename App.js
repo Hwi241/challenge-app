@@ -21,9 +21,11 @@ import MonthlyNotificationScreen from './screens/MonthlyNotificationScreen';
 import HallOfFameScreen from './screens/HallOfFameScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BackupScreen from './screens/BackupScreen';
+import TrashScreen from './screens/TrashScreen';
 
 import { colors } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
+import { cleanExpiredTrash } from './utils/trash';
 import { initializeNotificationsAsync } from './utils/notificationScheduler';
 
 const Stack = createNativeStackNavigator();
@@ -107,6 +109,11 @@ export default function App() {
     initializeNotificationsAsync();
   }, []);
 
+  // 휴지통 만료 항목 자동 정리 (30일 경과)
+  useEffect(() => {
+    cleanExpiredTrash(30);
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar translucent={false} backgroundColor={colors.background} barStyle="dark-content" />
@@ -143,6 +150,7 @@ export default function App() {
             {/* 설정/백업 */}
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Backup" component={BackupScreen} />
+            <Stack.Screen name="Trash" component={TrashScreen} />
 
             {/* 전체 일정 알림 */}
             <Stack.Screen

@@ -416,6 +416,7 @@ useFocusEffect(
       const arr = raw ? JSON.parse(raw) : [];
       await AsyncStorage.setItem('challenges', JSON.stringify([newChallenge, ...arr]));
       await AsyncStorage.setItem(`challenge_${id}`, JSON.stringify(newChallenge));
+      await AsyncStorage.removeItem(`entries_${id}`);
       await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
       await syncWidgetChallengeList();
 

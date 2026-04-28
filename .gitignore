@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Logs and temporary scripts
+*.log
+*.sh
+*.py
+!App.js
+
 # typescript
 *.tsbuildinfo
 

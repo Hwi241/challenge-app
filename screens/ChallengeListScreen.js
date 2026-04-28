@@ -214,10 +214,10 @@ const CardBody = React.forwardRef(function CardBody({
   ));
 
   const Content = (
-    <View style={[styles.cardContent, (isDone || isExpired) && styles.dimmedContent]}>
+    <View style={[styles.cardContent, isDone && styles.dimmedContent]}>
       <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
         <Text style={[styles.title, { flex:1, marginRight: 8 }]} numberOfLines={2}>
-          {item.title ?? '(제목 없음)'}{isExpired ? ' ⏰' : ''}
+          {item.title ?? '(제목 없음)'}
         </Text>
         <View style={styles.pctCircleWrap}>
           <Svg width={26} height={26}>
@@ -309,6 +309,14 @@ const CardBody = React.forwardRef(function CardBody({
           activeOpacity={1}
         >
           <Text style={styles.outlineBigText}>보상 받기</Text>
+        </TouchableOpacity>
+      ) : isExpired ? (
+        <TouchableOpacity
+          style={[styles.expiredBtn, showControls && styles.disabledBig]}
+          disabled
+          activeOpacity={1}
+        >
+          <Text style={styles.expiredBtnText}>기간 만료</Text>
         </TouchableOpacity>
       ) : null}
     </TouchableOpacity>
@@ -696,6 +704,10 @@ export default function ChallengeListScreen() {
           onLongPress={() => enterReorder(item)}
           onPressCard={(it) => {
             if (reorderActive) return;
+            if (it?._isExpired) {
+              Alert.alert("기간 만료", "이 도전의 기간이 만료되었습니다.\n카드를 꾹 눌러 수정 또는 삭제해주세요.");
+              return;
+            }
             if (it?._upload) { navigationRef.current.navigate('Upload', { challengeId: it.id }); return; }
             goEntryList(it);
           }}
@@ -874,6 +886,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: spacing.sm,
   },
   outlineBigText: { color: '#000', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  expiredBtn: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1, borderColor: '#D1D5DB',
+    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: spacing.sm,
+  },
+  expiredBtnText: { color: '#9CA3AF', fontSize: 16, fontWeight: '800', textAlign: 'center' },
 
   /* 빈 상태 */
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },

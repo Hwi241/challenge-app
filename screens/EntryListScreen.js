@@ -5,7 +5,7 @@ const KILL_UI_AND_SHOW_RAW = false; // 필요 시 true로 전환(데이터 디�
 import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform, PanResponder, Animated } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform, PanResponder, Animated, useWindowDimensions } from 'react-native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -181,7 +181,7 @@ const Donut = memo(function Donut({ targetPercent = 0, progress = 1, size = 110,
   const circumference = 2 * Math.PI * radius;
   const clampedTarget = Math.max(0, Math.min(100, targetPercent));
   const k = Math.max(0, Math.min(1, progress));
-  const display = Math.round(clampedTarget * k);
+  const display = isNaN(clampedTarget) ? 0 : Math.round(clampedTarget * k);
   const dash = (display / 100) * circumference;
   const innerRadius = Math.max(2, radius - stroke * 1.25);
 
@@ -535,8 +535,8 @@ const LineGradientChart = memo(function LineGradientChart({
     return result;
   }, [baseSeries, metric]);
 
-  const start = useMemo(()=>startDate? new Date(new Date(startDate).setHours(0,0,0,0))
-                                     : (series[0]?.d || today), [startDate, series, today]);
+  const start = useMemo(()=>startDate? new Date(new Date(startDate).setHours(0,0,0,0)) : (series[0]?.d || today), [startDate, series, today]);
+  const end = useMemo(()=> new Date(new Date().setHours(0,0,0,0)), []);
 
   const nodePts = useMemo(()=>{
     const n = series.length;
@@ -544,19 +544,30 @@ const LineGradientChart = memo(function LineGradientChart({
     const BOTTOM_PADDING_RATIO = 0.15;
     const usableCh = ch * (1 - BOTTOM_PADDING_RATIO);
 
+    // 기간 계산
+    const firstDate = start;
+    const lastDate = end > today ? end : today;
+    const totalDays = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
+
     if (n===1) {
+      const dayDiff = (series[0].d - firstDate) / (1000 * 60 * 60 * 24);
+      const xRatio = totalDays > 1 ? dayDiff / totalDays : 0; // 단일점이면 왼쪽에 가깝게
+      const x = left + xRatio * cw;
+
       const vmax = Math.max(1, series[0].v);
       const y = top + (1 - (series[0].v / vmax)) * usableCh * introProgress;
-      const x = left; // 단일점은 왼쪽 끝
       return [{x, y, v: series[0].v, d: series[0].d}];
     }
+
     const vmax = Math.max(1, ...series.map(p=>p.v));
-    return series.map((p, i)=>{
-      const x = left + (i/(n-1))*cw;
+    return series.map((p)=>{
+      const dayDiff = (p.d - firstDate) / (1000 * 60 * 60 * 24);
+      const xRatio = totalDays > 1 ? dayDiff / totalDays : 0;
+      const x = left + xRatio * cw;
       const y = top + (1 - (p.v/vmax)) * usableCh * introProgress;
       return { x, y, v: p.v, d: p.d };
     });
-  }, [series, left, cw, top, ch, introProgress]);
+  }, [series, start, end, today, left, cw, top, ch, introProgress]);
 
   const yScale = useCallback((v, vmax)=> {
     const BOTTOM_PADDING_RATIO = 0.15;
@@ -612,7 +623,7 @@ const LineGradientChart = memo(function LineGradientChart({
   useEffect(()=>{ setSelectedIdx(null); }, [entries, metric]);
 
   const labelDims = (txt='')=>{
-    const w = Math.max(84, Math.min(140, 12 + txt.length * 6));
+    const w = Math.max(70, Math.min(130, 10 + txt.length * 5.5));
     return { w, h:18 };
   };
 
@@ -627,7 +638,7 @@ const LineGradientChart = memo(function LineGradientChart({
     else if (below <= baselineY-16) ly = below;
     else                            ly = Math.min(Math.max(above, top+4), baselineY - h - 4);
 
-    const lx = Math.min(Math.max(p.x - w/2, left + 2), left + cw - w - 2);
+    const lx = Math.min(Math.max(p.x - w/2, left + 4), left + cw - w - 4);
     return { lx, ly, w, h };
   };
 
@@ -715,10 +726,10 @@ const LineGradientChart = memo(function LineGradientChart({
         <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={progressGrey} strokeWidth={1} />
 
         {/* 좌/우 라벨 */}
-        <SvgText x={left+2} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="start">
+        <SvgText x={left+4} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="start">
           {`${String(new Date(start).getFullYear()).slice(2)}-${pad2(new Date(start).getMonth()+1)}-${pad2(new Date(start).getDate())}`}
         </SvgText>
-        <SvgText x={left+cw-2} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="end">
+        <SvgText x={left+cw-4} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="end">
           {`Today ${String((new Date()).getFullYear()).slice(2)}-${pad2((new Date()).getMonth()+1)}-${pad2((new Date()).getDate())}`}
         </SvgText>
 
@@ -761,7 +772,8 @@ const LineGradientChart = memo(function LineGradientChart({
 });
 
 const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true, onPageChange }) {
-  const pageW = SCREEN_WIDTH - (EDGE + GRAPH_SIDE_PAD) * 2;
+  const { width } = useWindowDimensions();
+  const pageW = width - (EDGE) * 2;
   const scrollRef = useRef(null);
   const [page, setPage] = useState(0);
 
@@ -1432,7 +1444,8 @@ export default function EntryListScreen({ route, navigation }) {
   /* ── 인트로 애니메이션 ── */
   const [donutK, setDonutK] = useState(0);
  const [weekK, setWeekK] = useState(0);
- const [lineK, setLineK] = useState(1);
+ const [lineK, setLineK] = useState(0);
+ const [reloadNonce, setReloadNonce] = useState(0);
 
   const animateK = useCallback((setter, onDone) => {
     const ease = (t) => 1 - Math.pow(1 - t, 5);
@@ -1460,7 +1473,7 @@ export default function EntryListScreen({ route, navigation }) {
     animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
   }, [animateK]);
   const runWeek = useCallback(() => {
-    if (isWeekAnimatingRef.current) return;
+    if (isWeekAnimatingRef.current) return; animateK(setLineK);
     isWeekAnimatingRef.current = true;
     setWeekK(0);
     animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
@@ -1482,7 +1495,7 @@ export default function EntryListScreen({ route, navigation }) {
   /* ── 디버그/리로드 ── */
   const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
   const [reloadTick, setReloadTick] = useState(0);
-  const reload = useCallback(()=> setReloadTick(t=>t+1), []);
+  const reload = useCallback(()=> { setReloadTick(t=>t+1); setReloadNonce(n=>n+1); }, []);
 
   /* ── 안전 파서 & 정규화 ── */
   const normalizeEntries = useCallback((arr=[]) => {
@@ -1716,7 +1729,7 @@ export default function EntryListScreen({ route, navigation }) {
 
     runAllIntro();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFocused, challengeId, reloadTick, buildWeeks]);
+  }, [isFocused, challengeId, reloadTick, buildWeeks, reloadNonce]);
 
   useEffect(()=>()=>{
     aliveRef.current = false;
@@ -1724,7 +1737,7 @@ export default function EntryListScreen({ route, navigation }) {
   },[]);
 
   const overallPct = useMemo(
-    () => Math.min(Math.round((currentScore / targetScore) * 100), 100),
+    () => { if (!targetScore) return 0; const pct = Math.round((currentScore / targetScore) * 100); return isNaN(pct) ? 0 : Math.min(Math.max(0, pct), 100); },
     [currentScore, targetScore]
   );
 
@@ -1800,8 +1813,8 @@ export default function EntryListScreen({ route, navigation }) {
       <View style={[styles.row, { marginTop: 16 }]}>
         <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 24 }}>
-            <Donut targetPercent={overallPct} progress={donutK} />
+          <View style={{ marginTop: 12 }}>
+            <Donut targetPercent={overallPct} progress={donutK} size={80} stroke={10} />
           </View>
         </TouchableOpacity>
 
@@ -1847,9 +1860,9 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
       {/* 전체일정 라인 그래프 */}
-      <View style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]}>
+      <View style={[styles.sectionBox, { paddingHorizontal: 0, alignItems:'center' }]}>
         {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive onPageChange={runLine} />
+          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive onPageChange={runLine} introProgress={lineK} />
         ) : (
           <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
         )}
@@ -1877,8 +1890,8 @@ export default function EntryListScreen({ route, navigation }) {
       <View style={[styles.row, { marginTop: 16 }]}>
         <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 24 }}>
-            <Donut targetPercent={overallPct} progress={1} />
+          <View style={{ marginTop: 12 }}>
+            <Donut targetPercent={overallPct} progress={1} size={80} stroke={10} />
           </View>
         </TouchableOpacity>
 
@@ -2193,8 +2206,8 @@ postSummaryRow: {
 
   progressLabel: { marginTop: 10, color: textGrey },
   row: { flexDirection: 'row', marginTop: 16 },
-  donutArea: { width: SCREEN_WIDTH * 0.4 - 24, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 10 },
-  calendarArea: { flex: 1, paddingLeft: 8 },
+  donutArea: { width: 90, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 10 },
+  calendarArea: { flex: 1, paddingLeft: 12 },
 
   sectionBox: { marginTop: 10 },
   sectionLabel: { fontSize: 12, color: textGrey, marginBottom: 6 },

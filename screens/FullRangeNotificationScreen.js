@@ -1,10 +1,15 @@
-// screens/FullRangeNotificationScreen.js
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, Modal, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler, TextInput } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import BackButton from '../components/BackButton';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// screens/FullRangeNotificationScreen.js
+
+
+
+
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
 
 const pad2 = (n)=>String(n).padStart(2,'0');
@@ -30,6 +35,16 @@ export default function FullRangeNotificationScreen(){
   const end = parseDateStr(endStr);
 
   // 시작 > 종료 보호
+  
+  useEffect(() => {
+    const onBack = () => {
+      navigation.goBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [navigation]);
+
   useEffect(() => {
     if (start && end && start > end) {
       Alert.alert('확인', '시작일이 종료일보다 늦습니다. 날짜를 다시 선택해주세요.', [
@@ -494,9 +509,6 @@ const styles = StyleSheet.create({
   cell:{ flex:1, padding:6 },
   cellDivider:{ borderRightWidth:1, borderRightColor:'#E5E7EB' },
   dateText:{ fontSize:11, fontWeight:'800', color: colors.gray700, textAlign:'right' },
-
-
-
 
   
     // 시간 토큰 컨테이너 (간격 살짝 축소)

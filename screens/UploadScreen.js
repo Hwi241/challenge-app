@@ -1,4 +1,18 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const PALETTE = {
+  white: "#FFFFFF",
+  black: "#000000",
+  gray50: "#FAFAFA",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray600: "#525252",
+  gray700: "#374151",
+  gray800: "#111111"
+};
+
 // screens/UploadScreen.js
 // - 제목 중앙, "내용"+“사진 선택” 한 줄, "텍스트" 라벨 제거
 // - 인증내용 500자 제한(표시 X), 입력에 따라 자동 높이 확장
@@ -16,20 +30,45 @@ import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 
-const PALETTE = {
-  white: '#FFFFFF',
-  gray50: '#FAFAFA',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray400: '#9CA3AF',
-  gray600: '#525252',
-  gray800: '#111111',
-};
+/* 습관 연속 인증 레벨 계산 */
+function calcStreakLevel(entries) {
+  if (!entries || entries.length === 0) return 1; // 이번이 첫 인증이므로 1단계
 
-const MAX_TEXT_LEN = 500;
-const MAX_MINUTES = 1440;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  // 날짜별 인증 여부 Set (오늘 날짜 포함하여 계산)
+  const certSet = new Set(
+    entries.map(e => {
+      const d = new Date(e.timestamp);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    })
+  );
+  certSet.add(today.getTime()); // 방금 등록한 오늘 인증 추가
+
+  // 오늘부터 역방향으로 연속일 계산
+  let streak = 0;
+  const cur = new Date(today);
+  while (certSet.has(cur.getTime())) {
+    streak++;
+    cur.setDate(cur.getDate() - 1);
+  }
+
+  // 5단계 매핑 (0~4)
+  if (streak <= 1) return 1;
+  if (streak === 2) return 2;
+  if (streak >= 3) return 3; 
+  return 1;
+}
+
 
 export default function UploadScreen() {
+  const MAX_TEXT_LEN = 1000;
+const MAX_MINUTES = 1440; // 24시간
   const navigation = useNavigation();
   const route = useRoute();
   const { challengeId } = route.params || {};
@@ -211,7 +250,13 @@ export default function UploadScreen() {
       const idx = challenges.findIndex((c) => c.id === challengeId);
       let nextTitle, nextStart, nextEnd, nextGoal, nextReward;
       if (idx >= 0) {
-        challenges[idx] = { ...challenges[idx], currentScore: list.length };
+        const isHabit = challenges[idx]?.type === 'habit';
+        const streakLevel = isHabit ? calcStreakLevel(list) : undefined;
+        challenges[idx] = {
+          ...challenges[idx],
+          currentScore: list.length,
+          ...(isHabit && { lastStreakLevel: streakLevel }),
+        };
         await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
         await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
         nextTitle = challenges[idx]?.title;

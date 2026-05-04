@@ -1,8 +1,5 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
-// screens/WeeklyNotificationScreen.js
-
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, BackHandler } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
@@ -37,6 +34,15 @@ export default function WeeklyNotificationScreen(){
 
   // 개별 추가용 피커
   const [pickerDay,setPickerDay] = useState(null);
+  useEffect(() => {
+    const onBack = () => {
+      navigation.goBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [navigation]);
+
   const [pickerVisible,setPickerVisible] = useState(false);
 
   // 일괄 적용 모달

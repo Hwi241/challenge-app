@@ -1,12 +1,5 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
-// screens/SimpleNotificationScreen.js
-// - 요일 원형(중앙정렬), 폰트 작게
-// - '매일 반복' + '매주 반복' 버튼(동일 높이): 매주는 모달로 1~5번째주 또는 매주 선택, 라벨 동적 변경
-// - 시간 여러 개(최대 10개) 추가/삭제
-// - 저장 시 payload: { days, time(첫번째), times[], weeks: 'every' | number[] } 로 AddChallenge에 replace
-
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, BackHandler } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, colors, spacing, radius, card as cardStyles } from '../styles/common';
@@ -33,6 +26,16 @@ export default function SimpleNotificationScreen() {
   const [weeks, setWeeks] = useState('every'); // 'every' | number[]
 
   // 초기값 반영
+  
+  useEffect(() => {
+    const onBack = () => {
+      navigation.goBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [navigation]);
+
   useEffect(() => {
     if (!initial) return;
     try {

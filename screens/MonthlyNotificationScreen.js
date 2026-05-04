@@ -1,8 +1,5 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
-// screens/MonthlyNotificationScreen.js
-
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, BackHandler } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
@@ -61,6 +58,15 @@ export default function MonthlyNotificationScreen() {
   const returnTo = route.params?.returnTo || 'AddChallenge';
 
   const [map, setMap] = useState(() => normalizeInitial(initial));
+  useEffect(() => {
+    const onBack = () => {
+      navigation.goBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [navigation]);
+
   const [pickerDay, setPickerDay] = useState(null);
   const [pickerVisible, setPickerVisible] = useState(false);
 
@@ -378,8 +384,6 @@ const onChangeScope = useCallback((scope)=>{
     </View>
   ))}
 </View>
-
-
 
             {/* 선택된 시간 리스트 + 추가 */}
             <View style={styles.bulkTimesBox}>

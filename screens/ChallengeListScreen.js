@@ -1,5 +1,5 @@
 // screens/ChallengeListScreen.js
-import React, { useEffect, useState, useCallback, memo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, UIManager, LayoutAnimation, Animated, Easing, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
@@ -85,6 +85,47 @@ function asDoneFlags(c) {
   }
   return { _isDone: !!done, _completedAt: c?.completedAt ?? 0, _isExpired: isExpired };
 }
+
+/* ---- 습관 카드 배터리 레벨 계산 ---- */
+function getHabitBatteryLevel(item) {
+  if (typeof item.lastStreakLevel === 'number') {
+    return Math.max(0, Math.min(4, item.lastStreakLevel));
+  }
+  const score = Number(item.currentScore || 0);
+  if (score === 0) return 0;
+  if (score === 1) return 1;
+  if (score === 2) return 2;
+  if (score >= 3) return 3;
+  return 0;
+}
+
+const BATTERY_COLORS = [
+  '#F3F4F6', // 0단계
+  '#E5E7EB', // 1단계
+  '#A0A0A0', // 2단계
+  '#111111', // 3단계
+  '#111111', // 4단계
+];
+
+const HabitBattery = ({ level = 0 }) => {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 2 }}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <View
+          key={i}
+          style={{
+            width: 5,
+            height: 20,
+            borderRadius: 2,
+            backgroundColor: i <= level && level > 0 ? BATTERY_COLORS[level] : '#F3F4F6',
+            borderWidth: 0.5,
+            borderColor: '#E5E7EB',
+          }}
+        />
+      ))}
+    </View>
+  );
+};
 
 /**
  * 정렬 규칙
@@ -219,26 +260,48 @@ const CardBody = React.forwardRef(function CardBody({
         <Text style={[styles.title, { flex:1, marginRight: 8 }]} numberOfLines={2}>
           {item.title ?? '(제목 없음)'}
         </Text>
-        <View style={styles.pctCircleWrap}>
-          <Svg width={26} height={26}>
-            <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
-            <Circle
-              cx={13} cy={13} r={9}
-              stroke="#111" strokeWidth={4.5} fill="none"
-              strokeDasharray={`${(pct/100)*(2*Math.PI*9)} ${2*Math.PI*9}`}
-              strokeLinecap="round"
-              rotation="-90" origin="13,13"
-            />
-          </Svg>
-          <Text style={styles.pctCircleLabel}>{pct}%</Text>
-        </View>
+        {item.type === 'habit' ? (
+          <HabitBattery level={getHabitBatteryLevel(item)} />
+        ) : (
+          <View style={styles.pctCircleWrap}>
+            <Svg width={26} height={26}>
+              <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
+              <Circle
+                cx={13} cy={13} r={9}
+                stroke="#111" strokeWidth={4.5} fill="none"
+                strokeDasharray={`${(pct/100)*(2*Math.PI*9)} ${2*Math.PI*9}`}
+                strokeLinecap="round"
+                rotation="-90" origin="13,13"
+              />
+            </Svg>
+            <Text style={styles.pctCircleLabel}>{pct}%</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.metaWrap}>
-        <Text style={styles.meta}>기간 {item.startDate ?? '-'} ~ {item.endDate ?? '-'}</Text>
-        <Text style={styles.meta}>진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
-        {!!(item.rewardTitle || item.reward) && (
-          <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
+        <Text style={styles.meta}>
+                기간 {item.startDate ?? '-'}{item.endDate ? ` ~ ${item.endDate}` : ''}
+              </Text>
+        {item.type === 'habit' ? (
+          <>
+            <Text style={styles.meta}>총 기록 {item.currentScore ?? 0}회</Text>
+            {item.habitCycle && (
+              <Text style={styles.meta}>
+                목표 {item.habitCycle.type === 'weekly'
+                  ? (item.habitCycle.days || []).join(', ')
+                  : '매월 ' + (item.habitCycle.dates || []).sort((a,b)=>a-b).join(', ') + '일'
+                }
+              </Text>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.meta}>진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
+            {!!(item.rewardTitle || item.reward) && (
+              <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
+            )}
+          </>
         )}
       </View>
 
@@ -292,7 +355,16 @@ const CardBody = React.forwardRef(function CardBody({
     >
       {Content}
 
-      {!isDone && !isExpired ? (
+      {item.type === 'habit' ? (
+        <TouchableOpacity
+          style={[styles.uploadNowBtn, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressCard?.({ ...item, _upload: true })}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.uploadNowText}>기록하기</Text>
+        </TouchableOpacity>
+      ) : !isDone && !isExpired ? (
         <TouchableOpacity
           style={[styles.uploadNowBtn, showControls && styles.disabledBig]}
           disabled={!!showControls}
@@ -356,6 +428,8 @@ export default function ChallengeListScreen() {
 
   /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
+  const [showSortModal, setShowSortModal] = useState(false);
+  const [sortMode, setSortMode] = useState('newest'); // newest|oldest|habitOnly|challengeOnly|habitFirst|challengeFirst
   const [selectedId, setSelectedId] = useState(null);
 
   /* 플로팅 복제 */
@@ -656,6 +730,8 @@ export default function ChallengeListScreen() {
       Alert.alert('안내', '완료된 도전은 순서를 변경할 수 없어요.');
       return;
     }
+    // 정렬/필터 모드 초기화 - displayData와 data 인덱스 불일치 방지
+    setSortMode('newest');
     // 만료 도전은 수정/삭제만 가능 (복제 버튼은 플로팅 카드에서 숨김)
     const id = item.id;
     const ref = itemRefs.current[safeStringId(id)];
@@ -688,6 +764,46 @@ export default function ChallengeListScreen() {
   const onOverlayPress = useCallback(() => { finalizeReorder(); }, [finalizeReorder]);
 
   /* 렌더 */
+    // sortMode에 따라 표시할 데이터 계산
+  const displayData = useMemo(() => {
+    let arr = [...data];
+
+    // 필터
+    if (sortMode === 'habitOnly') {
+      arr = arr.filter(c => c.type === 'habit');
+    } else if (sortMode === 'challengeOnly') {
+      arr = arr.filter(c => c.type !== 'habit');
+    }
+
+    // 그룹 정렬 (습관/도전 또는 도전/습관)
+    if (sortMode === 'habitFirst') {
+      const habits = arr.filter(c => c.type === 'habit');
+      const challenges = arr.filter(c => c.type !== 'habit');
+      return [...habits, ...challenges];
+    }
+    if (sortMode === 'challengeFirst') {
+      const habits = arr.filter(c => c.type === 'habit');
+      const challenges = arr.filter(c => c.type !== 'habit');
+      return [...challenges, ...habits];
+    }
+
+    // 시간순 정렬 (완료 카드는 항상 맨 뒤 유지)
+    if (sortMode === 'newest' || sortMode === 'oldest') {
+      const active = arr.filter(c => !c._isDone && !c.archived && !c._isExpired);
+      const expired = arr.filter(c => !c._isDone && !c.archived && c._isExpired);
+      const done = arr.filter(c => c._isDone || c.archived);
+
+      if (sortMode === 'newest') {
+        active.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      } else {
+        active.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      }
+      return [...active, ...expired, ...done];
+    }
+
+    return arr;
+  }, [data, sortMode]);
+
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
   const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
 
@@ -748,9 +864,29 @@ export default function ChallengeListScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* 정렬 버튼 행 */}
+      <TouchableOpacity
+        style={styles.sortBarBtn}
+        onPress={() => setShowSortModal(true)}
+        activeOpacity={0.8}
+        disabled={reorderActive}
+      >
+        <Text style={styles.sortBarText}>
+          정렬: {{
+            newest: '최신순',
+            oldest: '오래된순',
+            habitOnly: '습관만 보기',
+            challengeOnly: '도전만 보기',
+            habitFirst: '습관/도전',
+            challengeFirst: '도전/습관',
+          }[sortMode]}
+        </Text>
+        <Text style={styles.sortBarArrow}>▾</Text>
+      </TouchableOpacity>
+
       {/* 리스트 */}
       <FlatList
-        data={data}
+        data={displayData}
         keyExtractor={keyExtractor}
         renderItem={renderRow}
         scrollEnabled={!reorderActive}
@@ -802,12 +938,53 @@ export default function ChallengeListScreen() {
         </Animated.View>
         </Modal>
       )}
+      {/* 정렬 모달 */}
+      <Modal visible={showSortModal} transparent animationType="fade" onRequestClose={() => setShowSortModal(false)}>
+        <TouchableWithoutFeedback onPress={() => setShowSortModal(false)}>
+          <View style={styles.sortModalBackdrop} />
+        </TouchableWithoutFeedback>
+        <View style={styles.sortModalCard}>
+          <Text style={styles.sortModalTitle}>정렬 / 필터</Text>
+          {[
+            { key: 'newest', label: '최신순' },
+            { key: 'oldest', label: '오래된순' },
+            { key: 'habitOnly', label: '습관만 보기' },
+            { key: 'challengeOnly', label: '도전만 보기' },
+            { key: 'habitFirst', label: '습관/도전' },
+            { key: 'challengeFirst', label: '도전/습관' },
+          ].map(opt => (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.sortOption, sortMode === opt.key && styles.sortOptionOn]}
+              onPress={() => { setSortMode(opt.key); setShowSortModal(false); }}
+              activeOpacity={0.9}
+            >
+              <Text style={[styles.sortOptionText, sortMode === opt.key && styles.sortOptionTextOn]}>
+                {opt.label}
+              </Text>
+              {sortMode === opt.key && <Text style={styles.sortOptionCheck}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
 
 /* ---------- 스타일 ---------- */
 const styles = StyleSheet.create({
+  sortBarBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 6, marginBottom: 4 },
+  sortBarText: { fontSize: 12, color: colors.gray600, fontWeight: '700' },
+  sortBarArrow: { fontSize: 10, color: colors.gray400, marginLeft: 4 },
+  sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
+  sortModalCard: { position: 'absolute', top: 100, left: spacing.lg, right: spacing.lg, backgroundColor: colors.surface, borderRadius: 14, padding: spacing.lg, borderWidth: 1, borderColor: '#E5E7EB', elevation: 8 },
+  sortModalTitle: { fontSize: 15, fontWeight: '800', color: colors.gray800, marginBottom: spacing.md, textAlign: 'center' },
+  sortOption: { paddingVertical: 12, paddingHorizontal: spacing.md, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sortOptionOn: { backgroundColor: colors.gray100 },
+  sortOptionText: { fontSize: 14, color: colors.gray800, fontWeight: '600' },
+  sortOptionTextOn: { fontWeight: '800', color: colors.gray800 },
+  sortOptionCheck: { fontSize: 14, color: colors.gray800, fontWeight: '900' },
   container: { flex: 1, backgroundColor: colors.background },
 
   header: {

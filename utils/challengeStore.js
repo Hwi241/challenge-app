@@ -41,9 +41,14 @@ export function normalizeChallenge(raw) {
 
 // ---------- 2) 공용 로드/저장 ----------
 export async function loadChallenges() {
-  const raw = await AsyncStorage.getItem('challenges');
-  const arr = raw ? JSON.parse(raw) : [];
-  return Array.isArray(arr) ? arr.map(normalizeChallenge).filter(Boolean) : [];
+  try {
+    const raw = await AsyncStorage.getItem('challenges');
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.map(normalizeChallenge).filter(Boolean) : [];
+  } catch (e) {
+    console.warn('[ChallengeStore] loadChallenges failed:', e);
+    return [];
+  }
 }
 
 export async function saveChallenges(list) {
@@ -51,8 +56,13 @@ export async function saveChallenges(list) {
 }
 
 export async function loadChallengeById(id) {
-  const raw = await AsyncStorage.getItem(`challenge_${id}`);
-  return raw ? normalizeChallenge(JSON.parse(raw)) : null;
+  try {
+    const raw = await AsyncStorage.getItem(`challenge_${id}`);
+    return raw ? normalizeChallenge(JSON.parse(raw)) : null;
+  } catch (e) {
+    console.warn(`[ChallengeStore] loadChallengeById failed for id=${id}:`, e);
+    return null;
+  }
 }
 
 export async function saveSingle(ch) {

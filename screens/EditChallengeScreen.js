@@ -1,4 +1,18 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const PALETTE = {
+  white: "#FFFFFF",
+  black: "#000000",
+  gray50: "#FAFAFA",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray600: "#525252",
+  gray700: "#374151",
+  gray800: "#111111"
+};
+
 // screens/EditChallengeScreen.js
 // - UI 변경 없음(레이아웃/텍스트 그대로)
 // - 제목 50자, 보상 50자, 내용 500자: 입력 단계에서 잘라냄 + 저장 시 재검증
@@ -15,19 +29,6 @@ import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import BackButton from '../components/BackButton';
-
-const PALETTE = {
-  white: '#FFFFFF',
-  black: '#000000',
-  gray50: '#FAFAFA',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray600: '#525252',
-  gray700: '#374151',
-  gray800: '#111111',
-};
 
 const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
@@ -232,6 +233,14 @@ export default function EditChallengeScreen(){
   const baseChallenge = route.params?.challenge || route.params?.backParams?.challenge || null;
 
   const [loading,setLoading] = useState(true);
+  const [isHabit, setIsHabit] = useState(false);
+  const [habitCycle, setHabitCycle] = useState(null);
+  const [showCycleModal, setShowCycleModal] = useState(false);
+  const [cycleTab, setCycleTab] = useState('weekly');
+  const [cycleDays, setCycleDays] = useState(new Set());
+  const [cycleDates, setCycleDates] = useState(new Set());
+  const [cycleWeekScope, setCycleWeekScope] = useState('custom');
+  const [cycleMonthScope, setCycleMonthScope] = useState('custom');
   const originalRef = useRef(null);
   const savedRef = useRef(false);
 
@@ -276,7 +285,18 @@ export default function EditChallengeScreen(){
         const raw = await AsyncStorage.getItem(`challenge_${baseChallenge.id}`);
         const latest = raw ? JSON.parse(raw) : baseChallenge;
 
-        setTitle(String(latest?.title ?? '').slice(0, LIMITS.title));
+        setIsHabit(latest?.type === 'habit');
+      if (latest?.habitCycle) {
+        setHabitCycle(latest.habitCycle);
+        if (latest.habitCycle.type === 'weekly') {
+          setCycleTab('weekly');
+          setCycleDays(new Set(latest.habitCycle.days || []));
+        } else {
+          setCycleTab('monthly');
+          setCycleDates(new Set(latest.habitCycle.dates || []));
+        }
+      }
+      setTitle(String(latest?.title ?? '').slice(0, LIMITS.title));
         setGoalScore(
           typeof latest?.goalScore === 'number' && latest.goalScore>0 ? String(latest.goalScore) : ''
         );
@@ -383,7 +403,7 @@ export default function EditChallengeScreen(){
     const desc = (description || '').trim();
 
     // 길이 최종 검증(입력 단계에서 잘라도, 혹시 모를 상황 대비)
-    if (!t) { Alert.alert('확인','도전 제목을 입력해주세요.'); return; }
+    if (!t) { Alert.alert('확인', `${isHabit ? '습관' : '도전'} 제목을 입력해주세요.`); return; }
     if (t.length > LIMITS.title) { Alert.alert('확인', `제목은 ${LIMITS.title}자 이내로 입력해주세요.`); return; }
     if (r.length > LIMITS.reward) { Alert.alert('확인', `보상은 ${LIMITS.reward}자 이내로 입력해주세요.`); return; }
     if (desc.length > LIMITS.description) { Alert.alert('확인', `도전 내용은 ${LIMITS.description}자 이내로 입력해주세요.`); return; }
@@ -409,7 +429,9 @@ export default function EditChallengeScreen(){
     }
 
     const updated = {
-      id: baseChallenge.id,
+        id: baseChallenge.id,
+        type: isHabit ? 'habit' : (baseChallenge.type || 'challenge'),
+        habitCycle: isHabit ? habitCycle : undefined,
       title: t,
       goalScore: (goalScore==='' ? Number(baseChallenge.goalScore||0) : effectiveGoal),
       currentScore: Number(baseChallenge.currentScore||0),
@@ -425,18 +447,6 @@ export default function EditChallengeScreen(){
 
     try{
       await saveAndSchedule(updated, { replaceSchedules:true });
-
-      // 리스트/개별 캐시 업데이트
-      try{
-        const raw = await AsyncStorage.getItem('challenges');
-        const arr = raw ? JSON.parse(raw) : [];
-        const next = Array.isArray(arr)
-          ? arr.map(c => (String(c.id)===String(updated.id) ? { ...c, ...updated } : c))
-          : [updated];
-        await AsyncStorage.setItem('challenges', JSON.stringify(next));
-        await AsyncStorage.setItem(`challenge_${updated.id}`, JSON.stringify(updated));
-      }catch{}
-
       savedRef.current = true;
       Alert.alert('저장 완료','도전이 수정되었습니다.',[
         { text:'확인', onPress:()=>navigation.goBack() }
@@ -457,7 +467,7 @@ export default function EditChallengeScreen(){
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton title="도전 수정" />
+      <BackButton title={isHabit ? "습관 수정" : "도전 수정"} />
       <ScrollView contentContainerStyle={styles.container}>
       
 
@@ -474,15 +484,15 @@ export default function EditChallengeScreen(){
           placeholderTextColor={PALETTE.gray400}
         />
 
-        <Text style={[styles.label, { marginTop: spacing.md }]}>목표 점수</Text>
-        <TextInput
+        {!isHabit && <Text style={[styles.label, { marginTop: spacing.md }]}>목표 점수</Text>}
+        {!isHabit && <TextInput
           value={goalScore}
           onChangeText={handleGoalChange} // ← 숫자만 + 최대 1000
           placeholder="숫자만 입력(비우면 기존값 유지)"
           style={styles.input}
           placeholderTextColor={PALETTE.gray400}
           {...numericInputProps}
-        />
+        />}
 
         {/* 도전 내용 */}
         <Text style={[styles.label, { marginTop: spacing.md }]}>도전 내용</Text>
@@ -525,8 +535,9 @@ export default function EditChallengeScreen(){
         </View>
       </View>
 
-      {/* 보상 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
+      {/* 보상 - 도전 전용 */}
+      {!isHabit && (
+        <View style={[styles.card, { marginTop: spacing.lg }]}>
         <Text style={styles.cardTitle}>보상</Text>
         <Text style={styles.label}>보상 내용</Text>
         <TextInput
@@ -536,7 +547,56 @@ export default function EditChallengeScreen(){
           style={styles.input}
           placeholderTextColor={PALETTE.gray400}
         />
-      </View>
+              </View>
+      )}
+
+      {/* 목표 주기 - 습관 전용 */}
+      {isHabit && (
+        <View style={[styles.card, { marginTop: spacing.lg }]}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.cardTitle}>목표 주기</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}>
+              {habitCycle && (
+                <TouchableOpacity
+                  style={styles.notifDeleteCircle}
+                  onPress={() => { setHabitCycle(null); setCycleDays(new Set()); setCycleDates(new Set()); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.notifDeleteX}>×</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[buttonStyles.compactRight]}
+                onPress={() => setShowCycleModal(true)}
+                activeOpacity={0.9}
+              >
+                <Text style={buttonStyles.compactRightText}>주기 선택</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.previewBox}>
+            {!habitCycle ? (
+              <Text style={{ fontSize: 12, color: PALETTE.gray400, textAlign: 'center' }}>주기 미설정</Text>
+            ) : habitCycle.type === 'weekly' ? (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                {['월','화','수','목','금','토','일'].map(d => {
+                  const on = (habitCycle.days || []).includes(d);
+                  return (
+                    <View key={d} style={[styles.cycleDayCircle, on && styles.cycleDayCircleOn, { width: 28, height: 28 }]}>
+                      <Text style={[styles.cycleDayText, on && styles.cycleDayTextOn, { fontSize: 11 }]}>{d}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={{ fontSize: 12, color: PALETTE.gray800 }}>
+                매월 {(habitCycle.dates || []).sort((a,b)=>a-b).join(', ')}일
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* 알림 */}
       <View style={[styles.card, { marginTop: spacing.lg }]}>
@@ -568,6 +628,108 @@ export default function EditChallengeScreen(){
           {previewNodeByNotification(notification, startDate, endDate)}
         </View>
       </View>
+
+      {/* 목표 주기 모달 - 습관 전용 */}
+      <Modal visible={showCycleModal} transparent animationType="fade" onRequestClose={() => setShowCycleModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>목표 주기 설정</Text>
+            
+            <View style={styles.cycleTabRow}>
+              {['weekly', 'monthly'].map(t => (
+                <TouchableOpacity key={t} style={[styles.cycleTabBtn, cycleTab === t && styles.cycleTabBtnOn]} onPress={() => setCycleTab(t)}>
+                  <Text style={[styles.cycleTabText, cycleTab === t && styles.cycleTabTextOn]}>{t === 'weekly' ? '주간' : '월간'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+              {cycleTab === 'weekly' ? (
+                ['all', 'weekday', 'weekend', 'custom'].map(s => (
+                  <TouchableOpacity key={s} onPress={() => {
+                    setCycleWeekScope(s);
+                    if (s === 'all') setCycleDays(new Set(['월','화','수','목','금','토','일']));
+                    else if (s === 'weekday') setCycleDays(new Set(['월','화','수','목','금']));
+                    else if (s === 'weekend') setCycleDays(new Set(['토','일']));
+                    else if (s === 'custom') setCycleDays(new Set());
+                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleWeekScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleWeekScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                      {{ all: '매일', weekday: '평일', weekend: '주말', custom: '직접' }[s]}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                ['all', 'even', 'odd', 'custom'].map(s => (
+                  <TouchableOpacity key={s} onPress={() => {
+                    setCycleMonthScope(s);
+                    if (s === 'all') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1)));
+                    else if (s === 'even') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2===0)));
+                    else if (s === 'odd') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2!==0)));
+                    else if (s === 'custom') setCycleDates(new Set());
+                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleMonthScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleMonthScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                      {{ all: '매일', even: '짝수', odd: '홀수', custom: '직접' }[s]}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+
+            {cycleTab === 'weekly' ? (
+              <View style={[styles.cycleDaysRow, { marginBottom: 20 }]}>
+                {['월','화','수','목','금','토','일'].map(d => (
+                  <TouchableOpacity key={d} onPress={() => {
+                    const next = new Set(cycleDays);
+                    if (next.has(d)) next.delete(d); else next.add(d);
+                    setCycleDays(next);
+                    setCycleWeekScope('custom');
+                  }} style={[styles.cycleDayCircle, cycleDays.has(d) && styles.cycleDayCircleOn]}>
+                    <Text style={[styles.cycleDayText, cycleDays.has(d) && styles.cycleDayTextOn]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={{ marginBottom: 20 }}>
+                {Array.from({ length: 5 }).map((_, row) => (
+                  <View key={row} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                    {Array.from({ length: 7 }).map((__, col) => {
+                      const d = row * 7 + col + 1;
+                      if (d > 31) return <View key={col} style={{ flex: 1 }} />;
+                      const on = cycleDates.has(d);
+                      return (
+                        <TouchableOpacity key={col} onPress={() => {
+                          const next = new Set(cycleDates);
+                          if (next.has(d)) next.delete(d); else next.add(d);
+                          setCycleDates(next);
+                          setCycleMonthScope('custom');
+                        }} style={[{ flex: 1, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 4, backgroundColor: on ? PALETTE.black : PALETTE.gray50, margin: 2 }]}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: on ? PALETTE.white : PALETTE.gray700 }}>{d}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.black }} onPress={() => setShowCycleModal(false)}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: PALETTE.black }}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: PALETTE.black }} onPress={() => {
+                if (cycleTab === 'weekly') {
+                  setHabitCycle(cycleDays.size ? { type: 'weekly', days: Array.from(cycleDays), dates: [] } : null);
+                } else {
+                  setHabitCycle(cycleDates.size ? { type: 'monthly', days: [], dates: Array.from(cycleDates) } : null);
+                }
+                setShowCycleModal(false);
+              }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: PALETTE.white }}>저장</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.xl }]} onPress={onSave} activeOpacity={0.9}>
         <Text style={buttonStyles.primary.label}>저장</Text>

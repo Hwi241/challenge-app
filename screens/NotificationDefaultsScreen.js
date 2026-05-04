@@ -6,17 +6,16 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../components/BackButton';
 
 const PALETTE = {
-  white: '#FFFFFF',
-  black: '#000000',
-  gray50: '#FAFAFA',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray600: '#525252',
-  gray700: '#374151',
-  gray800: '#111111',
-  blue600: '#2563EB',
+  white: "#FFFFFF",
+  black: "#000000",
+  gray50: "#FAFAFA",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray600: "#525252",
+  gray700: "#374151",
+  gray800: "#111111"
 };
 
 const radius = { md: 12, lg: 16 };

@@ -1,18 +1,23 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-// screens/AddChallengeScreen.js
-// - 시작/종료일 역순 즉시 경고(되돌리기)
-// - 알림 모달 라벨: 주간 알림 / 월간 알림 / 전체 일정 알림
-// - 프리뷰 개선
-// - 뒤로가기(하드웨어/제스처) 시 항상 ChallengeList로 이동
-// - '전체 일정 알림' 진입 전 시작/종료일 필수 + 역순 차단
-// - ✅ 입력 제한 추가(제목 50, 목표점수 ≤1000, 내용 500, 보상 50)
-// - ✅ 뒤로가기로 나갈 때 초안 초기화 + 폼 리셋
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+
+const PALETTE = {
+  white: "#FFFFFF",
+  black: "#000000",
+  gray50: "#FAFAFA",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray600: "#525252",
+  gray700: "#374151",
+  gray800: "#111111"
+};
+
 
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
@@ -20,25 +25,13 @@ import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import BackButton from '../components/BackButton';
 
-const PALETTE = {
-  white: '#FFFFFF',
-  black: '#000000',
-  gray50: '#FAFAFA',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray600: '#525252',
-  gray700: '#374151',
-  gray800: '#111111',
-};
-
-const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
 const DRAFT_KEY = 'draft_add_challenge';
 const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
 const sortTimesAsc = (arr=[]) => [...arr].sort((a,b)=>a.localeCompare(b));
+const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
+// --- 프리뷰 컴포넌트들 ---
 const SimplePreviewMini = ({ days=[], times=[], time }) => {
   const toShow = (Array.isArray(times) && times.length) ? sortTimesAsc(times) : (time ? [time] : []);
   return (
@@ -176,7 +169,6 @@ const NotiPreviewSwitch = ({ notification, startDate, endDate })=>{
   return <Text style={{ fontSize:12, color:'#555', textAlign:'center' }}>알림 없음</Text>;
 };
 
-
 function pad2(n){return String(n).padStart(2,'0');}
 function fmtDate(d) {
   if (!d) return '';
@@ -185,6 +177,18 @@ function fmtDate(d) {
   const day = pad2(d.getDate());
   return `${y}-${m}-${day}`;
 }
+function asDoneFlags(item) {
+  if (!item) return { _isDone: false, _isExpired: false };
+  const done = item.status === 'completed' || (item.goalScore > 0 && item.currentScore >= item.goalScore);
+  let isExpired = false;
+  if (item.endDate) {
+    const end = new Date(item.endDate);
+    end.setHours(23, 59, 59, 999);
+    isExpired = end < new Date();
+  }
+  return { _isDone: !!done, _isExpired: isExpired };
+}
+
 function parseDateStr(s) {
   if (!s) return null;
   const [y,m,d] = s.split('-').map(Number);
@@ -192,169 +196,70 @@ function parseDateStr(s) {
   return isNaN(dt.getTime()) ? null : dt;
 }
 
-function timeToHuman(hhmm) {
-  if (!hhmm) return '';
-  const [hStr, mStr] = hhmm.split(':');
-  const h = Number(hStr); const m = Number(mStr || 0);
-  const isAM = h < 12; const h12 = h % 12 === 0 ? 12 : h % 12;
-  const mm = pad2(m);
-  const period = isAM ? '오전' : '오후';
-  return `${period} ${h12}:${mm}`;
-}
-
-/* =========================
-   화면 본문
-   ========================= */
-
 export default function AddChallengeScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-
-  // 폼
-  const [title, setTitle] = useState('');
-  const [goalScore, setGoalScore] = useState('');
-  const [reward, setReward] = useState('');
-  const [description, setDescription] = useState(''); // ✅ 도전 내용
-
-  // 날짜
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-
-
-  // 알림
-  const [notification, setNotification] = useState({ mode: null, payload: null });
-  const [showNotifPicker, setShowNotifPicker] = useState(false);
-
-  // 저장 중 보호
   const [busy, setBusy] = useState(false);
+  const [habitMode, setHabitMode] = useState(false);
 
-  // 임시저장 제어
-  const saveDraftDebounce = useRef(null);
-  const suppressDraftRef = useRef(false);
-  const saveDraft = useCallback(async (draft) => {
-    try { await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch {}
-  }, []);
+  // 도전 탭 상태
+  const [cTitle, setCTitle] = useState('');
+  const [cGoalScore, setCGoalScore] = useState('');
+  const [cReward, setCReward] = useState('');
+  const [cDescription, setCDescription] = useState('');
+  const [cStartDate, setCStartDate] = useState(null);
+  const [cEndDate, setCEndDate] = useState(null);
+  const [challengeNotification, setChallengeNotification] = useState({ mode: null, payload: null });
 
-  // ✅ 목표 점수 입력: 숫자만, 최대 1000으로 클램프
-  const handleGoalChange = useCallback((txt)=>{
-    const digits = (txt || '').replace(/[^\d]/g,'');
-    if (!digits) { setGoalScore(''); return; }
-    let n = parseInt(digits, 10);
-    if (isNaN(n)) { setGoalScore(''); return; }
-    if (n > LIMITS.maxGoal) n = LIMITS.maxGoal;
-    setGoalScore(String(n));
-  }, []);
+  // 습관 탭 상태
+  const [hTitle, setHTitle] = useState('');
+  const [hDescription, setHDescription] = useState('');
+  const [hStartDate, setHStartDate] = useState(null);
+  const [hEndDate, setHEndDate] = useState(null);
+  const [habitNotification, setHabitNotification] = useState({ mode: null, payload: null });
 
-  // ✅ 임시저장: 제한 적용된 값으로 저장 (suppress 시 저장 안 함)
-  useEffect(() => {
-    if (suppressDraftRef.current) return;
-    const draft = {
-      title, goalScore, reward, description,
-      startDate: startDate ? fmtDate(startDate) : null,
-      endDate: endDate ? fmtDate(endDate) : null,
-    };
-    if (saveDraftDebounce.current) clearTimeout(saveDraftDebounce.current);
-    saveDraftDebounce.current = setTimeout(() => saveDraft(draft), 200);
-    return () => { if (saveDraftDebounce.current) clearTimeout(saveDraftDebounce.current); };
-  }, [title, goalScore, reward, description, startDate, endDate, saveDraft]);
+  // UI 매핑 (alias)
+  const title = habitMode ? hTitle : cTitle;
+  const setTitle = habitMode ? setHTitle : setCTitle;
+  const description = habitMode ? hDescription : cDescription;
+  const setDescription = habitMode ? setHDescription : setCDescription;
+  const startDate = habitMode ? hStartDate : cStartDate;
+  const setStartDate = habitMode ? setHStartDate : setCStartDate;
+  const endDate = habitMode ? hEndDate : cEndDate;
+  const setEndDate = habitMode ? setHEndDate : setCEndDate;
+  const notification = habitMode ? habitNotification : challengeNotification;
+  const goalScore = cGoalScore;
+  const setGoalScore = setCGoalScore;
+  const reward = cReward;
+  const setReward = setCReward;
 
-  // 최초 진입 시 초안 복원
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(DRAFT_KEY);
-        if (!raw) return;
-        const d = JSON.parse(raw);
-        if (!d || typeof d !== 'object') return;
-        setTitle(String(d.title || ''));
-        setGoalScore(d.goalScore == null ? '' : String(d.goalScore));
-        setReward(String(d.reward || ''));
-        setDescription(String(d.description || ''));
-        setStartDate(d.startDate ? parseDateStr(d.startDate) : null);
-        setEndDate(d.endDate ? parseDateStr(d.endDate) : null);
-      } catch {}
-    })();
-  }, []);
+  const [showNotifPicker, setShowNotifPicker] = useState(false);
+  const [habitCycle, setHabitCycle] = useState(null);
+  const [showCycleModal, setShowCycleModal] = useState(false);
+  const [cycleTab, setCycleTab] = useState('weekly');
+  const [cycleDays, setCycleDays] = useState(new Set());
+  const [cycleDates, setCycleDates] = useState(new Set());
+  const [cycleWeekScope, setCycleWeekScope] = useState('custom');
+  const [cycleMonthScope, setCycleMonthScope] = useState('custom');
 
-  // 새 도전 진입: resetNonce가 있으면 알림 초기화
-  useFocusEffect(
-    useCallback(() => {
-      if (route.params?.resetNonce) {
-        setNotification({ mode: null, payload: null });
-        navigation.setParams?.({ resetNonce: undefined, notificationResult: undefined, _nonce: undefined });
-      }
-      return undefined;
-    }, [route.params?.resetNonce, navigation])
-  );
-
-  // 알림 설정 결과 수신
-  useEffect(() => {
-    const res = route.params?.notificationResult;
-    if (res?.mode && res?.payload) {
-      setNotification({ mode: res.mode, payload: res.payload });
-      navigation.setParams?.({ notificationResult: undefined, _nonce: undefined });
-    }
-  }, [route.params?.notificationResult, route.params?._nonce, navigation]);
-
-  // ✅ 뒤로가기 시: 초안 삭제 + 폼 리셋 + 리스트로 이동
-  const clearDraftAndReset = useCallback(async () => {
-    try {
-      suppressDraftRef.current = true; // 저장 억제
-      if (saveDraftDebounce.current) { clearTimeout(saveDraftDebounce.current); saveDraftDebounce.current = null; }
-      await AsyncStorage.removeItem(DRAFT_KEY);
-    } catch {}
-    // 폼 리셋
-    setTitle(''); setGoalScore(''); setReward(''); setDescription('');
-    setStartDate(null); setEndDate(null);
-    setNotification({ mode: null, payload: null });
-  }, []);
-
-useFocusEffect(
-    useCallback(() => {
-      const hasContent = () => {
-        return !!(title.trim() || goalScore.toString().trim() || reward.trim() || description.trim() || notification?.mode);
-      };
-
-      const doExit = () => {
-        clearDraftAndReset();
-        navigation.navigate('ChallengeList');
-      };
-
-      const confirmExit = () => {
-        if (!hasContent()) { doExit(); return; }
-        Alert.alert(
-          '작성 중인 내용이 있어요',
-          '뒤로 가면 작성한 내용이 삭제됩니다.',
-          [
-            { text: '계속 작성', style: 'cancel' },
-            { text: '나가기', style: 'destructive', onPress: doExit },
-          ]
-        );
-      };
-
-      const onBack = () => { confirmExit(); return true; };
-      const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-      const remove = navigation.addListener('beforeRemove', (e) => {
-        if (e.data.action.type === 'GO_BACK' || e.data.action.type === 'POP') {
-           e.preventDefault();
-           confirmExit();
-        }
-      });
-      return () => { sub.remove(); if(remove) remove(); };
-    }, [navigation, clearDraftAndReset, title, goalScore, reward, description, notification])
-  );
-
-  // 날짜 역순 즉시 경고(되돌리기)
-  const lastChangedRef = useRef(null); // 'start' | 'end'
+  const lastChangedRef = useRef(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  useEffect(() => { if (showStartPicker) lastChangedRef.current = 'start'; }, [showStartPicker]);
-  useEffect(() => { if (showEndPicker) lastChangedRef.current = 'end'; }, [showEndPicker]);
+  const saveDraftDebounce = useRef(null);
+  const suppressDraftRef = useRef(false);
+const handleGoalChange = useCallback((txt)=>{
+    const digits = (txt || '').replace(/[^\d]/g, '');
+    if (!digits) { setCGoalScore(''); return; }
+    let n = parseInt(digits, 10);
+    if (isNaN(n)) { setCGoalScore(''); return; }
+    if (n > LIMITS.maxGoal) n = LIMITS.maxGoal;
+    setCGoalScore(String(n));
+  }, []);
+
   useEffect(() => {
     if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
       Alert.alert('확인', '종료일이 시작일보다 빠를 수 없습니다.');
-      if (lastChangedRef.current === 'end') setEndDate(null);
-      else setStartDate(null);
+      if (lastChangedRef.current === 'end') setEndDate(null); else setStartDate(null);
     }
   }, [startDate, endDate]);
 
@@ -362,424 +267,284 @@ useFocusEffect(
     if (busy) return;
     setBusy(true);
     try {
-      const t = (title || '').trim();
-      const r = (reward || '').trim();
-      const desc = (description || '').trim();
-
-      // ✅ 길이/값 검증
-      if (!t) { Alert.alert('확인', '도전 제목을 입력해주세요.'); setBusy(false); return; }
-      if (t.length > LIMITS.title) { Alert.alert('확인', `제목은 ${LIMITS.title}자 이내로 입력해주세요.`); setBusy(false); return; }
-      if (r.length > LIMITS.reward) { Alert.alert('확인', `보상은 ${LIMITS.reward}자 이내로 입력해주세요.`); setBusy(false); return; }
-      if (desc.length > LIMITS.description) { Alert.alert('확인', `도전 내용은 ${LIMITS.description}자 이내로 입력해주세요.`); setBusy(false); return; }
-
-      const goalNum = toNumberOrZero(goalScore);
-      if (goalNum <= 0) { Alert.alert('확인', '목표 점수는 1 이상의 숫자여야 합니다.'); setBusy(false); return; }
-      if (goalNum > LIMITS.maxGoal) { Alert.alert('확인', `목표 점수는 ${LIMITS.maxGoal}점 이하여야 합니다.`); setBusy(false); return; }
-
-      const dataForValidation = {
-        title: t,
-        goalScore: goalNum,
-        startDate: startDate ? fmtDate(startDate) : null,
-        endDate: endDate ? fmtDate(endDate) : null,
-        allowEmptyGoal: false,
-        prevGoalScore: 0,
-      };
-
-      const v = validateInput(dataForValidation);
-      if (!v.ok) {
-        if (v.reason === 'TITLE_EMPTY')  { Alert.alert('확인', '도전 제목을 입력해주세요.'); setBusy(false); return; }
-        if (v.reason === 'GOAL_INVALID') { Alert.alert('확인', '목표 점수는 1 이상의 숫자여야 합니다.'); setBusy(false); return; }
-        if (v.reason === 'DATES_REQUIRED') { Alert.alert('확인', '시작일과 종료일을 선택해주세요.'); setBusy(false); return; }
-        if (v.reason === 'DATE_ORDER') { Alert.alert('확인', '종료일이 시작일보다 빠를 수 없습니다.'); setBusy(false); return; }
-        Alert.alert('확인', '입력값을 확인하세요.'); setBusy(false); return;
-      }
-
+      const t = title.trim();
+      const desc = description.trim();
       const id = `ch_${Date.now()}`;
-      const newChallenge = {
-        id,
-        title: t,
-        goalScore: goalNum,
-        currentScore: 0,
-        startDate: fmtDate(startDate),
-        endDate: fmtDate(endDate),
-        reward: r,
-        description: desc,
-        notification: notification?.mode ? notification : { mode: null, payload: null },
-        status: 'active',
-        createdAt: Date.now(),
-        completedAt: 0,
-      };
-
-      await saveAndSchedule(newChallenge, { replaceSchedules: true });
-
-      const raw = await AsyncStorage.getItem('challenges');
-      const arr = raw ? JSON.parse(raw) : [];
-      await AsyncStorage.setItem('challenges', JSON.stringify([newChallenge, ...arr]));
-      await AsyncStorage.setItem(`challenge_${id}`, JSON.stringify(newChallenge));
-      await AsyncStorage.removeItem(`entries_${id}`);
+      let item;
+      if (habitMode) {
+        if (!t) { Alert.alert('확인', '습관 제목을 입력해주세요.'); setBusy(false); return; }
+        if (!startDate) { Alert.alert('확인', '시작일을 선택해주세요.'); setBusy(false); return; }
+        item = { id, type: 'habit', title: t, description: desc, goalScore: 0, currentScore: 0,
+          startDate: startDate ? fmtDate(startDate) : null,
+          endDate: endDate ? fmtDate(endDate) : null,
+          habitCycle, notification, reward: '', status: 'active', createdAt: Date.now(), completedAt: 0 };
+      } else {
+        if (!t) { Alert.alert('확인', '도전 제목을 입력해주세요.'); setBusy(false); return; }
+        const goalNum = toNumberOrZero(goalScore);
+        if (goalNum <= 0) { Alert.alert('확인', '목표 점수를 입력해주세요.'); setBusy(false); return; }
+        item = { id, title: t, goalScore: goalNum, currentScore: 0,
+          startDate: fmtDate(startDate), endDate: fmtDate(endDate),
+          reward: reward.trim(), description: desc, notification, status: 'active',
+          createdAt: Date.now(), completedAt: 0 };
+      }
+      await saveAndSchedule(item, { replaceSchedules: true });
       await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
       await syncWidgetChallengeList();
-
-      // 저장 후 초기화 + 초안 삭제
-      try { await AsyncStorage.removeItem(DRAFT_KEY); } catch {}
-      suppressDraftRef.current = true;
-      setTitle(''); setGoalScore(''); setReward(''); setDescription('');
-      setStartDate(null); setEndDate(null);
-      setNotification({ mode: null, payload: null });
-
-      Alert.alert('완료', '도전이 추가되었습니다.', [
-        { text: '확인', onPress: () => navigation.navigate('ChallengeList') },
-      ]);
-    } catch (e) {
-      console.error('AddChallenge save error', e);
-      Alert.alert('오류', '도전을 저장하지 못했습니다.');
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, title, goalScore, reward, description, startDate, endDate, notification, navigation]);
-
-  // 알림 모달 라우팅 (onDone 콜백 추가)
-  const goSimple = useCallback(() => {
-    if (busy) return;
-    const initial = notification?.mode === 'simple' ? (notification.payload ?? null) : null;
-    setShowNotifPicker(false);
-    navigation.navigate('SimpleNotification', {
-      initial,
-      returnTo: 'AddChallenge',
-      onDone: (res) => { setNotification(res); },
-    });
-  }, [busy, navigation, notification]);
-  const goWeekly = useCallback(() => {
-    if (busy) return;
-    const initial = notification?.mode === 'weekly' ? (notification.payload ?? null) : null;
-    setShowNotifPicker(false);
-    navigation.navigate('WeeklyNotification', {
-      initial,
-      returnTo: 'AddChallenge',
-      onDone: (res) => { setNotification(res); },
-    });
-  }, [busy, navigation, notification]);
-  const goMonthly = useCallback(() => {
-    if (busy) return;
-    const initial = notification?.mode === 'monthly'
-      ? (notification.payload ?? null) : null;
-    setShowNotifPicker(false);
-    navigation.navigate('MonthlyNotification', {
-      initial,
-      returnTo: 'AddChallenge',
-      onDone: (res) => { setNotification(res); },
-    });
-  }, [busy, navigation, notification]);
-  const goFullRange = useCallback(() => {
-    if (busy) return;
-    if (!startDate || !endDate) {
-      Alert.alert('확인', '시작일과 종료일을 먼저 선택해주세요.');
-      return;
-    }
-    if (endDate.getTime() < startDate.getTime()) {
-      Alert.alert('확인', '종료일이 시작일보다 빠를 수 없습니다.');
-      return;
-    }
-    const initial = notification?.mode === 'fullrange'
-      ? (notification.payload ?? null) : null;
-    setShowNotifPicker(false);
-    navigation.navigate('FullRangeNotification', {
-      initial,
-      startDate: fmtDate(startDate),
-      endDate: fmtDate(endDate),
-      returnTo: 'AddChallenge',
-      onDone: (res) => { setNotification(res); },
-    });
-  }, [busy, navigation, notification, startDate, endDate]);
+        
+        // 폼 초기화
+        if (habitMode) {
+          setHTitle(''); setHDescription(''); setHStartDate(null); setHEndDate(null);
+          setHabitNotification({ mode: null, payload: null });
+          setHabitCycle(null); setCycleDays(new Set()); setCycleDates(new Set());
+        } else {
+          setCTitle(''); setCGoalScore(''); setCReward(''); setCDescription('');
+          setCStartDate(null); setCEndDate(null);
+          setChallengeNotification({ mode: null, payload: null });
+        }
+        
+        navigation.navigate('ChallengeList');
+    } catch (e) { Alert.alert('오류', '저장 실패'); } finally { setBusy(false); }
+  }, [busy, cTitle, cGoalScore, cReward, cDescription, cStartDate, cEndDate, challengeNotification, hTitle, hDescription, hStartDate, hEndDate, habitNotification, habitMode, habitCycle, navigation]);
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton title="도전 추가" />
+      <BackButton title="도전/습관 추가" />
+      <View style={styles.tabWrap}>
+        <TouchableOpacity style={[styles.tabBtn, !habitMode && styles.tabBtnActive]} onPress={() => setHabitMode(false)}>
+          <Text style={[styles.tabText, !habitMode && styles.tabTextActive]}>도전 기록</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.tabBtn, habitMode && styles.tabBtnActive]} onPress={() => setHabitMode(true)}>
+          <Text style={[styles.tabText, habitMode && styles.tabTextActive]}>습관 기록</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={styles.container}>
-      
-
-      {/* 기본 정보 */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>기본 정보</Text>
-
-        <Text style={styles.label}>도전 제목</Text>
-        <TextInput
-          value={title}
-          onChangeText={(t)=>setTitle(t.slice(0, LIMITS.title))}
-          placeholder="도전 제목"
-          style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
-          placeholderTextColor={PALETTE.gray400}
-          editable={!busy}
-          maxLength={LIMITS.title} // ✅ 50자 제한
-        />
-       
-
-        <Text style={[styles.label, { marginTop: spacing.md }]}>목표 점수 혹은 횟수</Text>
-        <TextInput
-          value={goalScore}
-          onChangeText={handleGoalChange}
-          placeholder="숫자만 입력"
-          style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
-          placeholderTextColor={PALETTE.gray400}
-          editable={!busy}
-          maxLength={4} // ✅ 4자리로 제한(1000까지)
-          {...numericInputProps}
-        />
-        
-
-        {/* ✅ 도전 내용 */}
-        <Text style={[styles.label, { marginTop: spacing.md }]}>도전 내용</Text>
-        <TextInput
-          value={description}
-          onChangeText={(t)=>setDescription(t.slice(0, LIMITS.description))}
-          placeholder="도전의 구체적인 내용을 적어주세요"
-          style={[styles.input, styles.textarea, { opacity: busy ? 0.75 : 1 }]}
-          placeholderTextColor={PALETTE.gray400}
-          editable={!busy}
-          multiline
-          textAlignVertical="top"
-          maxLength={LIMITS.description} // ✅ 500자 제한
-        />
-        
-
-        {/* 날짜 */}
-        <View style={styles.row}>
-          <View style={[styles.col, { marginRight: spacing.sm }]}>
-            <Text style={styles.label}>시작일</Text>
-            <TouchableOpacity
-              style={[buttonStyles.compactRight, { alignSelf: 'flex-start', opacity: busy ? 0.6 : 1 }]}
-              onPress={() => !busy && setShowStartPicker(true)}
-              activeOpacity={0.9}
-              disabled={busy}
-            >
-              <Text style={buttonStyles.compactRightText}>
-                {startDate ? fmtDate(startDate) : '날짜 선택'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.col, { marginLeft: spacing.sm }]}>
-            <Text style={styles.label}>종료일</Text>
-            <TouchableOpacity
-              style={[buttonStyles.compactRight, { alignSelf: 'flex-start', opacity: busy ? 0.6 : 1 }]}
-              onPress={() => !busy && setShowEndPicker(true)}
-              activeOpacity={0.9}
-              disabled={busy}
-            >
-              <Text style={buttonStyles.compactRightText}>
-                {endDate ? fmtDate(endDate) : '날짜 선택'}
-              </Text>
-            </TouchableOpacity>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>기본 정보</Text>
+          <Text style={styles.label}>{habitMode ? '습관 제목' : '도전 제목'}</Text>
+          <TextInput value={title} onChangeText={setTitle} placeholder={habitMode ? '습관의 제목을 입력하세요' : '도전의 제목을 입력하세요'} style={styles.input} />
+          {!habitMode && (
+            <>
+              <Text style={[styles.label, { marginTop: 15 }]}>목표 점수 혹은 횟수</Text>
+              <TextInput value={goalScore} onChangeText={handleGoalChange} placeholder="숫자만 입력" style={styles.input} keyboardType="numeric" inputMode="numeric" maxLength={4} />
+            </>
+          )}
+          <Text style={[styles.label, { marginTop: 15 }]}>{habitMode ? '습관 내용' : '도전 내용'}</Text>
+          <TextInput value={description} onChangeText={setDescription} placeholder="도전의 구체적인 내용을 적어주세요" style={[styles.input, styles.textarea]} multiline textAlignVertical="top" maxLength={LIMITS.description} />
+          <View style={styles.row}>
+            <View style={styles.col}>
+              <Text style={styles.label}>시작일</Text>
+              <TouchableOpacity onPress={() => { setShowStartPicker(true); lastChangedRef.current='start'; }} style={buttonStyles.compactRight}>
+                <Text style={buttonStyles.compactRightText}>{startDate ? fmtDate(startDate) : '날짜 선택'}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.col}>
+              <Text style={styles.label}>종료일</Text>
+              <TouchableOpacity onPress={() => { setShowEndPicker(true); lastChangedRef.current='end'; }} style={buttonStyles.compactRight}>
+                <Text style={buttonStyles.compactRightText}>{endDate ? fmtDate(endDate) : '날짜 선택'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
-
-   {/* 보상 */}
-<View style={[styles.card, { marginTop: spacing.lg }]}>
-  <Text style={styles.cardTitle}>보상 또는 목표</Text>
-  <TextInput
-    value={reward}
-    onChangeText={(t)=>setReward(t.slice(0, LIMITS.reward))}
-    placeholder="원하는 보상을 입력하세요!"
-    style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
-    placeholderTextColor={PALETTE.gray400}
-    editable={!busy}
-    maxLength={LIMITS.reward} // 50자 제한
-  />
-  
-</View>
-
-      {/* 알림 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <View style={styles.rowBetween}>
+        {habitMode ? (
+          <View style={[styles.card, { marginTop: 20 }]}>
+            <Text style={styles.cardTitle}>목표 주기</Text>
+            <TouchableOpacity onPress={() => setShowCycleModal(true)} style={buttonStyles.compactRight}>
+              <Text style={buttonStyles.compactRightText}>{habitCycle ? '주기 설정됨' : '주기 선택'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={[styles.card, { marginTop: 20 }]}>
+            <Text style={styles.cardTitle}>보상</Text>
+            <TextInput value={reward} onChangeText={setReward} placeholder="보상을 입력하세요" style={styles.input} />
+          </View>
+        )}
+        <View style={[styles.card, { marginTop: 20 }]}>
           <Text style={styles.cardTitle}>알림</Text>
+          <TouchableOpacity onPress={() => setShowNotifPicker(true)} style={buttonStyles.compactRight}>
+            <Text style={buttonStyles.compactRightText}>알림 설정</Text>
+          </TouchableOpacity>
+          <View style={{ marginTop: spacing.md, backgroundColor: PALETTE.gray50, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: PALETTE.gray100 }}>
+            <NotiPreviewSwitch notification={notification} startDate={startDate} endDate={endDate} />
+          </View>
+        </View>
+        <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: 30, opacity: busy ? 0.6 : 1 }]} onPress={onSave} disabled={busy}>
+          <Text style={buttonStyles.primary.label}>저장하기</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
-          <View style={styles.rightBtnGroup}>
-            {notification?.mode && (
-              // [변경] 원형 X 아이콘 삭제 버튼
-              <TouchableOpacity
-                style={styles.notifDeleteCircle}
-                onPress={() => setNotification({ mode: null, payload: null })}
-                activeOpacity={0.8}
-                disabled={busy}
-                accessibilityLabel="알림 삭제"
-              >
-                <Text style={styles.notifDeleteX}>×</Text>
-              </TouchableOpacity>
+      <Modal visible={showCycleModal} transparent animationType="fade" onRequestClose={() => setShowCycleModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>목표 주기 설정</Text>
+            
+            <View style={styles.cycleTabRow}>
+              {['weekly', 'monthly'].map(t => (
+                <TouchableOpacity key={t} style={[styles.cycleTabBtn, cycleTab === t && styles.cycleTabBtnOn]} onPress={() => setCycleTab(t)}>
+                  <Text style={[styles.cycleTabText, cycleTab === t && styles.cycleTabTextOn]}>{t === 'weekly' ? '주간' : '월간'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 범위 빠른 선택 */}
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+              {cycleTab === 'weekly' ? (
+                ['all', 'weekday', 'weekend', 'custom'].map(s => (
+                  <TouchableOpacity key={s} onPress={() => {
+                    setCycleWeekScope(s);
+                    if (s === 'all') setCycleDays(new Set(['월','화','수','목','금','토','일']));
+                    else if (s === 'weekday') setCycleDays(new Set(['월','화','수','목','금']));
+                    else if (s === 'weekend') setCycleDays(new Set(['토','일']));
+                    else if (s === 'custom') setCycleDays(new Set());
+                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleWeekScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleWeekScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                      {{ all: '매일', weekday: '평일', weekend: '주말', custom: '직접' }[s]}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                ['all', 'even', 'odd', 'custom'].map(s => (
+                  <TouchableOpacity key={s} onPress={() => {
+                    setCycleMonthScope(s);
+                    if (s === 'all') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1)));
+                    else if (s === 'even') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2===0)));
+                    else if (s === 'odd') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2!==0)));
+                    else if (s === 'custom') setCycleDates(new Set());
+                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleMonthScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleMonthScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                      {{ all: '매일', even: '짝수', odd: '홀수', custom: '직접' }[s]}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+
+            {/* 그리드 영역 */}
+            {cycleTab === 'weekly' ? (
+              <View style={[styles.cycleDaysRow, { marginBottom: 20 }]}>
+                {['월','화','수','목','금','토','일'].map(d => (
+                  <TouchableOpacity key={d} onPress={() => {
+                    const next = new Set(cycleDays);
+                    if (next.has(d)) next.delete(d); else next.add(d);
+                    setCycleDays(next);
+                    setCycleWeekScope('custom');
+                  }} style={[styles.cycleDayCircle, cycleDays.has(d) && styles.cycleDayCircleOn]}>
+                    <Text style={[styles.cycleDayText, cycleDays.has(d) && styles.cycleDayTextOn]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={{ marginBottom: 20 }}>
+                {Array.from({ length: 5 }).map((_, row) => (
+                  <View key={row} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                    {Array.from({ length: 7 }).map((__, col) => {
+                      const d = row * 7 + col + 1;
+                      if (d > 31) return <View key={col} style={{ flex: 1 }} />;
+                      const on = cycleDates.has(d);
+                      return (
+                        <TouchableOpacity key={col} onPress={() => {
+                          const next = new Set(cycleDates);
+                          if (next.has(d)) next.delete(d); else next.add(d);
+                          setCycleDates(next);
+                          setCycleMonthScope('custom');
+                        }} style={[{ flex: 1, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 4, backgroundColor: on ? PALETTE.black : PALETTE.gray50, margin: 2 }]}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: on ? PALETTE.white : PALETTE.gray700 }}>{d}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
             )}
 
-            <TouchableOpacity
-              style={[buttonStyles.compactRight, { opacity: busy ? 0.6 : 1 }]}
-              onPress={() => !busy && setShowNotifPicker(true)}
-              activeOpacity={0.9}
-              disabled={busy}
-            >
-              <Text style={buttonStyles.compactRightText}>알림 설정</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity style={[buttonStyles.primary.container, { flex: 1, backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.black }]} onPress={() => setShowCycleModal(false)}>
+                <Text style={[buttonStyles.primary.label, { color: PALETTE.black }]}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[buttonStyles.primary.container, { flex: 1 }]} onPress={() => {
+                if (cycleTab === 'weekly') {
+                  setHabitCycle(cycleDays.size ? { type: 'weekly', days: Array.from(cycleDays) } : null);
+                } else {
+                  setHabitCycle(cycleDates.size ? { type: 'monthly', dates: Array.from(cycleDates) } : null);
+                }
+                setShowCycleModal(false);
+              }}>
+                <Text style={buttonStyles.primary.label}>저장</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+      </Modal>
 
-       <View style={styles.previewBox}>
-  <NotiPreviewSwitch
-    notification={notification}
-    startDate={startDate}
-    endDate={endDate}
-  />
-</View>
-
-        <Text style={[styles.previewAssistive]}>
-          {''}
-        </Text>
-      </View>
-
-      {/* 저장 */}
-      <TouchableOpacity
-        style={[buttonStyles.primary.container, { marginTop: spacing.xl, opacity: busy ? 0.6 : 1 }]}
-        onPress={onSave}
-        activeOpacity={0.9}
-        disabled={busy}
-      >
-        <Text style={buttonStyles.primary.label}>저장</Text>
-      </TouchableOpacity>
-
-      {/* 날짜 모달 */}
-      <DateTimePickerModal
-        isVisible={showStartPicker}
-        mode="date"
-        date={startDate ?? new Date()}
-        onConfirm={(d) => { setShowStartPicker(false); setStartDate(d); lastChangedRef.current='start'; }}
-        onCancel={() => setShowStartPicker(false)}
-      />
-      <DateTimePickerModal
-        isVisible={showEndPicker}
-        mode="date"
-        date={endDate ?? new Date()}
-        onConfirm={(d) => { setShowEndPicker(false); setEndDate(d); lastChangedRef.current='end'; }}
-        onCancel={() => setShowEndPicker(false)}
-      />
-
-      {/* 알림 방식 모달 */}
-      <Modal
-        visible={showNotifPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowNotifPicker(false)}
-      >
+      <Modal visible={showNotifPicker} transparent animationType="fade" onRequestClose={() => setShowNotifPicker(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>알림 방식 선택</Text>
 
-            <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={goSimple} activeOpacity={0.9}>
+            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { setShowNotifPicker(false); navigation.navigate('SimpleNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>간단 알림</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={goWeekly} activeOpacity={0.9}>
+            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { setShowNotifPicker(false); navigation.navigate('WeeklyNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>주간 알림</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={goMonthly} activeOpacity={0.9}>
+            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { setShowNotifPicker(false); navigation.navigate('MonthlyNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>월간 알림</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={goFullRange} activeOpacity={0.9}>
+            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { if (!startDate || !endDate) return Alert.alert('확인', '날짜를 먼저 선택하세요.'); setShowNotifPicker(false); navigation.navigate('FullRangeNotification', { startDate: fmtDate(startDate), endDate: fmtDate(endDate), onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>전체 일정 세부 알림</Text>
             </TouchableOpacity>
 
-            {/* [추가] 얇은 검은 라인 */}
-            <View style={styles.modalDivider} />
+            <View style={{ marginTop: spacing.md, height: 1, backgroundColor: PALETTE.gray200, opacity: 0.5 }} />
 
-            {/* [추가] 알림 기본 설정 버튼 (흰 배경, 검은 글씨) */}
             <TouchableOpacity
-   style={[buttonStyles.primary.container, styles.modalBasicKeepColor, styles.modalButton]}
-   onPress={()=>{
-     setShowNotifPicker(false);
-     navigation.navigate('NotificationDefaults', { returnTo: 'AddChallenge' });
-   }}
-   activeOpacity={0.9}
- >
-   <Text style={[buttonStyles.primary.label, styles.modalBasicKeepLabel]}>
-     알림 기본 설정
-   </Text>
- </TouchableOpacity>
-
-            <TouchableOpacity style={styles.modalClose} onPress={() => setShowNotifPicker(false)}>
-              <Text style={styles.modalCloseText}>닫기</Text>
+              style={[buttonStyles.primary.container, { marginTop: spacing.md, backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.black }]}
+              onPress={() => { setShowNotifPicker(false); navigation.navigate('NotificationDefaults', { returnTo: 'AddChallenge' }); }}
+              activeOpacity={0.9}
+            >
+              <Text style={[buttonStyles.primary.label, { color: PALETTE.black }]}>알림 기본 설정</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setShowNotifPicker(false)} style={styles.modalClose}><Text style={styles.modalCloseText}>닫기</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
-      </ScrollView>
+
+      <DateTimePickerModal isVisible={showStartPicker} mode="date" date={startDate || new Date()} onConfirm={d => { setStartDate(d); setShowStartPicker(false); }} onCancel={() => setShowStartPicker(false)} />
+      <DateTimePickerModal isVisible={showEndPicker} mode="date" date={endDate || new Date()} onConfirm={d => { setEndDate(d); setShowEndPicker(false); }} onCancel={() => setShowEndPicker(false)} />
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign: 'center', alignSelf: 'center' },
-
-  card: {
-    backgroundColor: PALETTE.white,
-    borderWidth: 1,
-    borderColor: PALETTE.gray200,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-  },
+  card: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md, padding: spacing.lg },
   cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
-
   label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },
-  input: {
-    backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200,
-    borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: PALETTE.gray800,
-  },
+  input: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: PALETTE.gray800 },
   textarea: { minHeight: 96, lineHeight: 20 },
-  counter: { alignSelf: 'flex-end', fontSize: 11, color: PALETTE.gray400, marginTop: 4 },
-
-  row: { flexDirection: 'row', marginTop: spacing.md },
+  row: { flexDirection: 'row', marginTop: spacing.md, gap: 10 },
   col: { flex: 1 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-
-  rightBtnGroup: { flexDirection: 'row', alignItems: 'center', columnGap: 8 },
-
-  // (구) 텍스트 삭제 버튼 스타일(호환용 남김, 사용 안 함)
-  deleteBtn: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray300, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },
-  deleteBtnText: { color: PALETTE.black, fontWeight: '800', fontSize: 12 },
-
-  // [추가] 원형 X 아이콘 삭제 버튼
-  notifDeleteCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: PALETTE.white,
-    borderWidth: 1, borderColor: PALETTE.gray800,
-  },
-  notifDeleteX: { color: PALETTE.gray800, fontSize: 18, lineHeight: 18, fontWeight: '800' },
-
-  previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray100, borderRadius: radius.md, padding: spacing.md },
-  previewText: { color: PALETTE.gray800 },
-  previewTextSmall: { color: PALETTE.gray800, fontSize: 12, marginTop: 6 },
-  previewNoteText: { color: PALETTE.gray600, fontSize: 11, marginTop: 2 },
-
-  // 모달
+  tabWrap: { flexDirection: 'row', marginHorizontal: spacing.lg, marginTop: spacing.sm, borderBottomWidth: 1, borderBottomColor: PALETTE.gray200 },
+  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabBtnActive: { borderBottomColor: PALETTE.black },
+  tabText: { fontSize: 14, fontWeight: '700', color: PALETTE.gray400 },
+  tabTextActive: { color: PALETTE.black },
+  previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray50, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: PALETTE.gray100 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: PALETTE.gray200 },
+  modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg },
   modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
-  modalButton: { marginTop: spacing.sm },
-
-  // [추가] 얇은 검은 라인 + 알림 기본설정 버튼
-  modalDivider: {
-    marginTop: spacing.md,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: PALETTE.gray800,
-    opacity: 0.2,
-  },
-  // 모양은 primary.container 그대로(라운드/패딩/높이 1:1)
- // 색상만 기존대로 유지
- modalBasicKeepColor: {
-   backgroundColor: PALETTE.white,
-   borderWidth: 1,
-   borderColor: PALETTE.gray800,
- },
- modalBasicKeepLabel: {
-   color: PALETTE.gray800,
- },
-
   modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
   modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },
+  cycleTabRow: { flexDirection: 'row', marginBottom: spacing.md, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: PALETTE.gray200 },
+  cycleTabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', backgroundColor: PALETTE.gray100 },
+  cycleTabBtnOn: { backgroundColor: PALETTE.black },
+  cycleTabText: { fontSize: 13, fontWeight: '800', color: PALETTE.gray600 },
+  cycleTabTextOn: { color: PALETTE.white },
+  cycleDaysRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
+  cycleDayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: PALETTE.gray300, backgroundColor: PALETTE.white },
+  cycleDayCircleOn: { backgroundColor: PALETTE.black, borderColor: PALETTE.black },
+  cycleDayText: { fontSize: 12, fontWeight: '800', color: PALETTE.gray700 },
+  cycleDayTextOn: { color: PALETTE.white },
+  cycleDateCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: PALETTE.gray100 },
+  cycleDateCircleOn: { backgroundColor: PALETTE.black },
+  cycleDateText: { fontSize: 12, fontWeight: '700', color: PALETTE.gray700 },
+  cycleDateTextOn: { color: PALETTE.white },
 });

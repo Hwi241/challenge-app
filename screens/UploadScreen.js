@@ -29,6 +29,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
+import { syncWidgetChallengeList } from '../utils/widgetSync';
 
 /* 습관 연속 인증 레벨 계산 */
 function calcStreakLevel(entries) {
@@ -259,6 +260,7 @@ const MAX_MINUTES = 1440; // 24시간
         };
         await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
         await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
+        await syncWidgetChallengeList();
         nextTitle = challenges[idx]?.title;
         nextStart = challenges[idx]?.startDate;
         nextEnd = challenges[idx]?.endDate;

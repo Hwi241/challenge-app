@@ -29,6 +29,7 @@ import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import BackButton from '../components/BackButton';
+import { syncWidgetChallengeList } from '../utils/widgetSync';
 
 const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
@@ -447,6 +448,7 @@ export default function EditChallengeScreen(){
 
     try{
       await saveAndSchedule(updated, { replaceSchedules:true });
+      await syncWidgetChallengeList();
       savedRef.current = true;
       Alert.alert('저장 완료','도전이 수정되었습니다.',[
         { text:'확인', onPress:()=>navigation.goBack() }

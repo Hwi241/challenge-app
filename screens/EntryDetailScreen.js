@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
+import { syncWidgetChallengeList } from '../utils/widgetSync';
 
 const MAX_TEXT_LEN = 500;
 const MAX_MINUTES = 1440;
@@ -219,6 +220,7 @@ export default function EntryDetailScreen() {
               challenges[idx] = { ...challenges[idx], currentScore: next.length };
               await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
               await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
+      await syncWidgetChallengeList();
             }
 
             savedRef.current = true;

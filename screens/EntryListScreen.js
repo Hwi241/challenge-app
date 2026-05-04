@@ -470,7 +470,7 @@ const LineGradientChart = memo(function LineGradientChart({
   startDate,
   entries,
   metric='count',
-  width=SCREEN_WIDTH - EDGE*2 - 8,
+  width=SCREEN_WIDTH - EDGE*2 - GRAPH_SIDE_PAD*2 - 8,
   height=185,
   introProgress=1,
   interactive=true,
@@ -551,7 +551,7 @@ const LineGradientChart = memo(function LineGradientChart({
 
     if (n===1) {
       const dayDiff = (series[0].d - firstDate) / (1000 * 60 * 60 * 24);
-      const xRatio = totalDays > 1 ? dayDiff / totalDays : 0; // 단일점이면 왼쪽에 가깝게
+      const xRatio = clamp(totalDays > 1 ? dayDiff / totalDays : 0, 0, 1); // 단일점이면 왼쪽에 가깝게
       const x = left + xRatio * cw;
 
       const vmax = Math.max(1, series[0].v);
@@ -562,7 +562,7 @@ const LineGradientChart = memo(function LineGradientChart({
     const vmax = Math.max(1, ...series.map(p=>p.v));
     return series.map((p)=>{
       const dayDiff = (p.d - firstDate) / (1000 * 60 * 60 * 24);
-      const xRatio = totalDays > 1 ? dayDiff / totalDays : 0;
+      const xRatio = clamp(totalDays > 1 ? dayDiff / totalDays : 0, 0, 1);
       const x = left + xRatio * cw;
       const y = top + (1 - (p.v/vmax)) * usableCh * introProgress;
       return { x, y, v: p.v, d: p.d };

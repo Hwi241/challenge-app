@@ -19,10 +19,21 @@ export async function ensureNotificationPermissionAsync() {
 
 // ===== 취소 =====
 export async function cancelAllForChallenge(challenge) {
-  if (!challenge?.id) return;
+  const challengeId =
+    typeof challenge === 'string' || typeof challenge === 'number'
+      ? String(challenge)
+      : String(challenge?.id ?? '');
+
+  if (!challengeId) return;
+
   const idsRaw = await Notifications.getAllScheduledNotificationsAsync();
-  const toCancel = (idsRaw || []).filter(n => n.content?.data?.challengeId === challenge.id);
-  await Promise.all(toCancel.map(n => Notifications.cancelScheduledNotificationAsync(n.identifier)));
+  const toCancel = (idsRaw || []).filter(
+    n => String(n.content?.data?.challengeId ?? '') === challengeId
+  );
+
+  await Promise.all(
+    toCancel.map(n => Notifications.cancelScheduledNotificationAsync(n.identifier))
+  );
 }
 
 // ===== 등록(간단화) =====

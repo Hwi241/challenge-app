@@ -13,6 +13,7 @@ import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
+import com.hwiject.thepush.widgets.bridge.WidgetBridgePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -22,7 +23,9 @@ class MainApplication : Application(), ReactApplication {
     object : DefaultReactNativeHost(this) {
       override fun getPackages(): List<ReactPackage> {
         // 자동 링크된 패키지들
-        return PackageList(this).packages
+        val packages = PackageList(this).packages.toMutableList()
+      packages.add(WidgetBridgePackage())
+      return packages
         // 수동으로 추가할 패키지가 있으면 여기에 add() 호출 (지금은 불필요)
       }
 

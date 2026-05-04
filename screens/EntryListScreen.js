@@ -55,6 +55,8 @@ const REWARD_TOP_GAP    = 0;
 const GRAPH_REWARD_GAP   = 0;  // 그래프 ↔ 보상박스 간격
 const REWARD_BOTTOM_GAP = 30;  // 보상박스 아래 ~ 누적시간/횟수/목록 (클수록 더 멀어짐)
 const REWARD_SUMMARY_GAP = 10; // 보상박스 ↔ 누적시간/횟수(및 목록) 간격
+const PROGRESS_DONUT_SIZE = 104;
+const PROGRESS_DONUT_STROKE = 11;
 
 const DEBUG_ON = false; // 느리면 false 권장 (필요할 때만 true)
 
@@ -484,56 +486,43 @@ const LineGradientChart = memo(function LineGradientChart({
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
 
-  const baseSeries = useMemo(()=>{
-    if (metric === 'count') {
-      // 횟수는 인증한 날만 (series useMemo에서 전체 날짜 채움)
-      return raw.map(r=>({d:r.date, v: r.count})).filter(p=>p.v>0);
-    }
-    // 분 그래프: 시작일부터 오늘까지 모든 날짜 채우고 인증 없는 날은 0
-    if (raw.length === 0) return [];
-    const minuteMap = new Map();
-    for (const r of raw) minuteMap.set(keyOf(r.date), r.minutes);
-    const startD = raw[0].date;
-    const endD = new Date(); endD.setHours(0,0,0,0);
-    const result = [];
-    const cur = new Date(startD);
-    while (cur <= endD) {
-      const k = keyOf(new Date(cur));
-      result.push({ d: new Date(cur), v: minuteMap.get(k) || 0 });
-      cur.setDate(cur.getDate() + 1);
-    }
-    return result;
-  }, [raw, metric]);
-
   const series = useMemo(()=>{
-    if (metric !== 'count') return baseSeries;
-    if (baseSeries.length === 0) return [];
+    const chartStart = startDate ? new Date(startDate) : (raw[0]?.date || today);
+    chartStart.setHours(0,0,0,0);
 
-    // 시작일부터 오늘까지 모든 날짜를 채워서 누적값 유지
-    const startD = baseSeries[0].d;
-    const endD = new Date(); endD.setHours(0,0,0,0);
+    const endD = new Date();
+    endD.setHours(0,0,0,0);
 
-    // 인증한 날짜별 횟수 맵
+    if (chartStart > endD) return [];
+
     const countMap = new Map();
-    for (const p of baseSeries) countMap.set(keyOf(p.d), p.v);
+    const minuteMap = new Map();
 
-    // 시작일 하루 전을 0값 시작점으로 추가(분 그래프 0값 위치와 일치)
+    for (const r of raw) {
+      const k = keyOf(r.date);
+      countMap.set(k, r.count || 0);
+      minuteMap.set(k, r.minutes || 0);
+    }
+
     const result = [];
-    const dayBefore = new Date(startD);
-    dayBefore.setDate(dayBefore.getDate() - 1);
-    result.push({ d: dayBefore, v: 0 });
+    const cur = new Date(chartStart);
+    let cumulativeCount = 0;
 
-    // 시작일~오늘 모든 날짜 순회하며 누적
-    let cum = 0;
-    const cur = new Date(startD);
     while (cur <= endD) {
-      const k = keyOf(new Date(cur));
-      cum += (countMap.get(k) || 0);
-      result.push({ d: new Date(cur), v: cum });
+      const k = keyOf(cur);
+
+      if (metric === 'count') {
+        cumulativeCount += countMap.get(k) || 0;
+        result.push({ d: new Date(cur), v: cumulativeCount });
+      } else {
+        result.push({ d: new Date(cur), v: minuteMap.get(k) || 0 });
+      }
+
       cur.setDate(cur.getDate() + 1);
     }
+
     return result;
-  }, [baseSeries, metric]);
+  }, [raw, metric, startDate, today]);
 
   const start = useMemo(()=>startDate? new Date(new Date(startDate).setHours(0,0,0,0)) : (series[0]?.d || today), [startDate, series, today]);
   const end = useMemo(()=> new Date(new Date().setHours(0,0,0,0)), []);
@@ -551,23 +540,25 @@ const LineGradientChart = memo(function LineGradientChart({
 
     if (n===1) {
       const dayDiff = (series[0].d - firstDate) / (1000 * 60 * 60 * 24);
-      const xRatio = clamp(totalDays > 1 ? dayDiff / totalDays : 0, 0, 1); // 단일점이면 왼쪽에 가깝게
+      const xRatio = clamp(totalDays > 0 ? dayDiff / totalDays : 0, 0, 1);
       const x = left + xRatio * cw;
-
       const vmax = Math.max(1, series[0].v);
-      const y = top + (1 - (series[0].v / vmax)) * usableCh * introProgress;
+      const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
+      const yRatio = clamp(series[0].v / yMax, 0, 1);
+      const y = top + (1 - yRatio) * usableCh * introProgress;
       return [{x, y, v: series[0].v, d: series[0].d}];
     }
-
     const vmax = Math.max(1, ...series.map(p=>p.v));
+    const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
     return series.map((p)=>{
       const dayDiff = (p.d - firstDate) / (1000 * 60 * 60 * 24);
-      const xRatio = clamp(totalDays > 1 ? dayDiff / totalDays : 0, 0, 1);
+      const xRatio = clamp(totalDays > 0 ? dayDiff / totalDays : 0, 0, 1);
       const x = left + xRatio * cw;
-      const y = top + (1 - (p.v/vmax)) * usableCh * introProgress;
+      const yRatio = clamp(p.v / yMax, 0, 1);
+      const y = top + (1 - yRatio) * usableCh * introProgress;
       return { x, y, v: p.v, d: p.d };
     });
-  }, [series, start, end, today, left, cw, top, ch, introProgress]);
+  }, [series, start, end, today, left, cw, top, ch, metric, introProgress]);
 
   const yScale = useCallback((v, vmax)=> {
     const BOTTOM_PADDING_RATIO = 0.15;
@@ -583,7 +574,9 @@ const LineGradientChart = memo(function LineGradientChart({
     if(n===0) return [];
     if (n===1) {
       const vmax = Math.max(1, series[0].v);
-      const y = yScale(series[0].v, vmax);
+      const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
+      const yRatio = clamp(series[0].v / yMax, 0, 1);
+      const y = top + (1 - yRatio) * ch * 0.85;
       const xleft = left;
       return [
         {x:xleft-0.001, y, v:series[0].v, d:series[0].d},
@@ -591,7 +584,7 @@ const LineGradientChart = memo(function LineGradientChart({
       ];
     }
     return nodePts;
-  }, [series, yScale, left, nodePts]);
+  }, [series, metric, top, ch, left, nodePts]);
 
   const pathD = useMemo(()=>{
     if(!pts.length) return '';
@@ -1473,7 +1466,7 @@ export default function EntryListScreen({ route, navigation }) {
     animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
   }, [animateK]);
   const runWeek = useCallback(() => {
-    if (isWeekAnimatingRef.current) return; animateK(setLineK);
+    if (isWeekAnimatingRef.current) return;
     isWeekAnimatingRef.current = true;
     setWeekK(0);
     animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
@@ -1490,6 +1483,8 @@ export default function EntryListScreen({ route, navigation }) {
       setWeekK(0);
       animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
     }
+    setLineK(0);
+    animateK(setLineK);
   }, [animateK]);
 
   /* ── 디버그/리로드 ── */
@@ -1813,8 +1808,8 @@ export default function EntryListScreen({ route, navigation }) {
       <View style={[styles.row, { marginTop: 16 }]}>
         <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 12 }}>
-            <Donut targetPercent={overallPct} progress={donutK} size={80} stroke={10} />
+          <View style={{ marginTop: 28 }}>
+            <Donut targetPercent={overallPct} progress={donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
           </View>
         </TouchableOpacity>
 
@@ -1862,7 +1857,7 @@ export default function EntryListScreen({ route, navigation }) {
       {/* 전체일정 라인 그래프 */}
       <View style={[styles.sectionBox, { paddingHorizontal: 0, alignItems:'center' }]}>
         {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive onPageChange={runLine} introProgress={lineK} />
+          <LineChartsPager startDate={meta.startDate} entries={entries} interactive introProgress={lineK} />
         ) : (
           <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
         )}
@@ -1890,8 +1885,8 @@ export default function EntryListScreen({ route, navigation }) {
       <View style={[styles.row, { marginTop: 16 }]}>
         <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 12 }}>
-            <Donut targetPercent={overallPct} progress={1} size={80} stroke={10} />
+          <View style={{ marginTop: 28 }}>
+            <Donut targetPercent={overallPct} progress={1} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
           </View>
         </TouchableOpacity>
 
@@ -2240,7 +2235,7 @@ rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
 
   calGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
   calCell: { width: '14.2857%', height: 26, alignItems: 'center', justifyContent: 'center', marginVertical: 2, borderRadius: 4 },
-  calBadge: { minWidth: 24, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#111', borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginHorizontal: 0.4, marginVertical: 3.5 },
+  calBadge: { minWidth: 20, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#111', borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginHorizontal: 1, marginVertical: 3.5 },
   calBadgeText: { color: '#fff', fontWeight: '800', fontSize: 10.5 },
   calCellText: { fontSize: 10.5, color: '#111' },
   calCellTextDim: { color: textGrey },

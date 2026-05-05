@@ -107,6 +107,60 @@ const BATTERY_COLORS = [
   '#111111', // 4단계
 ];
 
+const HABIT_GRASS_EMPTY = '#F3F4F6';
+const HABIT_GRASS_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#111111'];
+
+const keyOfDate = (d) => {
+  const x = new Date(d);
+  if (Number.isNaN(x.getTime())) return '';
+  const y = x.getFullYear();
+  const m = String(x.getMonth() + 1).padStart(2, '0');
+  const day = String(x.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getEntryDateKey = (entry) => {
+  const raw = entry?.timestamp ?? entry?.createdAt ?? entry?.date ?? entry?.day;
+  if (!raw) return '';
+  return keyOfDate(raw);
+};
+
+const getHabitTodayGrassColor = (entries = []) => {
+  const arr = Array.isArray(entries) ? entries : [];
+  if (!arr.length) return HABIT_GRASS_EMPTY;
+
+  const todayKey = keyOfDate(new Date());
+
+  const counts = new Map();
+  for (const entry of arr) {
+    const k = getEntryDateKey(entry);
+    if (!k) continue;
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+
+  if (counts.size === 0) return HABIT_GRASS_EMPTY;
+
+  const keys = Array.from(counts.keys()).sort();
+  const displayKey = counts.has(todayKey) ? todayKey : keys[keys.length - 1];
+  const count = counts.get(displayKey) || 0;
+  const level = Math.max(0, Math.min(3, count));
+
+  return HABIT_GRASS_COLORS[level] || HABIT_GRASS_EMPTY;
+};
+
+const HabitTodayGrassBox = ({ color = HABIT_GRASS_EMPTY }) => (
+  <View
+    style={{
+      width: 26,
+      height: 26,
+      borderRadius: 7,
+      backgroundColor: color,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+    }}
+  />
+);
+
 const HabitBattery = ({ level = 0 }) => {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 2 }}>
@@ -239,6 +293,7 @@ const EmptyState = memo(() => (
 /* ---------- 카드 UI ---------- */
 const CardBody = React.forwardRef(function CardBody({
   item,
+  habitGrassColor = HABIT_GRASS_EMPTY,
   showControls,
   canReorder,
   onPressCard,
@@ -261,7 +316,7 @@ const CardBody = React.forwardRef(function CardBody({
           {item.title ?? '(제목 없음)'}
         </Text>
         {item.type === 'habit' ? (
-          <HabitBattery level={getHabitBatteryLevel(item)} />
+          <HabitTodayGrassBox color={habitGrassColor} />
         ) : (
           <View style={styles.pctCircleWrap}>
             <Svg width={26} height={26}>
@@ -397,7 +452,7 @@ const CardBody = React.forwardRef(function CardBody({
 
 /* ---------- 리스트 셀 ---------- */
 const ItemCard = memo(React.forwardRef(function ItemCard({
-  item, hidden,
+  item, hidden, habitGrassColor = HABIT_GRASS_EMPTY,
   onLongPress,
   onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
 }, ref) {
@@ -405,6 +460,7 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
     <View style={[styles.cardWrap, hidden && { opacity: 0 }]}>
       <CardBody ref={ref}
         item={item}
+        habitGrassColor={habitGrassColor}
         showControls={false}
         canReorder={!asDoneFlags(item)._isDone}
         onPressCard={onPressCard}
@@ -425,6 +481,7 @@ export default function ChallengeListScreen() {
   const insets = useSafeAreaInsets();
 
   const [data, setData] = useState([]);
+  const [habitGrassColorMap, setHabitGrassColorMap] = useState({});
 
   /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
@@ -479,7 +536,26 @@ export default function ChallengeListScreen() {
       console.log('[ChallengeList][load] rawIds=', (raw||[]).map(it=>safeStringId(it?.id||it?.challengeId)));
       console.log('[ChallengeList][load] arrangedIds=', arranged.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
 
+      const nextHabitGrassColorMap = {};
+      await Promise.all(
+        arranged
+          .filter(c => c?.type === 'habit')
+          .map(async (c) => {
+            const id = safeStringId(c.id);
+            if (!id) return;
+            try {
+              const rawEntries = await AsyncStorage.getItem(`entries_${id}`);
+              const parsedEntries = parseJson(rawEntries);
+              const entries = Array.isArray(parsedEntries) ? parsedEntries : [];
+              nextHabitGrassColorMap[id] = getHabitTodayGrassColor(entries);
+            } catch {
+              nextHabitGrassColorMap[id] = HABIT_GRASS_EMPTY;
+            }
+          })
+      );
+
       setData(arranged);
+      setHabitGrassColorMap(nextHabitGrassColorMap);
       try {
         await AsyncStorage.setItem(CHALLENGES_KEY, JSON.stringify(arranged));
         await writeOrderMap(newOrderMap);
@@ -816,6 +892,7 @@ export default function ChallengeListScreen() {
         <ItemCard
           ref={(el) => { if (el) itemRefs.current[id] = el; }}
           item={item}
+          habitGrassColor={habitGrassColorMap[safeStringId(item.id)] || HABIT_GRASS_EMPTY}
           hidden={isSelected && reorderActive}
           onLongPress={() => enterReorder(item)}
           onPressCard={(it) => {
@@ -834,7 +911,7 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, goEntryList, enterReorder, onClaimReward]
+    [reorderActive, selectedId, habitGrassColorMap, goEntryList, enterReorder, onClaimReward]
   );
 
   const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));

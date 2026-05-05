@@ -24,6 +24,49 @@ const CONTROLS_H = 44;
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
 
+const SORT_LABELS = {
+  manual: '사용자 지정',
+  newest: '최신순',
+  oldest: '오래된순',
+  habitFirst: '습관/도전',
+  challengeFirst: '도전/습관',
+};
+const FILTER_SORT_MODES = new Set();
+const isFilterSortMode = (mode) => FILTER_SORT_MODES.has(mode);
+
+const buildDisplayData = (source = [], mode = 'manual') => {
+  let arr = Array.isArray(source) ? [...source] : [];
+
+
+  if (mode === 'habitFirst') {
+    const habits = arr.filter(c => c.type === 'habit');
+    const challenges = arr.filter(c => c.type !== 'habit');
+    return [...habits, ...challenges];
+  }
+
+  if (mode === 'challengeFirst') {
+    const habits = arr.filter(c => c.type === 'habit');
+    const challenges = arr.filter(c => c.type !== 'habit');
+    return [...challenges, ...habits];
+  }
+
+  if (mode === 'newest' || mode === 'oldest') {
+    const active = arr.filter(c => !c._isDone && !c.archived && !c._isExpired);
+    const expired = arr.filter(c => !c._isDone && !c.archived && c._isExpired);
+    const done = arr.filter(c => c._isDone || c.archived);
+
+    active.sort((a, b) => (
+      mode === 'newest'
+        ? (b.createdAt || 0) - (a.createdAt || 0)
+        : (a.createdAt || 0) - (b.createdAt || 0)
+    ));
+
+    return [...active, ...expired, ...done];
+  }
+
+  return arr;
+};
+
 /* ---------- 유틸 ---------- */
 const safeStringId = (v) => (v == null ? '' : String(v));
 
@@ -215,7 +258,8 @@ function normalizeWithOrder(arrRaw = [], orderMapIn = {}, mode = 'respectMap') {
       if (bHas) return 1;
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
-    mergedActive = [...known.map(k => k.item), ...unknown];
+    // orderMap에 없는 새 활성 카드는 방금 생성된 카드일 가능성이 높으므로 기존 카드 앞에 둔다.
+    mergedActive = [...unknown, ...known.map(k => k.item)];
 
     const activeKnownIds = active
       .filter(c => Number.isFinite(orderMapIn[safeStringId(c.id)]))
@@ -343,7 +387,7 @@ const CardBody = React.forwardRef(function CardBody({
             <Text style={styles.meta}>총 기록 {item.currentScore ?? 0}회</Text>
             {item.habitCycle && (
               <Text style={styles.meta}>
-                목표 {item.habitCycle.type === 'weekly'
+                주기 {item.habitCycle.type === 'weekly'
                   ? (item.habitCycle.days || []).join(', ')
                   : '매월 ' + (item.habitCycle.dates || []).sort((a,b)=>a-b).join(', ') + '일'
                 }
@@ -486,7 +530,7 @@ export default function ChallengeListScreen() {
   /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
-  const [sortMode, setSortMode] = useState('newest'); // newest|oldest|habitOnly|challengeOnly|habitFirst|challengeFirst
+  const [sortMode, setSortMode] = useState('manual'); // manual|newest|oldest|habitFirst|challengeFirst
   const [selectedId, setSelectedId] = useState(null);
 
   /* 플로팅 복제 */
@@ -587,6 +631,31 @@ export default function ChallengeListScreen() {
     setFloatWidth(0);
     animLockRef.current = false;
   }, [persistChallenges]);
+
+  const applySortMode = useCallback((mode) => {
+    setShowSortModal(false);
+
+    if (isFilterSortMode(mode)) {
+      setSortMode(mode);
+      return;
+    }
+    
+    const sorted = buildDisplayData(dataRef.current || [], mode);
+    dataRef.current = sorted;
+
+    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
+    setData(sorted);
+    setSortMode(mode);
+
+    (async () => {
+      try {
+        const arranged = await persistChallenges(sorted, `sort:${mode}`);
+        dataRef.current = arranged;
+        setData(arranged);
+      } catch {}
+    })();
+  }, [persistChallenges]);
+
 
   useEffect(() => {
     if (!isFocused || Platform.OS !== 'android') return;
@@ -765,12 +834,15 @@ export default function ChallengeListScreen() {
     if (animLockRef.current) return;
     animLockRef.current = true;
 
-    const prev = dataRef.current || [];
+    const prev = sortMode === 'manual'
+      ? (dataRef.current || [])
+      : buildDisplayData(dataRef.current || [], sortMode);
     const idx = prev.findIndex(c => safeStringId(c.id) === safeStringId(selectedId));
     if (idx < 0) { animLockRef.current = false; return; }
 
+    const activeCountInPrev = prev.reduce((acc, c) => acc + (!asDoneFlags(c)._isDone && !c.archived && !c._isExpired ? 1 : 0), 0);
     const minIdx = 0;
-    const maxIdx = Math.max(0, activeCount - 1);
+    const maxIdx = Math.max(0, activeCountInPrev - 1);
     const to = Math.max(minIdx, Math.min(maxIdx, idx + (dir === 'up' ? -1 : +1)));
     if (to === idx) { animLockRef.current = false; return; }
 
@@ -780,7 +852,9 @@ export default function ChallengeListScreen() {
 
     console.log('[ChallengeList][moveSelected]', { selectedId, dir, from: idx, to, activeCount });
 
+    dataRef.current = nextArr;
     setData(nextArr);
+    if (sortMode !== 'manual') setSortMode('manual');
     (async () => { try { await persistChallenges(nextArr, 'move'); } catch {} })();
 
     setTimeout(() => {
@@ -799,15 +873,15 @@ export default function ChallengeListScreen() {
         animLockRef.current = false;
       }
     }, 16);
-  }, [reorderActive, selectedId, activeCount, insets.top, floatTop, persistChallenges]);
+  }, [reorderActive, selectedId, activeCount, insets.top, floatTop, persistChallenges, sortMode]);
 
     const enterReorder = useCallback((item) => {
     if (asDoneFlags(item)._isDone) {
       Alert.alert('안내', '완료된 도전은 순서를 변경할 수 없어요.');
       return;
     }
-    // 정렬/필터 모드 초기화 - displayData와 data 인덱스 불일치 방지
-    setSortMode('newest');
+    // 수정모드 진입만으로는 현재 정렬을 풀지 않는다.
+    // 실제 순서 변경 시점에만 현재 표시 순서를 저장 순서로 확정한다.
     // 만료 도전은 수정/삭제만 가능 (복제 버튼은 플로팅 카드에서 숨김)
     const id = item.id;
     const ref = itemRefs.current[safeStringId(id)];
@@ -835,49 +909,17 @@ export default function ChallengeListScreen() {
       }));
     }
     console.log('[ChallengeList][enterReorder] id=', safeStringId(id));
-  }, [floatLeft, floatTop]);
+  }, [floatLeft, floatTop, sortMode]);
 
   const onOverlayPress = useCallback(() => { finalizeReorder(); }, [finalizeReorder]);
 
   /* 렌더 */
     // sortMode에 따라 표시할 데이터 계산
   const displayData = useMemo(() => {
-    let arr = [...data];
-
-    // 필터
-    if (sortMode === 'habitOnly') {
-      arr = arr.filter(c => c.type === 'habit');
-    } else if (sortMode === 'challengeOnly') {
-      arr = arr.filter(c => c.type !== 'habit');
+    if (isFilterSortMode(sortMode)) {
+      return buildDisplayData(data, sortMode);
     }
-
-    // 그룹 정렬 (습관/도전 또는 도전/습관)
-    if (sortMode === 'habitFirst') {
-      const habits = arr.filter(c => c.type === 'habit');
-      const challenges = arr.filter(c => c.type !== 'habit');
-      return [...habits, ...challenges];
-    }
-    if (sortMode === 'challengeFirst') {
-      const habits = arr.filter(c => c.type === 'habit');
-      const challenges = arr.filter(c => c.type !== 'habit');
-      return [...challenges, ...habits];
-    }
-
-    // 시간순 정렬 (완료 카드는 항상 맨 뒤 유지)
-    if (sortMode === 'newest' || sortMode === 'oldest') {
-      const active = arr.filter(c => !c._isDone && !c.archived && !c._isExpired);
-      const expired = arr.filter(c => !c._isDone && !c.archived && c._isExpired);
-      const done = arr.filter(c => c._isDone || c.archived);
-
-      if (sortMode === 'newest') {
-        active.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      } else {
-        active.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-      }
-      return [...active, ...expired, ...done];
-    }
-
-    return arr;
+    return data;
   }, [data, sortMode]);
 
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
@@ -949,14 +991,7 @@ export default function ChallengeListScreen() {
         disabled={reorderActive}
       >
         <Text style={styles.sortBarText}>
-          정렬: {{
-            newest: '최신순',
-            oldest: '오래된순',
-            habitOnly: '습관만 보기',
-            challengeOnly: '도전만 보기',
-            habitFirst: '습관/도전',
-            challengeFirst: '도전/습관',
-          }[sortMode]}
+          정렬: {SORT_LABELS[sortMode] || SORT_LABELS.manual}
         </Text>
         <Text style={styles.sortBarArrow}>▾</Text>
       </TouchableOpacity>
@@ -1025,15 +1060,13 @@ export default function ChallengeListScreen() {
           {[
             { key: 'newest', label: '최신순' },
             { key: 'oldest', label: '오래된순' },
-            { key: 'habitOnly', label: '습관만 보기' },
-            { key: 'challengeOnly', label: '도전만 보기' },
             { key: 'habitFirst', label: '습관/도전' },
             { key: 'challengeFirst', label: '도전/습관' },
           ].map(opt => (
             <TouchableOpacity
               key={opt.key}
               style={[styles.sortOption, sortMode === opt.key && styles.sortOptionOn]}
-              onPress={() => { setSortMode(opt.key); setShowSortModal(false); }}
+              onPress={() => applySortMode(opt.key)}
               activeOpacity={0.9}
             >
               <Text style={[styles.sortOptionText, sortMode === opt.key && styles.sortOptionTextOn]}>

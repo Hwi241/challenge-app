@@ -29,6 +29,7 @@ import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import BackButton from '../components/BackButton';
+import { SettingSectionCard, GoalCyclePreview as SettingGoalCyclePreview, NotificationPreview as SettingNotificationPreview } from '../components/ChallengeSettingWidgets';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 
 const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
@@ -554,82 +555,35 @@ export default function EditChallengeScreen(){
 
       {/* 목표 주기 - 습관 전용 */}
       {isHabit && (
-        <View style={[styles.card, { marginTop: spacing.lg }]}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>목표 주기</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}>
-              {habitCycle && (
-                <TouchableOpacity
-                  style={styles.notifDeleteCircle}
-                  onPress={() => { setHabitCycle(null); setCycleDays(new Set()); setCycleDates(new Set()); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.notifDeleteX}>×</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[buttonStyles.compactRight]}
-                onPress={() => setShowCycleModal(true)}
-                activeOpacity={0.9}
-              >
-                <Text style={buttonStyles.compactRightText}>주기 선택</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.previewBox}>
-            {!habitCycle ? (
-              <Text style={{ fontSize: 12, color: PALETTE.gray400, textAlign: 'center' }}>주기 미설정</Text>
-            ) : habitCycle.type === 'weekly' ? (
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                {['월','화','수','목','금','토','일'].map(d => {
-                  const on = (habitCycle.days || []).includes(d);
-                  return (
-                    <View key={d} style={[styles.cycleDayCircle, on && styles.cycleDayCircleOn, { width: 28, height: 28 }]}>
-                      <Text style={[styles.cycleDayText, on && styles.cycleDayTextOn, { fontSize: 11 }]}>{d}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <Text style={{ fontSize: 12, color: PALETTE.gray800 }}>
-                매월 {(habitCycle.dates || []).sort((a,b)=>a-b).join(', ')}일
-              </Text>
-            )}
-          </View>
-        </View>
+        <SettingSectionCard
+          title="목표 주기"
+          actionLabel={habitCycle ? '변경' : '선택'}
+          onActionPress={() => setShowCycleModal(true)}
+          onClear={habitCycle ? () => {
+            setHabitCycle(null);
+            setCycleDays(new Set());
+            setCycleDates(new Set());
+            setCycleWeekScope('custom');
+            setCycleMonthScope('custom');
+          } : undefined}
+          clearAccessibilityLabel="목표 주기 삭제"
+          style={{ marginTop: spacing.lg }}
+        >
+          <SettingGoalCyclePreview cycle={habitCycle} />
+        </SettingSectionCard>
       )}
 
       {/* 알림 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.cardTitle}>알림</Text>
-          <View style={styles.rightBtnGroup}>
-            {notification?.mode && (
-              // [변경] 삭제 버튼을 원형 X 로
-              <TouchableOpacity
-                style={styles.notifDeleteCircle}
-                onPress={()=>setNotification({ mode:null, payload:null })}
-                activeOpacity={0.8}
-                accessibilityLabel="알림 삭제"
-              >
-                <Text style={styles.notifDeleteX}>×</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={buttonStyles.compactRight}
-              onPress={()=>setShowNotifPicker(true)}
-              activeOpacity={0.9}
-            >
-              <Text style={buttonStyles.compactRightText}>알림 설정</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.previewBox}>
-          {previewNodeByNotification(notification, startDate, endDate)}
-        </View>
-      </View>
+      <SettingSectionCard
+        title="알림"
+        actionLabel={notification?.mode ? '변경' : '설정'}
+        onActionPress={() => setShowNotifPicker(true)}
+        onClear={notification?.mode ? () => setNotification({ mode: null, payload: null }) : undefined}
+        clearAccessibilityLabel="알림 삭제"
+        style={{ marginTop: spacing.lg }}
+      >
+        <SettingNotificationPreview notification={notification} startDate={startDate} endDate={endDate} />
+      </SettingSectionCard>
 
       {/* 목표 주기 모달 - 습관 전용 */}
       <Modal visible={showCycleModal} transparent animationType="fade" onRequestClose={() => setShowCycleModal(false)}>

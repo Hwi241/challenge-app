@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
@@ -53,6 +54,7 @@ function normalizeInitial(initial) {
 export default function MonthlyNotificationScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
 
   const initial = route.params?.initial ?? null;
   const returnTo = route.params?.returnTo || 'AddChallenge';
@@ -236,9 +238,9 @@ const onChangeScope = useCallback((scope)=>{
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
       <BackButton title="월간 알림 설정" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
       <Text style={styles.desc}>각 날짜 최대 {MAX_PER_DATE}개</Text>
       {/* 추가 설명 문구 */}

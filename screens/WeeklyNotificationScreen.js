@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
@@ -14,6 +15,7 @@ const fmtHHMM = (d)=>`${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 export default function WeeklyNotificationScreen(){
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const initial = route.params?.initial || null;
   const returnTo = route.params?.returnTo || 'AddChallenge';
 
@@ -193,9 +195,9 @@ export default function WeeklyNotificationScreen(){
   const scopeIsCustom = useMemo(()=>bulkScope==='custom', [bulkScope]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
       <BackButton title="주간 알림 설정" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
       <Text style={styles.desc}>각 요일 최대 10개</Text>
 

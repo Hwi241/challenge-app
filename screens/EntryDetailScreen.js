@@ -24,7 +24,7 @@ export default function EntryDetailScreen() {
   const route = useRoute();
   const navigation = useNavigation();
 
-  const { challengeId, entryId } = route.params || {};
+  const { challengeId, entryId, title: routeTitle } = route.params || {};
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const originalRef = useRef({ text: "", duration: "", imageUri: null });
@@ -35,6 +35,7 @@ export default function EntryDetailScreen() {
   const [duration, setDuration] = useState(''); // 빈 문자열 허용
   const [imageUri, setImageUri] = useState(null);
   const [timestamp, setTimestamp] = useState(null);
+  const [challengeTitle, setChallengeTitle] = useState(routeTitle || '');
 
   // 로드
   useEffect(() => {
@@ -47,7 +48,14 @@ export default function EntryDetailScreen() {
           ]);
           return;
         }
-        const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+        const challengeRaw = await AsyncStorage.getItem('challenges');
+    const challenges = challengeRaw ? JSON.parse(challengeRaw) : [];
+    const foundChallenge = Array.isArray(challenges)
+      ? challenges.find(c => String(c.id) === String(challengeId))
+      : null;
+    setChallengeTitle(foundChallenge?.title || routeTitle || '');
+
+    const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
         const list = raw ? JSON.parse(raw) : [];
         const found = list.find(e => e.id === entryId);
         if (!found) {
@@ -249,9 +257,13 @@ export default function EntryDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <BackButton title="기록 수정" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
-        {/* 제목 중앙 정렬 */}
-        
+        {!!challengeTitle && (
+          <View style={styles.titleBox}>
+            <Text style={styles.titleBoxText}>{challengeTitle}</Text>
+          </View>
+        )}
 
         <View style={styles.card}>
           {/* "내용" + "사진 선택"을 한 줄로 */}
@@ -346,6 +358,22 @@ const styles = StyleSheet.create({
     color: '#111',
     marginBottom: spacing.lg,
     textAlign: 'center', // 중앙 정렬
+  },
+
+  titleBox: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: spacing.lg,
+  },
+  titleBoxText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111',
+    textAlign: 'center',
   },
 
   card: {

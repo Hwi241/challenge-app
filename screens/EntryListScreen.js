@@ -2110,7 +2110,7 @@ export default function EntryListScreen({ route, navigation }) {
   sortedEntries.map((item, index) => {
     const indexFromEnd = sortedEntries.length - index;
     const onPress = readOnly ? undefined : () =>
-      navigation.navigate('EntryDetail', { challengeId, entryId: item.id });
+      navigation.navigate('EntryDetail', { challengeId, entryId: item.id, title });
     return (
       <React.Fragment key={item?.id ?? `${item?.timestamp ?? 0}-${index}`}>
         {/* entry 스타일이 이미 NARROW_PLUS 반영됨 */}

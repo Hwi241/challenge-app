@@ -301,7 +301,7 @@ const MAX_MINUTES = 1440; // 24시간
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <BackButton title="인증 업로드" />
+      <BackButton title="인증/기록 하기" />
       <ScrollView contentContainerStyle={styles.container}>
       {/* 제목 중앙 정렬 */}
       

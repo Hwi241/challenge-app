@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, colors, spacing, radius, card as cardStyles } from '../styles/common';
@@ -15,6 +16,7 @@ const toHHmm = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 export default function SimpleNotificationScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { initial, returnTo } = route.params || {};
 
   const [selectedDays, setSelectedDays] = useState([]); // ['월'..]
@@ -152,9 +154,9 @@ export default function SimpleNotificationScreen() {
   }, [navigation, returnTo, route.params?.onDone, selectedDays, times, weeks]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
       <BackButton title="간단 알림 설정" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
 
       {/* 요일 선택 */}

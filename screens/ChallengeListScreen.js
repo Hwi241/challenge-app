@@ -151,7 +151,13 @@ const BATTERY_COLORS = [
 ];
 
 const HABIT_GRASS_EMPTY = '#F3F4F6';
-const HABIT_GRASS_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#111111'];
+const HABIT_GRASS_COLORS = [
+  '#F3F4F6', // 0: 기간 밖/빈 칸
+  '#E5E7EB', // 1: 기간 안이지만 미인증/미래
+  '#A0A0A0', // 2: 첫 인증
+  '#555555', // 3: 2일 연속 인증
+  '#111111', // 4: 3일 이상 연속 인증
+];
 
 const keyOfDate = (d) => {
   const x = new Date(d);
@@ -162,47 +168,74 @@ const keyOfDate = (d) => {
   return `${y}-${m}-${day}`;
 };
 
+const toDateOnly = (value) => {
+  const x = value ? new Date(value) : new Date();
+  if (Number.isNaN(x.getTime())) return null;
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
 const getEntryDateKey = (entry) => {
   const raw = entry?.timestamp ?? entry?.createdAt ?? entry?.date ?? entry?.day;
   if (!raw) return '';
   return keyOfDate(raw);
 };
 
-const getHabitTodayGrassColor = (entries = []) => {
+const getHabitTodayGrassColor = (entries = [], item = {}) => {
   const arr = Array.isArray(entries) ? entries : [];
-  if (!arr.length) return HABIT_GRASS_EMPTY;
+  const today = toDateOnly(new Date());
+  const start = toDateOnly(item?.startDate);
+  const end = toDateOnly(item?.endDate);
 
-  const todayKey = keyOfDate(new Date());
+  if (!today) return HABIT_GRASS_EMPTY;
 
-  const counts = new Map();
+  const inRange = (!start || today >= start) && (!end || today <= end);
+  if (!inRange) return HABIT_GRASS_EMPTY;
+
+  const certSet = new Set();
   for (const entry of arr) {
     const k = getEntryDateKey(entry);
-    if (!k) continue;
-    counts.set(k, (counts.get(k) || 0) + 1);
+    if (k) certSet.add(k);
   }
 
-  if (counts.size === 0) return HABIT_GRASS_EMPTY;
+  const todayKey = keyOfDate(today);
+  if (!certSet.has(todayKey)) {
+    return HABIT_GRASS_COLORS[1] || HABIT_GRASS_EMPTY;
+  }
 
-  const keys = Array.from(counts.keys()).sort();
-  const displayKey = counts.has(todayKey) ? todayKey : keys[keys.length - 1];
-  const count = counts.get(displayKey) || 0;
-  const level = Math.max(0, Math.min(3, count));
+  let streak = 1;
+  for (let offset = 1; offset <= 2; offset += 1) {
+    const prevDate = new Date(today);
+    prevDate.setDate(prevDate.getDate() - offset);
+    prevDate.setHours(0, 0, 0, 0);
 
+    if (start && prevDate < start) break;
+
+    const prevKey = keyOfDate(prevDate);
+    if (certSet.has(prevKey)) streak += 1;
+    else break;
+  }
+
+  const level = streak >= 3 ? 4 : streak === 2 ? 3 : 2;
   return HABIT_GRASS_COLORS[level] || HABIT_GRASS_EMPTY;
 };
 
-const HabitTodayGrassBox = ({ color = HABIT_GRASS_EMPTY }) => (
-  <View
-    style={{
-      width: 26,
-      height: 26,
-      borderRadius: 7,
-      backgroundColor: color,
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
-    }}
-  />
-);
+
+const HabitTodayGrassBox = ({ color = HABIT_GRASS_EMPTY }) => {
+  const isEmpty = color === HABIT_GRASS_EMPTY;
+  return (
+    <View
+      style={{
+        width: 22,
+        height: 22,
+        borderRadius: 4,
+        backgroundColor: color,
+        borderWidth: isEmpty ? 1 : 0,
+        borderColor: '#D1D5DB',
+      }}
+    />
+  );
+};
 
 const HabitBattery = ({ level = 0 }) => {
   return (
@@ -591,7 +624,7 @@ export default function ChallengeListScreen() {
               const rawEntries = await AsyncStorage.getItem(`entries_${id}`);
               const parsedEntries = parseJson(rawEntries);
               const entries = Array.isArray(parsedEntries) ? parsedEntries : [];
-              nextHabitGrassColorMap[id] = getHabitTodayGrassColor(entries);
+              nextHabitGrassColorMap[id] = getHabitTodayGrassColor(entries, c);
             } catch {
               nextHabitGrassColorMap[id] = HABIT_GRASS_EMPTY;
             }

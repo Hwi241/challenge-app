@@ -546,17 +546,17 @@ const LineGradientChart = memo(function LineGradientChart({
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
       const y = top + (1 - yRatio) * usableCh * introProgress;
-      return [{x, y, v: series[0].v, d: series[0].d}];
+      return [{ x, y, v: series[0].v, d: series[0].d, sourceIdx: 0 }];
     }
     const vmax = Math.max(1, ...series.map(p=>p.v));
     const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
-    return series.map((p)=>{
+    return series.map((p, idx)=>{
       const dayDiff = (p.d - firstDate) / (1000 * 60 * 60 * 24);
       const xRatio = clamp(totalDays > 0 ? dayDiff / totalDays : 0, 0, 1);
       const x = left + xRatio * cw;
       const yRatio = clamp(p.v / yMax, 0, 1);
       const y = top + (1 - yRatio) * usableCh * introProgress;
-      return { x, y, v: p.v, d: p.d };
+      return { x, y, v: p.v, d: p.d, sourceIdx: idx };
     });
   }, [series, start, end, today, left, cw, top, ch, metric, introProgress]);
 
@@ -579,8 +579,8 @@ const LineGradientChart = memo(function LineGradientChart({
       const y = top + (1 - yRatio) * ch * 0.85;
       const xleft = left;
       return [
-        {x:xleft-0.001, y, v:series[0].v, d:series[0].d},
-        {x:xleft+0.001, y, v:series[0].v, d:series[0].d}
+        {x:xleft-0.001, y, v:series[0].v, d:series[0].d, sourceIdx: 0},
+        {x:xleft+0.001, y, v:series[0].v, d:series[0].d, sourceIdx: 0}
       ];
     }
     return nodePts;
@@ -669,14 +669,14 @@ const LineGradientChart = memo(function LineGradientChart({
     }
 
     // 그래프 영역 내 X좌표 기준으로 가장 가까운 노드 선택
-    if (!pts.length) return;
+    if (!nodePts.length) return;
     let best = 0, bestDx = Infinity;
-    for (let i=0;i<pts.length;i++){
-      const dx = Math.abs(pts[i].x - x);
+    for (let i=0;i<nodePts.length;i++){
+      const dx = Math.abs(nodePts[i].x - x);
       if (dx < bestDx) { bestDx = dx; best = i; }
     }
     setSelectedIdx(best);
-  }, [interactive, pts, dotCx1, dotCx2, dotCy, onSelectPagerIndex]);
+  }, [interactive, nodePts, dotCx1, dotCx2, dotCy, onSelectPagerIndex]);
 
   const selectedLabel = useMemo(()=>{
     if (selectedIdx==null || !series[selectedIdx]) return null;
@@ -687,10 +687,10 @@ const LineGradientChart = memo(function LineGradientChart({
 
   const selPoint = useMemo(()=>{
     if (selectedIdx==null) return null;
-    return pts[selectedIdx] || null;
-  }, [selectedIdx, pts]);
+    return nodePts[selectedIdx] || null;
+  }, [selectedIdx, nodePts]);
 
-  const endNode = pts[pts.length-1] || null;
+  const endNode = nodePts[nodePts.length-1] || null;
 
   return (
     <View pointerEvents="box-none">
@@ -1153,9 +1153,13 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     return { cellData: cells, weekStarts: weekStartCols, monthLabels: monthLabelsArr };
   }, [entries, startDate, endDate]);
 
-  const minCols = Math.ceil(containerWidth / (cellSize + CELL_GAP));
-  const totalCols = Math.max(weekStarts.length || 1, minCols);
-  const graphWidth = totalCols * (cellSize + CELL_GAP) - CELL_GAP;
+    const colUnit = cellSize + CELL_GAP;
+    const contentCols = Math.max(weekStarts.length + 1, 1);
+    const minCols = Math.max(1, Math.floor((containerWidth + CELL_GAP) / colUnit));
+    const totalCols = Math.max(contentCols, minCols);
+    const graphWidth = totalCols * colUnit - CELL_GAP;
+    const contentWidth = contentCols * colUnit - CELL_GAP;
+    const canScrollGrass = contentWidth > containerWidth + 1;
   const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
@@ -1196,10 +1200,13 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
           ref={grassScrollRef} 
           horizontal 
           showsHorizontalScrollIndicator={false}
-          nestedScrollEnabled
-          directionalLockEnabled
-          scrollEnabled={graphWidth > containerWidth}
-          scrollEventThrottle={16}
+        nestedScrollEnabled={canScrollGrass}
+        directionalLockEnabled
+        scrollEnabled={canScrollGrass}
+        bounces={false}
+        alwaysBounceHorizontal={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
           onScroll={(e) => setScrollPos({ x: e.nativeEvent.contentOffset.x, w: e.nativeEvent.contentSize.width })}
         >
           <View>
@@ -1221,7 +1228,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         </ScrollView>
 
         {/* 좌측 화살표 (Absolute) - 월 글씨 위치에 맞춤 */}
-        {graphWidth > containerWidth && scrollPos.x > 5 && (
+          {canScrollGrass && scrollPos.x > 5 && (
           <View style={{ position: 'absolute', left: -4, top: 0, height: TOP_LABEL_H, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
             <TouchableOpacity onPress={() => grassScrollRef.current?.scrollTo({x: 0, animated: true})} hitSlop={{top:15, bottom:15, left:15, right:15}}>
               <Text style={{ fontSize: 18, fontWeight: "900", color: "#6B7280", marginTop: -6 }}>{"‹"}</Text>
@@ -1230,7 +1237,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         )}
 
         {/* 우측 화살표 (Absolute) */}
-        {graphWidth > containerWidth && scrollPos.x + containerWidth < graphWidth - 5 && (
+          {canScrollGrass && scrollPos.x + containerWidth < graphWidth - 5 && (
           <View style={{ position: 'absolute', right: -4, top: 0, height: TOP_LABEL_H, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
             <TouchableOpacity onPress={() => grassScrollRef.current?.scrollToEnd({animated: true})} hitSlop={{top:15, bottom:15, left:15, right:15}}>
               <Text style={{ fontSize: 18, fontWeight: "900", color: "#6B7280", marginTop: -6 }}>{"›"}</Text>

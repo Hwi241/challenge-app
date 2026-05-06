@@ -22,6 +22,8 @@ import HallOfFameScreen from './screens/HallOfFameScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BackupScreen from './screens/BackupScreen';
 import TrashScreen from './screens/TrashScreen';
+import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
+import WidgetShopScreen from './screens/WidgetShopScreen';
 
 import { colors } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -53,6 +55,8 @@ const linking = {
       EditChallenge: 'edit',
       EntryDetail: 'entry-detail',
       HallOfFameScreen: 'hall-of-fame',
+      ProfileInventory: 'profile-inventory',
+      WidgetShop: 'widget-shop',
       Settings: 'settings',
       Backup: 'backup',
       FullRangeNotification: 'full-range',
@@ -131,6 +135,8 @@ export default function App() {
 
             {/* 메인 */}
             <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
+        <Stack.Screen name="ProfileInventory" component={ProfileInventoryScreen} />
+        <Stack.Screen name="WidgetShop" component={WidgetShopScreen} />
 
             {/* 알림 설정들 */}
             <Stack.Screen name="SimpleNotification" component={SimpleNotificationScreen} />

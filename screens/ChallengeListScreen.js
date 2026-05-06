@@ -803,6 +803,9 @@ export default function ChallengeListScreen() {
       targetScore: item.goalScore,
       rewardTitle: item.rewardTitle,
       reward: item.reward,
+      type: item.type,
+      challengeType: item.type,
+      description: item.description,
     });
   }, []);
 
@@ -1043,6 +1046,19 @@ export default function ChallengeListScreen() {
         windowSize={15}
       />
 
+      {/* 내 기록실 버튼 */}
+      <TouchableOpacity
+        style={[styles.profileFloatingBtn, { bottom: Math.max(insets.bottom, 16) + EDGE }]}
+        onPress={() => navigation.navigate('ProfileInventory')}
+        activeOpacity={0.9}
+        disabled={reorderActive}
+      >
+        <View style={styles.profileIconWrap}>
+          <View style={styles.profileIconHead} />
+          <View style={styles.profileIconBody} />
+        </View>
+      </TouchableOpacity>
+
       {/* 플로팅 버튼 */}
       <TouchableOpacity
         style={[styles.addFloatingBtn, { bottom: Math.max(insets.bottom, 16) + EDGE }]}
@@ -1230,6 +1246,31 @@ const styles = StyleSheet.create({
   hamburgerBtn: { paddingHorizontal: 4, paddingVertical: 4 },
   hamburgerIcon: { fontSize: 22, color: colors.gray800, fontWeight: '400' },
 
+  profileFloatingBtn: {
+    position: 'absolute', left: 12,
+    backgroundColor: '#111', borderRadius: 14,
+    width: 52, height: 42,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 3,
+  },
+  profileIconWrap: {
+    width: 24, height: 24,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  profileIconHead: {
+    width: 9, height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#fff',
+    marginBottom: 2,
+  },
+  profileIconBody: {
+    width: 19, height: 11,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    backgroundColor: '#fff',
+  },
   addFloatingBtn: {
     position: 'absolute', right: 12,
     backgroundColor: '#111', borderRadius: 14,

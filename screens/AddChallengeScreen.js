@@ -32,6 +32,14 @@ const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
 const sortTimesAsc = (arr=[]) => [...arr].sort((a,b)=>a.localeCompare(b));
 const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
+const pad2 = (n) => String(n).padStart(2, '0');
+const fmtDate = (d) => {
+  if (!d) return '-';
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt.getTime())) return '-';
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+};
+
 // --- 프리뷰 컴포넌트들 ---
 export default function AddChallengeScreen() {
   const navigation = useNavigation();

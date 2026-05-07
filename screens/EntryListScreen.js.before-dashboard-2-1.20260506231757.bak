@@ -2,26 +2,13 @@
 
 const KILL_UI_AND_SHOW_RAW = false; // 필요 시 true로 전환(데이터 디버그용)
 
+import { getDashboardLayoutForChallenge, resolveDashboardTarget } from "../utils/dashboardLayout";
+import { DASHBOARD_TARGETS, GRID_COLUMNS, getWidgetById } from "../constants/widgetCatalog";
+
 import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  ScrollView,
-  Share,
-  Modal,
-  TouchableWithoutFeedback,
-  Alert,
-  Platform,
-  PanResponder,
-  Animated,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform, PanResponder, Animated, useWindowDimensions } from 'react-native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,19 +22,6 @@ import Svg, {
 
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  getDashboardLayoutForChallenge,
-  saveDashboardLayoutForChallenge,
-  resolveDashboardTarget,
-} from '../utils/dashboardLayout';
-import {
-  DASHBOARD_TARGETS,
-  GRID_COLUMNS,
-  getDefaultDashboardLayout,
-  getWidgetById,
-  supportsWidgetTarget,
-} from '../constants/widgetCatalog';
-import { getOwnedWidgets } from '../utils/widgetOwnership';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -416,18 +390,18 @@ const MonthCalendar = memo(function MonthCalendar({
   return (
     <View style={styles.calWrap} {...panResponder.panHandlers}>
       <View style={styles.calHeaderRow}>
-        <TouchableOpacity
-          onPress={canPrev ? onPrev : undefined}
-          disabled={!canPrev}
+        <TouchableOpacity 
+          onPress={canPrev ? onPrev : undefined} 
+          disabled={!canPrev} 
           style={[styles.calNavBtn, !canPrev && {opacity:0.3}]}
           hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
         >
           <Text style={styles.calNavText}>{'‹'}</Text>
         </TouchableOpacity>
         <Text style={styles.calTitle}>{`${month + 1}월`}</Text>
-        <TouchableOpacity
-          onPress={canNext ? onNext : undefined}
-          disabled={!canNext}
+        <TouchableOpacity 
+          onPress={canNext ? onNext : undefined} 
+          disabled={!canNext} 
           style={[styles.calNavBtn, !canNext && {opacity:0.3}]}
           hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
         >
@@ -668,7 +642,7 @@ const LineGradientChart = memo(function LineGradientChart({
   const dotCx1 = left + cw/2 - 10;
   const dotCx2 = left + cw/2 + 10;
 
-
+  
  const shouldCaptureTouch = useCallback((evt) => {
   if (!interactive) return false;
   const { locationX: x, locationY: y } = evt.nativeEvent;
@@ -863,6 +837,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
 });
 
 
+
 /* ───────── 주간 뷰 ───────── */
 const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1, onPressDay, onTapBar }) {
   const scrollRef = useRef(null);
@@ -898,8 +873,8 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
       <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: 10 }}>
         <View style={{ flexDirection:'row', width: ROW_W, alignSelf:'center' }}>
           {dailyStats.map((stat, i) => (
-            <TouchableOpacity
-              key={i}
+            <TouchableOpacity 
+              key={i} 
               style={{ width: COL_W, alignItems:'center' }}
               onPress={() => onPressDay?.(stat.date, weeksData[idx]?.ws, i)}
               activeOpacity={0.7}
@@ -1224,9 +1199,9 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   return (
     <View style={{ marginTop: 10 }} onLayout={onLayout}>
       <View style={{ width: containerWidth, height: 124 }}>
-        <ScrollView
-          ref={grassScrollRef}
-          horizontal
+        <ScrollView 
+          ref={grassScrollRef} 
+          horizontal 
           showsHorizontalScrollIndicator={false}
         nestedScrollEnabled={canScrollGrass}
         directionalLockEnabled
@@ -1283,10 +1258,10 @@ const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress 
     <>
       <Text style={styles.number}>{indexFromEnd}</Text>
       {!!item?.imageUri && typeof item.imageUri === 'string' && item.imageUri.length > 0 && (
-        <Image
-          source={{ uri: item.imageUri }}
-          style={styles.thumbnail}
-          onError={() => {}}
+        <Image 
+          source={{ uri: item.imageUri }} 
+          style={styles.thumbnail} 
+          onError={() => {}} 
         />
       )}
       <View style={styles.textContainer}>
@@ -1412,6 +1387,121 @@ export default function EntryListScreen({ route, navigation }) {
   } = params;
 
   const title = titleFromRoute || '도전 기록';
+
+  const isHabit = params.type === 'habit' || params.challengeType === 'habit';
+  const dashboardTarget = isHabit ? DASHBOARD_TARGETS.HABIT : DASHBOARD_TARGETS.CHALLENGE;
+  const [dashboardLayout, setDashboardLayout] = useState([]);
+
+  useEffect(() => {
+    if (challengeId) {
+      setDashboardLayout(getDashboardLayoutForChallenge(challengeId, dashboardTarget));
+    }
+  }, [challengeId, dashboardTarget]);
+
+  const renderDashboardWidget = useCallback((item, isShare = false) => {
+    const widget = getWidgetById(item.widgetId);
+    if (!widget) return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중</Text></View>;
+
+    if (widget.kind === 'progress') {
+      return (
+        <TouchableOpacity style={styles.donutArea} onPress={isShare ? undefined : () => runDonut()} activeOpacity={0.8} disabled={isShare}>
+          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
+          <View style={{ marginTop: 28, alignItems: 'center' }}>
+            <Donut targetPercent={overallPct} progress={isShare ? undefined : donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    if (widget.kind === 'calendar') {
+      return (
+        <View style={styles.calendarArea}>
+          <MonthCalendar
+            startDate={meta.startDate || new Date()}
+            endDate={meta.endDate || new Date()}
+            entriesByDaySet={entriesByDaySet}
+            monthDate={monthDate}
+            onPrev={isShare ? undefined : prevMonth}
+            onNext={isShare ? undefined : nextMonth}
+            canPrev={isShare ? false : canPrevMonth}
+            canNext={isShare ? false : canNextMonth}
+            highlightDate={highlightDate}
+          />
+        </View>
+      );
+    }
+    if (widget.kind === 'goal') {
+      if (dashboardTarget === DASHBOARD_TARGETS.HABIT) return null;
+      return (
+        <View style={[styles.rewardBlackBox, { flex: 1, margin: 0, width: '100%', height: '100%', minHeight: 60 }]}>
+          <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+        </View>
+      );
+    }
+    if (widget.kind === 'weeklyBar') {
+      return (
+        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          <WeekView 
+            weeksData={weeksData} 
+            currentIndex={weekIndex} 
+            onIndexChange={isShare ? undefined : setWeekIndex} 
+            introProgress={isShare ? undefined : weekK} 
+            onPressDay={isShare ? undefined : handlePressDay}
+            onTapBar={isShare ? undefined : runWeek}
+          />
+        </View>
+      );
+    }
+    if (widget.kind === 'grass') {
+      return (
+        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          <GrassGraph
+            weeksData={weeksData}
+            introProgress={isShare ? undefined : grassK}
+            onTapGraph={isShare ? undefined : runGrass}
+          />
+        </View>
+      );
+    }
+    if (widget.kind === 'lineCount' || widget.kind === 'lineMinutes') {
+       return (
+        <View style={[styles.sectionBox, { minHeight: 220, marginVertical: 0 }]}>
+           <LineChartsPager
+              entries={meta.entries || []}
+              animLine1={isShare ? undefined : line1K}
+              animLine2={isShare ? undefined : line2K}
+              onTap={isShare ? undefined : runLine}
+           />
+        </View>
+       );
+    }
+
+    return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중</Text></View>;
+  }, [overallPct, donutK, meta, entriesByDaySet, monthDate, highlightDate, weeksData, weekIndex, weekK, grassK, line1K, line2K, dashboardTarget]);
+
+  const DashboardGraphArea = useCallback(({ isShare = false }) => {
+    const sorted = [...dashboardLayout].sort((a, b) => {
+      if (a.y !== b.y) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+    const gap = 8;
+
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 16 }}>
+        {sorted.map(item => {
+          const widthPct = (item.w / GRID_COLUMNS) * 100;
+          return (
+            <View key={item.i} style={{ width: `${widthPct}%`, paddingHorizontal: gap / 2, marginBottom: gap }}>
+               <View style={{ flex: 1, minHeight: 120 }}>
+                 {renderDashboardWidget(item, isShare)}
+               </View>
+            </View>
+          );
+        })}
+      </View>
+    );
+  }, [dashboardLayout, renderDashboardWidget]);
+
 
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -1864,11 +1954,11 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
       <View style={styles.sectionBox}>
-        <WeekView
-          weeksData={weeksData}
-          currentIndex={weekIndex}
-          onIndexChange={setWeekIndex}
-          introProgress={weekK}
+        <WeekView 
+          weeksData={weeksData} 
+          currentIndex={weekIndex} 
+          onIndexChange={setWeekIndex} 
+          introProgress={weekK} 
           onPressDay={handlePressDay}
           onTapBar={runWeek}
         />
@@ -1943,14 +2033,14 @@ export default function EntryListScreen({ route, navigation }) {
         <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
       </View>
 
-      <TouchableOpacity
-        style={styles.sectionBox}
+      <TouchableOpacity 
+        style={styles.sectionBox} 
         onPress={() => {
           if (isGrassAnimatingRef.current) return;
           isGrassAnimatingRef.current = true;
           setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
           grassTapRef.current && grassTapRef.current();
-        }}
+        }} 
         activeOpacity={0.85}
       >
         <GrassGraph
@@ -2040,9 +2130,7 @@ export default function EntryListScreen({ route, navigation }) {
     {HeaderCardForShare}
 
    <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
-  <View style={styles.rewardBlackBox}>
-    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-  </View>
+  
 </View>
 
     <View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
@@ -2126,9 +2214,7 @@ export default function EntryListScreen({ route, navigation }) {
 
         {/* 보상 박스 (위/아래 간격을 상수로 제어) */}
 <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
-  <View style={styles.rewardBlackBox}>
-    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-  </View>
+  
 </View>
 
 {/* 누적시간 / 전체·남은 횟수 (postSummaryRow는 marginTop:0) */}
@@ -2180,6 +2266,10 @@ export default function EntryListScreen({ route, navigation }) {
    <Donut targetPercent={overallPct} progress={1} size={size} />
   )}
 />
+
+
+
+
 
 
     </SafeAreaView>
@@ -2271,13 +2361,15 @@ rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
   calCellText: { fontSize: 10.5, color: '#111' },
   calCellTextDim: { color: textGrey },
 
+  
+  
 
   dateLabel: { fontSize: 10, color: textGrey },
   dayLabel: { fontSize: 9, color: '#333' },
   bar: { width: 16, borderRadius: 4, alignSelf:'center' },
   countLabel: { fontSize: 10, color: '#333', marginTop: 2, textAlign:'center' },
 
-  entry: {
+  entry: { 
   flexDirection: 'row',
   paddingHorizontal: EDGE + NARROW_PLUS,  // ⬅️ 여기만 바뀜
   paddingVertical: 12

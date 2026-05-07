@@ -5,23 +5,7 @@ const KILL_UI_AND_SHOW_RAW = false; // 필요 시 true로 전환(데이터 디�
 import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  ScrollView,
-  Share,
-  Modal,
-  TouchableWithoutFeedback,
-  Alert,
-  Platform,
-  PanResponder,
-  Animated,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Share, Modal, TouchableWithoutFeedback, Alert, Platform, PanResponder, Animated, useWindowDimensions } from 'react-native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -36,16 +20,15 @@ import Svg, {
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  getDashboardLayoutForChallenge,
-  saveDashboardLayoutForChallenge,
-  resolveDashboardTarget,
+ getDashboardLayoutForChallenge,
+ saveDashboardLayoutForChallenge,
+ resolveDashboardTarget,
 } from '../utils/dashboardLayout';
 import {
-  DASHBOARD_TARGETS,
-  GRID_COLUMNS,
-  getDefaultDashboardLayout,
-  getWidgetById,
-  supportsWidgetTarget,
+ DASHBOARD_TARGETS,
+ GRID_COLUMNS,
+ getWidgetById,
+ supportsWidgetTarget,
 } from '../constants/widgetCatalog';
 import { getOwnedWidgets } from '../utils/widgetOwnership';
 
@@ -863,6 +846,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
 });
 
 
+
 /* ───────── 주간 뷰 ───────── */
 const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1, onPressDay, onTapBar }) {
   const scrollRef = useRef(null);
@@ -1410,8 +1394,260 @@ export default function EntryListScreen({ route, navigation }) {
     reward: rewardFromRoute,
     readOnly = false,
   } = params;
+  const [dashboardEditMode, setDashboardEditMode] = useState(false);
+  const [draftDashboardLayout, setDraftDashboardLayout] = useState([]);
+
+  const [widgetPickerVisible, setWidgetPickerVisible] = useState(false);
+  const [ownedDashboardWidgets, setOwnedDashboardWidgets] = useState([]);
+
+  const loadOwnedDashboardWidgets = async () => {
+    try {
+      const owned = await getOwnedWidgets();
+      const supported = owned.filter(w => supportsWidgetTarget(w, dashboardTarget));
+      setOwnedDashboardWidgets(supported);
+    } catch (e) {
+      console.warn('loadOwnedDashboardWidgets failed', e);
+      setOwnedDashboardWidgets([]);
+    }
+  };
+
+
+  const enterDashboardEdit = () => {
+    setDraftDashboardLayout([...dashboardLayout]);
+    setDashboardEditMode(true);
+  };
+
+  const cancelDashboardEdit = () => {
+    setDraftDashboardLayout([]);
+    setDashboardEditMode(false);
+  };
+
+  const saveDashboardEdit = () => {
+    if (!challengeId) {
+      Alert.alert('오류', '챌린지 정보를 찾을 수 없어 저장할 수 없습니다.');
+      return;
+    }
+    const newLayout = saveDashboardLayoutForChallenge(challengeId, draftDashboardLayout, dashboardTarget);
+    setDashboardLayout(newLayout);
+    setDashboardEditMode(false);
+    setDraftDashboardLayout([]);
+  };
+
+  const removeDashboardWidget = (widgetInstanceId) => {
+    const newDraft = draftDashboardLayout.filter(w => w.i !== widgetInstanceId);
+    if (newDraft.length === 0) {
+        Alert.alert('알림', '최소 1개의 위젯은 남겨두어야 합니다.');
+        return;
+    }
+    setDraftDashboardLayout(newDraft);
+  };
+
+  const pickerWidgets = useMemo(() => {
+    const currentWidgetIds = new Set(draftDashboardLayout.map(w => w.widgetId));
+    return ownedDashboardWidgets.filter(w => !currentWidgetIds.has(w.id));
+  }, [ownedDashboardWidgets, draftDashboardLayout]);
+
+  const addWidgetToDashboard = (widget) => {
+    if (!widget || !widget.id) return;
+    if (draftDashboardLayout.find(w => w.widgetId === widget.id)) {
+      Alert.alert('알림', '이미 추가된 위젯입니다.');
+      return;
+    }
+    if (!supportsWidgetTarget(widget, dashboardTarget)) {
+      Alert.alert('알림', '이 챌린지 타입에서는 지원하지 않는 위젯입니다.');
+      return;
+    }
+    const newY = draftDashboardLayout.reduce((max, w) => Math.max(max, w.y + w.h), 0);
+    const newWidget = {
+      i: `${widget.id}-${Date.now()}`,
+      widgetId: widget.id,
+      x: 0,
+      y: newY,
+      w: Math.min(widget.defaultSize.w, GRID_COLUMNS),
+      h: widget.defaultSize.h,
+    };
+
+  const moveDashboardWidget = (widgetInstanceId, direction) => {
+    setDraftDashboardLayout(currentLayout => {
+      const widgetIndex = currentLayout.findIndex(w => w.i === widgetInstanceId);
+      if (widgetIndex === -1) return currentLayout;
+
+      const newLayout = [...currentLayout];
+      const widget = { ...newLayout[widgetIndex] };
+
+      switch (direction) {
+        case 'left':
+          widget.x = Math.max(0, widget.x - 1);
+          break;
+        case 'right':
+          widget.x = Math.min(GRID_COLUMNS - widget.w, widget.x + 1);
+          break;
+        case 'up':
+          widget.y = Math.max(0, widget.y - 1);
+          break;
+        case 'down':
+          widget.y = widget.y + 1; // No upper bound on Y
+          break;
+      }
+
+      newLayout[widgetIndex] = widget;
+      return newLayout.sort((a,b) => a.y - b.y || a.x - b.x);
+    });
+  };
+    setDraftDashboardLayout([...draftDashboardLayout, newWidget]);
+    setWidgetPickerVisible(false);
+  };
+
+
 
   const title = titleFromRoute || '도전 기록';
+
+  const isHabit = params.type === 'habit' || params.challengeType === 'habit';
+  const dashboardTarget = isHabit ? DASHBOARD_TARGETS.HABIT : DASHBOARD_TARGETS.CHALLENGE;
+  const [dashboardLayout, setDashboardLayout] = useState([]);
+
+  useEffect(() => {
+    if (challengeId) {
+      setDashboardLayout(getDashboardLayoutForChallenge(challengeId, dashboardTarget));
+    }
+  }, [challengeId, dashboardTarget]);
+
+  const renderDashboardWidget = useCallback((item, isShare = false) => {
+    const widget = getWidgetById(item.widgetId);
+    if (!widget) return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중</Text></View>;
+
+    if (widget.kind === 'progress') {
+      return (
+        <TouchableOpacity style={styles.donutArea} onPress={isShare ? undefined : () => runDonut()} activeOpacity={0.8} disabled={isShare}>
+          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
+          <View style={{ marginTop: 28, alignItems: 'center' }}>
+            <Donut targetPercent={overallPct} progress={isShare ? undefined : donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    if (widget.kind === 'calendar') {
+      return (
+        <View style={styles.calendarArea}>
+          <MonthCalendar
+            startDate={meta.startDate || new Date()}
+            endDate={meta.endDate || new Date()}
+            entriesByDaySet={entriesByDaySet}
+            monthDate={monthDate}
+            onPrev={isShare ? undefined : prevMonth}
+            onNext={isShare ? undefined : nextMonth}
+            canPrev={isShare ? false : canPrevMonth}
+            canNext={isShare ? false : canNextMonth}
+            highlightDate={highlightDate}
+          />
+        </View>
+      );
+    }
+    if (widget.kind === 'goal') {
+      if (dashboardTarget === DASHBOARD_TARGETS.HABIT) return null;
+      return (
+        <View style={[styles.rewardBlackBox, { flex: 1, margin: 0, width: '100%', height: '100%', minHeight: 60 }]}>
+          <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+        </View>
+      );
+    }
+    if (widget.kind === 'weeklyBar') {
+      return (
+        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          <WeekView
+            weeksData={weeksData}
+            currentIndex={weekIndex}
+            onIndexChange={isShare ? undefined : setWeekIndex}
+            introProgress={isShare ? undefined : weekK}
+            onPressDay={isShare ? undefined : handlePressDay}
+            onTapBar={isShare ? undefined : runWeek}
+          />
+        </View>
+      );
+    }
+    if (widget.kind === 'grass') {
+      return (
+        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          <GrassGraph
+            entries={entries}
+            startDate={meta.startDate}
+            endDate={meta.endDate}
+          />
+        </View>
+      );
+    }
+    if (widget.kind === 'lineCount' || widget.kind === 'lineMinutes') {
+       return (
+        <View style={[styles.sectionBox, { minHeight: 220, marginVertical: 0 }]}>
+           <LineChartsPager
+              startDate={meta.startDate}
+              entries={entries}
+              interactive={!isShare}
+              introProgress={isShare ? undefined : lineK}
+           />
+        </View>
+       );
+    }
+
+    return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중</Text></View>;
+  }, [overallPct, donutK, meta, entriesByDaySet, monthDate, highlightDate, weeksData, weekIndex, weekK, lineK, dashboardTarget, entries, runDonut, prevMonth, nextMonth, canPrevMonth, canNextMonth]);
+
+  const DashboardGraphArea = useCallback(({ isShare = false }) => {
+    const layout = dashboardEditMode && !isShare ? draftDashboardLayout : dashboardLayout;
+    const sorted = [...layout].sort((a, b) => {
+      if (a.y !== b.y) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+    const gap = 8;
+
+    const Toolbar = () => (
+      <View style={styles.dashboardToolbar}>
+        <Text style={styles.dashboardToolbarTitle}>{dashboardEditMode ? '대시보드 수정' : '대시보드'}</Text>
+        <View style={styles.dashboardToolbarActions}>
+          {dashboardEditMode ? (
+            <>
+              <TouchableOpacity onPress={() => setWidgetPickerVisible(true)} style={styles.dashboardAddBtn}><Text style={styles.dashboardAddBtnText}>위젯 추가</Text></TouchableOpacity>
+              <TouchableOpacity onPress={cancelDashboardEdit} style={styles.dashboardEditSecondaryBtn}>
+                <Text style={styles.dashboardEditBtnText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={saveDashboardEdit} style={styles.dashboardEditBtn}>
+                <Text style={styles.dashboardEditBtnText}>저장</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity onPress={enterDashboardEdit} style={styles.dashboardEditBtn}>
+              <Text style={styles.dashboardEditBtnText}>대시보드 수정</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+
+    return (
+      <View>
+        {!isShare && <Toolbar />}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: isShare ? 16 : 8 }}>
+          {sorted.map(item => {
+            const widthPct = (item.w / GRID_COLUMNS) * 100;
+            return (
+              <View key={item.i} style={{ width: `${widthPct}%`, paddingHorizontal: gap / 2, marginBottom: gap }}>
+                 <View style={{ flex: 1, minHeight: 120 }}>
+                   {renderDashboardWidget(item, isShare)}
+                   {dashboardEditMode && !isShare && (
+                     <TouchableOpacity style={styles.dashboardWidgetRemoveBtn} onPress={() => removeDashboardWidget(item.i)}>
+                       <Text style={styles.dashboardWidgetRemoveText}>×</Text>
+                     </TouchableOpacity>
+                   )}
+                 </View>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }, [dashboardLayout, draftDashboardLayout, dashboardEditMode, renderDashboardWidget]);
+
 
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -1840,63 +2076,7 @@ export default function EntryListScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.row, { marginTop: 16 }]}>
-        <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
-          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 28 }}>
-            <Donut targetPercent={overallPct} progress={donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.calendarArea}>
-          <MonthCalendar
-            startDate={meta.startDate || new Date()}
-            endDate={meta.endDate || new Date()}
-            entriesByDaySet={entriesByDaySet}
-            monthDate={monthDate}
-            onPrev={prevMonth}
-            onNext={nextMonth}
-            canPrev={canPrevMonth}
-            canNext={canNextMonth}
-            highlightDate={highlightDate}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sectionBox}>
-        <WeekView
-          weeksData={weeksData}
-          currentIndex={weekIndex}
-          onIndexChange={setWeekIndex}
-          introProgress={weekK}
-          onPressDay={handlePressDay}
-          onTapBar={runWeek}
-        />
-      </View>
-
-      <View style={styles.sectionBox}>
-        <GrassGraph
-          entries={entries}
-          startDate={meta.startDate}
-          endDate={meta.endDate}
-          onTap={(fn) => { grassTapRef.current = fn; }}
-          onTapGrass={() => {
-            if (isGrassAnimatingRef.current) return;
-            isGrassAnimatingRef.current = true;
-            setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
-            grassTapRef.current && grassTapRef.current();
-          }}
-        />
-      </View>
-
-      {/* 전체일정 라인 그래프 */}
-      <View style={[styles.sectionBox, { paddingHorizontal: 0, alignItems:'center' }]}>
-        {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} interactive introProgress={lineK} />
-        ) : (
-          <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
-        )}
-      </View>
+            <DashboardGraphArea isShare={false} />
     </View>
   ), [
     title, meta.startDate, meta.endDate,
@@ -1917,57 +2097,7 @@ export default function EntryListScreen({ route, navigation }) {
         <View style={styles.headerInfoBtn} />
       </View>
 
-      <View style={[styles.row, { marginTop: 16 }]}>
-        <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
-          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 28 }}>
-            <Donut targetPercent={overallPct} progress={1} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.calendarArea}>
-          <MonthCalendar
-            startDate={meta.startDate || new Date()}
-            endDate={meta.endDate || new Date()}
-            entriesByDaySet={entriesByDaySet}
-            monthDate={monthDate}
-            onPrev={prevMonth}
-            onNext={nextMonth}
-            canPrev={canPrevMonth}
-            canNext={canNextMonth}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sectionBox}>
-        <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
-      </View>
-
-      <TouchableOpacity
-        style={styles.sectionBox}
-        onPress={() => {
-          if (isGrassAnimatingRef.current) return;
-          isGrassAnimatingRef.current = true;
-          setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
-          grassTapRef.current && grassTapRef.current();
-        }}
-        activeOpacity={0.85}
-      >
-        <GrassGraph
-          entries={entries}
-          startDate={meta.startDate}
-          endDate={meta.endDate}
-          onTap={(fn) => { grassTapRef.current = fn; }}
-        />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { runDonut(); }} activeOpacity={0.85}>
-        {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive={false} />
-        ) : (
-          <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
-        )}
-      </TouchableOpacity>
+            <DashboardGraphArea isShare={true} />
     </View>
   ), [
     title, meta.startDate, meta.endDate,
@@ -2040,9 +2170,7 @@ export default function EntryListScreen({ route, navigation }) {
     {HeaderCardForShare}
 
    <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
-  <View style={styles.rewardBlackBox}>
-    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-  </View>
+
 </View>
 
     <View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
@@ -2126,9 +2254,7 @@ export default function EntryListScreen({ route, navigation }) {
 
         {/* 보상 박스 (위/아래 간격을 상수로 제어) */}
 <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
-  <View style={styles.rewardBlackBox}>
-    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-  </View>
+
 </View>
 
 {/* 누적시간 / 전체·남은 횟수 (postSummaryRow는 marginTop:0) */}
@@ -2182,12 +2308,155 @@ export default function EntryListScreen({ route, navigation }) {
 />
 
 
+
+
+
+
     </SafeAreaView>
   );
 }
 
 /* ───────── 스타일 ───────── */
 const styles = StyleSheet.create({
+
+  dashboardMovePad: {
+    position: 'absolute',
+    bottom: 5,
+    left: '50%',
+    transform: [{ translateX: -80 }],
+    width: 160,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    padding: 2,
+    alignItems: 'center',
+  },
+  dashboardMoveRow: {
+    flexDirection: 'row',
+  },
+  dashboardMoveBtn: {
+    width: 40,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dashboardMoveText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+
+
+  widgetPickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  widgetPickerCard: {
+    width: '90%',
+    maxHeight: '70%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+  },
+  widgetPickerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  widgetPickerCloseBtn: {
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+  widgetPickerCloseText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  widgetPickerItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  widgetPickerItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  widgetPickerItemMeta: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  widgetPickerEmpty: {
+    textAlign: 'center',
+    color: '#888',
+    paddingVertical: 30,
+  },
+  dashboardAddBtn: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  dashboardAddBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+
+
+  dashboardToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  dashboardToolbarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  dashboardToolbarActions: {
+    flexDirection: 'row',
+  },
+  dashboardEditBtn: {
+    backgroundColor: '#333',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  dashboardEditSecondaryBtn: {
+    backgroundColor: '#888',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  dashboardEditBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  dashboardWidgetRemoveBtn: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  dashboardWidgetRemoveText: {
+    color: '#555',
+    fontWeight: 'bold',
+    fontSize: 16,
+    lineHeight: 20,
+  },
+
   container: { flex: 1, backgroundColor: '#fff' },
 
   barText: { fontSize: 9, color: textGrey, textAlign:'center' },
@@ -2270,6 +2539,8 @@ rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
   calBadgeText: { color: '#fff', fontWeight: '800', fontSize: 10.5 },
   calCellText: { fontSize: 10.5, color: '#111' },
   calCellTextDim: { color: textGrey },
+
+
 
 
   dateLabel: { fontSize: 10, color: textGrey },

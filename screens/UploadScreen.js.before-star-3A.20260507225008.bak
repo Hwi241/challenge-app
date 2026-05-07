@@ -62,7 +62,7 @@ function calcStreakLevel(entries) {
   // 5단계 매핑 (0~4)
   if (streak <= 1) return 1;
   if (streak === 2) return 2;
-  if (streak >= 3) return 3;
+  if (streak >= 3) return 3; 
   return 1;
 }
 
@@ -139,7 +139,7 @@ const MAX_MINUTES = 1440; // 24시간
     return () => sub.remove();
   }, [navigation, text, imageUri, duration]);
 
-
+  
 
   // 사진 선택 (카메라/앨범 선택지)
   const onPickImage = useCallback(async () => {
@@ -272,11 +272,7 @@ const MAX_MINUTES = 1440; // 24시간
         console.log('[AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치');
       }
 
-      const completeMessage = starReward?.granted && starReward.amount > 0
-        ? `인증이 등록되었습니다.\n+${starReward.amount}★ 획득`
-        : '인증이 등록되었습니다.';
-
-      Alert.alert('완료', completeMessage, [
+      Alert.alert('완료', '인증이 등록되었습니다.', [
         {
           text: '확인',
           onPress: () => {
@@ -308,7 +304,7 @@ const MAX_MINUTES = 1440; // 24시간
       <BackButton title="인증/기록 하기" />
       <ScrollView contentContainerStyle={styles.container}>
       {/* 제목 중앙 정렬 */}
-
+      
 
       {!!challengeTitle && (
         <View style={styles.titleBox}>

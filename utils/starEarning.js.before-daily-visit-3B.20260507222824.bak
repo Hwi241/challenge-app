@@ -1,0 +1,83 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { grantStars } from './starWallet';
+
+export const STAR_EARNING_KEYS = {
+  dailyEntry: 'star_daily_entry_rewards_v1',
+};
+
+const parseJson = (raw, fallback) => {
+  try {
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+export const getLocalDateKey = (value = Date.now()) => {
+  const d = new Date(value);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+export const grantEntryCreationStars = async ({
+  challengeId,
+  entryId = null,
+  timestamp = Date.now(),
+} = {}) => {
+  const id = String(challengeId || '');
+  if (!id) {
+    return {
+      ok: false,
+      granted: false,
+      reason: 'missing_challenge_id',
+      amount: 0,
+    };
+  }
+
+  const date = getLocalDateKey(timestamp);
+  const rewardKey = `${id}:${date}`;
+
+  const raw = await AsyncStorage.getItem(STAR_EARNING_KEYS.dailyEntry);
+  const state = parseJson(raw, {});
+  const safeState = state && typeof state === 'object' && !Array.isArray(state) ? state : {};
+
+  if (safeState[rewardKey]) {
+    return {
+      ok: true,
+      granted: false,
+      reason: 'already_granted_today',
+      amount: 0,
+      date,
+    };
+  }
+
+  const result = await grantStars(1, 'daily_entry', {
+    challengeId: id,
+    entryId,
+    date,
+  });
+
+  const amount = Number(result?.amount || 0);
+  const nextState = {
+    ...safeState,
+    [rewardKey]: {
+      challengeId: id,
+      entryId,
+      date,
+      amount,
+      awardedAt: Date.now(),
+    },
+  };
+
+  await AsyncStorage.setItem(STAR_EARNING_KEYS.dailyEntry, JSON.stringify(nextState));
+
+  return {
+    ok: true,
+    granted: amount > 0,
+    amount,
+    balance: result?.balance,
+    date,
+  };
+};

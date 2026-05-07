@@ -6,21 +6,21 @@ import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  ScrollView,
-  Share,
-  Modal,
-  TouchableWithoutFeedback,
-  Alert,
-  Platform,
-  PanResponder,
-  Animated,
-  useWindowDimensions,
+ View,
+ Text,
+ Image,
+ StyleSheet,
+ TouchableOpacity,
+ Dimensions,
+ ScrollView,
+ Share,
+ Modal,
+ TouchableWithoutFeedback,
+ Alert,
+ Platform,
+ PanResponder,
+ Animated,
+ useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
@@ -36,16 +36,16 @@ import Svg, {
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  getDashboardLayoutForChallenge,
-  saveDashboardLayoutForChallenge,
-  resolveDashboardTarget,
+ getDashboardLayoutForChallenge,
+ saveDashboardLayoutForChallenge,
+ resolveDashboardTarget,
 } from '../utils/dashboardLayout';
 import {
-  DASHBOARD_TARGETS,
-  GRID_COLUMNS,
-  getDefaultDashboardLayout,
-  getWidgetById,
-  supportsWidgetTarget,
+ DASHBOARD_TARGETS,
+ GRID_COLUMNS,
+ getDefaultDashboardLayout,
+ getWidgetById,
+ supportsWidgetTarget,
 } from '../constants/widgetCatalog';
 import { getOwnedWidgets } from '../utils/widgetOwnership';
 
@@ -1839,69 +1839,12 @@ export default function EntryListScreen({ route, navigation }) {
           <ShadowIcon forShare={false} />
         </TouchableOpacity>
       </View>
-
-      <View style={[styles.row, { marginTop: 16 }]}>
-        <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
-          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 28 }}>
-            <Donut targetPercent={overallPct} progress={donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.calendarArea}>
-          <MonthCalendar
-            startDate={meta.startDate || new Date()}
-            endDate={meta.endDate || new Date()}
-            entriesByDaySet={entriesByDaySet}
-            monthDate={monthDate}
-            onPrev={prevMonth}
-            onNext={nextMonth}
-            canPrev={canPrevMonth}
-            canNext={canNextMonth}
-            highlightDate={highlightDate}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sectionBox}>
-        <WeekView
-          weeksData={weeksData}
-          currentIndex={weekIndex}
-          onIndexChange={setWeekIndex}
-          introProgress={weekK}
-          onPressDay={handlePressDay}
-          onTapBar={runWeek}
-        />
-      </View>
-
-      <View style={styles.sectionBox}>
-        <GrassGraph
-          entries={entries}
-          startDate={meta.startDate}
-          endDate={meta.endDate}
-          onTap={(fn) => { grassTapRef.current = fn; }}
-          onTapGrass={() => {
-            if (isGrassAnimatingRef.current) return;
-            isGrassAnimatingRef.current = true;
-            setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
-            grassTapRef.current && grassTapRef.current();
-          }}
-        />
-      </View>
-
-      {/* 전체일정 라인 그래프 */}
-      <View style={[styles.sectionBox, { paddingHorizontal: 0, alignItems:'center' }]}>
-        {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} interactive introProgress={lineK} />
-        ) : (
-          <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
-        )}
-      </View>
+      <DashboardGraphArea isShare={false} />
     </View>
   ), [
     title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate
+    weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate, DashboardGraphArea
   ]);
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
@@ -1916,63 +1859,12 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
         <View style={styles.headerInfoBtn} />
       </View>
-
-      <View style={[styles.row, { marginTop: 16 }]}>
-        <TouchableOpacity style={styles.donutArea} onPress={() => { runDonut(); }} activeOpacity={0.8}>
-          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 28 }}>
-            <Donut targetPercent={overallPct} progress={1} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.calendarArea}>
-          <MonthCalendar
-            startDate={meta.startDate || new Date()}
-            endDate={meta.endDate || new Date()}
-            entriesByDaySet={entriesByDaySet}
-            monthDate={monthDate}
-            onPrev={prevMonth}
-            onNext={nextMonth}
-            canPrev={canPrevMonth}
-            canNext={canNextMonth}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sectionBox}>
-        <WeekView weeksData={weeksData} currentIndex={weekIndex} onIndexChange={setWeekIndex} introProgress={1} />
-      </View>
-
-      <TouchableOpacity
-        style={styles.sectionBox}
-        onPress={() => {
-          if (isGrassAnimatingRef.current) return;
-          isGrassAnimatingRef.current = true;
-          setTimeout(() => { isGrassAnimatingRef.current = false; }, 2400);
-          grassTapRef.current && grassTapRef.current();
-        }}
-        activeOpacity={0.85}
-      >
-        <GrassGraph
-          entries={entries}
-          startDate={meta.startDate}
-          endDate={meta.endDate}
-          onTap={(fn) => { grassTapRef.current = fn; }}
-        />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={[styles.sectionBox, { paddingHorizontal: EDGE, alignItems:'center' }]} onPress={() => { runDonut(); }} activeOpacity={0.85}>
-        {meta.startDate ? (
-          <LineChartsPager startDate={meta.startDate} entries={entries} introProgress={1} interactive={false} />
-        ) : (
-          <Text style={{ textAlign:'center', color:textGrey }}>시작일이 없습니다.</Text>
-        )}
-      </TouchableOpacity>
+      <DashboardGraphArea isShare={true} />
     </View>
   ), [
     title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, entries, overallPct
+    weekIndex, entries, overallPct, DashboardGraphArea
   ]);
 
   const cidForDebug = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');

@@ -1,3 +1,4 @@
+import { grantEntryCreationStars } from '../utils/starEarning';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PALETTE = {
@@ -215,7 +216,8 @@ const MAX_MINUTES = 1440; // 24시간
     setBusy(true);
     submittedRef.current = false;
     submittedRef.current = false;
-    try {
+    let starReward = null;
+  try {
       if (!challengeId) {
         Alert.alert('오류', '도전 정보를 찾을 수 없습니다.');
         return;
@@ -267,13 +269,19 @@ const MAX_MINUTES = 1440; // 24시간
         nextGoal = challenges[idx]?.goalScore;
         nextReward = challenges[idx]?.reward;
       }
+      // STAR_REWARD_SAFE_WRAP
+      try {
+        starReward = await grantEntryCreationStars({ challengeId, entryId: entry.id });
+      } catch (rewardError) {
+        console.log('스타 보상 지급 실패:', rewardError?.message || rewardError);
+      }
 
       if (Math.random() < 0.3) {
         console.log('[AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치');
       }
 
-      const completeMessage = starReward?.granted && starReward.amount > 0
-        ? `인증이 등록되었습니다.\n+${starReward.amount}★ 획득`
+      const completeMessage = starReward?.granted && starReward?.amount > 0
+        ? `인증이 등록되었습니다.\n+${starReward?.amount}★ 획득`
         : '인증이 등록되었습니다.';
 
       Alert.alert('완료', completeMessage, [

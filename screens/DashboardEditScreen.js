@@ -34,6 +34,16 @@ function resolveTarget(params) {
 function normalizeLayoutItem(item, index) {
  const widgetId = item?.widgetId || item?.id || item?.i || DEFAULT_WIDGET_IDS[index] || `graph_${index}`;
  const catalog = getWidgetById(widgetId) || {};
+ const fixedSizes = {
+ grass_graph: { w: 6, h: 2 },
+ weekly_bar: { w: 6, h: 2 },
+ line_count_cumulative: { w: 6, h: 2 },
+ line_minutes: { w: 6, h: 2 },
+ goal_black_box: { w: 6, h: 1 },
+ overall_progress: { w: 2, h: 2 },
+ month_calendar: { w: 4, h: 2 },
+ };
+ const fixedSize = fixedSizes[widgetId];
  return {
  ...catalog,
  ...item,
@@ -41,8 +51,8 @@ function normalizeLayoutItem(item, index) {
  widgetId,
  x: Number.isFinite(Number(item?.x)) ? Number(item.x) : 0,
  y: Number.isFinite(Number(item?.y)) ? Number(item.y) : index,
- w: Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w || catalog?.defaultSize?.w || GRID_COLUMNS))),
- h: Math.max(1, Number(item?.h || catalog?.defaultSize?.h || 1)),
+ w: Math.max(1, Math.min(GRID_COLUMNS, Number(fixedSize?.w || item?.w || catalog?.defaultSize?.w || GRID_COLUMNS))),
+ h: Math.max(1, Number(fixedSize?.h || item?.h || catalog?.defaultSize?.h || 1)),
  };
 }
 
@@ -175,6 +185,58 @@ export default function DashboardEditScreen({ route, navigation }) {
 
  setPickerVisible(false);
  }, [dashboardTarget]);
+ const moveGraph = useCallback((widgetId, direction) => {
+ setLayout((current) => {
+ const source = Array.isArray(current) ? current : [];
+ let movedItem = null;
+
+ const baseItems = source.map((item, index) => {
+ const id = item.widgetId || item.id || `graph_${index}`;
+ const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w || GRID_COLUMNS)));
+ const safeH = Math.max(1, Number(item.h || 1));
+ const currentX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x || 0)));
+ const currentY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
+ const normalized = { ...item, x: currentX, y: currentY, w: safeW, h: safeH };
+
+ if (id !== widgetId) return normalized;
+
+ let nextX = currentX;
+ let nextY = currentY;
+
+ if (direction === 'left') nextX = Math.max(0, currentX - 1);
+ if (direction === 'right') nextX = Math.min(GRID_COLUMNS - safeW, currentX + 1);
+ if (direction === 'up') nextY = Math.max(0, currentY - 1);
+ if (direction === 'down') nextY = currentY + 1;
+
+ movedItem = { ...normalized, x: nextX, y: nextY };
+ return null;
+ }).filter(Boolean);
+
+ if (!movedItem) return current;
+
+ const overlaps = (a, b) => {
+ if (a.y !== b.y) return false;
+ return a.x < b.x + b.w && a.x + a.w > b.x;
+ };
+
+ const placed = [movedItem];
+ const sorted = baseItems.sort((a, b) => {
+ if (a.y !== b.y) return a.y - b.y;
+ if (a.x !== b.x) return a.x - b.x;
+ return String(a.widgetId || a.id || '').localeCompare(String(b.widgetId || b.id || ''));
+ });
+
+ sorted.forEach((item) => {
+ let nextItem = { ...item };
+ while (placed.some((placedItem) => overlaps(nextItem, placedItem))) {
+ nextItem = { ...nextItem, y: nextItem.y + 1 };
+ }
+ placed.push(nextItem);
+ });
+
+ return normalizeLayout(placed, dashboardTarget);
+ });
+ }, [dashboardTarget]);
 
  const removeGraph = useCallback((widgetId) => {
  setLayout((current) => {
@@ -208,11 +270,9 @@ export default function DashboardEditScreen({ route, navigation }) {
  const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x || 0)));
  const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
  const safeH = Math.max(1, Number(item.h || 1));
- 
- const gridCells = Array.from({ length: GRID_COLUMNS }, (_, cellIndex) => cellIndex >= safeX && cellIndex < safeX + safeW);
 
  return (
- <View key={`${widgetId}-${index}`} style={[styles.graphCell, { width: '100%' }]}>
+ <View key={`${widgetId}-${index}`} style={styles.graphCell}>
  <View style={styles.graphCard}>
  <View style={styles.graphHeader}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
@@ -220,16 +280,21 @@ export default function DashboardEditScreen({ route, navigation }) {
  <Text style={styles.removeText}>×</Text>
  </TouchableOpacity>
  </View>
- <Text style={styles.graphMeta}>{'위치 ' + safeX + ',' + safeY + ' · 크기 ' + safeW + 'x' + safeH}</Text>
- <View style={styles.gridPreview}>
- {gridCells.map((active, cellIndex) => (
- <View
- key={cellIndex}
- style={[styles.gridPreviewCell, active && styles.gridPreviewCellActive]}
- />
- ))}
+ <Text style={styles.graphMeta}>{safeW + 'x' + safeH}</Text>
+ <View style={styles.moveControls}>
+ <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'up')}>
+ <Text style={styles.moveText}>↑</Text>
+ </TouchableOpacity>
+ <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'down')}>
+ <Text style={styles.moveText}>↓</Text>
+ </TouchableOpacity>
+ <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'left')}>
+ <Text style={styles.moveText}>←</Text>
+ </TouchableOpacity>
+ <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'right')}>
+ <Text style={styles.moveText}>→</Text>
+ </TouchableOpacity>
  </View>
- <Text style={styles.graphCode} numberOfLines={1}>{widgetId}</Text>
  </View>
  </View>
  );
@@ -409,7 +474,11 @@ const styles = StyleSheet.create({
  flexDirection: 'row',
  },
  graphCell: {
+ width: '100%',
  paddingHorizontal: 5,
+ },
+ gridSpacer: {
+ minHeight: 1,
  },
  graphCard: {
  minHeight: 132,
@@ -451,24 +520,26 @@ const styles = StyleSheet.create({
  fontSize: 12,
  color: '#777',
  },
- gridPreview: {
+ moveControls: {
  flexDirection: 'row',
- gap: 3,
+ gap: 6,
  marginTop: 12,
  },
- gridPreviewCell: {
- flex: 1,
- height: 6,
- borderRadius: 3,
- backgroundColor: '#e5e5e5',
+ moveBtn: {
+ width: 30,
+ height: 28,
+ borderRadius: 8,
+ borderWidth: 1,
+ borderColor: '#d0d0d0',
+ backgroundColor: '#fff',
+ alignItems: 'center',
+ justifyContent: 'center',
  },
- gridPreviewCellActive: {
- backgroundColor: '#111',
- },
- graphCode: {
- marginTop: 10,
- fontSize: 11,
- color: '#999',
+ moveText: {
+ fontSize: 15,
+ fontWeight: '800',
+ color: '#111',
+ lineHeight: 18,
  },
  emptyText: {
  paddingVertical: 24,

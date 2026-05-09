@@ -29,6 +29,7 @@ import { colors } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
 import { cleanExpiredTrash } from './utils/trash';
 import { initializeNotificationsAsync } from './utils/notificationScheduler';
+import DashboardEditScreen from './screens/DashboardEditScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -168,6 +169,11 @@ export default function App() {
               name="NotificationDefaults"
               component={NotificationDefaultsScreen}
             />
+        <Stack.Screen
+          name="DashboardEdit"
+          component={DashboardEditScreen}
+          options={{ headerShown: false }}
+        />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>

@@ -6,46 +6,59 @@ import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
 import {
- View,
- Text,
- Image,
- StyleSheet,
- TouchableOpacity,
- Dimensions,
- ScrollView,
- Share,
- Modal,
- TouchableWithoutFeedback,
- Alert,
- Platform,
- PanResponder,
- Animated,
- useWindowDimensions,
-} from 'react-native';
-import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+  ScrollView,
+  Share,
+  Modal,
+  TouchableWithoutFeedback,
+  Alert,
+  Platform,
+  PanResponder,
+  Animated,
+  useWindowDimensions,
+  } from 'react-native';
+import { SafeAreaView,
+  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import ViewShot,
+  { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
-import Svg, {
-  Circle, Line, Rect, Text as SvgText, Path, Defs, LinearGradient, Stop,
-} from 'react-native-svg';
+import Svg,
+  {
+  Circle,
+  Line,
+  Rect,
+  Text as SvgText,
+  Path,
+  Defs,
+  LinearGradient,
+  Stop,
+  } from 'react-native-svg';
 
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import { useFocusEffect } from '@react-navigation/native';
 import {
  getDashboardLayoutForChallenge,
- saveDashboardLayoutForChallenge,
- resolveDashboardTarget,
-} from '../utils/dashboardLayout';
+  getDashboardLayoutStateForChallenge,
+  saveDashboardLayoutForChallenge,
+  resolveDashboardTarget,
+  } from '../utils/dashboardLayout';
 import {
  DASHBOARD_TARGETS,
- GRID_COLUMNS,
- getDefaultDashboardLayout,
- getWidgetById,
- supportsWidgetTarget,
+  GRID_COLUMNS,
+  getDefaultDashboardLayout,
+  getWidgetById,
+  supportsWidgetTarget,
+  DEFAULT_WIDGET_IDS,
+  getShopWidgets
 } from '../constants/widgetCatalog';
 import { getOwnedWidgets } from '../utils/widgetOwnership';
 
@@ -153,7 +166,7 @@ const scanAllStorageForEntries = async ({rawCID, numCID, chCID})=>{
     }
     return best.score >= 3.5 ? best.arr : null;
   }catch(e){
-    console.warn('[scanAllStorageForEntries] fail:', e);
+    console.log('[scanAllStorageForEntries] fail:', e);
     return null;
   }
 };
@@ -1400,6 +1413,7 @@ const RawDebugList = ({
 /* ───────── 본문 ───────── */
 export default function EntryListScreen({ route, navigation }) {
   const params = route?.params || {};
+  const insets = useSafeAreaInsets();
   const {
     challengeId,
     title: titleFromRoute,
@@ -1410,11 +1424,485 @@ export default function EntryListScreen({ route, navigation }) {
     reward: rewardFromRoute,
     readOnly = false,
   } = params;
+  const [dashboardEditMode, setDashboardEditMode] = useState(false);
+  const [draftDashboardLayout, setDraftDashboardLayout] = useState([]);
+  const latestDraftDashboardLayoutRef = useRef([]);
+  useEffect(() => {
+    latestDraftDashboardLayoutRef.current = Array.isArray(draftDashboardLayout) ? draftDashboardLayout : [];
+  }, [draftDashboardLayout]);
 
-  const title = titleFromRoute || '도전 기록';
+  const [widgetPickerVisible, setWidgetPickerVisible] = useState(false);
+  const [ownedDashboardWidgets, setOwnedDashboardWidgets] = useState([]);
 
-  const insets = useSafeAreaInsets();
-  const isFocused = useIsFocused();
+  const loadOwnedDashboardWidgets = useCallback(async () => {
+    try {
+      const owned = await getOwnedWidgets();
+      const supported = Array.isArray(owned)
+        ? owned.filter(w => supportsWidgetTarget(widgetCatalog.getWidgetById ? widgetCatalog.getWidgetById(w.id || w) : w, dashboardTarget))
+        : [];
+      setOwnedDashboardWidgets(supported);
+    } catch (e) {
+      console.log('loadOwnedDashboardWidgets failed', e);
+      setOwnedDashboardWidgets([]);
+    }
+  }, [dashboardTarget])
+
+
+
+  const getWorkingDashboardLayout = useCallback((layoutValue) => {
+    const source = Array.isArray(layoutValue) && layoutValue.length > 0
+      ? layoutValue
+      : Array.isArray(dashboardLayout) && (dashboardLayoutHasStored || dashboardLayout.length > 0)
+      ? dashboardLayout
+      : getDefaultDashboardLayout(dashboardTarget);
+
+    if (!Array.isArray(source)) return [];
+
+    return source.map((item, index) => {
+      const columnCount = typeof GRID_COLUMNS === 'number' ? GRID_COLUMNS : 3;
+      const rawId = item.id || item.widgetId || item.i;
+      const width = Math.max(1, Math.min(columnCount, Number(item.w) || columnCount));
+
+      return {
+        ...item,
+        id: rawId,
+        widgetId: item.widgetId || rawId,
+        x: Math.max(0, Math.min(columnCount - width, Number(item.x) || 0)),
+        y: Math.max(0, Number(item.y) || index),
+        w: width,
+        h: Math.max(1, Number(item.h) || 1),
+      };
+    });
+  }, [dashboardLayout, dashboardLayoutHasStored, dashboardTarget])
+
+  const formatDashboardDebugLayout = (label, layout) => {
+    const count = Array.isArray(layout) ? layout.length : 'not-array';
+    const ids = Array.isArray(layout)
+      ? layout.map((item) => item.id || item.widgetId || item.i || 'no-id').join(', ')
+      : '';
+
+    return `${label}: ${count}\n${ids}`;
+  };
+
+  const enterDashboardEdit = useCallback(() => {
+    navigation.navigate('DashboardEdit', {
+      challengeId,
+      type: params.type || params.challengeType || params.item?.type || params.challenge?.type,
+      title: displayTitle || meta?.title || params.title || params.challengeTitle || params.item?.title || params.challenge?.title,
+      item: params.item,
+      challenge: params.challenge,
+    });
+  }, [navigation, challengeId, params, displayTitle, meta]);
+
+
+  const cancelDashboardEdit = useCallback(() => {
+    setDraftDashboardLayout(getWorkingDashboardLayout(dashboardLayout));
+    setWidgetPickerVisible(false);
+    setDashboardEditMode(false);
+  }, [dashboardLayout, getWorkingDashboardLayout, setWidgetPickerVisible]);
+
+  const saveDashboardEdit = useCallback(async () => {
+    const draftSource = Array.isArray(latestDraftDashboardLayoutRef.current)
+      ? latestDraftDashboardLayoutRef.current
+      : draftDashboardLayout;
+    const nextLayout = getWorkingDashboardLayout(draftSource);
+    console.log(
+      '[SAVE DASHBOARD DEBUG]',
+      [
+        formatDashboardDebugLayout('draftSource', draftSource),
+        formatDashboardDebugLayout('nextLayout', nextLayout),
+      ].join('\n\n')
+    );
+    console.log('[DASHBOARD_DEBUG_SAVE_NEXT]', {
+      challengeId,
+      dashboardTarget,
+      draftRefCount: Array.isArray(draftSource) ? draftSource.length : 'not-array',
+      draftRefIds: Array.isArray(draftSource) ? draftSource.map((item) => item.id || item.widgetId || item.i) : [],
+      nextCount: Array.isArray(nextLayout) ? nextLayout.length : 'not-array',
+      nextIds: Array.isArray(nextLayout) ? nextLayout.map((item) => item.id || item.widgetId || item.i) : [],
+    });
+
+
+    if (!Array.isArray(nextLayout) || nextLayout.length < 1) {
+      console.log('저장 불가', '그래프는 1개 이상 있어야 합니다.');
+      return;
+    }
+
+    try {
+      await saveDashboardLayoutForChallenge(challengeId, nextLayout, dashboardTarget);
+    const debugReloadAfterSave = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
+    console.log(
+      '[AFTER SAVE RELOAD DEBUG]',
+      [
+        `hasStoredLayout: ${debugReloadAfterSave?.hasStoredLayout}`,
+        formatDashboardDebugLayout('reloaded layout', debugReloadAfterSave?.layout),
+      ].join('\n\n')
+    );
+    const debugReloadAfterSaveRefetched = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
+    console.log('[DASHBOARD_DEBUG_AFTER_SAVE_RELOAD]', {
+      challengeId,
+      dashboardTarget,
+      hasStoredLayout: debugReloadAfterSave?.hasStoredLayout,
+      reloadedCount: Array.isArray(debugReloadAfterSave?.layout) ? debugReloadAfterSave.layout.length : 'not-array',
+      reloadedIds: Array.isArray(debugReloadAfterSave?.layout) ? debugReloadAfterSave.layout.map((item) => item.id || item.widgetId || item.i) : [],
+    });
+    const debugReloadAfterSave2 = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
+    console.log('[DASHBOARD_DEBUG_AFTER_SAVE_RELOAD]', {
+      challengeId,
+      dashboardTarget,
+      hasStoredLayout: debugReloadAfterSave2?.hasStoredLayout,
+      reloadedCount: Array.isArray(debugReloadAfterSave2?.layout) ? debugReloadAfterSave.layout.length : 'not-array',
+      reloadedIds: Array.isArray(debugReloadAfterSave2?.layout) ? debugReloadAfterSave.layout.map((item) => item.id || item.widgetId || item.i) : [],
+    });
+      const committedLayout = nextLayout.map((item) => ({ ...item }));
+      latestDraftDashboardLayoutRef.current = committedLayout.map((item) => ({ ...item }));
+    setDashboardLayoutHasStored(true);
+    setHasStoredDashboardLayout(true);
+      setDashboardLayout(committedLayout);
+      setDraftDashboardLayout([]);
+      setDashboardEditMode(false);
+    } catch (error) {
+      console.log('Failed to save dashboard layout', error);
+      console.log('저장 실패', '대시보드 배치를 저장하지 못했습니다.');
+    }
+  }, [challengeId, dashboardTarget, draftDashboardLayout, getWorkingDashboardLayout]);
+
+  const addWidgetToDashboard = useCallback((widget) => {
+    const widgetId = typeof widget === 'string'
+      ? widget
+      : widget?.id || widget?.widgetId;
+
+    if (!widgetId) {
+      console.log('추가 불가', '추가할 그래프 정보를 찾지 못했습니다.');
+      return;
+    }
+
+    const catalogWidget = getWidgetById(widgetId) || {};
+    const widgetMeta = typeof widget === 'string'
+      ? catalogWidget
+      : { ...catalogWidget, ...widget };
+
+    setDraftDashboardLayout((prev) => {
+      const current = getWorkingDashboardLayout(prev);
+      const alreadyAdded = current.some((item) => {
+        const itemId = item.id || item.widgetId;
+        return itemId === widgetId;
+      });
+
+      if (alreadyAdded) {
+        setTimeout(() => {
+          console.log('추가 불가', '이미 추가된 그래프입니다.');
+        }, 0);
+        return current;
+      }
+
+      const defaultItem = getDefaultDashboardLayout(dashboardTarget).find((item) => {
+        const itemId = item.id || item.widgetId;
+        return itemId === widgetId;
+      });
+
+      const maxY = current.reduce((max, item) => Math.max(max, Number(item.y) || 0), -1);
+      const widthValue = Number(
+        defaultItem?.w ??
+        widgetMeta.defaultSize?.w ??
+        widgetMeta.w ??
+        GRID_COLUMNS
+      ) || GRID_COLUMNS;
+      const heightValue = Number(
+        defaultItem?.h ??
+        widgetMeta.defaultSize?.h ??
+        widgetMeta.h ??
+        1
+      ) || 1;
+
+      const w = Math.max(1, Math.min(GRID_COLUMNS, widthValue));
+      const h = Math.max(1, heightValue);
+
+      return [
+        ...current,
+        {
+          ...widgetMeta,
+          ...defaultItem,
+          id: widgetId,
+          widgetId,
+          kind: widgetMeta.kind || defaultItem?.kind || widgetMeta.type || defaultItem?.type,
+          type: widgetMeta.type || defaultItem?.type || widgetMeta.kind || defaultItem?.kind,
+          x: 0,
+          y: maxY + 1,
+          w,
+          h,
+        },
+      ];
+    });
+
+    setWidgetPickerVisible(false);
+  }, [dashboardTarget, getWorkingDashboardLayout, getWidgetById])
+
+  const removeDashboardWidget = useCallback((widgetId) => {
+ const targetId = typeof widgetId === 'string'
+ ? widgetId
+ : widgetId?.id || widgetId?.widgetId;
+
+ if (!targetId) return;
+
+ setDraftDashboardLayout((prev) => {
+ const current = getWorkingDashboardLayout(prev);
+
+ if (current.length <= 1) {
+ setTimeout(() => {
+ console.log('삭제 불가', '그래프는 1개 이상 있어야 합니다.');
+ }, 0);
+ return current;
+ }
+
+ const next = current.filter((item) => {
+ const itemId = item.id || item.widgetId;
+ return itemId !== targetId;
+ });
+
+ return next.length === current.length ? current : next;
+ });
+ }, [getWorkingDashboardLayout]);
+
+  const moveDashboardWidget = useCallback((widgetId, dxOrDirection, dyValue = 0) => {
+ const targetId = typeof widgetId === 'string'
+ ? widgetId
+ : widgetId?.id || widgetId?.widgetId;
+
+ if (!targetId) return;
+
+ let dx = 0;
+ let dy = 0;
+
+ if (typeof dxOrDirection === 'string') {
+ if (dxOrDirection === 'left' || dxOrDirection === '←') dx = -1;
+ if (dxOrDirection === 'right' || dxOrDirection === '→') dx = 1;
+ if (dxOrDirection === 'up' || dxOrDirection === '↑') dy = -1;
+ if (dxOrDirection === 'down' || dxOrDirection === '↓') dy = 1;
+ } else {
+ dx = Number(dxOrDirection) || 0;
+ dy = Number(dyValue) || 0;
+ }
+
+ setDraftDashboardLayout((prev) => {
+ const current = getWorkingDashboardLayout(prev);
+
+ return current
+ .map((item) => {
+ const itemId = item.id || item.widgetId;
+ if (itemId !== targetId) return item;
+
+ const w = Math.max(1, Number(item.w) || 1);
+ const x = Math.max(0, Math.min(GRID_COLUMNS - w, (Number(item.x) || 0) + dx));
+ const y = Math.max(0, (Number(item.y) || 0) + dy);
+
+ return { ...item, x, y };
+ })
+ .sort((a, b) => {
+ if (a.y !== b.y) return a.y - b.y;
+ return a.x - b.x;
+ });
+ });
+ }, [getWorkingDashboardLayout]);
+
+
+
+  const pickerWidgets = useMemo(() => {
+    const layoutForFilter = dashboardEditMode ? draftDashboardLayout : dashboardLayout;
+    const placedIds = new Set(
+      getWorkingDashboardLayout(layoutForFilter)
+        .map((item) => item.id || item.widgetId || item.i)
+        .filter(Boolean)
+    );
+
+    const byId = new Map();
+    const addCandidate = (candidate) => {
+      const id = typeof candidate === 'string' ? candidate : (candidate?.id || candidate?.widgetId || candidate?.i);
+      if (!id || placedIds.has(id)) return;
+      if (dashboardTarget === DASHBOARD_TARGETS.HABIT && id === 'goal_black_box') return;
+
+      const metaWidget = typeof candidate === 'string' ? getWidgetById(id) : candidate;
+      const widget = metaWidget || getWidgetById(id) || { id, widgetId: id, title: id, name: id, placeholder: true };
+      byId.set(id, { ...widget, id, widgetId: widget.widgetId || id });
+    };
+
+    (DEFAULT_WIDGET_IDS || []).forEach(addCandidate);
+    if (typeof getShopWidgets === 'function') {
+      const shopWidgets = getShopWidgets();
+      if (Array.isArray(shopWidgets)) shopWidgets.forEach(addCandidate);
+    }
+    return Array.from(byId.values());
+  }, [dashboardEditMode, draftDashboardLayout, dashboardLayout, dashboardTarget, getWorkingDashboardLayout]);
+  const dashboardTarget = (
+    params.type === 'habit' ||
+    params.challengeType === 'habit' ||
+    params.cardType === 'habit' ||
+    params.item?.type === 'habit' ||
+    params.challenge?.type === 'habit' ||
+    params.habit
+  )
+    ? DASHBOARD_TARGETS.HABIT
+    : DASHBOARD_TARGETS.CHALLENGE;
+  const [dashboardLayout, setDashboardLayout] = useState([]);
+  const [dashboardLayoutHasStored, setDashboardLayoutHasStored] = useState(false);
+  const [hasStoredDashboardLayout, setHasStoredDashboardLayout] = useState(false);
+
+
+  useEffect(() => {
+    if (dashboardEditMode) {
+      loadOwnedDashboardWidgets();
+    }
+  }, [dashboardEditMode, loadOwnedDashboardWidgets]);
+
+  useFocusEffect(
+  useCallback(() => {
+    let mounted = true;
+    const loadDashboardLayout = async () => {
+      try {
+        const result = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
+        console.log('[DASHBOARD_DEBUG_LOAD_RESULT]', {
+          challengeId,
+          dashboardTarget,
+          hasStoredLayout: result?.hasStoredLayout,
+          loadedCount: Array.isArray(result?.layout) ? result.layout.length : 'not-array',
+          loadedIds: Array.isArray(result?.layout) ? result.layout.map((item) => item.id || item.widgetId || item.i) : [],
+        });
+        console.log('[DASHBOARD_DEBUG_INITIAL_LOAD]', {
+          challengeId,
+          dashboardTarget,
+          hasStored: result?.hasStoredLayout,
+          count: Array.isArray(result?.layout) ? result.layout.length : 'not-array',
+          ids: Array.isArray(result?.layout) ? result.layout.map(i => i.id || i.widgetId || i.i) : [],
+        });
+        if (!mounted) return;
+        const nextLayout = Array.isArray(result?.layout) ? result.layout : getDefaultDashboardLayout(dashboardTarget);
+        setDashboardLayoutHasStored(Boolean(result?.hasStoredLayout));
+        setDashboardLayout(nextLayout.map((item) => ({ ...item })));
+        setDraftDashboardLayout([]);
+      } catch (error) {
+        console.log('Failed to load dashboard layout', error);
+        if (!mounted) return;
+        const fallbackLayout = getDefaultDashboardLayout(dashboardTarget);
+        setDashboardLayoutHasStored(false);
+        setDashboardLayout(fallbackLayout.map((item) => ({ ...item })));
+        setDraftDashboardLayout([]);
+      }
+    };
+    loadDashboardLayout();
+    return () => { mounted = false; };
+    }, [challengeId, dashboardTarget])
+)
+
+  const totalCount = Array.isArray(entries) ? entries.length : 0;
+  const renderDashboardWidget = (item, isShare = false) => {
+    // DASHBOARD_RENDER_NORMALIZED_WIDGET_META
+    const widgetId = item?.widgetId || item?.id || item?.i;
+    const catalogWidget = widgetId ? (getWidgetById(widgetId) || {}) : {};
+    const rawKind = item?.kind || item?.type || catalogWidget.kind || catalogWidget.type || widgetId;
+    const normalizedKindMap = {
+      overall_progress: 'progress',
+      overallProgress: 'progress',
+      progress: 'progress',
+      donut: 'progress',
+      calendar: 'calendar',
+      month_calendar: 'calendar',
+      monthCalendar: 'calendar',
+      weekly_bar: 'weeklyBar',
+      weeklyBar: 'weeklyBar',
+      week: 'weeklyBar',
+      grass_graph: 'grass',
+      grassGraph: 'grass',
+      grass: 'grass',
+      line_count: 'lineCount',
+      lineCount: 'lineCount',
+      line_graph: 'lineCount',
+      line_minutes: 'lineMinutes',
+      lineMinutes: 'lineMinutes',
+      goal_black_box: 'goal',
+      goal: 'goal',
+    };
+    const widgetKind = normalizedKindMap[rawKind] || rawKind;
+
+    // Removed duplicate ID
+    const catalogMeta = getWidgetById(widgetId);
+    const kind = item?.kind || catalogMeta?.kind || item?.type || catalogMeta?.type;
+
+    if (!kind) return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중</Text></View>;
+
+    if (widgetKind === 'progress' || kind === 'overallProgress') {
+      return (
+        <TouchableOpacity style={styles.donutArea} onPress={isShare ? undefined : () => runDonut()} activeOpacity={0.8} disabled={isShare}>
+          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
+          <View style={{ marginTop: 28, alignItems: 'center' }}>
+            <Donut targetPercent={overallPct} progress={isShare ? undefined : donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    if (widgetKind === 'calendar') {
+      return (
+        <View style={styles.calendarArea}>
+          <MonthCalendar
+            startDate={meta.startDate || new Date()}
+            endDate={meta.endDate || new Date()}
+            entriesByDaySet={entriesByDaySet}
+            monthDate={monthDate}
+            onPrev={isShare ? undefined : prevMonth}
+            onNext={isShare ? undefined : nextMonth}
+            canPrev={isShare ? false : canPrevMonth}
+            canNext={isShare ? false : canNextMonth}
+            highlightDate={highlightDate}
+          />
+        </View>
+      );
+    }
+    if (widgetKind === 'goal') {
+      if (dashboardTarget === DASHBOARD_TARGETS.HABIT) return null;
+      return (
+        <View style={[styles.rewardBlackBox, { flex: 1, margin: 0, width: '100%', height: '100%', minHeight: 60 }]}>
+          <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+        </View>
+      );
+    }
+    if (widgetKind === 'weeklyBar') {
+      return (
+        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          <WeekView
+            weeksData={weeksData}
+            currentIndex={weekIndex}
+            onIndexChange={isShare ? undefined : setWeekIndex}
+            introProgress={isShare ? undefined : weekK}
+            onPressDay={isShare ? undefined : handlePressDay}
+            onTapBar={isShare ? undefined : runWeek}
+          />
+        </View>
+      );
+    }
+    if (widgetKind === 'grass') {
+      return (
+        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          <GrassGraph
+            entries={entries}
+            startDate={meta.startDate}
+            endDate={meta.endDate}
+          />
+        </View>
+      );
+    }
+    if (widgetKind === 'lineCount' || kind === 'lineMinutes') {
+       return (
+        <View style={[styles.sectionBox, { minHeight: 220, marginVertical: 0 }]}>
+           <LineChartsPager
+              startDate={meta.startDate}
+              entries={entries}
+              interactive={!isShare}
+              introProgress={isShare ? undefined : lineK}
+           />
+        </View>
+       );
+    }
+    return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중 ({kind})</Text></View>;
+  };const isFocused = useIsFocused();
 
   // 뒤로가기 항상 ChallengeList로
   React.useEffect(() => {
@@ -1441,6 +1929,8 @@ export default function EntryListScreen({ route, navigation }) {
     description: null,
     notification: { mode: null, payload: null },
   });
+  const routeTitle = params.title || params.challengeTitle || params.challengeName || params.name || params.cardTitle || params.item?.title || params.item?.name || params.challenge?.title || params.challenge?.name || params.habit?.title || params.habit?.name || '';
+  const displayTitle = (typeof meta?.title === 'string' && meta.title.trim().length > 0) ? meta.title : (routeTitle || '기록');
 
   const [monthDate, setMonthDate] = useState(()=> {
     const today = new Date();
@@ -1817,6 +2307,195 @@ export default function EntryListScreen({ route, navigation }) {
   const minutes = totalMinutes % 60;
 
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
+  const DashboardGraphPickerModal = useCallback(() => {
+    if (!dashboardEditMode) return null;
+    const closePicker = () => setWidgetPickerVisible(false);
+
+    const modalStyles = {
+      overlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, backgroundColor: 'rgba(0, 0, 0, 0.45)' },
+      sheet: { maxHeight: '72%', borderRadius: 8, backgroundColor: '#fff', paddingVertical: 18, paddingHorizontal: 16 },
+      header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+      title: { fontSize: 20, fontWeight: '700', color: '#111' },
+      closeButton: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f2f2f2' },
+      closeText: { fontSize: 22, color: '#333', lineHeight: 24 },
+      empty: { minHeight: 96, alignItems: 'center', justifyContent: 'center' },
+      emptyText: { fontSize: 15, color: '#666' },
+      list: { maxHeight: 360 },
+      item: { minHeight: 64, borderRadius: 8, borderWidth: 1, borderColor: '#e5e5e5', paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' },
+      itemTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
+      itemDesc: { marginTop: 4, fontSize: 13, color: '#666' },
+      itemAction: { fontSize: 14, fontWeight: '700', color: '#0b4a8b' },
+    };
+
+    return (
+      <Modal visible={widgetPickerVisible} transparent animationType="fade" onRequestClose={closePicker}>
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.sheet}>
+            <View style={modalStyles.header}>
+              <Text style={modalStyles.title}>그래프 추가</Text>
+              <TouchableOpacity style={modalStyles.closeButton} onPress={closePicker}>
+                <Text style={modalStyles.closeText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            {pickerWidgets.length === 0 ? (
+              <View style={modalStyles.empty}><Text style={modalStyles.emptyText}>추가할 수 있는 그래프가 없습니다.</Text></View>
+            ) : (
+              <ScrollView style={modalStyles.list}>
+                {pickerWidgets.map((widget, index) => {
+                  const widgetId = widget.id || widget.widgetId || widget.i || `graph-${index}`;
+                  return (
+                    <TouchableOpacity key={widgetId} style={modalStyles.item} onPress={() => addWidgetToDashboard(widget)}>
+                      <View style={{ flex: 1, paddingRight: 12 }}>
+                        <Text style={modalStyles.itemTitle}>{widget.name || widget.title || widget.name || widgetId}</Text>
+                        <Text style={modalStyles.itemDesc}>{widget.description || (widget.placeholder ? '준비중' : '')}</Text>
+                      </View>
+                      <Text style={modalStyles.itemAction}>추가</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+    );
+  }, [dashboardEditMode, widgetPickerVisible, pickerWidgets, addWidgetToDashboard, setWidgetPickerVisible])
+
+  const DashboardGraphArea = ({ isShare = false } = {}) => {
+    const sourceLayout = dashboardEditMode && !isShare ? draftDashboardLayout : dashboardLayout;
+    const baseLayout = Array.isArray(sourceLayout) ? sourceLayout : getDefaultDashboardLayout(dashboardTarget);
+    const safeLayout = baseLayout.map((item, index) => ({
+      ...item,
+      id: item.id || item.widgetId || item.i || `dashboard_graph_${index}`,
+      widgetId: item.widgetId || item.id || item.i || `dashboard_graph_${index}`,
+      x: Number.isFinite(Number(item.x)) ? Number(item.x) : 0,
+      y: Number.isFinite(Number(item.y)) ? Number(item.y) : index,
+      w: Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || GRID_COLUMNS)),
+      h: Math.max(1, Number(item.h) || 1),
+    }));
+
+    const rows = new Map();
+    safeLayout.forEach((item, index) => {
+      const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w || GRID_COLUMNS)));
+      const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item?.x || 0)));
+      const safeY = Number.isFinite(Number(item?.y)) ? Math.max(0, Number(item.y)) : index;
+      const normalized = { ...item, x: safeX, y: safeY, w: safeW };
+      if (!rows.has(safeY)) rows.set(safeY, []);
+      rows.get(safeY).push(normalized);
+    });
+
+    const layoutRows = Array.from(rows.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([rowY, items]) => {
+        const sortedItems = items.sort((a, b) => {
+          if (a.x !== b.x) return a.x - b.x;
+          return String(a.widgetId || a.id || '').localeCompare(String(b.widgetId || b.id || ''));
+        });
+        const slots = [];
+        let cursor = 0;
+
+        sortedItems.forEach((item, index) => {
+          const itemX = Math.max(cursor, Number(item.x || 0));
+          if (itemX > cursor) {
+            slots.push({ type: 'spacer', key: `spacer-${rowY}-${index}`, w: itemX - cursor });
+          }
+          const itemW = Math.max(1, Math.min(GRID_COLUMNS - itemX, Number(item.w || GRID_COLUMNS)));
+          slots.push({ type: 'item', key: `item-${rowY}-${item.widgetId || item.id || index}`, item: { ...item, x: itemX, w: itemW }, w: itemW });
+          cursor = Math.min(GRID_COLUMNS, itemX + itemW);
+        });
+
+        if (cursor < GRID_COLUMNS) {
+          slots.push({ type: 'spacer', key: `spacer-${rowY}-end`, w: GRID_COLUMNS - cursor });
+        }
+
+        return { rowY, slots };
+      });
+
+    const renderSlot = (slot, index) => {
+      const widthPct = ((Math.max(0, Number(slot.w || 0)) / GRID_COLUMNS) * 100) + '%';
+      if (slot.type === 'spacer') {
+        return <View key={slot.key || index} style={{ width: widthPct, minHeight: 1 }} />;
+      }
+
+      const item = slot.item;
+      const widgetId = item.widgetId || item.id || `graph_${index}`;
+
+      return (
+        <View key={slot.key || widgetId} style={{ width: widthPct, paddingHorizontal: 4, marginBottom: 8 }}>
+          <View style={{ minHeight: 120, position: 'relative' }}>
+            {renderDashboardWidget(item, isShare)}
+            {dashboardEditMode && !isShare && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (typeof removeDashboardWidget === 'function') removeDashboardWidget(widgetId);
+                }}
+                style={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+              >
+                <Text style={{ color: '#444', fontSize: 18, fontWeight: '800' }}>×</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <View style={{ marginTop: isShare ? 10 : 20 }}>
+        {!isShare && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111' }}>{dashboardEditMode ? '대시보드 수정' : '대시보드'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {dashboardEditMode ? (
+                <>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (typeof setWidgetPickerVisible === 'function') setWidgetPickerVisible(true);
+                    }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#0A84FF' }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>그래프 추가</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (typeof cancelDashboardEdit === 'function') cancelDashboardEdit();
+                    }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#777' }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>취소</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (typeof saveDashboardEdit === 'function') saveDashboardEdit();
+                    }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#111' }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>저장</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => {
+                    if (typeof enterDashboardEdit === 'function') enterDashboardEdit();
+                  }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: '#111' }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>대시보드 수정</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
+        <View style={{ gap: 8 }}>
+          {layoutRows.map((row) => (
+            <View key={row.rowY} style={{ width: '100%', flexDirection: 'row' }}>
+              {row.slots.map(renderSlot)}
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
   const HeaderCard = useMemo(()=>(<View style={styles.card}>
             <View style={styles.headerTop}>
         <TouchableOpacity
@@ -1828,7 +2507,7 @@ export default function EntryListScreen({ route, navigation }) {
           <Text style={styles.headerBackArrow}>‹</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
-          <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
+          <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>
         <TouchableOpacity
@@ -1839,12 +2518,16 @@ export default function EntryListScreen({ route, navigation }) {
           <ShadowIcon forShare={false} />
         </TouchableOpacity>
       </View>
-      <DashboardGraphArea isShare={false} />
+
+            <DashboardGraphArea isShare={false} />
+            <DashboardGraphPickerModal />
     </View>
-  ), [
-    title, meta.startDate, meta.endDate,
+  ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate, DashboardGraphArea
+    weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate
+  , DashboardGraphArea, dashboardEditMode, draftDashboardLayout, dashboardLayout,
+    DashboardGraphPickerModal,
+    displayTitle
   ]);
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
@@ -1854,17 +2537,19 @@ export default function EntryListScreen({ route, navigation }) {
            <ShadowIcon forShare={true} />
         </View>
         <View style={styles.headerTitleWrap}>
-          <TitleTwoLine text={title} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
+          <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>
         <View style={styles.headerInfoBtn} />
       </View>
-      <DashboardGraphArea isShare={true} />
+
+            <DashboardGraphArea isShare={true} />
     </View>
-  ), [
-    title, meta.startDate, meta.endDate,
+  ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, entries, overallPct, DashboardGraphArea
+    weekIndex, entries, overallPct
+  , DashboardGraphArea,
+    displayTitle
   ]);
 
   const cidForDebug = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
@@ -1882,10 +2567,10 @@ export default function EntryListScreen({ route, navigation }) {
       }
       try { await FileSystem.deleteAsync(uri, { idempotent: true }); } catch {}
     } catch (e) {
-      console.warn(e);
-      Alert.alert('공유 실패', '이미지 생성/공유 중 문제가 발생했어요. 다시 시도해 주세요.');
+      console.log(e);
+      console.log('공유 실패', '이미지 생성/공유 중 문제가 발생했어요. 다시 시도해 주세요.');
     }
-  }, [title]);
+  }, [ meta.title ]);
 
   /* ── RAW 모드 ── */
   if (KILL_UI_AND_SHOW_RAW) {
@@ -1932,9 +2617,7 @@ export default function EntryListScreen({ route, navigation }) {
     {HeaderCardForShare}
 
    <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
-  <View style={styles.rewardBlackBox}>
-    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-  </View>
+
 </View>
 
     <View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
@@ -1966,7 +2649,7 @@ export default function EntryListScreen({ route, navigation }) {
 
         <TouchableWithoutFeedback>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitleCenter}>{title}</Text>
+            <Text style={styles.modalTitleCenter}>{displayTitle}</Text>
 
             <View style={styles.modalField}>
               <Text style={styles.modalFieldTitle}>기간</Text>
@@ -2018,9 +2701,7 @@ export default function EntryListScreen({ route, navigation }) {
 
         {/* 보상 박스 (위/아래 간격을 상수로 제어) */}
 <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
-  <View style={styles.rewardBlackBox}>
-    <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-  </View>
+
 </View>
 
 {/* 누적시간 / 전체·남은 횟수 (postSummaryRow는 marginTop:0) */}
@@ -2064,7 +2745,7 @@ export default function EntryListScreen({ route, navigation }) {
 <TouchableOpacity style={[styles.shareBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]} onPress={handleShare} activeOpacity={0.9}>
         <Text style={styles.shareBtnText}>공유</Text>
       </TouchableOpacity>
-     {/* 위젯 1×1 캡처(오프스크린) */}
+     {/* 그래프 1×1 캡처(오프스크린) */}
 <WidgetDonutCapture1x1
   challengeId={challengeId}
   deps={[overallPct /* 또는 progressPct 등 진행률 변수 */]}
@@ -2080,6 +2761,145 @@ export default function EntryListScreen({ route, navigation }) {
 
 /* ───────── 스타일 ───────── */
 const styles = StyleSheet.create({
+
+  dashboardMovePad: {
+    position: 'absolute',
+    bottom: 5,
+    left: '50%',
+    transform: [{ translateX: -80 }],
+    width: 160,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    padding: 2,
+    alignItems: 'center',
+  },
+  dashboardMoveRow: {
+    flexDirection: 'row',
+  },
+  dashboardMoveBtn: {
+    width: 40,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dashboardMoveText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+
+
+  widgetPickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  widgetPickerCard: {
+    width: '90%',
+    maxHeight: '70%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+  },
+  widgetPickerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  widgetPickerCloseBtn: {
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+  widgetPickerCloseText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  widgetPickerItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  widgetPickerItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  widgetPickerItemMeta: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  widgetPickerEmpty: {
+    textAlign: 'center',
+    color: '#888',
+    paddingVertical: 30,
+  },
+  dashboardAddBtn: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  dashboardAddBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+
+
+  dashboardToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  dashboardToolbarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  dashboardToolbarActions: {
+    flexDirection: 'row',
+  },
+  dashboardEditBtn: {
+    backgroundColor: '#333',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  dashboardEditSecondaryBtn: {
+    backgroundColor: '#888',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  dashboardEditBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  dashboardWidgetRemoveBtn: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  dashboardWidgetRemoveText: {
+    color: '#555',
+    fontWeight: 'bold',
+    fontSize: 16,
+    lineHeight: 20,
+  },
+
   container: { flex: 1, backgroundColor: '#fff' },
 
   barText: { fontSize: 9, color: textGrey, textAlign:'center' },
@@ -2159,7 +2979,7 @@ rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
   calCell: { width: '14.2857%', height: 26, alignItems: 'center', justifyContent: 'center', marginVertical: 2, borderRadius: 4 },
   calBadge: { minWidth: 20, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#111', borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginHorizontal: 1, marginVertical: 3.5 },
-  calBadgeText: { color: '#fff', fontWeight: '800', fontSize: 10.5 },
+  calBadgeText: { color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 10.5 },
   calCellText: { fontSize: 10.5, color: '#111' },
   calCellTextDim: { color: textGrey },
 
@@ -2197,7 +3017,7 @@ rewardBlockSpacing: {
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
   },
-  shareBtnText: { color: '#fff', fontWeight: '800' },
+  shareBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
   uploadFloatingBtn: {
     position: 'absolute', left: 12,
@@ -2206,7 +3026,7 @@ rewardBlockSpacing: {
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
   },
-  uploadFloatingText: { color: '#fff', fontWeight: '800' },
+  uploadFloatingText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
   /* ───────── 정보 모달 스타일 ───────── */
   modalBackdrop: {

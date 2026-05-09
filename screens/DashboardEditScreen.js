@@ -186,57 +186,133 @@ export default function DashboardEditScreen({ route, navigation }) {
  setPickerVisible(false);
  }, [dashboardTarget]);
  const moveGraph = useCallback((widgetId, direction) => {
- setLayout((current) => {
- const source = Array.isArray(current) ? current : [];
- let movedItem = null;
+  setLayout((current) => {
+    const source = Array.isArray(current) ? current.map(normalizeLayoutItem) : [];
+    const movingItem = source.find((item) => item.widgetId === widgetId);
+    if (!movingItem) return current;
 
- const baseItems = source.map((item, index) => {
- const id = item.widgetId || item.id || `graph_${index}`;
- const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w || GRID_COLUMNS)));
- const safeH = Math.max(1, Number(item.h || 1));
- const currentX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x || 0)));
- const currentY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
- const normalized = { ...item, x: currentX, y: currentY, w: safeW, h: safeH };
+    const getSize = (item) => {
+      const w = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || 1));
+      const h = Math.max(1, Number(item.h) || 1);
+      return { w, h };
+    };
 
- if (id !== widgetId) return normalized;
+    const clampItem = (item) => {
+      const { w, h } = getSize(item);
+      return {
+        ...item,
+        w,
+        h,
+        x: Math.max(0, Math.min(GRID_COLUMNS - w, Number(item.x) || 0)),
+        y: Math.max(0, Number(item.y) || 0),
+      };
+    };
 
- let nextX = currentX;
- let nextY = currentY;
+    const overlaps = (a, b) => {
+      const aItem = clampItem(a);
+      const bItem = clampItem(b);
+      const xOverlap = aItem.x < bItem.x + bItem.w && aItem.x + aItem.w > bItem.x;
+      const yOverlap = aItem.y < bItem.y + bItem.h && aItem.y + aItem.h > bItem.y;
+      return xOverlap && yOverlap;
+    };
 
- if (direction === 'left') nextX = Math.max(0, currentX - 1);
- if (direction === 'right') nextX = Math.min(GRID_COLUMNS - safeW, currentX + 1);
- if (direction === 'up') nextY = Math.max(0, currentY - 1);
- if (direction === 'down') nextY = currentY + 1;
+    const isFree = (candidate, placed) => !placed.some((item) => overlaps(candidate, item));
 
- movedItem = { ...normalized, x: nextX, y: nextY };
- return null;
- }).filter(Boolean);
+    const findNextFreePosition = (seedItem, placed) => {
+      const base = clampItem(seedItem);
+      const maxScanY = Math.max(
+        base.y + 30,
+        ...placed.map((item) => (Number(item.y) || 0) + (Number(item.h) || 1) + 30)
+      );
 
- if (!movedItem) return current;
+      for (let y = base.y; y <= maxScanY; y += 1) {
+        const startX = y === base.y ? base.x : 0;
+        for (let x = startX; x <= GRID_COLUMNS - base.w; x += 1) {
+          const candidate = { ...base, x, y };
+          if (isFree(candidate, placed)) return candidate;
+        }
+      }
 
- const overlaps = (a, b) => {
- if (a.y !== b.y) return false;
- return a.x < b.x + b.w && a.x + a.w > b.x;
- };
+      return { ...base, x: 0, y: maxScanY + 1 };
+    };
 
- const placed = [movedItem];
- const sorted = baseItems.sort((a, b) => {
- if (a.y !== b.y) return a.y - b.y;
- if (a.x !== b.x) return a.x - b.x;
- return String(a.widgetId || a.id || '').localeCompare(String(b.widgetId || b.id || ''));
- });
+    const reflowInOrder = (orderedItems) => {
+      const placed = [];
 
- sorted.forEach((item) => {
- let nextItem = { ...item };
- while (placed.some((placedItem) => overlaps(nextItem, placedItem))) {
- nextItem = { ...nextItem, y: nextItem.y + 1 };
- }
- placed.push(nextItem);
- });
+      orderedItems.forEach((item) => {
+        const seedItem = clampItem({ ...item, y: 0 });
+        const nextItem = findNextFreePosition(seedItem, placed);
+        placed.push(nextItem);
+      });
 
- return normalizeLayout(placed, dashboardTarget);
- });
- }, [dashboardTarget]);
+      return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    };
+
+    const movingSize = getSize(movingItem);
+    if (movingSize.w >= GRID_COLUMNS && (direction === 'left' || direction === 'right')) {
+      return current;
+    }
+
+    if (movingSize.w >= GRID_COLUMNS && (direction === 'up' || direction === 'down')) {
+      const sorted = source
+        .map(clampItem)
+        .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+      const rows = [];
+      sorted.forEach((item) => {
+        const lastRow = rows[rows.length - 1];
+        if (!lastRow || lastRow.y !== item.y) {
+          rows.push({ y: item.y, items: [item] });
+        } else {
+          lastRow.items.push(item);
+        }
+      });
+
+      const rowIndex = rows.findIndex((row) =>
+        row.items.some((item) => item.widgetId === widgetId)
+      );
+
+      if (rowIndex < 0) return current;
+
+      const targetRowIndex = direction === 'up' ? rowIndex - 1 : rowIndex + 1;
+      if (targetRowIndex < 0 || targetRowIndex >= rows.length) return current;
+
+      const nextRows = [...rows];
+      const [movingRow] = nextRows.splice(rowIndex, 1);
+      nextRows.splice(targetRowIndex, 0, movingRow);
+
+      const orderedItems = nextRows.flatMap((row) => row.items);
+      return reflowInOrder(orderedItems);
+    }
+
+    let targetX = Number(movingItem.x) || 0;
+    let targetY = Number(movingItem.y) || 0;
+
+    if (direction === 'left') targetX -= 1;
+    if (direction === 'right') targetX += 1;
+    if (direction === 'up') targetY -= 1;
+    if (direction === 'down') targetY += 1;
+
+    const movedItem = clampItem({ ...movingItem, x: targetX, y: targetY });
+
+    if (movedItem.x === movingItem.x && movedItem.y === movingItem.y) {
+      return current;
+    }
+
+    const placed = [movedItem];
+    const remaining = source
+      .filter((item) => item.widgetId !== widgetId)
+      .map(clampItem)
+      .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+    remaining.forEach((item) => {
+      const nextItem = findNextFreePosition(item, placed);
+      placed.push(nextItem);
+    });
+
+    return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  });
+}, [dashboardTarget]);
 
  const removeGraph = useCallback((widgetId) => {
  setLayout((current) => {
@@ -270,28 +346,34 @@ export default function DashboardEditScreen({ route, navigation }) {
  const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x || 0)));
  const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
  const safeH = Math.max(1, Number(item.h || 1));
+ const isCompactCard = safeH === 1;
+ const cardHeight = isCompactCard ? 90 : Math.max(120, safeH * 60);
 
  return (
  <View key={`${widgetId}-${index}`} style={styles.graphCell}>
- <View style={styles.graphCard}>
+ <View style={[
+ styles.graphCard,
+ { minHeight: cardHeight },
+ isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
+ ]}>
  <View style={styles.graphHeader}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
  <TouchableOpacity style={styles.removeBtn} onPress={() => removeGraph(widgetId)}>
  <Text style={styles.removeText}>×</Text>
  </TouchableOpacity>
  </View>
- <Text style={styles.graphMeta}>{safeW + 'x' + safeH}</Text>
- <View style={styles.moveControls}>
- <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'up')}>
+ <Text style={[styles.graphMeta, isCompactCard && { marginTop: 4 }]}>{safeW + 'x' + safeH}</Text>
+ <View style={[styles.moveControls, isCompactCard && { marginTop: 6 }]}>
+ <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'up')}>
  <Text style={styles.moveText}>↑</Text>
  </TouchableOpacity>
- <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'down')}>
+ <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'down')}>
  <Text style={styles.moveText}>↓</Text>
  </TouchableOpacity>
- <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'left')}>
+ <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'left')}>
  <Text style={styles.moveText}>←</Text>
  </TouchableOpacity>
- <TouchableOpacity style={styles.moveBtn} onPress={() => moveGraph(widgetId, 'right')}>
+ <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'right')}>
  <Text style={styles.moveText}>→</Text>
  </TouchableOpacity>
  </View>

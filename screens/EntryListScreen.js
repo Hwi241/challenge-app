@@ -2384,6 +2384,10 @@ export default function EntryListScreen({ route, navigation }) {
       rows.get(safeY).push(normalized);
     });
 
+    const fixedSizes = {
+      goal_black_box: { w: 6, h: 1 },
+    };
+
     const layoutRows = Array.from(rows.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([rowY, items]) => {
@@ -2391,10 +2395,19 @@ export default function EntryListScreen({ route, navigation }) {
           if (a.x !== b.x) return a.x - b.x;
           return String(a.widgetId || a.id || '').localeCompare(String(b.widgetId || b.id || ''));
         });
+        const normalizedItems = sortedItems.map((item) => {
+          const fixedSize = fixedSizes[item.widgetId];
+          if (!fixedSize) return item;
+          return {
+            ...item,
+            w: Math.min(GRID_COLUMNS, fixedSize.w),
+            h: fixedSize.h,
+          };
+        });
         const slots = [];
         let cursor = 0;
 
-        sortedItems.forEach((item, index) => {
+        normalizedItems.forEach((item, index) => {
           const itemX = Math.max(cursor, Number(item.x || 0));
           if (itemX > cursor) {
             slots.push({ type: 'spacer', key: `spacer-${rowY}-${index}`, w: itemX - cursor });
@@ -2419,10 +2432,11 @@ export default function EntryListScreen({ route, navigation }) {
 
       const item = slot.item;
       const widgetId = item.widgetId || item.id || `graph_${index}`;
+      const slotHeight = Math.max(60, (Number(item.h) || 1) * 60);
 
       return (
         <View key={slot.key || widgetId} style={{ width: widthPct, paddingHorizontal: 4, marginBottom: 8 }}>
-          <View style={{ minHeight: 120, position: 'relative' }}>
+          <View style={{ minHeight: slotHeight, position: 'relative' }}>
             {renderDashboardWidget(item, isShare)}
             {dashboardEditMode && !isShare && (
               <TouchableOpacity

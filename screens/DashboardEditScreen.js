@@ -92,6 +92,45 @@ export default function DashboardEditScreen({ route, navigation }) {
 
  const placedIds = useMemo(() => new Set(layout.map(item => item.widgetId || item.id)), [layout]);
 
+ const layoutRows = useMemo(() => {
+ const rows = new Map();
+ (Array.isArray(layout) ? layout : []).forEach((item, index) => {
+ const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w || GRID_COLUMNS)));
+ const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item?.x || 0)));
+ const safeY = Number.isFinite(Number(item?.y)) ? Math.max(0, Number(item.y)) : index;
+ const normalized = { ...item, x: safeX, y: safeY, w: safeW };
+ if (!rows.has(safeY)) rows.set(safeY, []);
+ rows.get(safeY).push(normalized);
+ });
+
+ return Array.from(rows.entries())
+ .sort((a, b) => a[0] - b[0])
+ .map(([rowY, items]) => {
+ const sortedItems = items.sort((a, b) => {
+ if (a.x !== b.x) return a.x - b.x;
+ return String(a.widgetId || a.id || '').localeCompare(String(b.widgetId || b.id || ''));
+ });
+ const slots = [];
+ let cursor = 0;
+
+ sortedItems.forEach((item, index) => {
+ const itemX = Math.max(cursor, Number(item.x || 0));
+ if (itemX > cursor) {
+ slots.push({ type: 'spacer', key: `spacer-${rowY}-${index}`, w: itemX - cursor });
+ }
+ const itemW = Math.max(1, Math.min(GRID_COLUMNS - itemX, Number(item.w || GRID_COLUMNS)));
+ slots.push({ type: 'item', key: `item-${rowY}-${item.widgetId || item.id || index}`, item: { ...item, x: itemX, w: itemW }, w: itemW });
+ cursor = Math.min(GRID_COLUMNS, itemX + itemW);
+ });
+
+ if (cursor < GRID_COLUMNS) {
+ slots.push({ type: 'spacer', key: `spacer-${rowY}-end`, w: GRID_COLUMNS - cursor });
+ }
+
+ return { rowY, slots };
+ });
+ }, [layout]);
+
  const pickerWidgets = useMemo(() => {
  const byId = new Map();
 
@@ -169,11 +208,11 @@ export default function DashboardEditScreen({ route, navigation }) {
  const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x || 0)));
  const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
  const safeH = Math.max(1, Number(item.h || 1));
- const widthPct = ((safeW / GRID_COLUMNS) * 100) + "%";
+ 
  const gridCells = Array.from({ length: GRID_COLUMNS }, (_, cellIndex) => cellIndex >= safeX && cellIndex < safeX + safeW);
 
  return (
- <View key={`${widgetId}-${index}`} style={[styles.graphCell, { width: widthPct }]}>
+ <View key={`${widgetId}-${index}`} style={[styles.graphCell, { width: '100%' }]}>
  <View style={styles.graphCard}>
  <View style={styles.graphHeader}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
@@ -195,6 +234,17 @@ export default function DashboardEditScreen({ route, navigation }) {
  </View>
  );
  };
+ const renderGridSlot = (slot, index) => {
+ const widthPct = ((Math.max(0, Number(slot.w || 0)) / GRID_COLUMNS) * 100) + '%';
+ if (slot.type === 'spacer') {
+ return <View key={slot.key || index} style={[styles.gridSpacer, { width: widthPct }]} />;
+ }
+ return (
+ <View key={slot.key || index} style={{ width: widthPct }}>
+ {renderGraphCard(slot.item, index)}
+ </View>
+ );
+ };
 
  return (
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -202,22 +252,27 @@ export default function DashboardEditScreen({ route, navigation }) {
  <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
  <Text style={styles.backText}>‹</Text>
  </TouchableOpacity>
- <View style={styles.headerTextWrap}>
  <Text style={styles.screenTitle}>대시보드 수정</Text>
- <Text style={styles.challengeTitle} numberOfLines={1}>{title}</Text>
+ <View style={styles.headerSpacer} />
  </View>
-  </View>
 
  <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}>
+ <View style={styles.contentHeader}>
+ <Text style={styles.challengeTitle} numberOfLines={1}>{title}</Text>
  <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>
  <Text style={styles.addText}>그래프 추가</Text>
  </TouchableOpacity>
+ </View>
 
  {loading ? (
  <Text style={styles.emptyText}>불러오는 중...</Text>
  ) : (
  <View style={styles.grid}>
- {layout.map(renderGraphCard)}
+ {layoutRows.map((row) => (
+ <View key={row.rowY} style={styles.gridRow}>
+ {row.slots.map(renderGridSlot)}
+ </View>
+ ))}
  </View>
  )}
  </ScrollView>
@@ -284,7 +339,7 @@ const styles = StyleSheet.create({
  paddingBottom: 10,
  flexDirection: 'row',
  alignItems: 'center',
- gap: 12,
+ justifyContent: 'space-between',
  borderBottomWidth: StyleSheet.hairlineWidth,
  borderBottomColor: '#e6e6e6',
  },
@@ -293,50 +348,68 @@ const styles = StyleSheet.create({
  height: 38,
  alignItems: 'center',
  justifyContent: 'center',
+ zIndex: 2,
  },
  backText: {
  fontSize: 36,
  color: '#111',
  lineHeight: 38,
  },
- headerTextWrap: {
- flex: 1,
+ headerSpacer: {
+ width: 38,
+ height: 38,
  },
  screenTitle: {
- fontSize: 21,
+ position: 'absolute',
+ left: 0,
+ right: 0,
+ textAlign: 'center',
+ fontSize: 18,
  fontWeight: '800',
  color: '#111',
+ zIndex: 1,
  },
  challengeTitle: {
- marginTop: 2,
- fontSize: 13,
- color: '#777',
+ flex: 1,
+ marginRight: 12,
+ fontSize: 14,
+ fontWeight: '700',
+ color: '#444',
  },
   content: {
- padding: 18,
+ paddingHorizontal: 18,
+ paddingTop: 14,
+ },
+ contentHeader: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'space-between',
+ marginBottom: 14,
  },
  addBtn: {
- height: 46,
+ height: 34,
+ paddingHorizontal: 12,
  borderRadius: 8,
  borderWidth: 1,
  borderColor: '#111',
  backgroundColor: '#fff',
  alignItems: 'center',
  justifyContent: 'center',
- marginBottom: 18,
  },
  addText: {
  color: '#111',
- fontSize: 15,
+ fontSize: 13,
  fontWeight: '800',
  },
  grid: {
+ gap: 10,
+ },
+ gridRow: {
+ width: '100%',
  flexDirection: 'row',
- flexWrap: 'wrap',
- marginHorizontal: -5,
  },
  graphCell: {
- padding: 5,
+ paddingHorizontal: 5,
  },
  graphCard: {
  minHeight: 132,

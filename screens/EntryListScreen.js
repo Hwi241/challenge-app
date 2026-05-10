@@ -46,9 +46,7 @@ import Svg,
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import { useFocusEffect } from '@react-navigation/native';
 import {
- getDashboardLayoutForChallenge,
   getDashboardLayoutStateForChallenge,
-  saveDashboardLayoutForChallenge,
   resolveDashboardTarget,
   } from '../utils/dashboardLayout';
 import {
@@ -1424,65 +1422,10 @@ export default function EntryListScreen({ route, navigation }) {
     reward: rewardFromRoute,
     readOnly = false,
   } = params;
-  const [dashboardEditMode, setDashboardEditMode] = useState(false);
-  const [draftDashboardLayout, setDraftDashboardLayout] = useState([]);
-  const latestDraftDashboardLayoutRef = useRef([]);
-  useEffect(() => {
-    latestDraftDashboardLayoutRef.current = Array.isArray(draftDashboardLayout) ? draftDashboardLayout : [];
-  }, [draftDashboardLayout]);
 
-  const [widgetPickerVisible, setWidgetPickerVisible] = useState(false);
-  const [ownedDashboardWidgets, setOwnedDashboardWidgets] = useState([]);
-
-  const loadOwnedDashboardWidgets = useCallback(async () => {
-    try {
-      const owned = await getOwnedWidgets();
-      const supported = Array.isArray(owned)
-        ? owned.filter(w => supportsWidgetTarget(widgetCatalog.getWidgetById ? widgetCatalog.getWidgetById(w.id || w) : w, dashboardTarget))
-        : [];
-      setOwnedDashboardWidgets(supported);
-    } catch (e) {
-      console.log('loadOwnedDashboardWidgets failed', e);
-      setOwnedDashboardWidgets([]);
-    }
-  }, [dashboardTarget])
+    const [hasStoredDashboardLayout, setHasStoredDashboardLayout] = useState(false);
 
 
-
-  const getWorkingDashboardLayout = useCallback((layoutValue) => {
-    const source = Array.isArray(layoutValue) && layoutValue.length > 0
-      ? layoutValue
-      : Array.isArray(dashboardLayout) && (dashboardLayoutHasStored || dashboardLayout.length > 0)
-      ? dashboardLayout
-      : getDefaultDashboardLayout(dashboardTarget);
-
-    if (!Array.isArray(source)) return [];
-
-    return source.map((item, index) => {
-      const columnCount = typeof GRID_COLUMNS === 'number' ? GRID_COLUMNS : 3;
-      const rawId = item.id || item.widgetId || item.i;
-      const width = Math.max(1, Math.min(columnCount, Number(item.w) || columnCount));
-
-      return {
-        ...item,
-        id: rawId,
-        widgetId: item.widgetId || rawId,
-        x: Math.max(0, Math.min(columnCount - width, Number(item.x) || 0)),
-        y: Math.max(0, Number(item.y) || index),
-        w: width,
-        h: Math.max(1, Number(item.h) || 1),
-      };
-    });
-  }, [dashboardLayout, dashboardLayoutHasStored, dashboardTarget])
-
-  const formatDashboardDebugLayout = (label, layout) => {
-    const count = Array.isArray(layout) ? layout.length : 'not-array';
-    const ids = Array.isArray(layout)
-      ? layout.map((item) => item.id || item.widgetId || item.i || 'no-id').join(', ')
-      : '';
-
-    return `${label}: ${count}\n${ids}`;
-  };
 
   const enterDashboardEdit = useCallback(() => {
     navigation.navigate('DashboardEdit', {
@@ -1494,245 +1437,6 @@ export default function EntryListScreen({ route, navigation }) {
     });
   }, [navigation, challengeId, params, displayTitle, meta]);
 
-
-  const cancelDashboardEdit = useCallback(() => {
-    setDraftDashboardLayout(getWorkingDashboardLayout(dashboardLayout));
-    setWidgetPickerVisible(false);
-    setDashboardEditMode(false);
-  }, [dashboardLayout, getWorkingDashboardLayout, setWidgetPickerVisible]);
-
-  const saveDashboardEdit = useCallback(async () => {
-    const draftSource = Array.isArray(latestDraftDashboardLayoutRef.current)
-      ? latestDraftDashboardLayoutRef.current
-      : draftDashboardLayout;
-    const nextLayout = getWorkingDashboardLayout(draftSource);
-    console.log(
-      '[SAVE DASHBOARD DEBUG]',
-      [
-        formatDashboardDebugLayout('draftSource', draftSource),
-        formatDashboardDebugLayout('nextLayout', nextLayout),
-      ].join('\n\n')
-    );
-    console.log('[DASHBOARD_DEBUG_SAVE_NEXT]', {
-      challengeId,
-      dashboardTarget,
-      draftRefCount: Array.isArray(draftSource) ? draftSource.length : 'not-array',
-      draftRefIds: Array.isArray(draftSource) ? draftSource.map((item) => item.id || item.widgetId || item.i) : [],
-      nextCount: Array.isArray(nextLayout) ? nextLayout.length : 'not-array',
-      nextIds: Array.isArray(nextLayout) ? nextLayout.map((item) => item.id || item.widgetId || item.i) : [],
-    });
-
-
-    if (!Array.isArray(nextLayout) || nextLayout.length < 1) {
-      console.log('저장 불가', '그래프는 1개 이상 있어야 합니다.');
-      return;
-    }
-
-    try {
-      await saveDashboardLayoutForChallenge(challengeId, nextLayout, dashboardTarget);
-    const debugReloadAfterSave = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
-    console.log(
-      '[AFTER SAVE RELOAD DEBUG]',
-      [
-        `hasStoredLayout: ${debugReloadAfterSave?.hasStoredLayout}`,
-        formatDashboardDebugLayout('reloaded layout', debugReloadAfterSave?.layout),
-      ].join('\n\n')
-    );
-    const debugReloadAfterSaveRefetched = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
-    console.log('[DASHBOARD_DEBUG_AFTER_SAVE_RELOAD]', {
-      challengeId,
-      dashboardTarget,
-      hasStoredLayout: debugReloadAfterSave?.hasStoredLayout,
-      reloadedCount: Array.isArray(debugReloadAfterSave?.layout) ? debugReloadAfterSave.layout.length : 'not-array',
-      reloadedIds: Array.isArray(debugReloadAfterSave?.layout) ? debugReloadAfterSave.layout.map((item) => item.id || item.widgetId || item.i) : [],
-    });
-    const debugReloadAfterSave2 = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
-    console.log('[DASHBOARD_DEBUG_AFTER_SAVE_RELOAD]', {
-      challengeId,
-      dashboardTarget,
-      hasStoredLayout: debugReloadAfterSave2?.hasStoredLayout,
-      reloadedCount: Array.isArray(debugReloadAfterSave2?.layout) ? debugReloadAfterSave.layout.length : 'not-array',
-      reloadedIds: Array.isArray(debugReloadAfterSave2?.layout) ? debugReloadAfterSave.layout.map((item) => item.id || item.widgetId || item.i) : [],
-    });
-      const committedLayout = nextLayout.map((item) => ({ ...item }));
-      latestDraftDashboardLayoutRef.current = committedLayout.map((item) => ({ ...item }));
-    setDashboardLayoutHasStored(true);
-    setHasStoredDashboardLayout(true);
-      setDashboardLayout(committedLayout);
-      setDraftDashboardLayout([]);
-      setDashboardEditMode(false);
-    } catch (error) {
-      console.log('Failed to save dashboard layout', error);
-      console.log('저장 실패', '대시보드 배치를 저장하지 못했습니다.');
-    }
-  }, [challengeId, dashboardTarget, draftDashboardLayout, getWorkingDashboardLayout]);
-
-  const addWidgetToDashboard = useCallback((widget) => {
-    const widgetId = typeof widget === 'string'
-      ? widget
-      : widget?.id || widget?.widgetId;
-
-    if (!widgetId) {
-      console.log('추가 불가', '추가할 그래프 정보를 찾지 못했습니다.');
-      return;
-    }
-
-    const catalogWidget = getWidgetById(widgetId) || {};
-    const widgetMeta = typeof widget === 'string'
-      ? catalogWidget
-      : { ...catalogWidget, ...widget };
-
-    setDraftDashboardLayout((prev) => {
-      const current = getWorkingDashboardLayout(prev);
-      const alreadyAdded = current.some((item) => {
-        const itemId = item.id || item.widgetId;
-        return itemId === widgetId;
-      });
-
-      if (alreadyAdded) {
-        setTimeout(() => {
-          console.log('추가 불가', '이미 추가된 그래프입니다.');
-        }, 0);
-        return current;
-      }
-
-      const defaultItem = getDefaultDashboardLayout(dashboardTarget).find((item) => {
-        const itemId = item.id || item.widgetId;
-        return itemId === widgetId;
-      });
-
-      const maxY = current.reduce((max, item) => Math.max(max, Number(item.y) || 0), -1);
-      const widthValue = Number(
-        defaultItem?.w ??
-        widgetMeta.defaultSize?.w ??
-        widgetMeta.w ??
-        GRID_COLUMNS
-      ) || GRID_COLUMNS;
-      const heightValue = Number(
-        defaultItem?.h ??
-        widgetMeta.defaultSize?.h ??
-        widgetMeta.h ??
-        1
-      ) || 1;
-
-      const w = Math.max(1, Math.min(GRID_COLUMNS, widthValue));
-      const h = Math.max(1, heightValue);
-
-      return [
-        ...current,
-        {
-          ...widgetMeta,
-          ...defaultItem,
-          id: widgetId,
-          widgetId,
-          kind: widgetMeta.kind || defaultItem?.kind || widgetMeta.type || defaultItem?.type,
-          type: widgetMeta.type || defaultItem?.type || widgetMeta.kind || defaultItem?.kind,
-          x: 0,
-          y: maxY + 1,
-          w,
-          h,
-        },
-      ];
-    });
-
-    setWidgetPickerVisible(false);
-  }, [dashboardTarget, getWorkingDashboardLayout, getWidgetById])
-
-  const removeDashboardWidget = useCallback((widgetId) => {
- const targetId = typeof widgetId === 'string'
- ? widgetId
- : widgetId?.id || widgetId?.widgetId;
-
- if (!targetId) return;
-
- setDraftDashboardLayout((prev) => {
- const current = getWorkingDashboardLayout(prev);
-
- if (current.length <= 1) {
- setTimeout(() => {
- console.log('삭제 불가', '그래프는 1개 이상 있어야 합니다.');
- }, 0);
- return current;
- }
-
- const next = current.filter((item) => {
- const itemId = item.id || item.widgetId;
- return itemId !== targetId;
- });
-
- return next.length === current.length ? current : next;
- });
- }, [getWorkingDashboardLayout]);
-
-  const moveDashboardWidget = useCallback((widgetId, dxOrDirection, dyValue = 0) => {
- const targetId = typeof widgetId === 'string'
- ? widgetId
- : widgetId?.id || widgetId?.widgetId;
-
- if (!targetId) return;
-
- let dx = 0;
- let dy = 0;
-
- if (typeof dxOrDirection === 'string') {
- if (dxOrDirection === 'left' || dxOrDirection === '←') dx = -1;
- if (dxOrDirection === 'right' || dxOrDirection === '→') dx = 1;
- if (dxOrDirection === 'up' || dxOrDirection === '↑') dy = -1;
- if (dxOrDirection === 'down' || dxOrDirection === '↓') dy = 1;
- } else {
- dx = Number(dxOrDirection) || 0;
- dy = Number(dyValue) || 0;
- }
-
- setDraftDashboardLayout((prev) => {
- const current = getWorkingDashboardLayout(prev);
-
- return current
- .map((item) => {
- const itemId = item.id || item.widgetId;
- if (itemId !== targetId) return item;
-
- const w = Math.max(1, Number(item.w) || 1);
- const x = Math.max(0, Math.min(GRID_COLUMNS - w, (Number(item.x) || 0) + dx));
- const y = Math.max(0, (Number(item.y) || 0) + dy);
-
- return { ...item, x, y };
- })
- .sort((a, b) => {
- if (a.y !== b.y) return a.y - b.y;
- return a.x - b.x;
- });
- });
- }, [getWorkingDashboardLayout]);
-
-
-
-  const pickerWidgets = useMemo(() => {
-    const layoutForFilter = dashboardEditMode ? draftDashboardLayout : dashboardLayout;
-    const placedIds = new Set(
-      getWorkingDashboardLayout(layoutForFilter)
-        .map((item) => item.id || item.widgetId || item.i)
-        .filter(Boolean)
-    );
-
-    const byId = new Map();
-    const addCandidate = (candidate) => {
-      const id = typeof candidate === 'string' ? candidate : (candidate?.id || candidate?.widgetId || candidate?.i);
-      if (!id || placedIds.has(id)) return;
-      if (dashboardTarget === DASHBOARD_TARGETS.HABIT && id === 'goal_black_box') return;
-
-      const metaWidget = typeof candidate === 'string' ? getWidgetById(id) : candidate;
-      const widget = metaWidget || getWidgetById(id) || { id, widgetId: id, title: id, name: id, placeholder: true };
-      byId.set(id, { ...widget, id, widgetId: widget.widgetId || id });
-    };
-
-    (DEFAULT_WIDGET_IDS || []).forEach(addCandidate);
-    if (typeof getShopWidgets === 'function') {
-      const shopWidgets = getShopWidgets();
-      if (Array.isArray(shopWidgets)) shopWidgets.forEach(addCandidate);
-    }
-    return Array.from(byId.values());
-  }, [dashboardEditMode, draftDashboardLayout, dashboardLayout, dashboardTarget, getWorkingDashboardLayout]);
   const dashboardTarget = (
     params.type === 'habit' ||
     params.challengeType === 'habit' ||
@@ -1745,14 +1449,6 @@ export default function EntryListScreen({ route, navigation }) {
     : DASHBOARD_TARGETS.CHALLENGE;
   const [dashboardLayout, setDashboardLayout] = useState([]);
   const [dashboardLayoutHasStored, setDashboardLayoutHasStored] = useState(false);
-  const [hasStoredDashboardLayout, setHasStoredDashboardLayout] = useState(false);
-
-
-  useEffect(() => {
-    if (dashboardEditMode) {
-      loadOwnedDashboardWidgets();
-    }
-  }, [dashboardEditMode, loadOwnedDashboardWidgets]);
 
   useFocusEffect(
   useCallback(() => {
@@ -1778,14 +1474,12 @@ export default function EntryListScreen({ route, navigation }) {
         const nextLayout = Array.isArray(result?.layout) ? result.layout : getDefaultDashboardLayout(dashboardTarget);
         setDashboardLayoutHasStored(Boolean(result?.hasStoredLayout));
         setDashboardLayout(nextLayout.map((item) => ({ ...item })));
-        setDraftDashboardLayout([]);
       } catch (error) {
         console.log('Failed to load dashboard layout', error);
         if (!mounted) return;
         const fallbackLayout = getDefaultDashboardLayout(dashboardTarget);
         setDashboardLayoutHasStored(false);
         setDashboardLayout(fallbackLayout.map((item) => ({ ...item })));
-        setDraftDashboardLayout([]);
       }
     };
     loadDashboardLayout();
@@ -2307,62 +2001,8 @@ export default function EntryListScreen({ route, navigation }) {
   const minutes = totalMinutes % 60;
 
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
-  const DashboardGraphPickerModal = useCallback(() => {
-    if (!dashboardEditMode) return null;
-    const closePicker = () => setWidgetPickerVisible(false);
-
-    const modalStyles = {
-      overlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, backgroundColor: 'rgba(0, 0, 0, 0.45)' },
-      sheet: { maxHeight: '72%', borderRadius: 8, backgroundColor: '#fff', paddingVertical: 18, paddingHorizontal: 16 },
-      header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-      title: { fontSize: 20, fontWeight: '700', color: '#111' },
-      closeButton: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f2f2f2' },
-      closeText: { fontSize: 22, color: '#333', lineHeight: 24 },
-      empty: { minHeight: 96, alignItems: 'center', justifyContent: 'center' },
-      emptyText: { fontSize: 15, color: '#666' },
-      list: { maxHeight: 360 },
-      item: { minHeight: 64, borderRadius: 8, borderWidth: 1, borderColor: '#e5e5e5', paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' },
-      itemTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
-      itemDesc: { marginTop: 4, fontSize: 13, color: '#666' },
-      itemAction: { fontSize: 14, fontWeight: '700', color: '#0b4a8b' },
-    };
-
-    return (
-      <Modal visible={widgetPickerVisible} transparent animationType="fade" onRequestClose={closePicker}>
-        <View style={modalStyles.overlay}>
-          <View style={modalStyles.sheet}>
-            <View style={modalStyles.header}>
-              <Text style={modalStyles.title}>그래프 추가</Text>
-              <TouchableOpacity style={modalStyles.closeButton} onPress={closePicker}>
-                <Text style={modalStyles.closeText}>×</Text>
-              </TouchableOpacity>
-            </View>
-            {pickerWidgets.length === 0 ? (
-              <View style={modalStyles.empty}><Text style={modalStyles.emptyText}>추가할 수 있는 그래프가 없습니다.</Text></View>
-            ) : (
-              <ScrollView style={modalStyles.list}>
-                {pickerWidgets.map((widget, index) => {
-                  const widgetId = widget.id || widget.widgetId || widget.i || `graph-${index}`;
-                  return (
-                    <TouchableOpacity key={widgetId} style={modalStyles.item} onPress={() => addWidgetToDashboard(widget)}>
-                      <View style={{ flex: 1, paddingRight: 12 }}>
-                        <Text style={modalStyles.itemTitle}>{widget.name || widget.title || widget.name || widgetId}</Text>
-                        <Text style={modalStyles.itemDesc}>{widget.description || (widget.placeholder ? '준비중' : '')}</Text>
-                      </View>
-                      <Text style={modalStyles.itemAction}>추가</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
-    );
-  }, [dashboardEditMode, widgetPickerVisible, pickerWidgets, addWidgetToDashboard, setWidgetPickerVisible])
-
-  const DashboardGraphArea = ({ isShare = false } = {}) => {
-    const sourceLayout = dashboardEditMode && !isShare ? draftDashboardLayout : dashboardLayout;
+    const DashboardGraphArea = ({ isShare = false } = {}) => {
+    const sourceLayout = dashboardLayout;
     const baseLayout = Array.isArray(sourceLayout) ? sourceLayout : getDefaultDashboardLayout(dashboardTarget);
     const safeLayout = baseLayout.map((item, index) => ({
       ...item,
@@ -2438,16 +2078,6 @@ export default function EntryListScreen({ route, navigation }) {
         <View key={slot.key || widgetId} style={{ width: widthPct, paddingHorizontal: 4, marginBottom: 8 }}>
           <View style={{ minHeight: slotHeight, position: 'relative' }}>
             {renderDashboardWidget(item, isShare)}
-            {dashboardEditMode && !isShare && (
-              <TouchableOpacity
-                onPress={() => {
-                  if (typeof removeDashboardWidget === 'function') removeDashboardWidget(widgetId);
-                }}
-                style={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
-              >
-                <Text style={{ color: '#444', fontSize: 18, fontWeight: '800' }}>×</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       );
@@ -2457,36 +2087,8 @@ export default function EntryListScreen({ route, navigation }) {
       <View style={{ marginTop: isShare ? 10 : 20 }}>
         {!isShare && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111' }}>{dashboardEditMode ? '대시보드 수정' : '대시보드'}</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111' }}>대시보드</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {dashboardEditMode ? (
-                <>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (typeof setWidgetPickerVisible === 'function') setWidgetPickerVisible(true);
-                    }}
-                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#0A84FF' }}
-                  >
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>그래프 추가</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (typeof cancelDashboardEdit === 'function') cancelDashboardEdit();
-                    }}
-                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#777' }}
-                  >
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>취소</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (typeof saveDashboardEdit === 'function') saveDashboardEdit();
-                    }}
-                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#111' }}
-                  >
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>저장</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
                 <TouchableOpacity
                   onPress={() => {
                     if (typeof enterDashboardEdit === 'function') enterDashboardEdit();
@@ -2495,7 +2097,6 @@ export default function EntryListScreen({ route, navigation }) {
                 >
                   <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>대시보드 수정</Text>
                 </TouchableOpacity>
-              )}
             </View>
           </View>
         )}
@@ -2534,13 +2135,11 @@ export default function EntryListScreen({ route, navigation }) {
       </View>
 
             <DashboardGraphArea isShare={false} />
-            <DashboardGraphPickerModal />
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate
-  , DashboardGraphArea, dashboardEditMode, draftDashboardLayout, dashboardLayout,
-    DashboardGraphPickerModal,
+  , DashboardGraphArea, dashboardLayout,
     displayTitle
   ]);
 
@@ -2775,144 +2374,6 @@ export default function EntryListScreen({ route, navigation }) {
 
 /* ───────── 스타일 ───────── */
 const styles = StyleSheet.create({
-
-  dashboardMovePad: {
-    position: 'absolute',
-    bottom: 5,
-    left: '50%',
-    transform: [{ translateX: -80 }],
-    width: 160,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 8,
-    padding: 2,
-    alignItems: 'center',
-  },
-  dashboardMoveRow: {
-    flexDirection: 'row',
-  },
-  dashboardMoveBtn: {
-    width: 40,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dashboardMoveText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-
-
-  widgetPickerBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  widgetPickerCard: {
-    width: '90%',
-    maxHeight: '70%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-  },
-  widgetPickerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  widgetPickerCloseBtn: {
-    marginTop: 20,
-    alignSelf: 'center',
-  },
-  widgetPickerCloseText: {
-    fontSize: 16,
-    color: '#888',
-  },
-  widgetPickerItem: {
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  widgetPickerItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  widgetPickerItemMeta: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  widgetPickerEmpty: {
-    textAlign: 'center',
-    color: '#888',
-    paddingVertical: 30,
-  },
-  dashboardAddBtn: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  dashboardAddBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-
-
-  dashboardToolbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  dashboardToolbarTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  dashboardToolbarActions: {
-    flexDirection: 'row',
-  },
-  dashboardEditBtn: {
-    backgroundColor: '#333',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  dashboardEditSecondaryBtn: {
-    backgroundColor: '#888',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  dashboardEditBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  dashboardWidgetRemoveBtn: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  dashboardWidgetRemoveText: {
-    color: '#555',
-    fontWeight: 'bold',
-    fontSize: 16,
-    lineHeight: 20,
-  },
 
   container: { flex: 1, backgroundColor: '#fff' },
 

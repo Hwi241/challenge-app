@@ -19,6 +19,7 @@ import {
  supportsWidgetTarget,
 } from '../constants/widgetCatalog';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import {
  getDashboardLayoutStateForChallenge,
@@ -74,6 +75,10 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [layout, setLayout] = useState([]);
  const [pickerVisible, setPickerVisible] = useState(false);
  const [loading, setLoading] = useState(true);
+ const [gestureTestInfo, setGestureTestInfo] = useState('gesture: idle');
+ const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
+ const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
+ const [gridWidth, setGridWidth] = useState(0);
 
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
@@ -140,6 +145,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  return { rowY, slots };
  });
  }, [layout]);
+
 
  const pickerWidgets = useMemo(() => {
  const byId = new Map();
@@ -249,11 +255,13 @@ export default function DashboardEditScreen({ route, navigation }) {
     };
 
     const movingSize = getSize(movingItem);
-    if (movingSize.w >= GRID_COLUMNS && (direction === 'left' || direction === 'right')) {
+    const isDropTarget = direction && typeof direction === 'object' && direction.type === 'drop';
+
+    if (!isDropTarget && movingSize.w >= GRID_COLUMNS && (direction === 'left' || direction === 'right')) {
       return current;
     }
 
-    if (movingSize.w >= GRID_COLUMNS && (direction === 'up' || direction === 'down')) {
+    if (!isDropTarget && movingSize.w >= GRID_COLUMNS && (direction === 'up' || direction === 'down')) {
       const sorted = source
         .map(clampItem)
         .sort((a, b) => (a.y - b.y) || (a.x - b.x));
@@ -288,10 +296,15 @@ export default function DashboardEditScreen({ route, navigation }) {
     let targetX = Number(movingItem.x) || 0;
     let targetY = Number(movingItem.y) || 0;
 
-    if (direction === 'left') targetX -= 1;
-    if (direction === 'right') targetX += 1;
-    if (direction === 'up') targetY -= 1;
-    if (direction === 'down') targetY += 1;
+    if (isDropTarget) {
+      targetX = Number(direction.x) || 0;
+      targetY = Number(direction.y) || 0;
+    } else {
+      if (direction === 'left') targetX -= 1;
+      if (direction === 'right') targetX += 1;
+      if (direction === 'up') targetY -= 1;
+      if (direction === 'down') targetY += 1;
+    }
 
     const movedItem = clampItem({ ...movingItem, x: targetX, y: targetY });
 
@@ -348,13 +361,54 @@ export default function DashboardEditScreen({ route, navigation }) {
  const safeH = Math.max(1, Number(item.h || 1));
  const isCompactCard = safeH === 1;
  const cardHeight = isCompactCard ? 90 : Math.max(120, safeH * 60);
+ const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
 
- return (
+ const testGesture = Gesture.Pan()
+   .activateAfterLongPress(300)
+   .runOnJS(true)
+   .onBegin(() => {
+     setGestureDraggingWidgetId(widgetId);
+     setGestureDragOffset({ x: 0, y: 0 });
+     setGestureTestInfo('gesture: begin ' + widgetId);
+   })
+   .onUpdate((event) => {
+     const nextOffset = { x: event.translationX, y: event.translationY };
+     setGestureDragOffset(nextOffset);
+     setGestureTestInfo('gesture: move ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
+   })
+   .onEnd((event) => {
+     setGestureTestInfo('gesture: end ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
+     const deltaX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
+     const deltaY = Math.round(event.translationY / 130);
+     if (deltaX !== 0 || deltaY !== 0) {
+       const tX = safeW >= GRID_COLUMNS ? 0 : safeX + deltaX;
+       const tY = safeY + deltaY;
+       moveGraph(widgetId, { type: 'drop', x: tX, y: tY });
+     }
+     setGestureDraggingWidgetId(null);
+     setGestureDragOffset({ x: 0, y: 0 });
+   })
+   .onFinalize(() => {
+     setGestureTestInfo((prev) => prev + ' / finalized');
+     setGestureDraggingWidgetId(null);
+     setGestureDragOffset({ x: 0, y: 0 });
+   });
+
+ const cardContent = (
  <View key={`${widgetId}-${index}`} style={styles.graphCell}>
  <View style={[
  styles.graphCard,
  { minHeight: cardHeight },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
+ gestureDraggingWidgetId === widgetId && {
+   transform: [
+     { translateX: gestureDragOffset.x },
+     { translateY: gestureDragOffset.y },
+   ],
+   zIndex: 999,
+   elevation: 12,
+   opacity: 0.92,
+ },
  ]}>
  <View style={styles.graphHeader}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
@@ -380,20 +434,25 @@ export default function DashboardEditScreen({ route, navigation }) {
  </View>
  </View>
  );
+   return (
+     <GestureDetector gesture={testGesture}>{cardContent}</GestureDetector>
+   );
  };
  const renderGridSlot = (slot, index) => {
  const widthPct = ((Math.max(0, Number(slot.w || 0)) / GRID_COLUMNS) * 100) + '%';
  if (slot.type === 'spacer') {
  return <View key={slot.key || index} style={[styles.gridSpacer, { width: widthPct }]} />;
  }
+ const isDraggingSlot = slot.item?.widgetId && slot.item.widgetId === gestureDraggingWidgetId;
  return (
- <View key={slot.key || index} style={{ width: widthPct }}>
+ <View key={slot.key || index} style={{ width: widthPct, zIndex: isDraggingSlot ? 999 : 0, elevation: isDraggingSlot ? 12 : 0 }}>
  {renderGraphCard(slot.item, index)}
  </View>
  );
  };
 
  return (
+ <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
  <View style={styles.header}>
  <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -410,11 +469,12 @@ export default function DashboardEditScreen({ route, navigation }) {
  <Text style={styles.addText}>그래프 추가</Text>
  </TouchableOpacity>
  </View>
+ <Text style={styles.gestureDebugBanner}>{gestureTestInfo}</Text>
 
  {loading ? (
  <Text style={styles.emptyText}>불러오는 중...</Text>
  ) : (
- <View style={styles.grid}>
+ <View style={styles.grid} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
  {layoutRows.map((row) => (
  <View key={row.rowY} style={styles.gridRow}>
  {row.slots.map(renderGridSlot)}
@@ -469,8 +529,10 @@ export default function DashboardEditScreen({ route, navigation }) {
  )}
  </View>
  </View>
+
  </Modal>
  </SafeAreaView>
+ </GestureHandlerRootView>
  );
 }
 

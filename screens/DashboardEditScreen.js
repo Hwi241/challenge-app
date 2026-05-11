@@ -79,6 +79,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
  const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
  const [gridWidth, setGridWidth] = useState(0);
+ const [dropIndicator, setDropIndicator] = useState(null);
 
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
@@ -375,6 +376,18 @@ export default function DashboardEditScreen({ route, navigation }) {
      const nextOffset = { x: event.translationX, y: event.translationY };
      setGestureDragOffset(nextOffset);
      setGestureTestInfo('gesture: move ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
+     const dX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
+     const dY = Math.round(event.translationY / 130);
+     if (!slotWidth || (dX === 0 && dY === 0)) {
+       setDropIndicator(null);
+     } else {
+       const tX = safeW >= GRID_COLUMNS ? 0 : safeX + dX;
+       const tY = safeY + dY;
+       setDropIndicator((prev) => {
+         if (prev && prev.x === tX && prev.y === tY && prev.w === safeW) return prev;
+         return { x: tX, y: tY, w: safeW };
+       });
+     }
    })
    .onEnd((event) => {
      setGestureTestInfo('gesture: end ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
@@ -387,11 +400,13 @@ export default function DashboardEditScreen({ route, navigation }) {
      }
      setGestureDraggingWidgetId(null);
      setGestureDragOffset({ x: 0, y: 0 });
+     setDropIndicator(null);
    })
    .onFinalize(() => {
      setGestureTestInfo((prev) => prev + ' / finalized');
      setGestureDraggingWidgetId(null);
      setGestureDragOffset({ x: 0, y: 0 });
+     setDropIndicator(null);
    });
 
  const cardContent = (
@@ -451,6 +466,15 @@ export default function DashboardEditScreen({ route, navigation }) {
  );
  };
 
+ const renderDropIndicatorForRow = (row) => {
+   if (!dropIndicator || Number(row?.y) !== Number(dropIndicator.y)) return null;
+   const leftPct = ((Math.max(0, dropIndicator.x) / GRID_COLUMNS) * 100) + '%';
+   const widthPct = ((Math.max(0, Number(dropIndicator.w || GRID_COLUMNS)) / GRID_COLUMNS) * 100) + '%';
+   return (
+     <View pointerEvents="none" style={[styles.dropIndicatorLine, { left: leftPct, width: widthPct }]} />
+   );
+ };
+
  return (
  <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -478,6 +502,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  {layoutRows.map((row) => (
  <View key={row.rowY} style={styles.gridRow}>
  {row.slots.map(renderGridSlot)}
+ {renderDropIndicatorForRow(row)}
  </View>
  ))}
  </View>
@@ -616,6 +641,7 @@ const styles = StyleSheet.create({
  gridRow: {
  width: '100%',
  flexDirection: 'row',
+ position: 'relative',
  },
  graphCell: {
  width: '100%',
@@ -784,5 +810,15 @@ const styles = StyleSheet.create({
  marginTop: 4,
  fontSize: 12,
  color: '#777',
+ },
+ dropIndicatorLine: {
+   position: 'absolute',
+   top: -4,
+   height: 6,
+   borderRadius: 999,
+   backgroundColor: '#9CA3AF',
+   opacity: 0.95,
+   zIndex: 2000,
+   elevation: 20,
  },
 });

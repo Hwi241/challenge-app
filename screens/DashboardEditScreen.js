@@ -467,7 +467,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  };
 
  const renderDropIndicatorForRow = (row) => {
-   if (!dropIndicator || Number(row?.y) !== Number(dropIndicator.y)) return null;
+   if (!dropIndicator || Number(row?.rowY) !== Number(dropIndicator.y)) return null;
    const leftPct = ((Math.max(0, dropIndicator.x) / GRID_COLUMNS) * 100) + '%';
    const widthPct = ((Math.max(0, Number(dropIndicator.w || GRID_COLUMNS)) / GRID_COLUMNS) * 100) + '%';
    return (

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
  Alert,
  Modal,
@@ -79,6 +79,11 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
  const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
  const [gridWidth, setGridWidth] = useState(0);
+ const [dragPlaceholder, setDragPlaceholder] = useState(null);
+ const [dragTargetDebug, setDragTargetDebug] = useState('target: idle');
+ const [dragOverlayItem, setDragOverlayItem] = useState(null);
+ const [dragOverlayStart, setDragOverlayStart] = useState({ x: 0, y: 0 });
+ const lastDropTargetRef = useRef(null);
 
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
@@ -107,9 +112,13 @@ export default function DashboardEditScreen({ route, navigation }) {
 
  const placedIds = useMemo(() => new Set(layout.map(item => item.widgetId || item.id)), [layout]);
 
+ const displayLayout = useMemo(() => {
+   return Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
+ }, [layout]);
+
  const layoutRows = useMemo(() => {
  const rows = new Map();
- (Array.isArray(layout) ? layout : []).forEach((item, index) => {
+ (Array.isArray(displayLayout) ? displayLayout : []).forEach((item, index) => {
  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w || GRID_COLUMNS)));
  const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item?.x || 0)));
  const safeY = Number.isFinite(Number(item?.y)) ? Math.max(0, Number(item.y)) : index;
@@ -144,7 +153,7 @@ export default function DashboardEditScreen({ route, navigation }) {
 
  return { rowY, slots };
  });
- }, [layout]);
+ }, [displayLayout]);
 
 
  const pickerWidgets = useMemo(() => {
@@ -323,7 +332,16 @@ export default function DashboardEditScreen({ route, navigation }) {
       placed.push(nextItem);
     });
 
-    return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    const resultLayout = placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    if (isDropTarget) {
+      const resultItem = resultLayout.find((item) => item.widgetId === widgetId);
+      if (resultItem) {
+        const msg = 'moveGraph result ' + widgetId + ' target=' + targetX + ':' + targetY + ' result=' + resultItem.x + ':' + resultItem.y + ' size=' + resultItem.w + 'x' + resultItem.h;
+        console.log('[DashboardEditScreen]', msg);
+        setTimeout(() => setDragTargetDebug(msg), 0);
+      }
+    }
+    return resultLayout;
   });
 }, [dashboardTarget]);
 
@@ -353,6 +371,17 @@ export default function DashboardEditScreen({ route, navigation }) {
  }, [challengeId, dashboardTarget, layout, navigation]);
 
  const renderGraphCard = (item, index) => {
+ if (item.isPlaceholder) {
+   const ph = item;
+   const w = Math.max(1, Math.min(GRID_COLUMNS, Number(ph.w || GRID_COLUMNS)));
+   const h = Math.max(1, Number(ph.h || 1));
+   const slotW = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
+   return (
+     <View style={[styles.graphCell, { opacity: 0.5 }]}>
+       <View style={[styles.graphCard, { minHeight: h >= 2 ? 120 : 90, backgroundColor: '#E5E7EB', borderColor: '#9CA3AF', borderStyle: 'dashed' }]} />
+     </View>
+   );
+ }
  const widgetId = item.widgetId || item.id || `graph_${index}`;
  const titleText = item.title || item.name || widgetId;
  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w || GRID_COLUMNS)));
@@ -366,32 +395,90 @@ export default function DashboardEditScreen({ route, navigation }) {
  const testGesture = Gesture.Pan()
    .activateAfterLongPress(300)
    .runOnJS(true)
-   .onBegin(() => {
+   .onBegin((event) => {
+     const startX = Number(event.absoluteX) || 0;
+     const startY = Number(event.absoluteY) || 0;
+     setDragOverlayStart({ x: startX, y: startY });
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
      setGestureTestInfo('gesture: begin ' + widgetId);
+     setDragOverlayItem({
+       widgetId: item.widgetId,
+       w: safeW, h: safeH, cardHeight, isCompactCard, safeW, safeH,
+       titleText,
+     });
    })
    .onUpdate((event) => {
      const nextOffset = { x: event.translationX, y: event.translationY };
      setGestureDragOffset(nextOffset);
-     setGestureTestInfo('gesture: move ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
+     const dX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
+     const dY = Math.round(event.translationY / 130);
+     if (!slotWidth || (dX === 0 && dY === 0)) {
+       setDragPlaceholder(null);
+       lastDropTargetRef.current = null;
+     } else {
+       const maxX = Math.max(0, GRID_COLUMNS - safeW);
+       const tX = safeW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, safeX + dX));
+       const yStep = safeW >= GRID_COLUMNS ? Math.max(1, safeH) : 1;
+       const tY = Math.max(0, safeY + dY * yStep);
+       lastDropTargetRef.current = { widgetId, x: tX, y: tY, w: safeW, h: safeH };
+       setDragPlaceholder((prev) => {
+         if (prev && prev.x === tX && prev.y === tY && prev.w === safeW && prev.h === safeH) return prev;
+         return { widgetId: '__placeholder__', x: tX, y: tY, w: safeW, h: safeH, isPlaceholder: true };
+       });
+     }
    })
    .onEnd((event) => {
      setGestureTestInfo('gesture: end ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
      const deltaX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
      const deltaY = Math.round(event.translationY / 130);
-     if (deltaX !== 0 || deltaY !== 0) {
-       const tX = safeW >= GRID_COLUMNS ? 0 : safeX + deltaX;
-       const tY = safeY + deltaY;
-       moveGraph(widgetId, { type: 'drop', x: tX, y: tY });
+     const lastTarget = lastDropTargetRef.current;
+     if (lastTarget && lastTarget.widgetId === widgetId) {
+       if (safeW >= GRID_COLUMNS) {
+         if (lastTarget.y > safeY) {
+           setDragTargetDebug('end full down widget=' + widgetId + ' from=' + safeY + ' target=' + lastTarget.y);
+           moveGraph(widgetId, 'down');
+         } else if (lastTarget.y < safeY) {
+           setDragTargetDebug('end full up widget=' + widgetId + ' from=' + safeY + ' target=' + lastTarget.y);
+           moveGraph(widgetId, 'up');
+         } else {
+           setDragTargetDebug('end full none widget=' + widgetId + ' from=' + safeY + ' target=' + lastTarget.y);
+         }
+       } else {
+         setDragTargetDebug('end last=' + lastTarget.x + ':' + lastTarget.y + ' widget=' + widgetId);
+         moveGraph(widgetId, { type: 'drop', x: lastTarget.x, y: lastTarget.y });
+       }
+     } else if (deltaX !== 0 || deltaY !== 0) {
+       const maxX = Math.max(0, GRID_COLUMNS - safeW);
+       const tX = safeW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, safeX + deltaX));
+       const yStep = safeW >= GRID_COLUMNS ? Math.max(1, safeH) : 1;
+       const tY = Math.max(0, safeY + deltaY * yStep);
+       if (safeW >= GRID_COLUMNS) {
+         const dir = deltaY > 0 ? 'down' : 'up';
+         setDragTargetDebug('end full ' + dir + ' widget=' + widgetId + ' fallback deltaY=' + deltaY);
+         moveGraph(widgetId, dir);
+       } else {
+         setDragTargetDebug('end fallback=' + tX + ':' + tY + ' dX=' + deltaX + ' dY=' + deltaY);
+         moveGraph(widgetId, { type: 'drop', x: tX, y: tY });
+       }
+     } else {
+       setDragTargetDebug('end none dX=' + deltaX + ' dY=' + deltaY + ' last=' + (lastTarget ? 'exists' : 'null'));
      }
      setGestureDraggingWidgetId(null);
      setGestureDragOffset({ x: 0, y: 0 });
+     setDragPlaceholder(null);
+     setDragOverlayItem(null);
+     setDragOverlayStart({ x: 0, y: 0 });
+     lastDropTargetRef.current = null;
    })
    .onFinalize(() => {
      setGestureTestInfo((prev) => prev + ' / finalized');
      setGestureDraggingWidgetId(null);
      setGestureDragOffset({ x: 0, y: 0 });
+     setDragPlaceholder(null);
+     setDragOverlayItem(null);
+     setDragOverlayStart({ x: 0, y: 0 });
+     lastDropTargetRef.current = null;
    });
 
  const cardContent = (
@@ -401,13 +488,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  { minHeight: cardHeight },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  gestureDraggingWidgetId === widgetId && {
-   transform: [
-     { translateX: gestureDragOffset.x },
-     { translateY: gestureDragOffset.y },
-   ],
-   zIndex: 999,
-   elevation: 12,
-   opacity: 0.92,
+   opacity: 0.25,
  },
  ]}>
  <View style={styles.graphHeader}>
@@ -451,6 +532,40 @@ export default function DashboardEditScreen({ route, navigation }) {
  );
  };
 
+ const renderDragOverlay = () => {
+   if (!dragOverlayItem || !gestureDraggingWidgetId) return null;
+   const o = dragOverlayItem;
+   const gy = gestureDragOffset.y;
+   const gx = gestureDragOffset.x;
+   const slotW = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
+   const overlayW = slotW ? slotW * Math.max(1, Number(o.w || 1)) : '90%';
+   const overlayH = o.cardHeight || 120;
+   const touchX = Number(dragOverlayStart.x) || 0;
+   const touchY = Number(dragOverlayStart.y) || 0;
+   const left = touchX ? touchX - overlayW / 2 : 16;
+   const top = touchY ? touchY - overlayH / 2 : 120;
+   return (
+     <View pointerEvents="none" style={{
+       position: 'absolute', zIndex: 9999, elevation: 50,
+       width: overlayW,
+       minHeight: overlayH,
+       left, top,
+       transform: [{ translateX: gx }, { translateY: gy }],
+       borderRadius: 8,
+       borderWidth: 1, borderColor: '#d8d8d8',
+       backgroundColor: '#fff',
+       padding: 12,
+       shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+       shadowOpacity: 0.2, shadowRadius: 12,
+     }}>
+       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+         <Text style={{ fontSize: 15, fontWeight: '800', color: '#111' }} numberOfLines={1}>{o.titleText}</Text>
+       </View>
+       <Text style={{ marginTop: 10, fontSize: 12, color: '#777' }}>{o.safeW + 'x' + o.safeH}</Text>
+     </View>
+   );
+ };
+
  return (
  <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -470,6 +585,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  </TouchableOpacity>
  </View>
  <Text style={styles.gestureDebugBanner}>{gestureTestInfo}</Text>
+             <Text style={styles.dragTargetDebugText}>{dragTargetDebug}</Text>
 
  {loading ? (
  <Text style={styles.emptyText}>불러오는 중...</Text>
@@ -531,6 +647,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  </View>
 
  </Modal>
+ {renderDragOverlay()}
  </SafeAreaView>
  </GestureHandlerRootView>
  );
@@ -611,6 +728,7 @@ const styles = StyleSheet.create({
  fontWeight: '800',
  },
  grid: {
+ position: 'relative',
  gap: 10,
  },
  gridRow: {

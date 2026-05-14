@@ -1,0 +1,126 @@
+        for (let x = startX; x <= GRID_COLUMNS - base.w; x += 1) {
+          const candidate = { ...base, x, y };
+          if (isFree(candidate, placed)) return candidate;
+        }
+      }
+
+      return { ...base, x: 0, y: maxScanY + 1 };
+    };
+
+    const reflowInOrder = (orderedItems) => {
+      const placed = [];
+
+      orderedItems.forEach((item) => {
+        const seedItem = clampItem({ ...item, y: 0 });
+        const nextItem = findNextFreePosition(seedItem, placed);
+        placed.push(nextItem);
+      });
+
+      return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    };
+
+    const movingSize = getSize(movingItem);
+    const isDropTarget = direction && typeof direction === 'object' && direction.type === 'drop';
+
+    if (!isDropTarget && movingSize.w >= GRID_COLUMNS && (direction === 'left' || direction === 'right')) {
+      return current;
+    }
+
+    if (!isDropTarget && movingSize.w >= GRID_COLUMNS && (direction === 'up' || direction === 'down')) {
+      const sorted = source
+        .map(clampItem)
+        .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+      const rows = [];
+      sorted.forEach((item) => {
+        const lastRow = rows[rows.length - 1];
+        if (!lastRow || lastRow.y !== item.y) {
+          rows.push({ y: item.y, items: [item] });
+        } else {
+          lastRow.items.push(item);
+        }
+      });
+
+      const rowIndex = rows.findIndex((row) =>
+        row.items.some((item) => item.widgetId === widgetId)
+      );
+
+      if (rowIndex < 0) return current;
+
+      const targetRowIndex = direction === 'up' ? rowIndex - 1 : rowIndex + 1;
+      if (targetRowIndex < 0 || targetRowIndex >= rows.length) return current;
+
+      const nextRows = [...rows];
+      const [movingRow] = nextRows.splice(rowIndex, 1);
+      nextRows.splice(targetRowIndex, 0, movingRow);
+
+      const orderedItems = nextRows.flatMap((row) => row.items);
+      return reflowInOrder(orderedItems);
+    }
+
+    let targetX = Number(movingItem.x) || 0;
+    let targetY = Number(movingItem.y) || 0;
+
+    if (isDropTarget) {
+      targetX = Number(direction.x) || 0;
+      targetY = Number(direction.y) || 0;
+    } else {
+      if (direction === 'left') targetX -= 1;
+      if (direction === 'right') targetX += 1;
+      if (direction === 'up') targetY -= 1;
+      if (direction === 'down') targetY += 1;
+    }
+
+    const movedItem = clampItem({ ...movingItem, x: targetX, y: targetY });
+
+    if (movedItem.x === movingItem.x && movedItem.y === movingItem.y) {
+      return current;
+    }
+
+    const placed = [movedItem];
+    const remaining = source
+      .filter((item) => item.widgetId !== widgetId)
+      .map(clampItem)
+      .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+    remaining.forEach((item) => {
+      const nextItem = findNextFreePosition(item, placed);
+      placed.push(nextItem);
+    });
+
+    const resultLayout = placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    if (isDropTarget) {
+      const resultItem = resultLayout.find((item) => item.widgetId === widgetId);
+      if (resultItem) {
+        const msg = 'moveGraph result ' + widgetId + ' target=' + targetX + ':' + targetY + ' result=' + resultItem.x + ':' + resultItem.y + ' size=' + resultItem.w + 'x' + resultItem.h;
+        console.log('[DashboardEditScreen]', msg);
+        setTimeout(() => setDragTargetDebug(msg), 0);
+      }
+    }
+    return resultLayout;
+  });
+}, [dashboardTarget]);
+
+ const removeGraph = useCallback((widgetId) => {
+ setLayout((current) => {
+ if (current.length <= 1) {
+ Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
+ return current;
+ }
+ return current.filter(item => (item.widgetId || item.id) !== widgetId);
+ });
+ }, []);
+
+ const saveLayout = useCallback(async () => {
+ if (!challengeId) {
+ Alert.alert('오류', '대시보드 대상을 찾지 못했습니다.');
+ return;
+ }
+
+ try {
+ await saveDashboardLayoutForChallenge(challengeId, layout, dashboardTarget);
+ navigation.goBack();
+ } catch (error) {
+ console.log('대시보드 저장 실패:', error?.message || error);
+ Alert.alert('오류', '대시보드를 저장하지 못했습니다.');
+ }

@@ -1,0 +1,16 @@
+ <View style={styles.grid} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
+ {renderDragPlaceholderOverlay()}
+ {layoutRows.map((row) => (
+ <View key={row.rowY} style={styles.gridRow}>
+ {row.slots.map(renderGridSlot)}
+ </View>
+ ))}
+ </View>
+ )}
+ </ScrollView>
+
+ <View style={[styles.footer, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
+ <TouchableOpacity style={[styles.footerButton, styles.cancelButton]} onPress={() => navigation.goBack()}>
+ <Text style={styles.cancelButtonText}>취소</Text>
+ </TouchableOpacity>
+ <TouchableOpacity style={[styles.footerButton, styles.saveButton]} onPress={saveLayout}>

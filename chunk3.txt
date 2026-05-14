@@ -1,0 +1,23 @@
+ const renderDragPlaceholderOverlay = () => {
+   if (!dragPlaceholder || !gridWidth) return null;
+   const slotWidth = gridWidth / GRID_COLUMNS;
+   const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(dragPlaceholder.w) || 1));
+   const safeH = Math.max(1, Number(dragPlaceholder.h) || 1);
+   const maxX = Math.max(0, GRID_COLUMNS - safeW);
+   const safeX = Math.max(0, Math.min(maxX, Number(dragPlaceholder.x) || 0));
+   const safeY = Math.max(0, Number(dragPlaceholder.y) || 0);
+   const left = safeX * slotWidth;
+   const top = safeY * 130;
+   const width = safeW * slotWidth;
+   const height = Math.max(60, safeH * 60);
+   return (
+     <View
+       pointerEvents="none"
+       style={[
+         styles.dragPlaceholderOverlay,
+         { left, top, width, height },
+       ]}
+     />
+   );
+ };
+

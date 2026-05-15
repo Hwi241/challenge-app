@@ -119,6 +119,69 @@ const repairDashboardLayoutOverlaps = (items) => {
   return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
 };
 
+const compactDashboardLayoutSpaces = (items) => {
+  const source = Array.isArray(items) ? items : [];
+  const overlaps = (a, b) => {
+    if (!a || !b) return false;
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  };
+
+  const hasCollision = (candidate) => {
+    return placedItems.some((p) => p.widgetId !== candidate.widgetId && overlaps(candidate, p));
+  };
+
+  const normalizeCompactItem = (item) => {
+    const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
+    const safeH = Math.max(1, Number(item?.h) || 1);
+    const maxX = Math.max(0, GRID_COLUMNS - safeW);
+    return {
+      ...item,
+      w: safeW,
+      h: safeH,
+      x: Math.max(0, Math.min(maxX, Number(item?.x) || 0)),
+      y: Math.max(0, Number(item?.y) || 0),
+    };
+  };
+
+  const findFirstFreePosition = (item) => {
+    const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || 1));
+    const maxX = Math.max(0, GRID_COLUMNS - safeW);
+    const maxExistingY = placedItems.reduce((max, placedItem) => {
+      return Math.max(max, (Number(placedItem.y) || 0) + (Number(placedItem.h) || 1));
+    }, 0);
+    const maxSearchY = Math.max(maxExistingY + 80, 80);
+
+    for (let y = 0; y <= maxSearchY; y += 1) {
+      for (let x = 0; x <= maxX; x += 1) {
+        const candidate = { ...item, x, y };
+        if (!hasCollision(candidate)) return candidate;
+      }
+    }
+
+    return { ...item, x: 0, y: maxSearchY + 1 };
+  };
+
+  const placedItems = [];
+  source
+    .map(normalizeCompactItem)
+    .sort((a, b) => (a.y - b.y) || (a.x - b.x))
+    .forEach((item) => {
+      placedItems.push(findFirstFreePosition(item));
+    });
+
+  return placedItems.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+};
+
+const dashboardItemsOverlap = (a, b) => {
+  if (!a || !b) return false;
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  );
+};
+
 export default function DashboardEditScreen({ route, navigation }) {
  const insets = useSafeAreaInsets();
  const params = route?.params || {};
@@ -142,6 +205,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const lastDropTargetRef = useRef(null);
  const dragOriginRef = useRef(null);
  const previewTargetRef = useRef(null);
+ const dragCleanupTimerRef = useRef(null);
 
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
@@ -168,6 +232,42 @@ export default function DashboardEditScreen({ route, navigation }) {
  useEffect(() => {
  loadLayout();
  }, [loadLayout]);
+
+ useEffect(() => {
+ return () => {
+   if (dragCleanupTimerRef.current) {
+     clearTimeout(dragCleanupTimerRef.current);
+     dragCleanupTimerRef.current = null;
+   }
+ };
+ }, []);
+
+ const clearScheduledDragVisualCleanup = useCallback(() => {
+ if (dragCleanupTimerRef.current) {
+   clearTimeout(dragCleanupTimerRef.current);
+   dragCleanupTimerRef.current = null;
+ }
+ }, []);
+
+ const clearDragVisualState = useCallback(() => {
+ setGestureDraggingWidgetId(null);
+ setGestureDragOffset({ x: 0, y: 0 });
+ setDragPlaceholder(null);
+ setPreviewLayout(null);
+ setPreviewLayoutDebug('preview: idle');
+ setDragOverlayItem(null);
+ setDragOverlayStart({ x: 0, y: 0 });
+ dragOriginRef.current = null;
+ lastDropTargetRef.current = null;
+ }, []);
+
+ const scheduleDragVisualCleanup = useCallback(() => {
+ clearScheduledDragVisualCleanup();
+ dragCleanupTimerRef.current = setTimeout(() => {
+   dragCleanupTimerRef.current = null;
+   clearDragVisualState();
+ }, 32);
+ }, [clearDragVisualState, clearScheduledDragVisualCleanup]);
 
  const placedIds = useMemo(() => new Set(layout.map(item => item.widgetId || item.id)), [layout]);
 
@@ -506,19 +606,22 @@ const layoutRows = useMemo(() => {
 
  setLayout((current) => {
  if (current.some(item => (item.widgetId || item.id) === widgetId)) return current;
- const maxY = current.reduce((max, item) => Math.max(max, Number(item.y || 0)), -1);
- return normalizeLayout([
- ...current,
- {
- ...widget,
- id: widgetId,
- widgetId,
- x: 0,
- y: maxY + 1,
- w: Math.max(1, Math.min(GRID_COLUMNS, Number(widget?.defaultSize?.w || GRID_COLUMNS))),
- h: Math.max(1, Number(widget?.defaultSize?.h || 1)),
- },
- ], dashboardTarget);
+
+ const nextItem = {
+   ...widget,
+   id: widgetId,
+   widgetId,
+   x: 0,
+   y: 0,
+   w: Math.max(1, Math.min(GRID_COLUMNS, Number(widget?.defaultSize?.w || GRID_COLUMNS))),
+   h: Math.max(1, Number(widget?.defaultSize?.h || 1)),
+ };
+
+ return compactDashboardLayoutSpaces(
+   repairDashboardLayoutOverlaps(
+     normalizeLayout([...current, nextItem], dashboardTarget),
+   ),
+ );
  });
 
  setPickerVisible(false);
@@ -677,9 +780,14 @@ const layoutRows = useMemo(() => {
  Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
  return current;
  }
- return current.filter(item => (item.widgetId || item.id) !== widgetId);
+ const nextLayout = current.filter(item => (item.widgetId || item.id) !== widgetId);
+ return compactDashboardLayoutSpaces(
+   repairDashboardLayoutOverlaps(
+     normalizeLayout(nextLayout, dashboardTarget),
+   ),
+ );
  });
- }, []);
+ }, [dashboardTarget]);
 
  const saveLayout = useCallback(async () => {
  if (!challengeId) {
@@ -722,12 +830,14 @@ const layoutRows = useMemo(() => {
    .activateAfterLongPress(300)
    .runOnJS(true)
    .onBegin(() => {
+     clearScheduledDragVisualCleanup();
      setPreviewLayout(null);
      setPreviewLayoutDebug('preview: idle');
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
      setGestureTestInfo('gesture: begin ' + widgetId);
    })
    .onStart((event) => {
+     clearScheduledDragVisualCleanup();
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
      setDragOverlayStart({ x: Number(event.absoluteX) || 0, y: Number(event.absoluteY) || 0 });
@@ -760,12 +870,14 @@ const layoutRows = useMemo(() => {
        });
        const hoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
        const hoverY = originY + (event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
+       const stableHoverX = Math.round(hoverX * 4) / 4;
+       const stableHoverY = Math.round(hoverY * 4) / 4;
        const prevTarget = previewTargetRef.current;
-       if (!prevTarget || prevTarget.x !== tX || prevTarget.y !== tY || prevTarget.hoverX !== hoverX || prevTarget.hoverY !== hoverY) {
-         previewTargetRef.current = { x: tX, y: tY, hoverX, hoverY };
+       if (!prevTarget || prevTarget.x !== tX || prevTarget.y !== tY || prevTarget.hoverX !== stableHoverX || prevTarget.hoverY !== stableHoverY) {
+         previewTargetRef.current = { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY };
          try {
            const src = Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
-           const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX, hoverY });
+           const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY });
            const pItem = Array.isArray(previewResult) ? previewResult.find((r) => r.widgetId === widgetId) : null;
            setPreviewLayout(previewResult);
            setPreviewLayoutDebug('preview target=' + tX + ':' + tY + ' result=' + (pItem ? pItem.x + ':' + pItem.y : '?') + ' count=' + (Array.isArray(previewResult) ? previewResult.length : 0));
@@ -800,27 +912,11 @@ const layoutRows = useMemo(() => {
      } else {
        setDragTargetDebug('end none dX=' + deltaX + ' dY=' + deltaY + ' last=' + (lastTarget ? 'exists' : 'null'));
      }
-     setGestureDraggingWidgetId(null);
-     setGestureDragOffset({ x: 0, y: 0 });
-     setDragPlaceholder(null);
-     setPreviewLayout(null);
-     setPreviewLayoutDebug('preview: idle');
-     setDragOverlayItem(null);
-     setDragOverlayStart({ x: 0, y: 0 });
-     dragOriginRef.current = null;
-     lastDropTargetRef.current = null;
+     scheduleDragVisualCleanup();
    })
    .onFinalize(() => {
      setGestureTestInfo((prev) => prev + ' / finalized');
-     setGestureDraggingWidgetId(null);
-     setGestureDragOffset({ x: 0, y: 0 });
-     setDragPlaceholder(null);
-     setPreviewLayout(null);
-     setPreviewLayoutDebug('preview: idle');
-     setDragOverlayItem(null);
-     setDragOverlayStart({ x: 0, y: 0 });
-     dragOriginRef.current = null;
-     lastDropTargetRef.current = null;
+     scheduleDragVisualCleanup();
    });
 
  const cardContent = (
@@ -840,20 +936,6 @@ const layoutRows = useMemo(() => {
  </TouchableOpacity>
  </View>
  <Text style={[styles.graphMeta, isCompactCard && { marginTop: 4 }]}>{safeW + 'x' + safeH}</Text>
- <View style={[styles.moveControls, isCompactCard && { marginTop: 6 }]}>
- <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'up')}>
- <Text style={styles.moveText}>↑</Text>
- </TouchableOpacity>
- <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'down')}>
- <Text style={styles.moveText}>↓</Text>
- </TouchableOpacity>
- <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'left')}>
- <Text style={styles.moveText}>←</Text>
- </TouchableOpacity>
- <TouchableOpacity style={[styles.moveBtn, isCompactCard && { width: 24, height: 24 }]} onPress={() => moveGraph(widgetId, 'right')}>
- <Text style={styles.moveText}>→</Text>
- </TouchableOpacity>
- </View>
  </View>
  </View>
  );
@@ -936,8 +1018,6 @@ const layoutRows = useMemo(() => {
  <Text style={styles.addText}>그래프 추가</Text>
  </TouchableOpacity>
  </View>
- <Text style={styles.gestureDebugBanner}>{gestureTestInfo}</Text>
-             <Text style={styles.dragTargetDebugText}>{dragTargetDebug}</Text>
 
  {loading ? (
  <Text style={styles.emptyText}>불러오는 중...</Text>
@@ -1132,27 +1212,6 @@ const styles = StyleSheet.create({
  marginTop: 10,
  fontSize: 12,
  color: '#777',
- },
- moveControls: {
- flexDirection: 'row',
- gap: 6,
- marginTop: 12,
- },
- moveBtn: {
- width: 30,
- height: 28,
- borderRadius: 8,
- borderWidth: 1,
- borderColor: '#d0d0d0',
- backgroundColor: '#fff',
- alignItems: 'center',
- justifyContent: 'center',
- },
- moveText: {
- fontSize: 15,
- fontWeight: '800',
- color: '#111',
- lineHeight: 18,
  },
  emptyText: {
  paddingVertical: 24,

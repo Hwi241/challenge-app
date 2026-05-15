@@ -354,17 +354,52 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
     ];
     remainingItems = otherItems.filter((item) => item.widgetId !== sameSizeSwapItem.widgetId);
   } else if (primaryCollisionItem) {
-    // Vacated-space first: move primaryCollisionItem to the dragged card's original y
-    const displacedPrimaryStart = {
-      ...primaryCollisionItem,
-      x: clampX(primaryCollisionItem.x, primaryCollisionItem.w),
-      y: Math.max(0, Number(movingOriginal.y) || 0),
-    };
-    const displacedPrimaryItem = hasCollision(displacedPrimaryStart, [movedItem])
-      ? findNextFreePosition(displacedPrimaryStart, [movedItem])
-      : displacedPrimaryStart;
-    placedItems = [movedItem, displacedPrimaryItem];
-    remainingItems = otherItems.filter((item) => item.widgetId !== primaryCollisionItem.widgetId);
+    const primaryTop = Math.max(0, Number(primaryCollisionItem.y) || 0);
+    const primaryBottom = primaryTop + Math.max(1, Number(primaryCollisionItem.h) || 1);
+    const movingOriginalY = Math.max(0, Number(movingOriginal.y) || 0);
+
+    const collisionGroupItems = coveredCollisionItems
+      .map((entry) => entry.item)
+      .filter((item) => {
+        const itemTop = Math.max(0, Number(item.y) || 0);
+        const itemBottom = itemTop + Math.max(1, Number(item.h) || 1);
+        return itemTop < primaryBottom && itemBottom > primaryTop;
+      })
+      .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+
+    const displacedGroupItems = collisionGroupItems.map((item) => {
+      const itemY = Math.max(0, Number(item.y) || 0);
+      const relativeY = itemY - primaryTop;
+      return {
+        ...item,
+        x: clampX(item.x, item.w),
+        y: Math.max(0, movingOriginalY + relativeY),
+      };
+    });
+
+    const canPlaceDisplacedGroup =
+      displacedGroupItems.length > 0 &&
+      displacedGroupItems.every((item, index) => {
+        const previousGroupItems = displacedGroupItems.slice(0, index);
+        return !hasCollision(item, [movedItem, ...previousGroupItems]);
+      });
+
+    if (canPlaceDisplacedGroup) {
+      const displacedGroupIds = new Set(displacedGroupItems.map((item) => item.widgetId));
+      placedItems = [movedItem, ...displacedGroupItems];
+      remainingItems = otherItems.filter((item) => !displacedGroupIds.has(item.widgetId));
+    } else {
+      const displacedPrimaryStart = {
+        ...primaryCollisionItem,
+        x: clampX(primaryCollisionItem.x, primaryCollisionItem.w),
+        y: movingOriginalY,
+      };
+      const displacedPrimaryItem = hasCollision(displacedPrimaryStart, [movedItem])
+        ? findNextFreePosition(displacedPrimaryStart, [movedItem])
+        : displacedPrimaryStart;
+      placedItems = [movedItem, displacedPrimaryItem];
+      remainingItems = otherItems.filter((item) => item.widgetId !== primaryCollisionItem.widgetId);
+    }
   } else {
     placedItems = [movedItem];
   }

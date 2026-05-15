@@ -65,6 +65,60 @@ function normalizeLayout(layout, target) {
  });
 }
 
+const repairDashboardLayoutOverlaps = (items) => {
+  const source = Array.isArray(items) ? items : [];
+  const normalizeRepairItem = (item) => {
+    const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
+    const safeH = Math.max(1, Number(item?.h) || 1);
+    const maxX = Math.max(0, GRID_COLUMNS - safeW);
+    const safeX = Math.max(0, Math.min(maxX, Number(item?.x) || 0));
+    const safeY = Math.max(0, Number(item?.y) || 0);
+    return { ...item, x: safeX, y: safeY, w: safeW, h: safeH };
+  };
+
+  const overlapsRepair = (a, b) => {
+    if (!a || !b) return false;
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  };
+
+  const hasCollisionRepair = (candidate, placedItems) => {
+    return placedItems.some((item) => item.widgetId !== candidate.widgetId && overlapsRepair(candidate, item));
+  };
+
+  const normalized = source.map(normalizeRepairItem).sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  const placed = [];
+
+  normalized.forEach((item) => {
+    if (!hasCollisionRepair(item, placed)) {
+      placed.push(item);
+      return;
+    }
+    // Find next free position preserving original x when possible
+    const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || 1));
+    const startX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x) || 0));
+    const startY = Math.max(0, Number(item.y) || 0);
+    const maxSearchY = startY + 80;
+    let found = false;
+    for (let sy = startY; sy <= maxSearchY && !found; sy++) {
+      // Try original x first, then right, then left
+      const xOrder = [];
+      for (let x = startX; x <= GRID_COLUMNS - safeW; x++) xOrder.push(x);
+      for (let x = 0; x < startX; x++) xOrder.push(x);
+      for (const sx of xOrder) {
+        const candidate = { ...item, x: sx, y: sy };
+        if (!hasCollisionRepair(candidate, placed)) {
+          placed.push(candidate);
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) placed.push({ ...item, x: startX, y: maxSearchY + 1 });
+  });
+
+  return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+};
+
 export default function DashboardEditScreen({ route, navigation }) {
  const insets = useSafeAreaInsets();
  const params = route?.params || {};
@@ -83,24 +137,29 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [dragTargetDebug, setDragTargetDebug] = useState('target: idle');
  const [dragOverlayItem, setDragOverlayItem] = useState(null);
  const [dragOverlayStart, setDragOverlayStart] = useState({ x: 0, y: 0 });
+ const [previewLayout, setPreviewLayout] = useState(null);
+ const [previewLayoutDebug, setPreviewLayoutDebug] = useState('preview: idle');
  const lastDropTargetRef = useRef(null);
+ const dragOriginRef = useRef(null);
+ const previewTargetRef = useRef(null);
 
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
- setLayout(normalizeLayout([], dashboardTarget));
+ setLayout(repairDashboardLayoutOverlaps(normalizeLayout([], dashboardTarget)));
  setLoading(false);
  return;
  }
 
  try {
  const state = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
- const nextLayout = state?.hasStoredLayout
+ const rawLayout = state?.hasStoredLayout
  ? normalizeLayout(state.layout, dashboardTarget)
  : normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget);
+ const nextLayout = repairDashboardLayoutOverlaps(rawLayout);
  setLayout(nextLayout);
  } catch (error) {
  console.log('대시보드 레이아웃 로드 실패:', error?.message || error);
- setLayout(normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget));
+ setLayout(repairDashboardLayoutOverlaps(normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget)));
  } finally {
  setLoading(false);
  }
@@ -113,10 +172,239 @@ export default function DashboardEditScreen({ route, navigation }) {
  const placedIds = useMemo(() => new Set(layout.map(item => item.widgetId || item.id)), [layout]);
 
  const displayLayout = useMemo(() => {
+   if (previewLayout && gestureDraggingWidgetId) {
+     return Array.isArray(previewLayout) ? previewLayout : [];
+   }
    return Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
- }, [layout]);
+ }, [layout, previewLayout, gestureDraggingWidgetId]);
 
- const layoutRows = useMemo(() => {
+const GRID_ROW_HEIGHT = 90;
+const GRID_ROW_GAP = 10;
+const GRID_CELL_PADDING = 5;
+
+const getGridItemHeight = (h) => {
+  const safeH = Math.max(1, Number(h) || 1);
+  return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * GRID_ROW_GAP;
+};
+
+const getGridItemFrame = (item, gridW) => {
+  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
+  const safeH = Math.max(1, Number(item?.h) || 1);
+  const maxX = Math.max(0, GRID_COLUMNS - safeW);
+  const safeX = Math.max(0, Math.min(maxX, Number(item?.x) || 0));
+  const safeY = Math.max(0, Number(item?.y) || 0);
+  const slotWidth = gridW > 0 ? gridW / GRID_COLUMNS : 0;
+  return {
+    left: safeX * slotWidth + GRID_CELL_PADDING,
+    top: safeY * (GRID_ROW_HEIGHT + GRID_ROW_GAP),
+    width: Math.max(0, safeW * slotWidth - GRID_CELL_PADDING * 2),
+    height: getGridItemHeight(safeH),
+    safeX, safeY, safeW, safeH,
+  };
+};
+
+const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
+  const normalizeItem = (item) => {
+    const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
+    const safeH = Math.max(1, Number(item?.h) || 1);
+    const maxX = Math.max(0, GRID_COLUMNS - safeW);
+    const safeX = Math.max(0, Math.min(maxX, Number(item?.x) || 0));
+    const safeY = Math.max(0, Number(item?.y) || 0);
+    return { ...item, x: safeX, y: safeY, w: safeW, h: safeH };
+  };
+
+  const overlaps = (a, b) => {
+    if (!a || !b) return false;
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  };
+
+  const hasCollision = (candidate, placedItems) => {
+    return placedItems.some((item) => item.widgetId !== candidate.widgetId && overlaps(candidate, item));
+  };
+
+  const clampX = (x, w) => {
+    const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(w) || 1));
+    const maxX = Math.max(0, GRID_COLUMNS - safeW);
+    return Math.max(0, Math.min(maxX, Number(x) || 0));
+  };
+
+  const findNextFreePosition = (item, placedItems) => {
+    const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || 1));
+    const startX = clampX(item.x, safeW);
+    const startY = Math.max(0, Number(item.y) || 0);
+    const maxX = Math.max(0, GRID_COLUMNS - safeW);
+    const maxExistingRow = placedItems.reduce((max, placedItem) => {
+      return Math.max(max, (Number(placedItem.y) || 0) + (Number(placedItem.h) || 1));
+    }, startY);
+    const maxSearchY = Math.max(startY + 80, maxExistingRow + 80);
+
+    for (let searchY = startY; searchY <= maxSearchY; searchY += 1) {
+      const xOrder = [];
+      for (let x = startX; x <= maxX; x += 1) xOrder.push(x);
+      for (let x = 0; x < startX; x += 1) xOrder.push(x);
+
+      for (const searchX of xOrder) {
+        const candidate = { ...item, x: searchX, y: searchY };
+        if (!hasCollision(candidate, placedItems)) {
+          return candidate;
+        }
+      }
+    }
+    return { ...item, x: startX, y: maxSearchY + 1 };
+  };
+
+  const compactEmptyRows = (items) => {
+    const occupiedRows = new Set();
+    items.forEach((item) => {
+      const startY = Math.max(0, Number(item.y) || 0);
+      const safeH = Math.max(1, Number(item.h) || 1);
+      for (let row = startY; row < startY + safeH; row += 1) occupiedRows.add(row);
+    });
+    return items
+      .map((item) => {
+        const currentY = Math.max(0, Number(item.y) || 0);
+        let shiftY = 0;
+        for (let row = 0; row < currentY; row += 1) {
+          if (!occupiedRows.has(row)) shiftY += 1;
+        }
+        return { ...item, y: Math.max(0, currentY - shiftY) };
+      })
+      .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  };
+
+  const layoutItems = Array.isArray(sourceLayout) ? sourceLayout.map(normalizeItem) : [];
+  const movingOriginal = layoutItems.find((item) => item.widgetId === movingWidgetId);
+  if (!movingOriginal) return layoutItems;
+
+  const movingW = Math.max(1, Math.min(GRID_COLUMNS, Number(movingOriginal.w) || 1));
+  const movingH = Math.max(1, Number(movingOriginal.h) || 1);
+  const targetX = clampX(target?.x, movingW);
+  const targetY = Math.max(0, Number(target?.y) || 0);
+
+  const movedItem = { ...movingOriginal, x: targetX, y: targetY, w: movingW, h: movingH };
+
+  const rawHoverX = Number(target?.hoverX);
+  const rawHoverY = Number(target?.hoverY);
+  const hoverX = Number.isFinite(rawHoverX) ? clampX(rawHoverX, movingW) : targetX;
+  const hoverY = Number.isFinite(rawHoverY) ? Math.max(0, rawHoverY) : targetY;
+  const movedCollisionItem = { ...movingOriginal, x: hoverX, y: hoverY, w: movingW, h: movingH };
+
+  const otherItems = layoutItems.filter((item) => item.widgetId !== movingWidgetId).sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+  const deltaX = targetX - movingOriginal.x;
+  const deltaY = targetY - movingOriginal.y;
+  const isVerticalDrag = Math.abs(deltaY) >= Math.abs(deltaX);
+
+  const getOverlapInfo = (stationaryItem) => {
+    const overlapW = Math.min(movedCollisionItem.x + movedCollisionItem.w, stationaryItem.x + stationaryItem.w) - Math.max(movedCollisionItem.x, stationaryItem.x);
+    const overlapH = Math.min(movedCollisionItem.y + movedCollisionItem.h, stationaryItem.y + stationaryItem.h) - Math.max(movedCollisionItem.y, stationaryItem.y);
+    const safeOverlapW = Math.max(0, overlapW);
+    const safeOverlapH = Math.max(0, overlapH);
+    const overlapArea = safeOverlapW * safeOverlapH;
+    const stationaryArea = Math.max(1, Number(stationaryItem.w) || 1) * Math.max(1, Number(stationaryItem.h) || 1);
+    const movingArea = Math.max(1, Number(movedItem.w) || 1) * Math.max(1, Number(movedItem.h) || 1);
+    const stationaryCoverage = overlapArea / stationaryArea;
+    const movingCoverage = overlapArea / movingArea;
+    const coverageScore = Math.max(stationaryCoverage, movingCoverage);
+    return { item: stationaryItem, overlapW: safeOverlapW, overlapH: safeOverlapH, overlapArea, stationaryArea, movingArea, stationaryCoverage, movingCoverage, coverageScore };
+  };
+
+  const getDirectionRank = (item) => {
+    if (isVerticalDrag) {
+      if (deltaY > 0) return item.y;
+      if (deltaY < 0) return -item.y;
+    }
+    if (!isVerticalDrag) {
+      if (deltaX > 0) return item.x;
+      if (deltaX < 0) return -item.x;
+    }
+    return item.y;
+  };
+
+  const collidingItems = otherItems.filter((item) => overlaps(movedCollisionItem, item)).map(getOverlapInfo);
+
+  const coveredCollisionItems = collidingItems.filter((entry) => entry.stationaryCoverage >= 0.5 || entry.movingCoverage >= 0.5).sort((a, b) => {
+    if (b.coverageScore !== a.coverageScore) return b.coverageScore - a.coverageScore;
+    const rankA = getDirectionRank(a.item);
+    const rankB = getDirectionRank(b.item);
+    if (rankA !== rankB) return rankA - rankB;
+    return (a.item.y - b.item.y) || (a.item.x - b.item.x);
+  });
+
+  if (collidingItems.length > 0 && coveredCollisionItems.length === 0) {
+    return layoutItems.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  }
+
+  const primaryCollisionItem = coveredCollisionItems[0]?.item || null;
+
+  const sameSizeSwapItem = (() => {
+    const item = primaryCollisionItem;
+    if (!item) return null;
+    if (item.w !== movingW || item.h !== movingH) return null;
+    return item;
+  })();
+
+  let placedItems = [];
+  let remainingItems = otherItems;
+
+  if (sameSizeSwapItem) {
+    placedItems = [
+      { ...movedItem, x: sameSizeSwapItem.x, y: sameSizeSwapItem.y },
+      { ...sameSizeSwapItem, x: movingOriginal.x, y: movingOriginal.y },
+    ];
+    remainingItems = otherItems.filter((item) => item.widgetId !== sameSizeSwapItem.widgetId);
+  } else if (primaryCollisionItem) {
+    // Vacated-space first: move primaryCollisionItem to the dragged card's original y
+    const displacedPrimaryStart = {
+      ...primaryCollisionItem,
+      x: clampX(primaryCollisionItem.x, primaryCollisionItem.w),
+      y: Math.max(0, Number(movingOriginal.y) || 0),
+    };
+    const displacedPrimaryItem = hasCollision(displacedPrimaryStart, [movedItem])
+      ? findNextFreePosition(displacedPrimaryStart, [movedItem])
+      : displacedPrimaryStart;
+    placedItems = [movedItem, displacedPrimaryItem];
+    remainingItems = otherItems.filter((item) => item.widgetId !== primaryCollisionItem.widgetId);
+  } else {
+    placedItems = [movedItem];
+  }
+
+  remainingItems.forEach((item) => {
+    if (!hasCollision(item, placedItems)) {
+      placedItems.push(item);
+      return;
+    }
+    placedItems.push(findNextFreePosition(item, placedItems));
+  });
+
+  return compactEmptyRows(placedItems);
+};
+
+const renderAbsoluteGraphCard = (item, index) => {
+  if (!gridWidth) return null;
+  const frame = getGridItemFrame(item, gridWidth);
+  const key = item.widgetId || item.id || String(index);
+  return (
+    <View key={'abs-' + key} style={[styles.absoluteGraphCell, {
+      left: frame.left, top: frame.top, width: frame.width, height: frame.height,
+    }]}>
+      {renderGraphCard(item, index)}
+    </View>
+  );
+};
+
+const gridBoardHeight = useMemo(() => {
+  const items = Array.isArray(displayLayout) ? displayLayout : [];
+  const maxRow = items.reduce((max, item) => {
+    const y = Math.max(0, Number(item?.y) || 0);
+    const h = Math.max(1, Number(item?.h) || 1);
+    return Math.max(max, y + h);
+  }, 0);
+  if (maxRow <= 0) return GRID_ROW_HEIGHT;
+  return maxRow * GRID_ROW_HEIGHT + Math.max(0, maxRow - 1) * GRID_ROW_GAP;
+}, [displayLayout]);
+
+const layoutRows = useMemo(() => {
  const rows = new Map();
  (Array.isArray(displayLayout) ? displayLayout : []).forEach((item, index) => {
  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w || GRID_COLUMNS)));
@@ -315,6 +603,17 @@ export default function DashboardEditScreen({ route, navigation }) {
       if (direction === 'down') targetY += 1;
     }
 
+    if (isDropTarget) {
+      const resultLayout = calculateReflowLayout(source, widgetId, { x: targetX, y: targetY });
+      const resultItem = Array.isArray(resultLayout) ? resultLayout.find((item) => item.widgetId === widgetId) : null;
+      if (resultItem) {
+        const msg = 'moveGraph result ' + widgetId + ' target=' + targetX + ':' + targetY + ' result=' + resultItem.x + ':' + resultItem.y + ' size=' + resultItem.w + 'x' + resultItem.h;
+        console.log('[DashboardEditScreen]', msg);
+        setTimeout(() => setDragTargetDebug(msg), 0);
+      }
+      return resultLayout;
+    }
+
     const movedItem = clampItem({ ...movingItem, x: targetX, y: targetY });
 
     if (movedItem.x === movingItem.x && movedItem.y === movingItem.y) {
@@ -333,14 +632,6 @@ export default function DashboardEditScreen({ route, navigation }) {
     });
 
     const resultLayout = placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    if (isDropTarget) {
-      const resultItem = resultLayout.find((item) => item.widgetId === widgetId);
-      if (resultItem) {
-        const msg = 'moveGraph result ' + widgetId + ' target=' + targetX + ':' + targetY + ' result=' + resultItem.x + ':' + resultItem.y + ' size=' + resultItem.w + 'x' + resultItem.h;
-        console.log('[DashboardEditScreen]', msg);
-        setTimeout(() => setDragTargetDebug(msg), 0);
-      }
-    }
     return resultLayout;
   });
 }, [dashboardTarget]);
@@ -389,7 +680,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
  const safeH = Math.max(1, Number(item.h || 1));
  const isCompactCard = safeH === 1;
- const cardHeight = isCompactCard ? 90 : Math.max(120, safeH * 60);
+ const cardHeight = getGridItemHeight(safeH);
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
 
  const testGesture = Gesture.Pan()
@@ -398,6 +689,9 @@ export default function DashboardEditScreen({ route, navigation }) {
    .onBegin((event) => {
      const startX = Number(event.absoluteX) || 0;
      const startY = Number(event.absoluteY) || 0;
+     setPreviewLayout(null);
+     setPreviewLayoutDebug('preview: idle');
+     dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
      setDragOverlayStart({ x: startX, y: startY });
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
@@ -412,63 +706,73 @@ export default function DashboardEditScreen({ route, navigation }) {
      const nextOffset = { x: event.translationX, y: event.translationY };
      setGestureDragOffset(nextOffset);
      const dX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
-     const dY = Math.round(event.translationY / 130);
+     const dY = Math.round(event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
      if (!slotWidth || (dX === 0 && dY === 0)) {
        setDragPlaceholder(null);
        lastDropTargetRef.current = null;
      } else {
-       const maxX = Math.max(0, GRID_COLUMNS - safeW);
-       const tX = safeW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, safeX + dX));
-       const yStep = safeW >= GRID_COLUMNS ? Math.max(1, safeH) : 1;
-       const tY = Math.max(0, safeY + dY * yStep);
+       const dragOrigin = dragOriginRef.current || { x: safeX, y: safeY, w: safeW, h: safeH };
+       const originW = Math.max(1, Math.min(GRID_COLUMNS, Number(dragOrigin.w) || safeW));
+       const originX = Math.max(0, Number(dragOrigin.x) || 0);
+       const originY = Math.max(0, Number(dragOrigin.y) || 0);
+       const maxX = Math.max(0, GRID_COLUMNS - originW);
+       const tX = originW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, originX + dX));
+       const tY = Math.max(0, originY + dY);
        lastDropTargetRef.current = { widgetId, x: tX, y: tY, w: safeW, h: safeH };
        setDragPlaceholder((prev) => {
          if (prev && prev.x === tX && prev.y === tY && prev.w === safeW && prev.h === safeH) return prev;
          return { widgetId: '__placeholder__', x: tX, y: tY, w: safeW, h: safeH, isPlaceholder: true };
        });
+       const hoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
+       const hoverY = originY + (event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
+       const prevTarget = previewTargetRef.current;
+       if (!prevTarget || prevTarget.x !== tX || prevTarget.y !== tY || prevTarget.hoverX !== hoverX || prevTarget.hoverY !== hoverY) {
+         previewTargetRef.current = { x: tX, y: tY, hoverX, hoverY };
+         try {
+           const src = Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
+           const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX, hoverY });
+           const pItem = Array.isArray(previewResult) ? previewResult.find((r) => r.widgetId === widgetId) : null;
+           setPreviewLayout(previewResult);
+           setPreviewLayoutDebug('preview target=' + tX + ':' + tY + ' result=' + (pItem ? pItem.x + ':' + pItem.y : '?') + ' count=' + (Array.isArray(previewResult) ? previewResult.length : 0));
+         } catch (e) {
+           setPreviewLayoutDebug('preview err: ' + (e.message || e));
+         }
+       }
      }
    })
    .onEnd((event) => {
      setGestureTestInfo('gesture: end ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
      const deltaX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
-     const deltaY = Math.round(event.translationY / 130);
+     const deltaY = Math.round(event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
      const lastTarget = lastDropTargetRef.current;
      if (lastTarget && lastTarget.widgetId === widgetId) {
-       if (safeW >= GRID_COLUMNS) {
-         if (lastTarget.y > safeY) {
-           setDragTargetDebug('end full down widget=' + widgetId + ' from=' + safeY + ' target=' + lastTarget.y);
-           moveGraph(widgetId, 'down');
-         } else if (lastTarget.y < safeY) {
-           setDragTargetDebug('end full up widget=' + widgetId + ' from=' + safeY + ' target=' + lastTarget.y);
-           moveGraph(widgetId, 'up');
-         } else {
-           setDragTargetDebug('end full none widget=' + widgetId + ' from=' + safeY + ' target=' + lastTarget.y);
-         }
-       } else {
-         setDragTargetDebug('end last=' + lastTarget.x + ':' + lastTarget.y + ' widget=' + widgetId);
-         moveGraph(widgetId, { type: 'drop', x: lastTarget.x, y: lastTarget.y });
-       }
+       const dropX = safeW >= GRID_COLUMNS ? 0 : lastTarget.x;
+       const dropY = lastTarget.y;
+       setDragTargetDebug('end drop=' + dropX + ':' + dropY + ' widget=' + widgetId);
+       moveGraph(widgetId, { type: 'drop', x: dropX, y: dropY });
      } else if (deltaX !== 0 || deltaY !== 0) {
-       const maxX = Math.max(0, GRID_COLUMNS - safeW);
-       const tX = safeW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, safeX + deltaX));
-       const yStep = safeW >= GRID_COLUMNS ? Math.max(1, safeH) : 1;
-       const tY = Math.max(0, safeY + deltaY * yStep);
-       if (safeW >= GRID_COLUMNS) {
-         const dir = deltaY > 0 ? 'down' : 'up';
-         setDragTargetDebug('end full ' + dir + ' widget=' + widgetId + ' fallback deltaY=' + deltaY);
-         moveGraph(widgetId, dir);
-       } else {
-         setDragTargetDebug('end fallback=' + tX + ':' + tY + ' dX=' + deltaX + ' dY=' + deltaY);
-         moveGraph(widgetId, { type: 'drop', x: tX, y: tY });
-       }
+       const dragOrigin = dragOriginRef.current || { x: safeX, y: safeY, w: safeW, h: safeH };
+       const originW = Math.max(1, Math.min(GRID_COLUMNS, Number(dragOrigin.w) || safeW));
+       const originX = Math.max(0, Number(dragOrigin.x) || 0);
+       const originY = Math.max(0, Number(dragOrigin.y) || 0);
+       const maxX = Math.max(0, GRID_COLUMNS - originW);
+       const tX = originW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, originX + deltaX));
+       const tY = Math.max(0, originY + deltaY);
+       const dropX = safeW >= GRID_COLUMNS ? 0 : tX;
+       const dropY = tY;
+       setDragTargetDebug('end fallback=' + dropX + ':' + dropY + ' dX=' + deltaX + ' dY=' + deltaY);
+       moveGraph(widgetId, { type: 'drop', x: dropX, y: dropY });
      } else {
        setDragTargetDebug('end none dX=' + deltaX + ' dY=' + deltaY + ' last=' + (lastTarget ? 'exists' : 'null'));
      }
      setGestureDraggingWidgetId(null);
      setGestureDragOffset({ x: 0, y: 0 });
      setDragPlaceholder(null);
+     setPreviewLayout(null);
+     setPreviewLayoutDebug('preview: idle');
      setDragOverlayItem(null);
      setDragOverlayStart({ x: 0, y: 0 });
+     dragOriginRef.current = null;
      lastDropTargetRef.current = null;
    })
    .onFinalize(() => {
@@ -476,16 +780,19 @@ export default function DashboardEditScreen({ route, navigation }) {
      setGestureDraggingWidgetId(null);
      setGestureDragOffset({ x: 0, y: 0 });
      setDragPlaceholder(null);
+     setPreviewLayout(null);
+     setPreviewLayoutDebug('preview: idle');
      setDragOverlayItem(null);
      setDragOverlayStart({ x: 0, y: 0 });
+     dragOriginRef.current = null;
      lastDropTargetRef.current = null;
    });
 
  const cardContent = (
- <View key={`${widgetId}-${index}`} style={styles.graphCell}>
+ <View key={widgetId} style={styles.graphCell}>
  <View style={[
  styles.graphCard,
- { minHeight: cardHeight },
+ { minHeight: cardHeight, height: cardHeight },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  gestureDraggingWidgetId === widgetId && {
    opacity: 0.25,
@@ -566,6 +873,16 @@ export default function DashboardEditScreen({ route, navigation }) {
    );
  };
 
+ const renderDragPlaceholderOverlay = () => {
+   if (!dragPlaceholder || !gridWidth) return null;
+   const frame = getGridItemFrame(dragPlaceholder, gridWidth);
+   return (
+     <View pointerEvents="none" style={[styles.dragPlaceholderOverlay, {
+       left: frame.left, top: frame.top, width: frame.width, height: frame.height,
+     }]} />
+   );
+ };
+
  return (
  <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -590,12 +907,9 @@ export default function DashboardEditScreen({ route, navigation }) {
  {loading ? (
  <Text style={styles.emptyText}>불러오는 중...</Text>
  ) : (
- <View style={styles.grid} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
- {layoutRows.map((row) => (
- <View key={row.rowY} style={styles.gridRow}>
- {row.slots.map(renderGridSlot)}
- </View>
- ))}
+ <View style={[styles.grid, { overflow: 'visible', minHeight: gridBoardHeight }]} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
+ {renderDragPlaceholderOverlay()}
+ {(Array.isArray(displayLayout) ? displayLayout : []).map((item, index) => renderAbsoluteGraphCard(item, index))}
  </View>
  )}
  </ScrollView>
@@ -904,5 +1218,18 @@ const styles = StyleSheet.create({
  marginTop: 4,
  fontSize: 12,
  color: '#777',
+ },
+ absoluteGraphCell: {
+ position: 'absolute',
+ },
+ dragPlaceholderOverlay: {
+ position: 'absolute',
+ borderWidth: 1.5,
+ borderColor: '#aaa',
+ borderStyle: 'dashed',
+ borderRadius: 8,
+ backgroundColor: 'rgba(0,0,0,0.04)',
+ zIndex: 998,
+ pointerEvents: 'none',
  },
 });

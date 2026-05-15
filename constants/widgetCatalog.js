@@ -98,7 +98,7 @@ export const getDefaultDashboardLayout = (target = DASHBOARD_TARGETS.CHALLENGE) 
  ];
 
  if (target === DASHBOARD_TARGETS.CHALLENGE) {
- base.push({ widgetId: 'goal_black_box', x: 0, y: 1, w: 6, h: 1 });
+ base.push({ widgetId: 'goal_black_box', x: 0, y: 2, w: 6, h: 1 });
  }
 
  return base.filter((item) => {

@@ -721,16 +721,16 @@ const layoutRows = useMemo(() => {
  const testGesture = Gesture.Pan()
    .activateAfterLongPress(300)
    .runOnJS(true)
-   .onBegin((event) => {
-     const startX = Number(event.absoluteX) || 0;
-     const startY = Number(event.absoluteY) || 0;
+   .onBegin(() => {
      setPreviewLayout(null);
      setPreviewLayoutDebug('preview: idle');
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
-     setDragOverlayStart({ x: startX, y: startY });
+     setGestureTestInfo('gesture: begin ' + widgetId);
+   })
+   .onStart((event) => {
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
-     setGestureTestInfo('gesture: begin ' + widgetId);
+     setDragOverlayStart({ x: Number(event.absoluteX) || 0, y: Number(event.absoluteY) || 0 });
      setDragOverlayItem({
        widgetId: item.widgetId,
        w: safeW, h: safeH, cardHeight, isCompactCard, safeW, safeH,

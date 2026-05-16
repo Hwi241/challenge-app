@@ -522,6 +522,7 @@ const LineGradientChart = memo(function LineGradientChart({
   const left = 12, right = 12, top = 16, bottom = 42;
   const cw = width - left - right;
   const ch = height - top - bottom;
+  const introBaselineY = top + ch + 0.5;
 
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
@@ -585,7 +586,8 @@ const LineGradientChart = memo(function LineGradientChart({
       const vmax = Math.max(1, series[0].v);
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
-      const y = top + (1 - yRatio) * usableCh * introProgress;
+      const finalY = top + (1 - yRatio) * usableCh;
+      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
       return [{ x, y, v: series[0].v, d: series[0].d, sourceIdx: 0 }];
     }
     const vmax = Math.max(1, ...series.map(p=>p.v));
@@ -595,10 +597,11 @@ const LineGradientChart = memo(function LineGradientChart({
       const xRatio = clamp(totalDays > 0 ? dayDiff / totalDays : 0, 0, 1);
       const x = left + xRatio * cw;
       const yRatio = clamp(p.v / yMax, 0, 1);
-      const y = top + (1 - yRatio) * usableCh * introProgress;
+      const finalY = top + (1 - yRatio) * usableCh;
+      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
       return { x, y, v: p.v, d: p.d, sourceIdx: idx };
     });
-  }, [series, start, end, today, left, cw, top, ch, metric, introProgress]);
+  }, [series, start, end, today, left, cw, top, ch, metric, introProgress, introBaselineY]);
 
   const yScale = useCallback((v, vmax)=> {
     const BOTTOM_PADDING_RATIO = 0.15;
@@ -606,8 +609,9 @@ const LineGradientChart = memo(function LineGradientChart({
     // 0값이 x축에 딱 붙지 않도록 가상의 최솟값(-vmax*0.08)을 기준으로 스케일
     const vmin = -vmax * 0.08;
     const range = vmax - vmin;
-    return top + (1 - (v - vmin) / range) * usableCh * introProgress;
-  }, [top, ch, introProgress]);
+    const finalY = top + (1 - (v - vmin) / range) * usableCh;
+    return introBaselineY - (introBaselineY - finalY) * introProgress;
+  }, [top, ch, introProgress, introBaselineY]);
 
   const pts = useMemo(()=>{
     const n = series.length;
@@ -616,7 +620,8 @@ const LineGradientChart = memo(function LineGradientChart({
       const vmax = Math.max(1, series[0].v);
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
-      const y = top + (1 - yRatio) * ch * 0.85;
+      const finalY = top + (1 - yRatio) * ch * 0.85;
+      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
       const xleft = left;
       return [
         {x:xleft-0.001, y, v:series[0].v, d:series[0].d, sourceIdx: 0},
@@ -624,7 +629,7 @@ const LineGradientChart = memo(function LineGradientChart({
       ];
     }
     return nodePts;
-  }, [series, metric, top, ch, left, nodePts]);
+  }, [series, metric, top, ch, left, nodePts, introProgress, introBaselineY]);
 
   const pathD = useMemo(()=>{
     if(!pts.length) return '';
@@ -877,7 +882,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
 /* ───────── 주간 뷰 ───────── */
 const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1, onPressDay, onTapBar }) {
   const scrollRef = useRef(null);
-  const [pageW, setPageW] = useState(SCREEN_WIDTH);
+  const [pageW, setPageW] = useState(0);
 
   const onLayout = useCallback((e) => {
     const w = Math.floor(e.nativeEvent.layout.width || SCREEN_WIDTH);
@@ -893,13 +898,6 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
     () => Math.max(0, Math.min(currentIndex, Math.max(weeksData.length - 1, 0))) * pageW,
     [currentIndex, weeksData.length, pageW]
   );
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      try { scrollRef.current?.scrollTo({ x: initialOffsetX, y: 0, animated: false }); } catch {}
-    });
-    return () => cancelAnimationFrame(id);
-  }, [initialOffsetX]);
 
   const renderWeek = useCallback(({ dailyStats }, idx) => {
     const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
@@ -1002,11 +1000,15 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
 
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
+  const isWeekLayoutReady = pageW > 0;
 
   return (
     <View style={{ height: 180 }} onLayout={onLayout}>
+      {!isWeekLayoutReady ? (
+        <View style={{ height: 180 }} />
+      ) : (
       <ScrollView
-        key={`week-${weeksData.length}-${pageW}`}
+        key={`week-${weeksData.length}`}
         ref={scrollRef}
         horizontal
         pagingEnabled
@@ -1015,6 +1017,7 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
         style={{ flex: 1 }}
+        contentOffset={{ x: initialOffsetX, y: 0 }}
         onMomentumScrollEnd={(e) => {
           const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
           if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
@@ -1034,9 +1037,10 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
           </View>
         ))}
       </ScrollView>
+      )}
 
       {/* 좌측 화살표 */}
-      {canPrevWeek && (
+      {isWeekLayoutReady && canPrevWeek && (
         <View style={{ position: 'absolute', left: -4, top: 0, height: 24, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
           <TouchableOpacity
             onPress={() => {
@@ -1052,7 +1056,7 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
       )}
 
       {/* 우측 화살표 */}
-      {canNextWeek && (
+      {isWeekLayoutReady && canNextWeek && (
         <View style={{ position: 'absolute', right: -4, top: 0, height: 24, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
           <TouchableOpacity
             onPress={() => {
@@ -1202,6 +1206,13 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
   const TOP_LABEL_H = 18;
 
+  const handlePressGrass = useCallback(() => {
+    setWaveTrigger((t) => t + 1);
+    if (typeof onTapGrass === 'function') {
+      onTapGrass();
+    }
+  }, [onTapGrass]);
+
   const GridContent = (
     <View style={{ flexDirection: 'row', width: graphWidth }}>
       {Array.from({ length: totalCols }).map((_, col) => {
@@ -1260,7 +1271,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
               ))}
             </View>
             {/* 잔디 블록 영역 */}
-            <TouchableOpacity onPress={onTapGrass} activeOpacity={1} style={{ flexDirection: 'row' }}>
+            <TouchableOpacity onPress={handlePressGrass} activeOpacity={1} style={{ flexDirection: 'row' }}>
               {GridContent}
             </TouchableOpacity>
           </View>
@@ -1427,16 +1438,6 @@ export default function EntryListScreen({ route, navigation }) {
 
 
 
-  const enterDashboardEdit = useCallback(() => {
-    navigation.navigate('DashboardEdit', {
-      challengeId,
-      type: params.type || params.challengeType || params.item?.type || params.challenge?.type,
-      title: displayTitle || meta?.title || params.title || params.challengeTitle || params.item?.title || params.challenge?.title,
-      item: params.item,
-      challenge: params.challenge,
-    });
-  }, [navigation, challengeId, params, displayTitle, meta]);
-
   const dashboardTarget = (
     params.type === 'habit' ||
     params.challengeType === 'habit' ||
@@ -1447,7 +1448,9 @@ export default function EntryListScreen({ route, navigation }) {
   )
     ? DASHBOARD_TARGETS.HABIT
     : DASHBOARD_TARGETS.CHALLENGE;
-  const [dashboardLayout, setDashboardLayout] = useState([]);
+  const [dashboardLayout, setDashboardLayout] = useState(() =>
+    getDefaultDashboardLayout(dashboardTarget).map((item) => ({ ...item })),
+  );
   const [dashboardLayoutHasStored, setDashboardLayoutHasStored] = useState(false);
 
   useFocusEffect(
@@ -1487,7 +1490,25 @@ export default function EntryListScreen({ route, navigation }) {
     }, [challengeId, dashboardTarget])
 )
 
-  const totalCount = Array.isArray(entries) ? entries.length : 0;
+  const isFocused = useIsFocused();
+
+  // 뒤로가기 항상 ChallengeList로
+  React.useEffect(() => {
+    const sub = require('react-native').BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        navigation.navigate('ChallengeList');
+        return true;
+      }
+    );
+    return () => sub.remove();
+  }, [navigation]);
+
+  const [entries, setEntries] = useState([]);
+  const [weeksData, setWeeksData] = useState([]);
+  const [weekIndex, setWeekIndex] = useState(0);
+  const [currentScore, setCurrentScore] = useState(0);
+
   const renderDashboardWidget = (item, isShare = false) => {
     // DASHBOARD_RENDER_NORMALIZED_WIDGET_META
     const widgetId = item?.widgetId || item?.id || item?.i;
@@ -1596,24 +1617,7 @@ export default function EntryListScreen({ route, navigation }) {
        );
     }
     return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중 ({kind})</Text></View>;
-  };const isFocused = useIsFocused();
-
-  // 뒤로가기 항상 ChallengeList로
-  React.useEffect(() => {
-    const sub = require('react-native').BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        navigation.navigate('ChallengeList');
-        return true;
-      }
-    );
-    return () => sub.remove();
-  }, [navigation]);
-
-  const [entries, setEntries] = useState([]);
-  const [weeksData, setWeeksData] = useState([]);
-  const [weekIndex, setWeekIndex] = useState(0);
-  const [currentScore, setCurrentScore] = useState(0);
+  };
 
   const [meta, setMeta] = useState({
     startDate: startDateFromRoute ?? null,
@@ -1625,6 +1629,18 @@ export default function EntryListScreen({ route, navigation }) {
   });
   const routeTitle = params.title || params.challengeTitle || params.challengeName || params.name || params.cardTitle || params.item?.title || params.item?.name || params.challenge?.title || params.challenge?.name || params.habit?.title || params.habit?.name || '';
   const displayTitle = (typeof meta?.title === 'string' && meta.title.trim().length > 0) ? meta.title : (routeTitle || '기록');
+
+  const enterDashboardEdit = useCallback(() => {
+    navigation.navigate('DashboardEdit', {
+      challengeId,
+      type: params.type || params.challengeType || params.item?.type || params.challenge?.type,
+      title: displayTitle || meta?.title || params.title || params.challengeTitle || params.item?.title || params.challenge?.title,
+      item: params.item,
+      challenge: params.challenge,
+    });
+  }, [navigation, challengeId, params, displayTitle, meta]);
+
+  const totalCount = Array.isArray(entries) ? entries.length : 0;
 
   const [monthDate, setMonthDate] = useState(()=> {
     const today = new Date();
@@ -1657,6 +1673,7 @@ export default function EntryListScreen({ route, navigation }) {
   const [donutK, setDonutK] = useState(0);
  const [weekK, setWeekK] = useState(0);
  const [lineK, setLineK] = useState(0);
+ const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
 
   const animateK = useCallback((setter, onDone) => {
@@ -1937,13 +1954,26 @@ export default function EntryListScreen({ route, navigation }) {
         if (md > clampMonth(e)) md = clampMonth(e);
         setMonthDate(md);
       }
+
+      if (!aliveRef.current) return;
+      // 인트로 애니메이션 준비 완료 신호
+      setIntroReadyTick((t) => t + 1);
     })()
       .catch(console.error)
       .finally(()=>{ loadingRef.current = false; });
 
-    runAllIntro();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, challengeId, reloadTick, buildWeeks, reloadNonce]);
+
+  // 인트로 애니메이션 — 데이터·레이아웃 준비 완료 후 requestAnimationFrame으로 실행
+  useEffect(() => {
+    if (!isFocused || introReadyTick === 0) return;
+    if (!Array.isArray(dashboardLayout) || dashboardLayout.length === 0) return;
+    const raf = requestAnimationFrame(() => {
+      runAllIntro();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isFocused, introReadyTick, dashboardLayout.length, runAllIntro]);
 
   useEffect(()=>()=>{
     aliveRef.current = false;
@@ -2134,12 +2164,12 @@ export default function EntryListScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-            <DashboardGraphArea isShare={false} />
+            {DashboardGraphArea({ isShare: false })}
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate
-  , DashboardGraphArea, dashboardLayout,
+  , dashboardLayout,
     displayTitle
   ]);
 
@@ -2156,12 +2186,12 @@ export default function EntryListScreen({ route, navigation }) {
         <View style={styles.headerInfoBtn} />
       </View>
 
-            <DashboardGraphArea isShare={true} />
+            {DashboardGraphArea({ isShare: true })}
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, entries, overallPct
-  , DashboardGraphArea,
+  ,
     displayTitle
   ]);
 

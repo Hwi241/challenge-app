@@ -101,7 +101,10 @@ preview 목적:
 
 - 최종 layout은 정수 x, y 좌표로 확정한다.
 - hoverX / hoverY 같은 소수점 좌표가 저장 layout에 들어가면 안 된다.
-- `moveGraph(widgetId, { type: 'drop', x, y })` 경로를 사용한다.
+- 최신 기준에서는 onEnd에서 정수 x/y와 함께 stableHoverX/stableHoverY를 moveGraph에 전달한다.
+- 다만 hoverX/hoverY는 최종 저장 좌표가 아니라 calculateReflowLayout이 preview와 final drop을 같은 기준으로 판단하기 위한 보조값이다.
+- 최종 layout의 x/y는 반드시 정수 grid 좌표로 유지한다.
+- `moveGraph(widgetId, { type: 'drop', x, y, hoverX, hoverY })` 경로를 사용한다.
 - 최종 layout은 `calculateReflowLayout` 결과로 setLayout 된다.
 
 ---
@@ -130,7 +133,8 @@ stableHoverY = Math.round(hoverY * 4) / 4
 
 - `previewTargetRef` 비교는 `stableHoverX` / `stableHoverY` 기준으로 한다.
 - `calculateReflowLayout`의 preview target에도 `stableHoverX` / `stableHoverY`를 전달한다.
-- `onEnd`에는 `stableHoverX` / `stableHoverY`를 사용하지 않는다.
+- onEnd에서도 lastDropTargetRef 또는 fallback 계산을 통해 stableHoverX / stableHoverY를 moveGraph에 전달한다.
+- 단, 이 값은 저장 layout에 들어가지 않고 reflow 판단에만 사용한다.
 - **저장 layout에는 hover 좌표가 들어가면 안 된다.**
 
 ---
@@ -260,6 +264,57 @@ item.w === movingW && item.h === movingH
 
 ---
 
+## 11-1. pass-through 예외 처리 원칙
+
+현재 구현은 모든 충돌을 collisionGroup으로 처리하지 않는다.
+카드가 다른 카드를 실제로 교환하려는 상황과, 특정 카드를 지나 아래/위 빈 위치로 들어가려는 상황을 구분한다.
+
+현재 안정화된 pass-through 케이스는 다음과 같다.
+
+### 1. partial-width 카드가 full-width 6x2 아래로 지나가는 경우
+
+- 예: 4x2 또는 2x2가 6x2 아래로 이동
+- 6x2는 제자리에 두고 이동 중인 카드만 6x2 아래로 보낸다.
+- `collidingItems`에서 full-width (w >= GRID_COLUMNS) & h > 1인 카드를 찾는다.
+- `hoverY >= itemY + 0.25` 조건으로 진입 판단한다.
+
+### 2. thin full-width 카드가 아래 카드들 사이로 내려가는 경우
+
+- 예: 6x1 도전목표박스가 4x2/2x2 또는 6x2 아래로 이동
+- 아래 카드들을 위로 끌어올리지 않고 6x1만 아래로 보낸다.
+- `collidingItems`에서 movingH === 1보다 큰 taller 카드를 찾는다.
+- `hoverY >= itemY + 0.25` 조건으로 진입 판단한다.
+
+### 3. tall full-width 카드가 thin full-width 카드 아래로 지나가는 경우
+
+- 예: 6x2가 6x1 아래로 이동
+- 6x1은 제자리에 두고 6x2만 6x1 아래로 보낸다.
+- `collidingItems`에서 full-width이고 itemH < movingH인 카드를 찾는다.
+- `hoverY + movingH >= itemY + 0.5` 조건으로 진입 판단한다. (아랫변 기준)
+
+### 4. non-adjacent full-width group pass-through
+
+- 예: 6x2와 4x2/2x2 사이에 6x1 같은 중간 카드가 있는 경우
+- 4x2/2x2를 맨 위로 끌어올리지 않고 6x2만 해당 행 아래로 보낸다.
+- `coveredCollisionItems[0]`이 partial-width이고 group top이 movingOriginal 아래끝보다 아래일 때 발동한다.
+
+### 5. thin full-width upward partial group
+
+- 예: 6x1을 위로 올려 4x2/2x2 행에 넣는 경우
+- 4x2와 2x2를 하나의 row group으로 묶어 함께 아래로 민다.
+- 4x2와 2x2가 서로 다른 y로 갈라지면 안 된다.
+- partial width 합이 GRID_COLUMNS 이상일 때만 group으로 처리한다.
+
+### 주의사항
+
+- 직접 맞닿은 6x2 → 4x2/2x2 행 이동은 기존 collisionGroup을 유지한다.
+- 중간 카드가 끼어 있는 경우에는 collisionGroup이 아니라 pass-through로 보는 것이 자연스럽다.
+- pass-through는 기능 예외가 아니라 드래그 의도 해석 기준이다.
+- 모든 pass-through 분기는 기존 collisionGroup보다 먼저 평가되어야 한다.
+- early return 조건에도 각 pass-through 플래그 예외가 추가되어야 한다.
+
+---
+
 ## 12. 추가/삭제 후 compact 원칙
 
 카드 추가와 삭제는 드래그 reflow와 별개로 처리한다.
@@ -364,6 +419,19 @@ previewLayout → 기존 layout → 최종 layout
 - cleanup 지연은 시각 상태에만 적용한다.
 - layout 저장이나 최종 좌표에는 영향을 주면 안 된다.
 
+### 15.1 previewLayout 중복 업데이트 방지
+
+드래그 중 previewResult가 계산되더라도 이전 previewLayout과 실제 배치 결과가 같으면 setPreviewLayout을 다시 호출하지 않는다.
+
+**구현 방식:**
+
+- `previewLayoutSignatureRef`에 이전 signature를 저장한다.
+- previewResult 배열을 widgetId/x/y/w/h 기준 문자열 signature로 변환한다.
+- signature가 이전과 다를 때만 `setPreviewLayout(previewResult)`를 호출한다.
+- cleanup / onBegin 시 signature를 초기화한다.
+
+이렇게 하면 같은 배치 결과에 대한 불필요한 state 갱신과 re-render를 방지할 수 있다.
+
 ---
 
 ## 16. 방향키 UI 원칙
@@ -386,33 +454,43 @@ previewLayout → 기존 layout → 최종 layout
 
 ---
 
-## 17. 디버그 라인 제거 원칙
+## 17. 디버그 state 제거 원칙
 
-테스트 중 화면에 표시했던 디버그 문구는 기능 안정화 후 제거한다.
+최신 기준에서는 화면에 표시되지 않는 debug state도 제거한다.
+드래그 중 debug state setter가 반복 호출되면 React re-render가 발생해 미세한 반짝임을 만들 수 있다.
 
-**제거 대상 예시:**
+**제거된 항목:**
 
-- `gestureDebugBanner`
-- `dragTargetDebugText`
+- `gestureTestInfo` / `setGestureTestInfo`
+- `dragTargetDebug` / `setDragTargetDebug`
+- `previewLayoutDebug` / `setPreviewLayoutDebug`
+- moveGraph 내부 debug msg / console.log / setTimeout debug setter 블록
+- onBegin / onUpdate / onEnd / onFinalize의 모든 debug setter 호출
+
+**유지된 항목:**
+
+- `previewLayout` / `setPreviewLayout` (preview 표시용, 유지)
+- `dragPlaceholder` / `dragOverlay` (드래그 시각 효과, 유지)
+- `lastDropTargetRef` / `previewTargetRef` (드래그 상태 추적, 유지)
 
 **주의사항:**
 
-- 화면에 보이는 Text 라인만 제거한다.
-- state 자체는 남겨도 된다.
-- setter 호출은 남겨도 된다.
+- debug 제거는 기능 로직 수정이 아니다.
 - 드래그 로직과 함께 제거하지 않는다.
+- previewLayout 기능 자체는 유지한다.
 
 ---
 
 ## 18. 아직 주의해야 할 예외
 
-현재 구현은 상당 부분 안정화되었지만, 아래 예외는 아직 조심해야 한다.
+현재 구현은 e40dfb6 기준으로 주요 이슈가 일단락된 상태이다.
+다만 다음은 계속 주의한다.
 
-1. 2x2 / 4x2 / 6x2가 한 화면에 섞인 상태에서 일부 이동이 어색할 수 있다.
-2. 4x2 또는 2x2가 6x2 쪽으로 이동할 때 6x2가 형제 카드 위치로 올라오는 문제가 재발할 수 있다.
-3. collisionGroup에 staticBlockingItems를 넣는 방식은 한 번 시도했으나 동작이 어색해져 되돌렸다.
-4. placeholder 위치와 previewLayout result 위치가 완전히 일치하지 않는 예외가 있을 수 있다.
-5. hover 안정화 단위 0.25칸이 부족하면 0.5칸 단위도 검토할 수 있지만 반응이 둔해질 수 있다.
+1. pass-through 분기가 많아졌으므로 새 케이스를 추가할 때 기존 케이스를 깨지 않는지 확인해야 한다.
+2. 아주 미세한 preview 반짝임은 기기 성능이나 React render 타이밍에 따라 남을 수 있다.
+3. placeholder 위치와 실제 preview result item 위치가 완전히 일치하지 않는 예외는 추후 별도 안정화 후보이다.
+4. 안정화 작업은 기능 로직 변경과 분리해서 진행해야 한다.
+5. pass-through 조건값을 조정할 때는 한 번에 하나만 바꾼다.
 
 ---
 
@@ -485,24 +563,33 @@ previewLayout → 기존 layout → 최종 layout
 8. same-size swap
 9. 다른 크기 카드의 vacated-space first
 10. collisionGroup 묶음 이동
-11. 초기 저장 layout repair
-12. addGraph / removeGraph compact
-13. 짧은 터치 깜빡임 방지
-14. 드롭 순간 cleanup delay
-15. 방향키 UI 제거
-16. 디버그 라인 제거
+11. partial-width → full-width 아래 pass-through (케이스 1)
+12. thin full-width 아래 이동 pass-through (케이스 2)
+13. tall full-width → thin full-width 아래 pass-through (케이스 3)
+14. non-adjacent full-width group pass-through (케이스 4)
+15. thin full-width upward partial group 이동 (케이스 5)
+16. `targetPositionHasCollision` 기반 빈칸 이동 허용
+17. preview `reservedRows`로 드래그 중 compact 지연
+18. hoverX/hoverY drop 객체 전달로 preview/final 일관성 확보
+19. 초기 저장 layout repair
+20. addGraph / removeGraph compact
+21. 짧은 터치 깜빡임 방지
+22. 드롭 순간 cleanup delay
+23. 방향키 UI 제거
+24. debug state 완전 제거
+25. `previewLayoutSignatureRef` 중복 업데이트 방지
 
 ---
 
 ## 23. 추후 개선 후보
 
-1. collisionGroup이 형제 카드를 덮지 않도록 더 정교한 조건 설계
-2. placeholder를 raw target이 아니라 previewLayout result item 기준으로 표시
-3. preview flicker가 남는 경우 stableHover 단위를 0.5칸으로 조정
-4. moveGraph 내부의 방향키용 분기 정리
-5. previewLayoutDebug / dragTargetDebug state 정리
-6. 카드 이동 알고리즘을 별도 util 함수로 분리
-7. 단위 테스트 가능한 pure function 구조로 개선
+1. pass-through 분기들을 별도 helper 함수로 분리
+2. calculateReflowLayout을 pure function으로 분리해 단위 테스트 가능하게 만들기
+3. placeholder를 raw target이 아니라 previewLayout result item 기준으로 표시
+4. 남은 미세 반짝임이 있으면 render memoization 또는 card component 분리 검토
+5. moveGraph 내부 방향키용 up/down/left/right 분기 정리
+
+> previewLayoutDebug / dragTargetDebug state 정리는 완료됨 (커밋 610c161).
 
 ---
 
@@ -519,3 +606,7 @@ previewLayout → 기존 layout → 최종 layout
 7. 시각적 깜빡임은 알고리즘이 아니라 gesture lifecycle / cleanup timing 문제일 수 있다.
 8. 최종 결과가 정상이라면 preview 안정화만 따로 수정한다.
 9. 잘 되던 알고리즘을 한 번에 많이 바꾸지 않는다.
+10. collisionGroup은 직접 맞닿은 행 교환에만 신중하게 사용한다.
+11. 중간 카드 너머로 지나가는 이동은 pass-through로 해석하는 것이 자연스럽다.
+12. 드래그 안정화는 기능 로직 변경보다 re-render 감소, cleanup 타이밍, preview 중복 업데이트 방지를 먼저 본다.
+13. 문서 기준 최신 안정화 커밋은 e40dfb6이다.

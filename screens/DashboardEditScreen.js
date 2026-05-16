@@ -192,16 +192,13 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [layout, setLayout] = useState([]);
  const [pickerVisible, setPickerVisible] = useState(false);
  const [loading, setLoading] = useState(true);
- const [gestureTestInfo, setGestureTestInfo] = useState('gesture: idle');
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
  const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
  const [gridWidth, setGridWidth] = useState(0);
  const [dragPlaceholder, setDragPlaceholder] = useState(null);
- const [dragTargetDebug, setDragTargetDebug] = useState('target: idle');
  const [dragOverlayItem, setDragOverlayItem] = useState(null);
  const [dragOverlayStart, setDragOverlayStart] = useState({ x: 0, y: 0 });
  const [previewLayout, setPreviewLayout] = useState(null);
- const [previewLayoutDebug, setPreviewLayoutDebug] = useState('preview: idle');
  const lastDropTargetRef = useRef(null);
  const dragOriginRef = useRef(null);
  const previewTargetRef = useRef(null);
@@ -254,7 +251,6 @@ export default function DashboardEditScreen({ route, navigation }) {
  setGestureDragOffset({ x: 0, y: 0 });
  setDragPlaceholder(null);
  setPreviewLayout(null);
- setPreviewLayoutDebug('preview: idle');
  setDragOverlayItem(null);
  setDragOverlayStart({ x: 0, y: 0 });
  dragOriginRef.current = null;
@@ -575,61 +571,6 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
     nonAdjacentFullWidthGroupTop > movingOriginalBottom &&
     hoverY + movingH >= nonAdjacentFullWidthGroupTop + 0.5;
 
-  const targetPositionHasCollision = otherItems.some((item) =>
-    overlaps(movedItem, item),
-  );
-
-  if (
-    collidingItems.length > 0 &&
-    coveredCollisionItems.length === 0 &&
-    targetPositionHasCollision &&
-    !isPartialPassThroughFullWidth &&
-    !isThinFullWidthPassThrough &&
-    !isTallFullWidthPassThroughThin &&
-    !isNonAdjacentFullWidthGroupPassThrough &&
-    !isThinFullWidthUpPartialGroup
-  ) {
-    return layoutItems.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-  }
-
-  const primaryCollisionItem = coveredCollisionItems[0]?.item || null;
-
-  const sameSizeSwapItem = (() => {
-    const item = primaryCollisionItem;
-    if (!item) return null;
-    if (item.w !== movingW || item.h !== movingH) return null;
-    return item;
-  })();
-
-  const passThroughMovedItem = isPartialPassThroughFullWidth
-    ? {
-        ...movedItem,
-        y: passThroughFullWidthY + passThroughFullWidthH,
-      }
-    : null;
-
-  const thinFullWidthPassThroughMovedItem = isThinFullWidthPassThrough
-    ? {
-        ...movedItem,
-        y: thinFullWidthPassThroughY + thinFullWidthPassThroughH,
-      }
-    : null;
-
-  const tallFullWidthPassThroughThinMovedItem = isTallFullWidthPassThroughThin
-    ? {
-        ...movedItem,
-        y: tallFullWidthPassThroughThinY + tallFullWidthPassThroughThinH,
-      }
-    : null;
-
-  const nonAdjacentFullWidthGroupMovedItem =
-    isNonAdjacentFullWidthGroupPassThrough
-      ? {
-          ...movedItem,
-          y: nonAdjacentFullWidthGroupBottom,
-        }
-      : null;
-
   const thinFullWidthUpPartialPrimaryItem = collidingItems
     .map((entry) => entry.item)
     .filter((item) => {
@@ -694,6 +635,61 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
         y: Math.max(0, Number(item.y) || 0) + movingH,
       }))
     : [];
+
+  const targetPositionHasCollision = otherItems.some((item) =>
+    overlaps(movedItem, item),
+  );
+
+  if (
+    collidingItems.length > 0 &&
+    coveredCollisionItems.length === 0 &&
+    targetPositionHasCollision &&
+    !isPartialPassThroughFullWidth &&
+    !isThinFullWidthPassThrough &&
+    !isTallFullWidthPassThroughThin &&
+    !isNonAdjacentFullWidthGroupPassThrough &&
+    !isThinFullWidthUpPartialGroup
+  ) {
+    return layoutItems.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  }
+
+  const primaryCollisionItem = coveredCollisionItems[0]?.item || null;
+
+  const sameSizeSwapItem = (() => {
+    const item = primaryCollisionItem;
+    if (!item) return null;
+    if (item.w !== movingW || item.h !== movingH) return null;
+    return item;
+  })();
+
+  const passThroughMovedItem = isPartialPassThroughFullWidth
+    ? {
+        ...movedItem,
+        y: passThroughFullWidthY + passThroughFullWidthH,
+      }
+    : null;
+
+  const thinFullWidthPassThroughMovedItem = isThinFullWidthPassThrough
+    ? {
+        ...movedItem,
+        y: thinFullWidthPassThroughY + thinFullWidthPassThroughH,
+      }
+    : null;
+
+  const tallFullWidthPassThroughThinMovedItem = isTallFullWidthPassThroughThin
+    ? {
+        ...movedItem,
+        y: tallFullWidthPassThroughThinY + tallFullWidthPassThroughThinH,
+      }
+    : null;
+
+  const nonAdjacentFullWidthGroupMovedItem =
+    isNonAdjacentFullWidthGroupPassThrough
+      ? {
+          ...movedItem,
+          y: nonAdjacentFullWidthGroupBottom,
+        }
+      : null;
 
   let placedItems = [];
   let remainingItems = otherItems;
@@ -1028,12 +1024,6 @@ const layoutRows = useMemo(() => {
         hoverX: targetHoverX,
         hoverY: targetHoverY,
       });
-      const resultItem = Array.isArray(resultLayout) ? resultLayout.find((item) => item.widgetId === widgetId) : null;
-      if (resultItem) {
-        const msg = 'moveGraph result ' + widgetId + ' target=' + targetX + ':' + targetY + ' result=' + resultItem.x + ':' + resultItem.y + ' size=' + resultItem.w + 'x' + resultItem.h;
-        console.log('[DashboardEditScreen]', msg);
-        setTimeout(() => setDragTargetDebug(msg), 0);
-      }
       return resultLayout;
     }
 
@@ -1117,9 +1107,7 @@ const layoutRows = useMemo(() => {
    .onBegin(() => {
      clearScheduledDragVisualCleanup();
      setPreviewLayout(null);
-     setPreviewLayoutDebug('preview: idle');
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
-     setGestureTestInfo('gesture: begin ' + widgetId);
    })
    .onStart((event) => {
      clearScheduledDragVisualCleanup();
@@ -1171,24 +1159,20 @@ const layoutRows = useMemo(() => {
          try {
            const src = Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
            const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY, isPreview: true });
-           const pItem = Array.isArray(previewResult) ? previewResult.find((r) => r.widgetId === widgetId) : null;
            setPreviewLayout(previewResult);
-           setPreviewLayoutDebug('preview target=' + tX + ':' + tY + ' result=' + (pItem ? pItem.x + ':' + pItem.y : '?') + ' count=' + (Array.isArray(previewResult) ? previewResult.length : 0));
          } catch (e) {
-           setPreviewLayoutDebug('preview err: ' + (e.message || e));
+           console.warn('[DashboardEditScreen] preview calculation failed:', e?.message || e);
          }
        }
      }
    })
    .onEnd((event) => {
-     setGestureTestInfo('gesture: end ' + widgetId + ' x=' + Math.round(event.translationX) + ' y=' + Math.round(event.translationY));
      const deltaX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
      const deltaY = Math.round(event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
      const lastTarget = lastDropTargetRef.current;
      if (lastTarget && lastTarget.widgetId === widgetId) {
        const dropX = safeW >= GRID_COLUMNS ? 0 : lastTarget.x;
        const dropY = lastTarget.y;
-       setDragTargetDebug('end drop=' + dropX + ':' + dropY + ' widget=' + widgetId);
        moveGraph(widgetId, {
          type: 'drop',
          x: dropX,
@@ -1206,7 +1190,6 @@ const layoutRows = useMemo(() => {
        const tY = Math.max(0, originY + deltaY);
        const dropX = safeW >= GRID_COLUMNS ? 0 : tX;
        const dropY = tY;
-       setDragTargetDebug('end fallback=' + dropX + ':' + dropY + ' dX=' + deltaX + ' dY=' + deltaY);
        const fallbackHoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
        const fallbackHoverY = originY + (event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
        const stableFallbackHoverX = Math.round(fallbackHoverX * 4) / 4;
@@ -1218,13 +1201,11 @@ const layoutRows = useMemo(() => {
          hoverX: stableFallbackHoverX,
          hoverY: stableFallbackHoverY,
        });
-     } else {
-       setDragTargetDebug('end none dX=' + deltaX + ' dY=' + deltaY + ' last=' + (lastTarget ? 'exists' : 'null'));
      }
+
      scheduleDragVisualCleanup();
    })
    .onFinalize(() => {
-     setGestureTestInfo((prev) => prev + ' / finalized');
      scheduleDragVisualCleanup();
    });
 

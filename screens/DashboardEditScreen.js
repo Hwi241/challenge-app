@@ -202,6 +202,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const lastDropTargetRef = useRef(null);
  const dragOriginRef = useRef(null);
  const previewTargetRef = useRef(null);
+ const previewLayoutSignatureRef = useRef('');
  const dragCleanupTimerRef = useRef(null);
 
  const loadLayout = useCallback(async () => {
@@ -255,6 +256,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  setDragOverlayStart({ x: 0, y: 0 });
  dragOriginRef.current = null;
  lastDropTargetRef.current = null;
+ previewLayoutSignatureRef.current = '';
  }, []);
 
  const scheduleDragVisualCleanup = useCallback(() => {
@@ -1107,6 +1109,7 @@ const layoutRows = useMemo(() => {
    .onBegin(() => {
      clearScheduledDragVisualCleanup();
      setPreviewLayout(null);
+     previewLayoutSignatureRef.current = '';
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
    })
    .onStart((event) => {
@@ -1159,7 +1162,21 @@ const layoutRows = useMemo(() => {
          try {
            const src = Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
            const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY, isPreview: true });
-           setPreviewLayout(previewResult);
+           const previewSignature = Array.isArray(previewResult)
+             ? previewResult
+                 .map((r) => [
+                   r.widgetId || r.id || '',
+                   Number(r.x) || 0,
+                   Number(r.y) || 0,
+                   Number(r.w) || 0,
+                   Number(r.h) || 0,
+                 ].join(':'))
+                 .join('|')
+             : '';
+           if (previewLayoutSignatureRef.current !== previewSignature) {
+             previewLayoutSignatureRef.current = previewSignature;
+             setPreviewLayout(previewResult);
+           }
          } catch (e) {
            console.warn('[DashboardEditScreen] preview calculation failed:', e?.message || e);
          }

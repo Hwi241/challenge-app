@@ -353,8 +353,8 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
     return { ...item, x: startX, y: maxSearchY + 1 };
   };
 
-  const compactEmptyRows = (items) => {
-    const occupiedRows = new Set();
+  const compactEmptyRows = (items, reservedRows = new Set()) => {
+    const occupiedRows = new Set(reservedRows);
     items.forEach((item) => {
       const startY = Math.max(0, Number(item.y) || 0);
       const safeH = Math.max(1, Number(item.h) || 1);
@@ -378,6 +378,16 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
 
   const movingW = Math.max(1, Math.min(GRID_COLUMNS, Number(movingOriginal.w) || 1));
   const movingH = Math.max(1, Number(movingOriginal.h) || 1);
+
+  const isPreviewReflow = target?.isPreview === true;
+  const previewReservedRows = new Set();
+
+  if (isPreviewReflow) {
+    const originalY = Math.max(0, Number(movingOriginal.y) || 0);
+    for (let row = originalY; row < originalY + movingH; row += 1) {
+      previewReservedRows.add(row);
+    }
+  }
   const targetX = clampX(target?.x, movingW);
   const targetY = Math.max(0, Number(target?.y) || 0);
 
@@ -431,7 +441,154 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
     return (a.item.y - b.item.y) || (a.item.x - b.item.x);
   });
 
-  if (collidingItems.length > 0 && coveredCollisionItems.length === 0) {
+  const passThroughFullWidthItem = collidingItems.map((entry) => entry.item)
+    .filter((item) => {
+      const itemY = Math.max(0, Number(item.y) || 0);
+      const itemW = Math.max(1, Number(item.w) || 1);
+      const itemH = Math.max(1, Number(item.h) || 1);
+      const movingOriginalY = Math.max(0, Number(movingOriginal.y) || 0);
+
+      return (
+        movingW < GRID_COLUMNS &&
+        deltaY > 0 &&
+        itemY >= movingOriginalY &&
+        itemW >= GRID_COLUMNS &&
+        itemH > 1
+      );
+    })
+    .sort((a, b) => (a.y - b.y) || (a.x - b.x))[0] || null;
+
+  const passThroughFullWidthY = passThroughFullWidthItem
+    ? Math.max(0, Number(passThroughFullWidthItem.y) || 0)
+    : 0;
+  const passThroughFullWidthH = passThroughFullWidthItem
+    ? Math.max(1, Number(passThroughFullWidthItem.h) || 1)
+    : 1;
+  const passThroughStartY = passThroughFullWidthY + 0.25;
+
+  const isPartialPassThroughFullWidth =
+    !!passThroughFullWidthItem && hoverY >= passThroughStartY;
+
+  const thinFullWidthPassThroughItem = collidingItems
+    .map((entry) => entry.item)
+    .filter((item) => {
+      const itemY = Math.max(0, Number(item.y) || 0);
+      const itemH = Math.max(1, Number(item.h) || 1);
+      const movingOriginalY = Math.max(0, Number(movingOriginal.y) || 0);
+
+      return (
+        movingW >= GRID_COLUMNS &&
+        movingH === 1 &&
+        deltaY > 0 &&
+        itemY >= movingOriginalY &&
+        itemH > movingH &&
+        hoverY >= itemY + 0.25
+      );
+    })
+    .sort((a, b) => {
+      const bottomA = (Number(a.y) || 0) + Math.max(1, Number(a.h) || 1);
+      const bottomB = (Number(b.y) || 0) + Math.max(1, Number(b.h) || 1);
+      if (bottomB !== bottomA) return bottomB - bottomA;
+      return (a.y - b.y) || (a.x - b.x);
+    })[0] || null;
+
+  const thinFullWidthPassThroughY = thinFullWidthPassThroughItem
+    ? Math.max(0, Number(thinFullWidthPassThroughItem.y) || 0)
+    : 0;
+  const thinFullWidthPassThroughH = thinFullWidthPassThroughItem
+    ? Math.max(1, Number(thinFullWidthPassThroughItem.h) || 1)
+    : 1;
+
+  const isThinFullWidthPassThrough = !!thinFullWidthPassThroughItem;
+
+  const tallFullWidthPassThroughThinItem = collidingItems
+    .map((entry) => entry.item)
+    .filter((item) => {
+      const itemY = Math.max(0, Number(item.y) || 0);
+      const itemW = Math.max(1, Number(item.w) || 1);
+      const itemH = Math.max(1, Number(item.h) || 1);
+      const movingOriginalY = Math.max(0, Number(movingOriginal.y) || 0);
+
+      return (
+        movingW >= GRID_COLUMNS &&
+        movingH > 1 &&
+        deltaY > 0 &&
+        itemY >= movingOriginalY &&
+        itemW >= GRID_COLUMNS &&
+        itemH < movingH &&
+        hoverY + movingH >= itemY + 0.5
+      );
+    })
+    .sort((a, b) => (a.y - b.y) || (a.x - b.x))[0] || null;
+
+  const tallFullWidthPassThroughThinY = tallFullWidthPassThroughThinItem
+    ? Math.max(0, Number(tallFullWidthPassThroughThinItem.y) || 0)
+    : 0;
+  const tallFullWidthPassThroughThinH = tallFullWidthPassThroughThinItem
+    ? Math.max(1, Number(tallFullWidthPassThroughThinItem.h) || 1)
+    : 1;
+
+  const isTallFullWidthPassThroughThin = !!tallFullWidthPassThroughThinItem;
+
+  const nonAdjacentFullWidthGroupPrimaryItem = coveredCollisionItems[0]?.item || null;
+  const nonAdjacentFullWidthGroupTop = nonAdjacentFullWidthGroupPrimaryItem
+    ? Math.max(0, Number(nonAdjacentFullWidthGroupPrimaryItem.y) || 0)
+    : 0;
+  const nonAdjacentFullWidthGroupPrimaryH = nonAdjacentFullWidthGroupPrimaryItem
+    ? Math.max(1, Number(nonAdjacentFullWidthGroupPrimaryItem.h) || 1)
+    : 1;
+  const nonAdjacentFullWidthGroupPrimaryW = nonAdjacentFullWidthGroupPrimaryItem
+    ? Math.max(1, Number(nonAdjacentFullWidthGroupPrimaryItem.w) || 1)
+    : 1;
+  const nonAdjacentFullWidthGroupPrimaryBottom =
+    nonAdjacentFullWidthGroupTop + nonAdjacentFullWidthGroupPrimaryH;
+  const movingOriginalBottom =
+    Math.max(0, Number(movingOriginal.y) || 0) + movingH;
+  const nonAdjacentFullWidthGroupItems = nonAdjacentFullWidthGroupPrimaryItem
+    ? coveredCollisionItems
+        .map((entry) => entry.item)
+        .filter((item) => {
+          const itemTop = Math.max(0, Number(item.y) || 0);
+          const itemBottom = itemTop + Math.max(1, Number(item.h) || 1);
+          return (
+            itemTop < nonAdjacentFullWidthGroupPrimaryBottom &&
+            itemBottom > nonAdjacentFullWidthGroupTop
+          );
+        })
+    : [];
+
+  const nonAdjacentFullWidthGroupBottom = nonAdjacentFullWidthGroupItems.reduce(
+    (max, item) => {
+      const itemY = Math.max(0, Number(item.y) || 0);
+      const itemH = Math.max(1, Number(item.h) || 1);
+      return Math.max(max, itemY + itemH);
+    },
+    nonAdjacentFullWidthGroupPrimaryBottom,
+  );
+
+  const isNonAdjacentFullWidthGroupPassThrough =
+    movingW >= GRID_COLUMNS &&
+    movingH > 1 &&
+    deltaY > 0 &&
+    !!nonAdjacentFullWidthGroupPrimaryItem &&
+    nonAdjacentFullWidthGroupPrimaryW < GRID_COLUMNS &&
+    nonAdjacentFullWidthGroupTop > movingOriginalBottom &&
+    hoverY + movingH >= nonAdjacentFullWidthGroupTop + 0.5;
+
+  const targetPositionHasCollision = otherItems.some((item) =>
+    overlaps(movedItem, item),
+  );
+
+  if (
+    collidingItems.length > 0 &&
+    coveredCollisionItems.length === 0 &&
+    targetPositionHasCollision &&
+    !isPartialPassThroughFullWidth &&
+    !isThinFullWidthPassThrough &&
+    !isTallFullWidthPassThroughThin &&
+    !isNonAdjacentFullWidthGroupPassThrough &&
+    !isThinFullWidthUpPartialGroup
+  ) {
     return layoutItems.sort((a, b) => (a.y - b.y) || (a.x - b.x));
   }
 
@@ -444,6 +601,100 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
     return item;
   })();
 
+  const passThroughMovedItem = isPartialPassThroughFullWidth
+    ? {
+        ...movedItem,
+        y: passThroughFullWidthY + passThroughFullWidthH,
+      }
+    : null;
+
+  const thinFullWidthPassThroughMovedItem = isThinFullWidthPassThrough
+    ? {
+        ...movedItem,
+        y: thinFullWidthPassThroughY + thinFullWidthPassThroughH,
+      }
+    : null;
+
+  const tallFullWidthPassThroughThinMovedItem = isTallFullWidthPassThroughThin
+    ? {
+        ...movedItem,
+        y: tallFullWidthPassThroughThinY + tallFullWidthPassThroughThinH,
+      }
+    : null;
+
+  const nonAdjacentFullWidthGroupMovedItem =
+    isNonAdjacentFullWidthGroupPassThrough
+      ? {
+          ...movedItem,
+          y: nonAdjacentFullWidthGroupBottom,
+        }
+      : null;
+
+  const thinFullWidthUpPartialPrimaryItem = collidingItems
+    .map((entry) => entry.item)
+    .filter((item) => {
+      const itemY = Math.max(0, Number(item.y) || 0);
+      const itemW = Math.max(1, Number(item.w) || 1);
+      const movingOriginalY = Math.max(0, Number(movingOriginal.y) || 0);
+
+      return (
+        movingW >= GRID_COLUMNS &&
+        movingH === 1 &&
+        deltaY < 0 &&
+        itemY <= movingOriginalY &&
+        itemW < GRID_COLUMNS &&
+        hoverY <= itemY + 0.75
+      );
+    })
+    .sort((a, b) => (b.y - a.y) || (a.x - b.x))[0] || null;
+
+  const thinFullWidthUpPartialTop = thinFullWidthUpPartialPrimaryItem
+    ? Math.max(0, Number(thinFullWidthUpPartialPrimaryItem.y) || 0)
+    : 0;
+  const thinFullWidthUpPartialPrimaryH = thinFullWidthUpPartialPrimaryItem
+    ? Math.max(1, Number(thinFullWidthUpPartialPrimaryItem.h) || 1)
+    : 1;
+  const thinFullWidthUpPartialBottom =
+    thinFullWidthUpPartialTop + thinFullWidthUpPartialPrimaryH;
+
+  const thinFullWidthUpPartialGroupItems = thinFullWidthUpPartialPrimaryItem
+    ? otherItems.filter((item) => {
+        const itemTop = Math.max(0, Number(item.y) || 0);
+        const itemBottom = itemTop + Math.max(1, Number(item.h) || 1);
+        const itemW = Math.max(1, Number(item.w) || 1);
+
+        return (
+          itemW < GRID_COLUMNS &&
+          itemTop < thinFullWidthUpPartialBottom &&
+          itemBottom > thinFullWidthUpPartialTop
+        );
+      })
+    : [];
+
+  const thinFullWidthUpPartialGroupWidth = thinFullWidthUpPartialGroupItems.reduce(
+    (sum, item) => sum + Math.max(1, Number(item.w) || 1),
+    0,
+  );
+
+  const isThinFullWidthUpPartialGroup =
+    !!thinFullWidthUpPartialPrimaryItem &&
+    thinFullWidthUpPartialGroupItems.length > 0 &&
+    thinFullWidthUpPartialGroupWidth >= GRID_COLUMNS;
+
+  const thinFullWidthUpMovedItem = isThinFullWidthUpPartialGroup
+    ? {
+        ...movedItem,
+        y: thinFullWidthUpPartialTop,
+      }
+    : null;
+
+  const thinFullWidthUpPartialGroupMovedItems = isThinFullWidthUpPartialGroup
+    ? thinFullWidthUpPartialGroupItems.map((item) => ({
+        ...item,
+        y: Math.max(0, Number(item.y) || 0) + movingH,
+      }))
+    : [];
+
   let placedItems = [];
   let remainingItems = otherItems;
 
@@ -453,6 +704,26 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
       { ...sameSizeSwapItem, x: movingOriginal.x, y: movingOriginal.y },
     ];
     remainingItems = otherItems.filter((item) => item.widgetId !== sameSizeSwapItem.widgetId);
+  } else if (passThroughMovedItem) {
+    placedItems = [passThroughMovedItem];
+    remainingItems = otherItems;
+  } else if (thinFullWidthPassThroughMovedItem) {
+    placedItems = [thinFullWidthPassThroughMovedItem];
+    remainingItems = otherItems;
+  } else if (tallFullWidthPassThroughThinMovedItem) {
+    placedItems = [tallFullWidthPassThroughThinMovedItem];
+    remainingItems = otherItems;
+  } else if (nonAdjacentFullWidthGroupMovedItem) {
+    placedItems = [nonAdjacentFullWidthGroupMovedItem];
+    remainingItems = otherItems;
+  } else if (thinFullWidthUpMovedItem) {
+    const thinFullWidthUpGroupIds = new Set(
+      thinFullWidthUpPartialGroupItems.map((item) => item.widgetId),
+    );
+    placedItems = [thinFullWidthUpMovedItem, ...thinFullWidthUpPartialGroupMovedItems];
+    remainingItems = otherItems.filter(
+      (item) => !thinFullWidthUpGroupIds.has(item.widgetId),
+    );
   } else if (primaryCollisionItem && movingW >= GRID_COLUMNS) {
     const primaryTop = Math.max(0, Number(primaryCollisionItem.y) || 0);
     const primaryBottom = primaryTop + Math.max(1, Number(primaryCollisionItem.h) || 1);
@@ -512,7 +783,7 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
     placedItems.push(findNextFreePosition(item, placedItems));
   });
 
-  return compactEmptyRows(placedItems);
+  return compactEmptyRows(placedItems, previewReservedRows);
 };
 
 const renderAbsoluteGraphCard = (item, index) => {
@@ -741,8 +1012,22 @@ const layoutRows = useMemo(() => {
       if (direction === 'down') targetY += 1;
     }
 
+    const targetHoverX =
+      isDropTarget && Number.isFinite(Number(direction.hoverX))
+        ? Number(direction.hoverX)
+        : targetX;
+    const targetHoverY =
+      isDropTarget && Number.isFinite(Number(direction.hoverY))
+        ? Number(direction.hoverY)
+        : targetY;
+
     if (isDropTarget) {
-      const resultLayout = calculateReflowLayout(source, widgetId, { x: targetX, y: targetY });
+      const resultLayout = calculateReflowLayout(source, widgetId, {
+        x: targetX,
+        y: targetY,
+        hoverX: targetHoverX,
+        hoverY: targetHoverY,
+      });
       const resultItem = Array.isArray(resultLayout) ? resultLayout.find((item) => item.widgetId === widgetId) : null;
       if (resultItem) {
         const msg = 'moveGraph result ' + widgetId + ' target=' + targetX + ':' + targetY + ' result=' + resultItem.x + ':' + resultItem.y + ' size=' + resultItem.w + 'x' + resultItem.h;
@@ -863,7 +1148,6 @@ const layoutRows = useMemo(() => {
        const maxX = Math.max(0, GRID_COLUMNS - originW);
        const tX = originW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, originX + dX));
        const tY = Math.max(0, originY + dY);
-       lastDropTargetRef.current = { widgetId, x: tX, y: tY, w: safeW, h: safeH };
        setDragPlaceholder((prev) => {
          if (prev && prev.x === tX && prev.y === tY && prev.w === safeW && prev.h === safeH) return prev;
          return { widgetId: '__placeholder__', x: tX, y: tY, w: safeW, h: safeH, isPlaceholder: true };
@@ -872,12 +1156,21 @@ const layoutRows = useMemo(() => {
        const hoverY = originY + (event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
        const stableHoverX = Math.round(hoverX * 4) / 4;
        const stableHoverY = Math.round(hoverY * 4) / 4;
+       lastDropTargetRef.current = {
+         widgetId,
+         x: tX,
+         y: tY,
+         w: safeW,
+         h: safeH,
+         hoverX: stableHoverX,
+         hoverY: stableHoverY,
+       };
        const prevTarget = previewTargetRef.current;
        if (!prevTarget || prevTarget.x !== tX || prevTarget.y !== tY || prevTarget.hoverX !== stableHoverX || prevTarget.hoverY !== stableHoverY) {
          previewTargetRef.current = { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY };
          try {
            const src = Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
-           const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY });
+           const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY, isPreview: true });
            const pItem = Array.isArray(previewResult) ? previewResult.find((r) => r.widgetId === widgetId) : null;
            setPreviewLayout(previewResult);
            setPreviewLayoutDebug('preview target=' + tX + ':' + tY + ' result=' + (pItem ? pItem.x + ':' + pItem.y : '?') + ' count=' + (Array.isArray(previewResult) ? previewResult.length : 0));
@@ -896,7 +1189,13 @@ const layoutRows = useMemo(() => {
        const dropX = safeW >= GRID_COLUMNS ? 0 : lastTarget.x;
        const dropY = lastTarget.y;
        setDragTargetDebug('end drop=' + dropX + ':' + dropY + ' widget=' + widgetId);
-       moveGraph(widgetId, { type: 'drop', x: dropX, y: dropY });
+       moveGraph(widgetId, {
+         type: 'drop',
+         x: dropX,
+         y: dropY,
+         hoverX: lastTarget.hoverX,
+         hoverY: lastTarget.hoverY,
+       });
      } else if (deltaX !== 0 || deltaY !== 0) {
        const dragOrigin = dragOriginRef.current || { x: safeX, y: safeY, w: safeW, h: safeH };
        const originW = Math.max(1, Math.min(GRID_COLUMNS, Number(dragOrigin.w) || safeW));
@@ -908,7 +1207,17 @@ const layoutRows = useMemo(() => {
        const dropX = safeW >= GRID_COLUMNS ? 0 : tX;
        const dropY = tY;
        setDragTargetDebug('end fallback=' + dropX + ':' + dropY + ' dX=' + deltaX + ' dY=' + deltaY);
-       moveGraph(widgetId, { type: 'drop', x: dropX, y: dropY });
+       const fallbackHoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
+       const fallbackHoverY = originY + (event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
+       const stableFallbackHoverX = Math.round(fallbackHoverX * 4) / 4;
+       const stableFallbackHoverY = Math.round(fallbackHoverY * 4) / 4;
+       moveGraph(widgetId, {
+         type: 'drop',
+         x: dropX,
+         y: dropY,
+         hoverX: stableFallbackHoverX,
+         hoverY: stableFallbackHoverY,
+       });
      } else {
        setDragTargetDebug('end none dX=' + deltaX + ' dY=' + deltaY + ' last=' + (lastTarget ? 'exists' : 'null'));
      }

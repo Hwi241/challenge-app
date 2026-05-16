@@ -453,7 +453,7 @@ const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
       { ...sameSizeSwapItem, x: movingOriginal.x, y: movingOriginal.y },
     ];
     remainingItems = otherItems.filter((item) => item.widgetId !== sameSizeSwapItem.widgetId);
-  } else if (primaryCollisionItem) {
+  } else if (primaryCollisionItem && movingW >= GRID_COLUMNS) {
     const primaryTop = Math.max(0, Number(primaryCollisionItem.y) || 0);
     const primaryBottom = primaryTop + Math.max(1, Number(primaryCollisionItem.h) || 1);
     const movingOriginalY = Math.max(0, Number(movingOriginal.y) || 0);

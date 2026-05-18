@@ -515,6 +515,7 @@ const LineGradientChart = memo(function LineGradientChart({
   width=SCREEN_WIDTH - EDGE*2 - GRAPH_SIDE_PAD*2 - 8,
   height=185,
   introProgress=1,
+  stableIntro=false,
   interactive=true,
   pagerIndex=0,
   onSelectPagerIndex=()=>{},
@@ -523,6 +524,8 @@ const LineGradientChart = memo(function LineGradientChart({
   const cw = width - left - right;
   const ch = height - top - bottom;
   const introBaselineY = top + ch + 0.5;
+  const yProgress = stableIntro ? 1 : introProgress;
+  const pathOpacity = stableIntro ? introProgress : 1;
 
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
@@ -587,7 +590,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * usableCh;
-      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
+      const y = introBaselineY - (introBaselineY - finalY) * yProgress;
       return [{ x, y, v: series[0].v, d: series[0].d, sourceIdx: 0 }];
     }
     const vmax = Math.max(1, ...series.map(p=>p.v));
@@ -598,7 +601,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const x = left + xRatio * cw;
       const yRatio = clamp(p.v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * usableCh;
-      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
+      const y = introBaselineY - (introBaselineY - finalY) * yProgress;
       return { x, y, v: p.v, d: p.d, sourceIdx: idx };
     });
   }, [series, start, end, today, left, cw, top, ch, metric, introProgress, introBaselineY]);
@@ -610,7 +613,7 @@ const LineGradientChart = memo(function LineGradientChart({
     const vmin = -vmax * 0.08;
     const range = vmax - vmin;
     const finalY = top + (1 - (v - vmin) / range) * usableCh;
-    return introBaselineY - (introBaselineY - finalY) * introProgress;
+    return introBaselineY - (introBaselineY - finalY) * yProgress;
   }, [top, ch, introProgress, introBaselineY]);
 
   const pts = useMemo(()=>{
@@ -621,7 +624,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * ch * 0.85;
-      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
+      const y = introBaselineY - (introBaselineY - finalY) * yProgress;
       const xleft = left;
       return [
         {x:xleft-0.001, y, v:series[0].v, d:series[0].d, sourceIdx: 0},
@@ -736,6 +739,7 @@ const LineGradientChart = memo(function LineGradientChart({
   }, [selectedIdx, nodePts]);
 
   const endNode = nodePts[nodePts.length-1] || null;
+  const isIntroSettled = introProgress >= 0.98;
 
   return (
     <View pointerEvents="box-none">
@@ -757,8 +761,8 @@ const LineGradientChart = memo(function LineGradientChart({
           </LinearGradient>
         </Defs>
 
-        {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} />}
-        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={1.6} />}
+        {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} opacity={pathOpacity} />}
+        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={1.6} opacity={pathOpacity} />}
 
         {/* X축 */}
         <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={progressGrey} strokeWidth={1} />
@@ -771,14 +775,14 @@ const LineGradientChart = memo(function LineGradientChart({
           {`Today ${String((new Date()).getFullYear()).slice(2)}-${pad2((new Date()).getMonth()+1)}-${pad2((new Date()).getDate())}`}
         </SvgText>
 
-        {/* 마커/라벨 */}
-        {!selPoint && endNode && (
+        {/* 마커/라벨 (intro 진행률 98% 이상일 때만 표시) */}
+        {isIntroSettled && !selPoint && endNode && (
           <Circle cx={endNode.x} cy={endNode.y} r={3.2} fill="#fff" stroke={baseBlack} strokeWidth={2}/>
         )}
-        {selPoint && (
+        {isIntroSettled && selPoint && (
           <Circle cx={selPoint.x} cy={selPoint.y} r={3.8} fill="#fff" stroke={baseBlack} strokeWidth={2.1}/>
         )}
-        {selPoint && selectedLabel && (() => {
+        {isIntroSettled && selPoint && selectedLabel && (() => {
           const pos = placeLabel(selPoint, selectedLabel, selectedIdx === series.length - 1);
           return (
             <>
@@ -789,7 +793,7 @@ const LineGradientChart = memo(function LineGradientChart({
             </>
           );
         })()}
-        {!selPoint && defaultLabel && endNode && (() => {
+        {isIntroSettled && !selPoint && defaultLabel && endNode && (() => {
           const pos = placeLabel(endNode, defaultLabel, true);
           return (
             <>
@@ -809,7 +813,7 @@ const LineGradientChart = memo(function LineGradientChart({
   );
 });
 
-const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true, onPageChange }) {
+const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, stableIntro=false, interactive=true, onPageChange }) {
   const { width } = useWindowDimensions();
   const pageW = width - (EDGE) * 2;
   const scrollRef = useRef(null);
@@ -853,6 +857,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             width={pageW-4}
             height={185}
             introProgress={introProgress}
+            stableIntro={stableIntro}
             interactive={interactive}
             pagerIndex={page}
             onSelectPagerIndex={goPage}
@@ -866,6 +871,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             width={pageW-4}
             height={185}
             introProgress={introProgress}
+            stableIntro={stableIntro}
             interactive={interactive}
             pagerIndex={page}
             onSelectPagerIndex={goPage}
@@ -1078,7 +1084,7 @@ const GRASS_ROWS = 7;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
-const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass }) {
+const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass, introTick = 0 }) {
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
   const [waveIntensity, setWaveIntensity] = useState(() => new Array(60 * 7).fill(0));
   const sparkTimersRef = React.useRef([]);
@@ -1093,6 +1099,11 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   }, []);
 
   useEffect(() => { if (onTap) onTap(() => setWaveTrigger(t => t + 1)); }, [onTap]);
+
+  useEffect(() => {
+    if (!introTick) return;
+    setWaveTrigger((t) => t + 1);
+  }, [introTick]);
 
   useEffect(() => {
     sparkTimersRef.current.forEach(t => clearTimeout(t));
@@ -1452,10 +1463,13 @@ export default function EntryListScreen({ route, navigation }) {
     getDefaultDashboardLayout(dashboardTarget).map((item) => ({ ...item })),
   );
   const [dashboardLayoutHasStored, setDashboardLayoutHasStored] = useState(false);
+  const [dashboardLayoutReadyTick, setDashboardLayoutReadyTick] = useState(0);
 
   useFocusEffect(
   useCallback(() => {
     let mounted = true;
+    setDashboardLayoutReadyTick(0);
+    setIntroVisualReady(false);
     const loadDashboardLayout = async () => {
       try {
         const result = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
@@ -1477,12 +1491,14 @@ export default function EntryListScreen({ route, navigation }) {
         const nextLayout = Array.isArray(result?.layout) ? result.layout : getDefaultDashboardLayout(dashboardTarget);
         setDashboardLayoutHasStored(Boolean(result?.hasStoredLayout));
         setDashboardLayout(nextLayout.map((item) => ({ ...item })));
+        setDashboardLayoutReadyTick((tick) => tick + 1);
       } catch (error) {
         console.log('Failed to load dashboard layout', error);
         if (!mounted) return;
         const fallbackLayout = getDefaultDashboardLayout(dashboardTarget);
         setDashboardLayoutHasStored(false);
         setDashboardLayout(fallbackLayout.map((item) => ({ ...item })));
+        setDashboardLayoutReadyTick((tick) => tick + 1);
       }
     };
     loadDashboardLayout();
@@ -1491,6 +1507,23 @@ export default function EntryListScreen({ route, navigation }) {
 )
 
   const isFocused = useIsFocused();
+  const hasFocusedEntryListOnceRef = useRef(false);
+  const [skipLineIntroOnReturn, setSkipLineIntroOnReturn] = useState(false);
+
+  useEffect(() => {
+    hasFocusedEntryListOnceRef.current = false;
+    setSkipLineIntroOnReturn(false);
+  }, [challengeId]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    if (hasFocusedEntryListOnceRef.current) {
+      setSkipLineIntroOnReturn(true);
+      return;
+    }
+    hasFocusedEntryListOnceRef.current = true;
+    setSkipLineIntroOnReturn(false);
+  }, [isFocused]);
 
   // 뒤로가기 항상 ChallengeList로
   React.useEffect(() => {
@@ -1549,7 +1582,7 @@ export default function EntryListScreen({ route, navigation }) {
         <TouchableOpacity style={styles.donutArea} onPress={isShare ? undefined : () => runDonut()} activeOpacity={0.8} disabled={isShare}>
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
           <View style={{ marginTop: 28, alignItems: 'center' }}>
-            <Donut targetPercent={overallPct} progress={isShare ? undefined : donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
+            <Donut targetPercent={overallPct} progress={isShare ? undefined : (introVisualReady ? donutK : 0)} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
           </View>
         </TouchableOpacity>
       );
@@ -1586,7 +1619,7 @@ export default function EntryListScreen({ route, navigation }) {
             weeksData={weeksData}
             currentIndex={weekIndex}
             onIndexChange={isShare ? undefined : setWeekIndex}
-            introProgress={isShare ? undefined : weekK}
+            introProgress={isShare ? undefined : (introVisualReady ? weekK : 0)}
             onPressDay={isShare ? undefined : handlePressDay}
             onTapBar={isShare ? undefined : runWeek}
           />
@@ -1600,6 +1633,7 @@ export default function EntryListScreen({ route, navigation }) {
             entries={entries}
             startDate={meta.startDate}
             endDate={meta.endDate}
+            introTick={isShare ? 0 : grassIntroTick}
           />
         </View>
       );
@@ -1611,7 +1645,8 @@ export default function EntryListScreen({ route, navigation }) {
               startDate={meta.startDate}
               entries={entries}
               interactive={!isShare}
-              introProgress={isShare ? undefined : lineK}
+              introProgress={isShare ? undefined : (introVisualReady ? lineK : 0)}
+              stableIntro={isShare ? false : skipLineIntroOnReturn}
            />
         </View>
        );
@@ -1673,6 +1708,8 @@ export default function EntryListScreen({ route, navigation }) {
   const [donutK, setDonutK] = useState(0);
  const [weekK, setWeekK] = useState(0);
  const [lineK, setLineK] = useState(0);
+ const [grassIntroTick, setGrassIntroTick] = useState(0);
+ const [introVisualReady, setIntroVisualReady] = useState(false);
  const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -1810,6 +1847,11 @@ export default function EntryListScreen({ route, navigation }) {
       console.log('[AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치');
     }
 
+    setIntroReadyTick(0);
+    setIntroVisualReady(false);
+    setDonutK(0);
+    setWeekK(0);
+    setLineK(0);
     loadingRef.current = true;
     (async () => {
       const rawCID = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
@@ -1967,13 +2009,15 @@ export default function EntryListScreen({ route, navigation }) {
 
   // 인트로 애니메이션 — 데이터·레이아웃 준비 완료 후 requestAnimationFrame으로 실행
   useEffect(() => {
-    if (!isFocused || introReadyTick === 0) return;
+    if (!isFocused || introReadyTick === 0 || dashboardLayoutReadyTick === 0) return;
     if (!Array.isArray(dashboardLayout) || dashboardLayout.length === 0) return;
     const raf = requestAnimationFrame(() => {
+      setGrassIntroTick((tick) => tick + 1);
+      setIntroVisualReady(true);
       runAllIntro();
     });
     return () => cancelAnimationFrame(raf);
-  }, [isFocused, introReadyTick, dashboardLayout.length, runAllIntro]);
+  }, [isFocused, introReadyTick, dashboardLayoutReadyTick, dashboardLayout.length, runAllIntro]);
 
   useEffect(()=>()=>{
     aliveRef.current = false;

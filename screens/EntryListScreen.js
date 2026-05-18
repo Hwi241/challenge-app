@@ -515,7 +515,6 @@ const LineGradientChart = memo(function LineGradientChart({
   width=SCREEN_WIDTH - EDGE*2 - GRAPH_SIDE_PAD*2 - 8,
   height=185,
   introProgress=1,
-  stableIntro=false,
   interactive=true,
   pagerIndex=0,
   onSelectPagerIndex=()=>{},
@@ -524,8 +523,6 @@ const LineGradientChart = memo(function LineGradientChart({
   const cw = width - left - right;
   const ch = height - top - bottom;
   const introBaselineY = top + ch + 0.5;
-  const yProgress = stableIntro ? 1 : introProgress;
-  const pathOpacity = stableIntro ? introProgress : 1;
 
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
@@ -590,7 +587,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * usableCh;
-      const y = introBaselineY - (introBaselineY - finalY) * yProgress;
+      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
       return [{ x, y, v: series[0].v, d: series[0].d, sourceIdx: 0 }];
     }
     const vmax = Math.max(1, ...series.map(p=>p.v));
@@ -601,7 +598,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const x = left + xRatio * cw;
       const yRatio = clamp(p.v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * usableCh;
-      const y = introBaselineY - (introBaselineY - finalY) * yProgress;
+      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
       return { x, y, v: p.v, d: p.d, sourceIdx: idx };
     });
   }, [series, start, end, today, left, cw, top, ch, metric, introProgress, introBaselineY]);
@@ -613,7 +610,7 @@ const LineGradientChart = memo(function LineGradientChart({
     const vmin = -vmax * 0.08;
     const range = vmax - vmin;
     const finalY = top + (1 - (v - vmin) / range) * usableCh;
-    return introBaselineY - (introBaselineY - finalY) * yProgress;
+    return introBaselineY - (introBaselineY - finalY) * introProgress;
   }, [top, ch, introProgress, introBaselineY]);
 
   const pts = useMemo(()=>{
@@ -624,7 +621,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * ch * 0.85;
-      const y = introBaselineY - (introBaselineY - finalY) * yProgress;
+      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
       const xleft = left;
       return [
         {x:xleft-0.001, y, v:series[0].v, d:series[0].d, sourceIdx: 0},
@@ -761,8 +758,8 @@ const LineGradientChart = memo(function LineGradientChart({
           </LinearGradient>
         </Defs>
 
-        {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} opacity={pathOpacity} />}
-        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={1.6} opacity={pathOpacity} />}
+        {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} />}
+        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={1.6} />}
 
         {/* X축 */}
         <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={progressGrey} strokeWidth={1} />
@@ -813,7 +810,7 @@ const LineGradientChart = memo(function LineGradientChart({
   );
 });
 
-const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, stableIntro=false, interactive=true, onPageChange }) {
+const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true, onPageChange }) {
   const { width } = useWindowDimensions();
   const pageW = width - (EDGE) * 2;
   const scrollRef = useRef(null);
@@ -857,7 +854,6 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             width={pageW-4}
             height={185}
             introProgress={introProgress}
-            stableIntro={stableIntro}
             interactive={interactive}
             pagerIndex={page}
             onSelectPagerIndex={goPage}
@@ -871,7 +867,6 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             width={pageW-4}
             height={185}
             introProgress={introProgress}
-            stableIntro={stableIntro}
             interactive={interactive}
             pagerIndex={page}
             onSelectPagerIndex={goPage}
@@ -1507,23 +1502,6 @@ export default function EntryListScreen({ route, navigation }) {
 )
 
   const isFocused = useIsFocused();
-  const hasFocusedEntryListOnceRef = useRef(false);
-  const [skipLineIntroOnReturn, setSkipLineIntroOnReturn] = useState(false);
-
-  useEffect(() => {
-    hasFocusedEntryListOnceRef.current = false;
-    setSkipLineIntroOnReturn(false);
-  }, [challengeId]);
-
-  useEffect(() => {
-    if (!isFocused) return;
-    if (hasFocusedEntryListOnceRef.current) {
-      setSkipLineIntroOnReturn(true);
-      return;
-    }
-    hasFocusedEntryListOnceRef.current = true;
-    setSkipLineIntroOnReturn(false);
-  }, [isFocused]);
 
   // 뒤로가기 항상 ChallengeList로
   React.useEffect(() => {
@@ -1645,8 +1623,8 @@ export default function EntryListScreen({ route, navigation }) {
               startDate={meta.startDate}
               entries={entries}
               interactive={!isShare}
+              key={`line-pager-${widgetId || kind}-${lineChartIntroKey}`}
               introProgress={isShare ? undefined : (introVisualReady ? lineK : 0)}
-              stableIntro={isShare ? false : skipLineIntroOnReturn}
            />
         </View>
        );
@@ -1709,6 +1687,7 @@ export default function EntryListScreen({ route, navigation }) {
  const [weekK, setWeekK] = useState(0);
  const [lineK, setLineK] = useState(0);
  const [grassIntroTick, setGrassIntroTick] = useState(0);
+ const [lineChartIntroKey, setLineChartIntroKey] = useState(0);
  const [introVisualReady, setIntroVisualReady] = useState(false);
  const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
@@ -2013,6 +1992,7 @@ export default function EntryListScreen({ route, navigation }) {
     if (!Array.isArray(dashboardLayout) || dashboardLayout.length === 0) return;
     const raf = requestAnimationFrame(() => {
       setGrassIntroTick((tick) => tick + 1);
+      setLineChartIntroKey((key) => key + 1);
       setIntroVisualReady(true);
       runAllIntro();
     });

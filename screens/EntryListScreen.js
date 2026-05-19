@@ -811,8 +811,7 @@ const LineGradientChart = memo(function LineGradientChart({
 
 const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true, onPageChange }) {
     useEffect(() => {
-      console.log('[LINE_CHARTS_PAGER_MOUNT]', { entriesCount: Array.isArray(entries) ? entries.length : 'not-array', introProgress });
-      return () => { console.log('[LINE_CHARTS_PAGER_UNMOUNT]'); };
+      return () => {};
     }, []);
   const { width } = useWindowDimensions();
   const pageW = width - (EDGE) * 2;
@@ -1084,8 +1083,7 @@ const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
 const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass }) {
     useEffect(() => {
-      console.log('[GRASS_GRAPH_MOUNT]', { entriesCount: Array.isArray(entries) ? entries.length : 'not-array', startDate, endDate });
-      return () => { console.log('[GRASS_GRAPH_UNMOUNT]'); };
+      return () => {};
     }, []);
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
   const [waveIntensity, setWaveIntensity] = useState(() => new Array(60 * 7).fill(0));
@@ -1432,7 +1430,6 @@ export default function EntryListScreen({ route, navigation }) {
   const params = route?.params || {};
   const dashboardEditReturnMode = params.dashboardEditReturnMode;
   const dashboardEditReturnedAt = params.dashboardEditReturnedAt || params.dashboardEditSavedAt;
-  console.log('[ENTRY_PARAMS_DASHBOARD_RETURN]', { challengeId: route?.params?.challengeId, dashboardEditReturnMode, dashboardEditReturnedAt, paramKeys: Object.keys(params || {}) });
   const insets = useSafeAreaInsets();
   const {
     challengeId,
@@ -1487,11 +1484,6 @@ export default function EntryListScreen({ route, navigation }) {
         if (!mounted) return;
         const nextLayout = Array.isArray(result?.layout) ? result.layout : getDefaultDashboardLayout(dashboardTarget);
         setDashboardLayoutHasStored(Boolean(result?.hasStoredLayout));
-        console.log('[ENTRY_DASHBOARD_LAYOUT_APPLY]', {
-          dashboardEditReturnedAt,
-          count: Array.isArray(nextLayout) ? nextLayout.length : 'not-array',
-          ids: Array.isArray(nextLayout) ? nextLayout.map((x) => x?.id || x?.widgetId || x?.i) : [],
-        });
         setDashboardLayout(nextLayout.map((item) => ({ ...item })));
       } catch (error) {
         console.log('Failed to load dashboard layout', error);
@@ -1563,7 +1555,6 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'progress' || kind === 'overallProgress') {
       return (
         <TouchableOpacity style={styles.donutArea} onPress={isShare ? undefined : () => runDonut()} activeOpacity={0.8} disabled={isShare}>
-          {console.log('[ENTRY_RENDER_PROGRESS]', { progressValue: donutK, dashboardEditReturnedAt })}
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
           <View style={{ marginTop: 28, alignItems: 'center' }}>
             <Donut targetPercent={overallPct} progress={isShare ? undefined : donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
@@ -1599,7 +1590,6 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'weeklyBar') {
       return (
         <View style={[styles.sectionBox, { marginVertical: 0 }]}>
-          {console.log('[ENTRY_RENDER_WEEKLY_BAR]', { weekK, weeksCount: Array.isArray(weeksData) ? weeksData.length : 'not-array', dashboardEditReturnedAt })}
           <WeekView
             weeksData={weeksData}
             currentIndex={weekIndex}
@@ -1614,7 +1604,6 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'grass') {
       return (
         <View style={[styles.sectionBox, { marginVertical: 0 }]}>
-          {console.log('[ENTRY_RENDER_GRASS]', { entriesCount: Array.isArray(entries) ? entries.length : 'not-array', dashboardEditReturnedAt })}
           <GrassGraph
             entries={entries}
             startDate={meta.startDate}
@@ -1623,7 +1612,6 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       );
     }
-        {console.log('[ENTRY_RENDER_LINE]', { lineK, entriesCount: Array.isArray(entries) ? entries.length : 'not-array', dashboardEditReturnedAt })}
       if (widgetKind === 'lineCount' || kind === 'lineMinutes') {
        return (
         <View style={[styles.sectionBox, { minHeight: 220, marginVertical: 0 }]}>

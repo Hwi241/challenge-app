@@ -8,6 +8,7 @@ import {
  TouchableOpacity,
  View,
 } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 
 import {
  DASHBOARD_TARGETS,
@@ -1066,7 +1067,21 @@ const layoutRows = useMemo(() => {
  });
  }, [dashboardTarget]);
 
- const saveLayout = useCallback(async () => {
+ const signalDashboardEditReturn = useCallback((mode) => {
+    const returnRouteKey = route?.params?.returnRouteKey;
+    if (!returnRouteKey) return;
+
+    const dashboardEditReturnedAt = Date.now();
+        navigation.dispatch({
+      ...CommonActions.setParams({
+        dashboardEditReturnMode: mode,
+        dashboardEditReturnedAt,
+      }),
+      source: returnRouteKey,
+    });
+  }, [challengeId, navigation, route?.params?.returnRouteKey]);
+
+  const saveLayout = useCallback(async () => {
  if (!challengeId) {
  Alert.alert('오류', '대시보드 대상을 찾지 못했습니다.');
  return;
@@ -1074,12 +1089,24 @@ const layoutRows = useMemo(() => {
 
  try {
  await saveDashboardLayoutForChallenge(challengeId, layout, dashboardTarget);
- navigation.goBack();
+     const returnRouteKey = route?.params?.returnRouteKey;
+    const dashboardEditReturnedAt = Date.now();
+
+    if (returnRouteKey) {
+            navigation.dispatch({
+        ...CommonActions.setParams({
+          dashboardEditReturnMode: 'save',
+          dashboardEditReturnedAt,
+        }),
+        source: returnRouteKey,
+      });
+    }
+    navigation.goBack();
  } catch (error) {
  console.log('대시보드 저장 실패:', error?.message || error);
  Alert.alert('오류', '대시보드를 저장하지 못했습니다.');
  }
- }, [challengeId, dashboardTarget, layout, navigation]);
+ }, [challengeId, dashboardTarget, layout, navigation, route?.params]);
 
  const renderGraphCard = (item, index) => {
  if (item.isPlaceholder) {
@@ -1311,7 +1338,7 @@ const layoutRows = useMemo(() => {
  <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
  <View style={styles.header}>
- <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+ <TouchableOpacity style={styles.backBtn} onPress={() => { signalDashboardEditReturn('cancel'); navigation.goBack(); }}>
  <Text style={styles.backText}>‹</Text>
  </TouchableOpacity>
  <Text style={styles.screenTitle}>대시보드 수정</Text>
@@ -1337,7 +1364,7 @@ const layoutRows = useMemo(() => {
  </ScrollView>
 
  <View style={[styles.footer, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
- <TouchableOpacity style={[styles.footerButton, styles.cancelButton]} onPress={() => navigation.goBack()}>
+ <TouchableOpacity style={[styles.footerButton, styles.cancelButton]} onPress={() => { signalDashboardEditReturn('cancel'); navigation.goBack(); }}>
  <Text style={styles.cancelButtonText}>취소</Text>
  </TouchableOpacity>
  <TouchableOpacity style={[styles.footerButton, styles.saveButton]} onPress={saveLayout}>

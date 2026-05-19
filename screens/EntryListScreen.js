@@ -810,6 +810,10 @@ const LineGradientChart = memo(function LineGradientChart({
 });
 
 const LineChartsPager = memo(function LineChartsPager({ startDate, entries, introProgress=1, interactive=true, onPageChange }) {
+    useEffect(() => {
+      console.log('[LINE_CHARTS_PAGER_MOUNT]', { entriesCount: Array.isArray(entries) ? entries.length : 'not-array', introProgress });
+      return () => { console.log('[LINE_CHARTS_PAGER_UNMOUNT]'); };
+    }, []);
   const { width } = useWindowDimensions();
   const pageW = width - (EDGE) * 2;
   const scrollRef = useRef(null);
@@ -1079,6 +1083,10 @@ const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
 const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass }) {
+    useEffect(() => {
+      console.log('[GRASS_GRAPH_MOUNT]', { entriesCount: Array.isArray(entries) ? entries.length : 'not-array', startDate, endDate });
+      return () => { console.log('[GRASS_GRAPH_UNMOUNT]'); };
+    }, []);
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
   const [waveIntensity, setWaveIntensity] = useState(() => new Array(60 * 7).fill(0));
   const sparkTimersRef = React.useRef([]);
@@ -1422,6 +1430,9 @@ const RawDebugList = ({
 /* ───────── 본문 ───────── */
 export default function EntryListScreen({ route, navigation }) {
   const params = route?.params || {};
+  const dashboardEditReturnMode = params.dashboardEditReturnMode;
+  const dashboardEditReturnedAt = params.dashboardEditReturnedAt || params.dashboardEditSavedAt;
+  console.log('[ENTRY_PARAMS_DASHBOARD_RETURN]', { challengeId: route?.params?.challengeId, dashboardEditReturnMode, dashboardEditReturnedAt, paramKeys: Object.keys(params || {}) });
   const insets = useSafeAreaInsets();
   const {
     challengeId,
@@ -1476,6 +1487,11 @@ export default function EntryListScreen({ route, navigation }) {
         if (!mounted) return;
         const nextLayout = Array.isArray(result?.layout) ? result.layout : getDefaultDashboardLayout(dashboardTarget);
         setDashboardLayoutHasStored(Boolean(result?.hasStoredLayout));
+        console.log('[ENTRY_DASHBOARD_LAYOUT_APPLY]', {
+          dashboardEditReturnedAt,
+          count: Array.isArray(nextLayout) ? nextLayout.length : 'not-array',
+          ids: Array.isArray(nextLayout) ? nextLayout.map((x) => x?.id || x?.widgetId || x?.i) : [],
+        });
         setDashboardLayout(nextLayout.map((item) => ({ ...item })));
       } catch (error) {
         console.log('Failed to load dashboard layout', error);
@@ -1510,7 +1526,7 @@ export default function EntryListScreen({ route, navigation }) {
   const [currentScore, setCurrentScore] = useState(0);
 
   const renderDashboardWidget = (item, isShare = false) => {
-    // DASHBOARD_RENDER_NORMALIZED_WIDGET_META
+        // DASHBOARD_RENDER_NORMALIZED_WIDGET_META
     const widgetId = item?.widgetId || item?.id || item?.i;
     const catalogWidget = widgetId ? (getWidgetById(widgetId) || {}) : {};
     const rawKind = item?.kind || item?.type || catalogWidget.kind || catalogWidget.type || widgetId;
@@ -1547,6 +1563,7 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'progress' || kind === 'overallProgress') {
       return (
         <TouchableOpacity style={styles.donutArea} onPress={isShare ? undefined : () => runDonut()} activeOpacity={0.8} disabled={isShare}>
+          {console.log('[ENTRY_RENDER_PROGRESS]', { progressValue: donutK, dashboardEditReturnedAt })}
           <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
           <View style={{ marginTop: 28, alignItems: 'center' }}>
             <Donut targetPercent={overallPct} progress={isShare ? undefined : donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
@@ -1582,6 +1599,7 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'weeklyBar') {
       return (
         <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          {console.log('[ENTRY_RENDER_WEEKLY_BAR]', { weekK, weeksCount: Array.isArray(weeksData) ? weeksData.length : 'not-array', dashboardEditReturnedAt })}
           <WeekView
             weeksData={weeksData}
             currentIndex={weekIndex}
@@ -1596,6 +1614,7 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'grass') {
       return (
         <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+          {console.log('[ENTRY_RENDER_GRASS]', { entriesCount: Array.isArray(entries) ? entries.length : 'not-array', dashboardEditReturnedAt })}
           <GrassGraph
             entries={entries}
             startDate={meta.startDate}
@@ -1604,7 +1623,8 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       );
     }
-    if (widgetKind === 'lineCount' || kind === 'lineMinutes') {
+        {console.log('[ENTRY_RENDER_LINE]', { lineK, entriesCount: Array.isArray(entries) ? entries.length : 'not-array', dashboardEditReturnedAt })}
+      if (widgetKind === 'lineCount' || kind === 'lineMinutes') {
        return (
         <View style={[styles.sectionBox, { minHeight: 220, marginVertical: 0 }]}>
            <LineChartsPager
@@ -1637,8 +1657,9 @@ export default function EntryListScreen({ route, navigation }) {
       title: displayTitle || meta?.title || params.title || params.challengeTitle || params.item?.title || params.challenge?.title,
       item: params.item,
       challenge: params.challenge,
+      returnRouteKey: route?.key,
     });
-  }, [navigation, challengeId, params, displayTitle, meta]);
+  }, [navigation, challengeId, params, displayTitle, meta, route?.key]);
 
   const totalCount = Array.isArray(entries) ? entries.length : 0;
 
@@ -1668,6 +1689,12 @@ export default function EntryListScreen({ route, navigation }) {
   const isDonutAnimatingRef = useRef(false);
   const isWeekAnimatingRef = useRef(false);
   const isGrassAnimatingRef = useRef(false);
+  const skipDashboardReturnIntroRef = useRef(false);
+  const skipDashboardReturnReloadRef = useRef(false);
+  const dashboardReturnSuppressUntilRef = useRef(0);
+  const dashboardReturnSuppressTimerRef = useRef(null);
+  const dashboardReturnModeRef = useRef(null);
+  const dashboardReturnIntroHandledRef = useRef(false);
 
   /* ── 인트로 애니메이션 ── */
   const [donutK, setDonutK] = useState(0);
@@ -1804,7 +1831,16 @@ export default function EntryListScreen({ route, navigation }) {
   const aliveRef = useRef(true);
   useEffect(() => {
     aliveRef.current = true;
-    if (!isFocused || loadingRef.current) return;
+    if (!isFocused) return;
+
+    const suppressDashboardReturn = dashboardReturnSuppressUntilRef.current > Date.now();
+
+    if (skipDashboardReturnReloadRef.current || suppressDashboardReturn) {
+            skipDashboardReturnReloadRef.current = false;
+      return;
+    }
+
+    if (loadingRef.current) return;
 
     if (isFocused && Math.random() < 0.3) {
       console.log('[AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치');
@@ -1965,19 +2001,93 @@ export default function EntryListScreen({ route, navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, challengeId, reloadTick, buildWeeks, reloadNonce]);
 
+  // dashboardEditReturnedAt 감지 — 저장 복귀 시 intro 스킵
+  useEffect(() => {
+        if (!dashboardEditReturnedAt) return;
+
+    const normalizedMode = dashboardEditReturnMode === 'save' ? 'save' : 'cancel';
+    const suppressUntil = Date.now() + 2500;
+
+    dashboardReturnModeRef.current = normalizedMode;
+    dashboardReturnIntroHandledRef.current = normalizedMode === 'cancel';
+    dashboardReturnSuppressUntilRef.current = suppressUntil;
+
+    if (dashboardReturnSuppressTimerRef.current) {
+      clearTimeout(dashboardReturnSuppressTimerRef.current);
+    }
+
+    dashboardReturnSuppressTimerRef.current = setTimeout(() => {
+      if (dashboardReturnSuppressUntilRef.current === suppressUntil) {
+        skipDashboardReturnIntroRef.current = false;
+        skipDashboardReturnReloadRef.current = false;
+        dashboardReturnModeRef.current = null;
+        dashboardReturnIntroHandledRef.current = false;
+        dashboardReturnSuppressUntilRef.current = 0;
+        dashboardReturnSuppressTimerRef.current = null;
+      }
+    }, 2600);
+
+    skipDashboardReturnIntroRef.current = true;
+    skipDashboardReturnReloadRef.current = true;
+
+    if (normalizedMode === 'cancel') {
+      setDonutK(1);
+      setWeekK(1);
+      setLineK(1);
+    } else {
+      setDonutK(0);
+      setWeekK(0);
+      setLineK(0);
+    }
+  }, [dashboardEditReturnMode, dashboardEditReturnedAt]);
+
+  // focus 해제 시 저장 복귀 skip ref 초기화
+  useEffect(() => {
+    if (isFocused) return;
+    if (dashboardReturnSuppressUntilRef.current > Date.now()) return;
+    skipDashboardReturnIntroRef.current = false;
+    skipDashboardReturnReloadRef.current = false;
+    dashboardReturnModeRef.current = null;
+    dashboardReturnIntroHandledRef.current = false;
+  }, [isFocused]);
+
   // 인트로 애니메이션 — 데이터·레이아웃 준비 완료 후 requestAnimationFrame으로 실행
   useEffect(() => {
     if (!isFocused || introReadyTick === 0) return;
     if (!Array.isArray(dashboardLayout) || dashboardLayout.length === 0) return;
     const raf = requestAnimationFrame(() => {
+            const suppressDashboardReturn = dashboardReturnSuppressUntilRef.current > Date.now();
+      const dashboardReturnMode = dashboardReturnModeRef.current;
+
+      if (skipDashboardReturnIntroRef.current || suppressDashboardReturn) {
+        
+        if (dashboardReturnMode === 'save') {
+          if (!dashboardReturnIntroHandledRef.current) {
+            dashboardReturnIntroHandledRef.current = true;
+            runAllIntro();
+          }
+          return;
+        }
+
+        setDonutK(1);
+        setWeekK(1);
+        setLineK(1);
+        return;
+      }
       runAllIntro();
     });
     return () => cancelAnimationFrame(raf);
-  }, [isFocused, introReadyTick, dashboardLayout.length, runAllIntro]);
+  }, [isFocused, introReadyTick, dashboardLayout.length, runAllIntro, navigation]);
 
   useEffect(()=>()=>{
     aliveRef.current = false;
     loadingRef.current = false;
+    if (dashboardReturnSuppressTimerRef.current) {
+      clearTimeout(dashboardReturnSuppressTimerRef.current);
+      dashboardReturnSuppressTimerRef.current = null;
+    }
+    dashboardReturnModeRef.current = null;
+    dashboardReturnIntroHandledRef.current = false;
   },[]);
 
   const overallPct = useMemo(

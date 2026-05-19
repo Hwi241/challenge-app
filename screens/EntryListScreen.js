@@ -1081,7 +1081,7 @@ const GRASS_ROWS = 7;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
-const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass }) {
+const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass, dashboardReturnTrigger = 0 }) {
     useEffect(() => {
       return () => {};
     }, []);
@@ -1099,6 +1099,10 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   }, []);
 
   useEffect(() => { if (onTap) onTap(() => setWaveTrigger(t => t + 1)); }, [onTap]);
+  useEffect(() => {
+    if (!dashboardReturnTrigger) return;
+    setWaveTrigger((t) => t + 1);
+  }, [dashboardReturnTrigger]);
 
   useEffect(() => {
     sparkTimersRef.current.forEach(t => clearTimeout(t));
@@ -1608,6 +1612,7 @@ export default function EntryListScreen({ route, navigation }) {
             entries={entries}
             startDate={meta.startDate}
             endDate={meta.endDate}
+            dashboardReturnTrigger={isShare ? 0 : grassDashboardReturnTick}
           />
         </View>
       );
@@ -1688,6 +1693,7 @@ export default function EntryListScreen({ route, navigation }) {
   const [donutK, setDonutK] = useState(0);
  const [weekK, setWeekK] = useState(0);
  const [lineK, setLineK] = useState(0);
+  const [grassDashboardReturnTick, setGrassDashboardReturnTick] = useState(0);
  const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -1997,7 +2003,7 @@ export default function EntryListScreen({ route, navigation }) {
     const suppressUntil = Date.now() + 2500;
 
     dashboardReturnModeRef.current = normalizedMode;
-    dashboardReturnIntroHandledRef.current = normalizedMode === 'cancel';
+    dashboardReturnIntroHandledRef.current = false;
     dashboardReturnSuppressUntilRef.current = suppressUntil;
 
     if (dashboardReturnSuppressTimerRef.current) {
@@ -2018,15 +2024,10 @@ export default function EntryListScreen({ route, navigation }) {
     skipDashboardReturnIntroRef.current = true;
     skipDashboardReturnReloadRef.current = true;
 
-    if (normalizedMode === 'cancel') {
-      setDonutK(1);
-      setWeekK(1);
-      setLineK(1);
-    } else {
-      setDonutK(0);
-      setWeekK(0);
-      setLineK(0);
-    }
+    setDonutK(0);
+    setWeekK(0);
+    setLineK(0);
+    setGrassDashboardReturnTick((tick) => tick + 1);
   }, [dashboardEditReturnMode, dashboardEditReturnedAt]);
 
   // focus 해제 시 저장 복귀 skip ref 초기화
@@ -2049,7 +2050,7 @@ export default function EntryListScreen({ route, navigation }) {
 
       if (skipDashboardReturnIntroRef.current || suppressDashboardReturn) {
         
-        if (dashboardReturnMode === 'save') {
+        if (dashboardReturnMode === 'save' || dashboardReturnMode === 'cancel') {
           if (!dashboardReturnIntroHandledRef.current) {
             dashboardReturnIntroHandledRef.current = true;
             runAllIntro();

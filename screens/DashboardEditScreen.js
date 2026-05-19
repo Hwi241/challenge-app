@@ -1273,7 +1273,7 @@ const layoutRows = useMemo(() => {
  { minHeight: cardHeight, height: cardHeight },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  gestureDraggingWidgetId === widgetId && {
-   opacity: 0.25,
+   opacity: 0.16,
  },
  ]}>
  <View style={styles.graphHeader}>
@@ -1342,7 +1342,10 @@ const layoutRows = useMemo(() => {
    const frame = getGridItemFrame(dragPlaceholder, gridWidth);
    return (
      <View pointerEvents="none" style={[styles.dragPlaceholderOverlay, {
-       left: frame.left, top: frame.top, width: frame.width, height: frame.height,
+       left: frame.left + GRID_CELL_PADDING,
+       top: frame.top,
+       width: Math.max(0, frame.width - GRID_CELL_PADDING * 2),
+       height: frame.height,
      }]} />
    );
  };
@@ -1665,10 +1668,9 @@ const styles = StyleSheet.create({
  },
  dragPlaceholderOverlay: {
  position: 'absolute',
- borderWidth: 1.5,
- borderColor: '#aaa',
- borderStyle: 'dashed',
- borderRadius: 8,
+ borderWidth: 1.2,
+ borderColor: '#999',
+ borderRadius: 10,
  backgroundColor: 'rgba(0,0,0,0.04)',
  zIndex: 998,
  pointerEvents: 'none',

@@ -280,6 +280,15 @@ export default function DashboardEditScreen({ route, navigation }) {
 const GRID_ROW_HEIGHT = 90;
 const GRID_ROW_GAP = 10;
 const GRID_CELL_PADDING = 5;
+const GRID_DRAG_STEP_THRESHOLD = 0.62;
+
+const getStableGridDelta = (rawDelta) => {
+  const numeric = Number(rawDelta) || 0;
+  const abs = Math.abs(numeric);
+  if (abs < GRID_DRAG_STEP_THRESHOLD) return 0;
+  const sign = numeric < 0 ? -1 : 1;
+  return sign * Math.floor(abs + (1 - GRID_DRAG_STEP_THRESHOLD));
+};
 
 const getGridItemHeight = (h) => {
   const safeH = Math.max(1, Number(h) || 1);
@@ -1153,8 +1162,10 @@ const layoutRows = useMemo(() => {
    .onUpdate((event) => {
      const nextOffset = { x: event.translationX, y: event.translationY };
      setGestureDragOffset(nextOffset);
-     const dX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
-     const dY = Math.round(event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
+     const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
+     const rawGridDY = event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+     const dX = slotWidth ? getStableGridDelta(rawGridDX) : 0;
+     const dY = getStableGridDelta(rawGridDY);
      if (!slotWidth || (dX === 0 && dY === 0)) {
        setDragPlaceholder(null);
        lastDropTargetRef.current = null;
@@ -1211,8 +1222,10 @@ const layoutRows = useMemo(() => {
      }
    })
    .onEnd((event) => {
-     const deltaX = slotWidth ? Math.round(event.translationX / slotWidth) : 0;
-     const deltaY = Math.round(event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
+     const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
+     const rawGridDY = event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+     const deltaX = slotWidth ? getStableGridDelta(rawGridDX) : 0;
+     const deltaY = getStableGridDelta(rawGridDY);
      const lastTarget = lastDropTargetRef.current;
      if (lastTarget && lastTarget.widgetId === widgetId) {
        const dropX = safeW >= GRID_COLUMNS ? 0 : lastTarget.x;

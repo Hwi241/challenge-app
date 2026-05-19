@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
  Alert,
+ Dimensions,
  Modal,
  ScrollView,
  StyleSheet,
@@ -205,6 +206,11 @@ export default function DashboardEditScreen({ route, navigation }) {
  const previewTargetRef = useRef(null);
  const previewLayoutSignatureRef = useRef('');
  const dragCleanupTimerRef = useRef(null);
+ const scrollRef = useRef(null);
+ const scrollYRef = useRef(0);
+ const dragStartScrollYRef = useRef(0);
+ const autoScrollTimerRef = useRef(null);
+ const autoScrollDirectionRef = useRef(0);
 
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
@@ -238,6 +244,10 @@ export default function DashboardEditScreen({ route, navigation }) {
      clearTimeout(dragCleanupTimerRef.current);
      dragCleanupTimerRef.current = null;
    }
+   if (autoScrollTimerRef.current) {
+     clearInterval(autoScrollTimerRef.current);
+     autoScrollTimerRef.current = null;
+   }
  };
  }, []);
 
@@ -248,7 +258,54 @@ export default function DashboardEditScreen({ route, navigation }) {
  }
  }, []);
 
+ const stopDashboardAutoScroll = useCallback(() => {
+ if (autoScrollTimerRef.current) {
+   clearInterval(autoScrollTimerRef.current);
+   autoScrollTimerRef.current = null;
+ }
+ autoScrollDirectionRef.current = 0;
+ }, []);
+
+ const startDashboardAutoScroll = useCallback((direction) => {
+ const nextDirection = direction < 0 ? -1 : 1;
+
+ if (
+   autoScrollTimerRef.current &&
+   autoScrollDirectionRef.current === nextDirection
+ ) {
+   return;
+ }
+
+ stopDashboardAutoScroll();
+ autoScrollDirectionRef.current = nextDirection;
+
+ autoScrollTimerRef.current = setInterval(() => {
+   const currentScrollY = scrollYRef.current;
+   const step = nextDirection > 0 ? AUTO_SCROLL_STEP : -AUTO_SCROLL_STEP;
+   const nextY = Math.max(0, currentScrollY + step);
+   scrollRef.current?.scrollTo({ y: nextY, animated: false });
+   scrollYRef.current = nextY;
+ }, AUTO_SCROLL_INTERVAL_MS);
+ }, []);
+
+ const updateDashboardAutoScroll = useCallback((absoluteY) => {
+ if (scrollRef.current == null) return;
+
+ const viewHeight = Dimensions.get('window').height;
+ const topEdge = AUTO_SCROLL_EDGE_SIZE;
+ const bottomEdge = viewHeight - AUTO_SCROLL_EDGE_SIZE;
+
+ if (absoluteY < topEdge) {
+   startDashboardAutoScroll(-1);
+ } else if (absoluteY > bottomEdge) {
+   startDashboardAutoScroll(1);
+ } else {
+   stopDashboardAutoScroll();
+ }
+ }, []);
+
  const clearDragVisualState = useCallback(() => {
+ stopDashboardAutoScroll();
  setGestureDraggingWidgetId(null);
  setGestureDragOffset({ x: 0, y: 0 });
  setDragPlaceholder(null);
@@ -258,9 +315,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  dragOriginRef.current = null;
  lastDropTargetRef.current = null;
  previewLayoutSignatureRef.current = '';
- }, []);
-
- const scheduleDragVisualCleanup = useCallback(() => {
+ }, []);const scheduleDragVisualCleanup = useCallback(() => {
  clearScheduledDragVisualCleanup();
  dragCleanupTimerRef.current = setTimeout(() => {
    dragCleanupTimerRef.current = null;
@@ -281,6 +336,9 @@ const GRID_ROW_HEIGHT = 90;
 const GRID_ROW_GAP = 10;
 const GRID_CELL_PADDING = 5;
 const GRID_DRAG_STEP_THRESHOLD = 0.62;
+const AUTO_SCROLL_EDGE_SIZE = 110;
+const AUTO_SCROLL_STEP = 9;
+const AUTO_SCROLL_INTERVAL_MS = 16;
 
 const getStableGridDelta = (rawDelta) => {
   const numeric = Number(rawDelta) || 0;
@@ -1149,6 +1207,7 @@ const layoutRows = useMemo(() => {
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
    })
    .onStart((event) => {
+     dragStartScrollYRef.current = scrollYRef.current;
      clearScheduledDragVisualCleanup();
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
@@ -1162,8 +1221,10 @@ const layoutRows = useMemo(() => {
    .onUpdate((event) => {
      const nextOffset = { x: event.translationX, y: event.translationY };
      setGestureDragOffset(nextOffset);
+     updateDashboardAutoScroll(event.absoluteY);
      const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
-     const rawGridDY = event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+     const scrollDelta = scrollYRef.current - dragStartScrollYRef.current;
+     const rawGridDY = (event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
      const dX = slotWidth ? getStableGridDelta(rawGridDX) : 0;
      const dY = getStableGridDelta(rawGridDY);
      if (!slotWidth || (dX === 0 && dY === 0)) {
@@ -1223,7 +1284,8 @@ const layoutRows = useMemo(() => {
    })
    .onEnd((event) => {
      const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
-     const rawGridDY = event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+     const scrollDelta = scrollYRef.current - dragStartScrollYRef.current;
+     const rawGridDY = (event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
      const deltaX = slotWidth ? getStableGridDelta(rawGridDX) : 0;
      const deltaY = getStableGridDelta(rawGridDY);
      const lastTarget = lastDropTargetRef.current;
@@ -1361,7 +1423,7 @@ const layoutRows = useMemo(() => {
  <View style={styles.headerSpacer} />
  </View>
 
- <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}>
+ <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}>
  <View style={styles.contentHeader}>
  <Text style={styles.challengeTitle} numberOfLines={1}>{title}</Text>
  <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>

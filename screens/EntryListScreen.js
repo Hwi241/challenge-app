@@ -2549,7 +2549,7 @@ postSummaryRow: {
   progressLabel: { marginTop: 10, color: textGrey },
   row: { flexDirection: 'row', marginTop: 16 },
   donutArea: { width: 90, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 10 },
-  calendarArea: { flex: 1, paddingLeft: 12 },
+  calendarArea: { flex: 1, justifyContent: 'center' },
 
   sectionBox: { marginTop: 10 },
   sectionLabel: { fontSize: 12, color: textGrey, marginBottom: 6 },

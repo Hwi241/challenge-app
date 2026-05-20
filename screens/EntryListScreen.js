@@ -2132,80 +2132,81 @@ export default function EntryListScreen({ route, navigation }) {
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
     const DashboardGraphArea = ({ isShare = false } = {}) => {
     const sourceLayout = dashboardLayout;
-    const baseLayout = Array.isArray(sourceLayout) ? sourceLayout : getDefaultDashboardLayout(dashboardTarget);
-    const safeLayout = baseLayout.map((item, index) => ({
-      ...item,
-      id: item.id || item.widgetId || item.i || `dashboard_graph_${index}`,
-      widgetId: item.widgetId || item.id || item.i || `dashboard_graph_${index}`,
-      x: Number.isFinite(Number(item.x)) ? Number(item.x) : 0,
-      y: Number.isFinite(Number(item.y)) ? Number(item.y) : index,
-      w: Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || GRID_COLUMNS)),
-      h: Math.max(1, Number(item.h) || 1),
-    }));
+    const baseLayout = Array.isArray(sourceLayout) && sourceLayout.length
+      ? sourceLayout
+      : getDefaultDashboardLayout(dashboardTarget);
 
-    const rows = new Map();
-    safeLayout.forEach((item, index) => {
-      const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w || GRID_COLUMNS)));
-      const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item?.x || 0)));
-      const safeY = Number.isFinite(Number(item?.y)) ? Math.max(0, Number(item.y)) : index;
-      const normalized = { ...item, x: safeX, y: safeY, w: safeW };
-      if (!rows.has(safeY)) rows.set(safeY, []);
-      rows.get(safeY).push(normalized);
-    });
+    const GRID_ROW_HEIGHT_VIEW = 120;
+    const GRID_ROW_GAP_VIEW = 8;
+    const GRID_CELL_PADDING_VIEW = 4;
 
     const fixedSizes = {
       goal_black_box: { w: 6, h: 1 },
     };
 
-    const layoutRows = Array.from(rows.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([rowY, items]) => {
-        const sortedItems = items.sort((a, b) => {
-          if (a.x !== b.x) return a.x - b.x;
-          return String(a.widgetId || a.id || '').localeCompare(String(b.widgetId || b.id || ''));
-        });
-        const normalizedItems = sortedItems.map((item) => {
-          const fixedSize = fixedSizes[item.widgetId];
-          if (!fixedSize) return item;
-          return {
-            ...item,
-            w: Math.min(GRID_COLUMNS, fixedSize.w),
-            h: fixedSize.h,
-          };
-        });
-        const slots = [];
-        let cursor = 0;
+    const safeLayout = baseLayout
+      .map((item, index) => {
+        const widgetId = item.widgetId || item.id || item.i || `dashboard_graph_${index}`;
+        const fixedSize = fixedSizes[widgetId];
 
-        normalizedItems.forEach((item, index) => {
-          const itemX = Math.max(cursor, Number(item.x || 0));
-          if (itemX > cursor) {
-            slots.push({ type: 'spacer', key: `spacer-${rowY}-${index}`, w: itemX - cursor });
-          }
-          const itemW = Math.max(1, Math.min(GRID_COLUMNS - itemX, Number(item.w || GRID_COLUMNS)));
-          slots.push({ type: 'item', key: `item-${rowY}-${item.widgetId || item.id || index}`, item: { ...item, x: itemX, w: itemW }, w: itemW });
-          cursor = Math.min(GRID_COLUMNS, itemX + itemW);
-        });
+        const rawW = fixedSize?.w ?? item.w;
+        const rawH = fixedSize?.h ?? item.h;
 
-        if (cursor < GRID_COLUMNS) {
-          slots.push({ type: 'spacer', key: `spacer-${rowY}-end`, w: GRID_COLUMNS - cursor });
-        }
+        const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(rawW) || GRID_COLUMNS));
+        const safeH = Math.max(1, Number(rawH) || 1);
+        const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x) || 0));
+        const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
 
-        return { rowY, slots };
+        return {
+          ...item,
+          id: widgetId,
+          widgetId,
+          x: safeX,
+          y: safeY,
+          w: safeW,
+          h: safeH,
+        };
+      })
+      .sort((a, b) => {
+        if (a.y !== b.y) return a.y - b.y;
+        return a.x - b.x;
       });
 
-    const renderSlot = (slot, index) => {
-      const widthPct = ((Math.max(0, Number(slot.w || 0)) / GRID_COLUMNS) * 100) + '%';
-      if (slot.type === 'spacer') {
-        return <View key={slot.key || index} style={{ width: widthPct, minHeight: 1 }} />;
-      }
+    const maxRow = safeLayout.reduce((max, item) => {
+      const y = Math.max(0, Number(item.y) || 0);
+      const h = Math.max(1, Number(item.h) || 1);
+      return Math.max(max, y + h);
+    }, 0);
 
-      const item = slot.item;
+    const boardHeight = maxRow > 0
+      ? maxRow * GRID_ROW_HEIGHT_VIEW + Math.max(0, maxRow - 1) * GRID_ROW_GAP_VIEW
+      : GRID_ROW_HEIGHT_VIEW;
+
+    const renderAbsoluteSlot = (item, index) => {
       const widgetId = item.widgetId || item.id || `graph_${index}`;
-      const slotHeight = Math.max(60, (Number(item.h) || 1) * 60);
+      const safeX = Math.max(0, Math.min(GRID_COLUMNS - item.w, Number(item.x) || 0));
+      const safeY = Math.max(0, Number(item.y) || 0);
+      const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || GRID_COLUMNS));
+      const safeH = Math.max(1, Number(item.h) || 1);
+
+      const leftPct = `${(safeX / GRID_COLUMNS) * 100}%`;
+      const widthPct = `${(safeW / GRID_COLUMNS) * 100}%`;
+      const top = safeY * (GRID_ROW_HEIGHT_VIEW + GRID_ROW_GAP_VIEW);
+      const height = safeH * GRID_ROW_HEIGHT_VIEW + Math.max(0, safeH - 1) * GRID_ROW_GAP_VIEW;
 
       return (
-        <View key={slot.key || widgetId} style={{ width: widthPct, paddingHorizontal: 4, marginBottom: 8 }}>
-          <View style={{ minHeight: slotHeight, position: 'relative' }}>
+        <View
+          key={widgetId}
+          style={{
+            position: 'absolute',
+            left: leftPct,
+            top,
+            width: widthPct,
+            height,
+            paddingHorizontal: GRID_CELL_PADDING_VIEW,
+          }}
+        >
+          <View style={{ height, minHeight: height, position: 'relative' }}>
             {renderDashboardWidget(item, isShare)}
           </View>
         </View>
@@ -2218,29 +2219,24 @@ export default function EntryListScreen({ route, navigation }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#111' }}>대시보드</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (typeof enterDashboardEdit === 'function') enterDashboardEdit();
-                  }}
-                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: '#111' }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 12 }}>대시보드 수정</Text>
-                </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (typeof enterDashboardEdit === 'function') enterDashboardEdit();
+                }}
+                style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: '#111' }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>대시보드 수정</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
 
-        <View style={{ gap: 8 }}>
-          {layoutRows.map((row) => (
-            <View key={row.rowY} style={{ width: '100%', flexDirection: 'row' }}>
-              {row.slots.map(renderSlot)}
-            </View>
-          ))}
+        <View style={{ position: 'relative', width: '100%', height: boardHeight }}>
+          {safeLayout.map((item, index) => renderAbsoluteSlot(item, index))}
         </View>
       </View>
     );
-  };
-  const HeaderCard = useMemo(()=>(<View style={styles.card}>
+  };const HeaderCard = useMemo(()=>(<View style={styles.card}>
             <View style={styles.headerTop}>
         <TouchableOpacity
           onPress={() => navigation.navigate('ChallengeList')}

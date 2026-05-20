@@ -81,13 +81,15 @@ const sanitizeDashboardLayout = (layout, target) => {
       const rawId = item.id || item.widgetId || item.i;
       const columnCount = typeof GRID_COLUMNS === 'number' ? GRID_COLUMNS : 3;
       const width = Math.max(1, Math.min(columnCount, Number(item.w) || columnCount));
+      const rawY = Number(item.y);
+      const safeY = Number.isFinite(rawY) ? Math.max(0, rawY) : index;
 
       return {
         ...item,
         id: rawId,
         widgetId: item.widgetId || rawId,
         x: Math.max(0, Math.min(columnCount - width, Number(item.x) || 0)),
-        y: Math.max(0, Number(item.y) || index),
+        y: safeY,
         w: width,
         h: Math.max(1, Number(item.h) || 1),
       };

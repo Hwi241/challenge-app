@@ -883,7 +883,16 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
 
 
 /* ───────── 주간 뷰 ───────── */
-const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChange, introProgress=1, onPressDay, onTapBar }) {
+const WeekView = memo(function WeekView({
+  weeksData,
+  currentIndex = 0,
+  onIndexChange,
+  introProgress = 1,
+  onPressDay,
+  onTapBar,
+  challengeStartDate,
+  challengeEndDate,
+}) {
   const scrollRef = useRef(null);
   const [pageW, setPageW] = useState(0);
 
@@ -901,6 +910,75 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
     () => Math.max(0, Math.min(currentIndex, Math.max(weeksData.length - 1, 0))) * pageW,
     [currentIndex, weeksData.length, pageW]
   );
+
+  const goWeek = useCallback((targetIndex) => {
+    if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;
+    const nextIndex = Math.max(0, Math.min(Number(targetIndex) || 0, weeksData.length - 1));
+    scrollRef.current?.scrollTo({ x: nextIndex * pageW, animated: true });
+    if (typeof onIndexChange === 'function') onIndexChange(nextIndex);
+  }, [pageW, weeksData, onIndexChange]);
+
+  const monthPagerWeeks = useMemo(() => {
+    if (!Array.isArray(weeksData) || weeksData.length === 0) return [];
+
+    const currentWeek = weeksData[Math.max(0, Math.min(currentIndex, weeksData.length - 1))] || weeksData[0];
+    if (!currentWeek?.ws) return [];
+
+    const base = new Date(currentWeek.ws);
+    base.setHours(0, 0, 0, 0);
+
+    const monthStart = new Date(base.getFullYear(), base.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const monthEnd = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+
+    const firstWeekStart = new Date(monthStart);
+    firstWeekStart.setDate(monthStart.getDate() - monthStart.getDay());
+    firstWeekStart.setHours(0, 0, 0, 0);
+
+    const challengeStart = challengeStartDate ? new Date(challengeStartDate) : null;
+    const challengeEnd = challengeEndDate ? new Date(challengeEndDate) : null;
+    if (challengeStart) challengeStart.setHours(0, 0, 0, 0);
+    if (challengeEnd) challengeEnd.setHours(23, 59, 59, 999);
+
+    const result = [];
+    const cursor = new Date(firstWeekStart);
+
+    while (cursor <= monthEnd) {
+      const weekStart = new Date(cursor);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      const dataIndex = weeksData.findIndex((week) => {
+        if (!week?.ws) return false;
+        const ws = new Date(week.ws);
+        ws.setHours(0, 0, 0, 0);
+        return keyOf(ws) === keyOf(weekStart);
+      });
+
+      const inChallengeRange = !!(
+        challengeStart &&
+        challengeEnd &&
+        weekStart <= challengeEnd &&
+        weekEnd >= challengeStart
+      );
+
+      result.push({
+        key: keyOf(weekStart),
+        dataIndex,
+        inChallengeRange,
+        isCurrent: dataIndex === currentIndex,
+      });
+
+      cursor.setDate(cursor.getDate() + 7);
+    }
+
+    return result;
+  }, [weeksData, currentIndex, challengeStartDate, challengeEndDate]);
 
   const renderWeek = useCallback(({ dailyStats }, idx) => {
     const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
@@ -1004,12 +1082,14 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
   const isWeekLayoutReady = pageW > 0;
-  const WEEK_VIEW_HEIGHT = 170;
+  const WEEK_VIEW_HEIGHT = 184;
+  const WEEK_CONTROL_HEIGHT = 20;
+  const WEEK_GRAPH_HEIGHT = WEEK_VIEW_HEIGHT - WEEK_CONTROL_HEIGHT;
 
   return (
     <View style={{ height: WEEK_VIEW_HEIGHT }} onLayout={onLayout}>
       {!isWeekLayoutReady ? (
-        <View style={{ height: WEEK_VIEW_HEIGHT }} />
+        <View style={{ height: WEEK_GRAPH_HEIGHT }} />
       ) : (
       <ScrollView
         key={`week-${weeksData.length}`}
@@ -1020,7 +1100,7 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
         snapToAlignment="start"
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
-        style={{ flex: 1 }}
+        style={{ height: WEEK_GRAPH_HEIGHT }}
         contentOffset={{ x: initialOffsetX, y: 0 }}
         onMomentumScrollEnd={(e) => {
           const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
@@ -1043,37 +1123,49 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
       </ScrollView>
       )}
 
-      {/* 좌측 화살표 */}
-      {isWeekLayoutReady && canPrevWeek && (
-        <View style={{ position: 'absolute', left: -4, top: 0, height: 24, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
-          <TouchableOpacity
-            onPress={() => {
-              const prev = Math.max(0, currentIndex - 1);
-              scrollRef.current?.scrollTo({ x: prev * pageW, animated: true });
-              if (typeof onIndexChange === 'function') onIndexChange(prev);
-            }}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: '900', color: '#6B7280', marginTop: -6 }}>{'‹'}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.weekPagerControl}>
+        <TouchableOpacity
+          style={styles.weekPagerArrowHit}
+          onPress={() => goWeek(currentIndex - 1)}
+          disabled={!canPrevWeek}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.weekPagerArrow, !canPrevWeek && styles.weekPagerArrowDisabled]}>{'‹'}</Text>
+        </TouchableOpacity>
 
-      {/* 우측 화살표 */}
-      {isWeekLayoutReady && canNextWeek && (
-        <View style={{ position: 'absolute', right: -4, top: 0, height: 24, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
-          <TouchableOpacity
-            onPress={() => {
-              const next = Math.min(weeksData.length - 1, currentIndex + 1);
-              scrollRef.current?.scrollTo({ x: next * pageW, animated: true });
-              if (typeof onIndexChange === 'function') onIndexChange(next);
-            }}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: '900', color: '#6B7280', marginTop: -6 }}>{'›'}</Text>
-          </TouchableOpacity>
+        <View style={styles.weekPagerDots}>
+          {monthPagerWeeks.map((week) => {
+            const dotStyle = week.isCurrent
+              ? styles.weekPagerDotActive
+              : week.inChallengeRange
+              ? styles.weekPagerDotInRange
+              : styles.weekPagerDotOutRange;
+
+            return (
+              <TouchableOpacity
+                key={week.key}
+                style={styles.weekPagerDotHit}
+                onPress={() => {
+                  if (week.dataIndex >= 0) goWeek(week.dataIndex);
+                }}
+                disabled={week.dataIndex < 0}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.weekPagerDot, dotStyle]} />
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      )}
+
+        <TouchableOpacity
+          style={styles.weekPagerArrowHit}
+          onPress={() => goWeek(currentIndex + 1)}
+          disabled={!canNextWeek}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.weekPagerArrow, !canNextWeek && styles.weekPagerArrowDisabled]}>{'›'}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 });
@@ -1604,6 +1696,8 @@ export default function EntryListScreen({ route, navigation }) {
             introProgress={isShare ? undefined : weekK}
             onPressDay={isShare ? undefined : handlePressDay}
             onTapBar={isShare ? undefined : runWeek}
+            challengeStartDate={meta.startDate}
+            challengeEndDate={meta.endDate}
           />
         </View>
       );
@@ -2582,6 +2676,57 @@ weeklyWidgetArea: {
   width: '100%',
   justifyContent: 'center',
 },
+weekPagerControl: {
+  height: 20,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+weekPagerArrowHit: {
+  width: 22,
+  height: 20,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+weekPagerArrow: {
+  fontSize: 15,
+  fontWeight: '800',
+  color: '#111',
+  lineHeight: 16,
+},
+weekPagerArrowDisabled: {
+  color: '#E5E7EB',
+},
+weekPagerDots: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingHorizontal: 4,
+},
+weekPagerDotHit: {
+  width: 12,
+  height: 20,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+weekPagerDot: {
+  width: 5,
+  height: 5,
+  borderRadius: 2.5,
+  backgroundColor: '#E5E7EB',
+},
+weekPagerDotActive: {
+  width: 6,
+  height: 6,
+  borderRadius: 3,
+  backgroundColor: '#111',
+},
+weekPagerDotInRange: {
+  backgroundColor: '#9CA3AF',
+},
+weekPagerDotOutRange: {
+  backgroundColor: '#E5E7EB',
+},
 rewardBlackBox: {
   minHeight: 56,
   borderRadius: 12,
@@ -2710,3 +2855,4 @@ rewardBlockSpacing: {
   modalFieldValue: { fontSize: 13, color: '#111' },
   modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
 });
+;

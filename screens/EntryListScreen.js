@@ -518,8 +518,19 @@ const LineGradientChart = memo(function LineGradientChart({
   interactive=true,
   pagerIndex=0,
   onSelectPagerIndex=()=>{},
+  showPager=true,
+  plotInset=12,
+  edgePointInset=null,
 }){
-  const left = 12, right = 12, top = 16, bottom = 42;
+  const axisInset = Math.max(0, Number(plotInset) || 0);
+  const EDGE_DEFAULT_MARKER_R = 3.2;
+  const EDGE_DEFAULT_MARKER_STROKE_W = 2;
+  const autoPointSafeInset = EDGE_DEFAULT_MARKER_R + EDGE_DEFAULT_MARKER_STROKE_W / 2;
+  const pointSafeInset = Math.max(
+    0,
+    Number(edgePointInset ?? (axisInset === 0 ? autoPointSafeInset : axisInset)) || 0
+  );
+  const left = axisInset, right = axisInset, top = 16, bottom = 42;
   const cw = width - left - right;
   const ch = height - top - bottom;
   const introBaselineY = top + ch + 0.5;
@@ -602,6 +613,14 @@ const LineGradientChart = memo(function LineGradientChart({
       return { x, y, v: p.v, d: p.d, sourceIdx: idx };
     });
   }, [series, start, end, today, left, cw, top, ch, metric, introProgress, introBaselineY]);
+
+const safeNodePts = useMemo(() => {
+ if (!Array.isArray(nodePts) || nodePts.length === 0) return [];
+ return nodePts.map((point) => ({
+   ...point,
+   x: Math.min(Math.max(point.x, pointSafeInset), width - pointSafeInset),
+ }));
+}, [nodePts, pointSafeInset, width]);
 
   const yScale = useCallback((v, vmax)=> {
     const BOTTOM_PADDING_RATIO = 0.15;
@@ -691,7 +710,7 @@ const LineGradientChart = memo(function LineGradientChart({
   const nearX = (cx, r = 16) => Math.abs(x - cx) <= r;
 
   // 페이저 점(●●) 터치 캡처 - Y 범위도 체크
-  if (y >= dotCy - 16 && y <= dotCy + 16) {
+  if (showPager && y >= dotCy - 16 && y <= dotCy + 16) {
     if (nearX(dotCx1) || nearX(dotCx2)) return true;
   }
 
@@ -700,7 +719,7 @@ const LineGradientChart = memo(function LineGradientChart({
     return true;
   }
   return false;
-}, [interactive, nodePts, dotCx1, dotCx2, dotCy, top, ch, bottom]);
+}, [interactive, nodePts, dotCx1, dotCx2, dotCy, top, ch, bottom, showPager]);
 
   const handleRelease = useCallback((evt)=>{
     if(!interactive) return;
@@ -708,20 +727,20 @@ const LineGradientChart = memo(function LineGradientChart({
     const nearX = (cx, r=16) => Math.abs(x - cx) <= r;
 
     // 페이저 점 터치 - Y 범위 체크
-    if (y >= dotCy - 16 && y <= dotCy + 16) {
+    if (showPager && y >= dotCy - 16 && y <= dotCy + 16) {
       if (nearX(dotCx1)) { onSelectPagerIndex(0); return; }
       if (nearX(dotCx2)) { onSelectPagerIndex(1); return; }
     }
 
     // 그래프 영역 내 X좌표 기준으로 가장 가까운 노드 선택
-    if (!nodePts.length) return;
+    if (!safeNodePts.length) return;
     let best = 0, bestDx = Infinity;
-    for (let i=0;i<nodePts.length;i++){
-      const dx = Math.abs(nodePts[i].x - x);
+    for (let i=0;i<safeNodePts.length;i++){
+      const dx = Math.abs(safeNodePts[i].x - x);
       if (dx < bestDx) { bestDx = dx; best = i; }
     }
     setSelectedIdx(best);
-  }, [interactive, nodePts, dotCx1, dotCx2, dotCy, onSelectPagerIndex]);
+  }, [interactive, safeNodePts, dotCx1, dotCx2, dotCy, onSelectPagerIndex, showPager]);
 
   const selectedLabel = useMemo(()=>{
     if (selectedIdx==null || !series[selectedIdx]) return null;
@@ -732,10 +751,10 @@ const LineGradientChart = memo(function LineGradientChart({
 
   const selPoint = useMemo(()=>{
     if (selectedIdx==null) return null;
-    return nodePts[selectedIdx] || null;
-  }, [selectedIdx, nodePts]);
+    return safeNodePts[selectedIdx] || null;
+  }, [selectedIdx, safeNodePts]);
 
-  const endNode = nodePts[nodePts.length-1] || null;
+  const safeEndNode = safeNodePts[safeNodePts.length-1] || null;
 
   return (
     <View pointerEvents="box-none">
@@ -772,8 +791,8 @@ const LineGradientChart = memo(function LineGradientChart({
         </SvgText>
 
         {/* 마커/라벨 */}
-        {!selPoint && endNode && (
-          <Circle cx={endNode.x} cy={endNode.y} r={3.2} fill="#fff" stroke={baseBlack} strokeWidth={2}/>
+        {!selPoint && safeEndNode && (
+          <Circle cx={safeEndNode.x} cy={safeEndNode.y} r={3.2} fill="#fff" stroke={baseBlack} strokeWidth={2}/>
         )}
         {selPoint && (
           <Circle cx={selPoint.x} cy={selPoint.y} r={3.8} fill="#fff" stroke={baseBlack} strokeWidth={2.1}/>
@@ -789,8 +808,8 @@ const LineGradientChart = memo(function LineGradientChart({
             </>
           );
         })()}
-        {!selPoint && defaultLabel && endNode && (() => {
-          const pos = placeLabel(endNode, defaultLabel, true);
+        {!selPoint && defaultLabel && safeEndNode && (() => {
+          const pos = placeLabel(safeEndNode, defaultLabel, true);
           return (
             <>
               <Rect x={pos.lx} y={pos.ly} width={pos.w} height={pos.h} rx={6} fill="#111"/>
@@ -802,8 +821,12 @@ const LineGradientChart = memo(function LineGradientChart({
         })()}
 
         {/* 내장 페이저 점 */}
+        {showPager && (
+        <>
         <Circle cx={left + cw/2 - 10} cy={top + ch + 14} r={4} fill={pagerIndex===0 ? '#111' : '#D1D5DB'} />
         <Circle cx={left + cw/2 + 10} cy={top + ch + 14} r={4} fill={pagerIndex===1 ? '#111' : '#D1D5DB'} />
+        </>
+        )}
       </Svg>
     </View>
   );
@@ -877,6 +900,44 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
       </ScrollView>
 
       {/* ⛔️ 외부 점(아래쪽 ●●)은 제거했습니다 — 그래프 내부 점만 남김 */}
+    </View>
+  );
+});
+
+const DashboardLineChart = memo(function DashboardLineChart({
+  startDate,
+  entries,
+  metric,
+  introProgress=1,
+  interactive=true,
+}) {
+  const [chartW, setChartW] = useState(0);
+
+  const onLayout = useCallback((event) => {
+    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
+    if (width > 0 && width !== chartW) setChartW(width);
+  }, [chartW]);
+
+  const chartWidth = Math.max(1, chartW);
+
+  return (
+    <View style={styles.lineWidgetArea} onLayout={onLayout}>
+      {chartW > 0 ? (
+        <LineGradientChart
+          startDate={startDate}
+          entries={entries}
+          metric={metric}
+          width={chartWidth}
+          height={185}
+          introProgress={introProgress}
+          interactive={interactive}
+          pagerIndex={metric === 'minutes' ? 1 : 0}
+          showPager={false}
+          plotInset={0}
+        />
+      ) : (
+        <View style={{ width: '100%', height: 185 }} />
+      )}
     </View>
   );
 });
@@ -1752,17 +1813,36 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       );
     }
-      if (widgetKind === 'lineCount' || kind === 'lineMinutes') {
-       return (
-        <View style={[styles.sectionBox, { minHeight: 220, marginVertical: 0 }]}>
-           <LineChartsPager
+    if (widgetKind === 'lineCount') {
+      return (
+        <View style={styles.dashboardContentFrame}>
+          <View style={styles.dashboardGraphGuide}>
+            <DashboardLineChart
               startDate={meta.startDate}
               entries={entries}
+              metric="count"
               interactive={!isShare}
               introProgress={isShare ? undefined : lineK}
-           />
+            />
+          </View>
         </View>
-       );
+      );
+    }
+
+    if (widgetKind === 'lineMinutes') {
+      return (
+        <View style={styles.dashboardContentFrame}>
+          <View style={styles.dashboardGraphGuide}>
+            <DashboardLineChart
+              startDate={meta.startDate}
+              entries={entries}
+              metric="minutes"
+              interactive={!isShare}
+              introProgress={isShare ? undefined : lineK}
+            />
+          </View>
+        </View>
+      );
     }
     return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중 ({kind})</Text></View>;
   };
@@ -2708,6 +2788,12 @@ grassWidgetArea: {
   flex: 1,
   width: '100%',
   justifyContent: 'center',
+},
+lineWidgetArea: {
+  flex: 1,
+  width: '100%',
+  justifyContent: 'center',
+  overflow: 'hidden',
 },
 weeklyWidgetArea: {
   flex: 1,

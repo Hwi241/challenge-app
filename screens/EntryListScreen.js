@@ -895,16 +895,29 @@ const WeekView = memo(function WeekView({
 }) {
   const scrollRef = useRef(null);
   const [pageW, setPageW] = useState(0);
+  const [weekDateTextWidth, setWeekDateTextWidth] = useState(0);
+
+  const recordWeekDateTextWidth = useCallback((event) => {
+    const width = Math.ceil(event?.nativeEvent?.layout?.width || 0);
+    if (width <= 0) return;
+    setWeekDateTextWidth((prev) => (width > prev ? width : prev));
+  }, []);
 
   const onLayout = useCallback((e) => {
     const w = Math.floor(e.nativeEvent.layout.width || SCREEN_WIDTH);
     if (w && w !== pageW) setPageW(w);
   }, [pageW]);
 
-  const PADDING_H = EDGE;
-  const INNER_W = Math.floor(pageW - PADDING_H * 2);
-  const COL_W   = Math.floor(INNER_W / 7);
-  const ROW_W   = COL_W * 7;
+  const PADDING_H = 0;
+  const WEEK_BAR_W = 16;
+  const WEEK_DATE_TEXT_SAFE_PAD = 2;
+  const WEEK_EDGE_TARGET_W = Math.max(WEEK_BAR_W, weekDateTextWidth + WEEK_DATE_TEXT_SAFE_PAD);
+  const EDGE_COLUMN_BLEED = pageW > 0 && weekDateTextWidth > 0
+    ? Math.max(0, (pageW - WEEK_EDGE_TARGET_W * 7) / 12)
+    : 0;
+  const ROW_W = Math.max(1, pageW + EDGE_COLUMN_BLEED * 2);
+  const COL_W = ROW_W / 7;
+  const ROW_OFFSET_X = -EDGE_COLUMN_BLEED;
 
   const initialOffsetX = useMemo(
     () => Math.max(0, Math.min(currentIndex, Math.max(weeksData.length - 1, 0))) * pageW,
@@ -986,7 +999,7 @@ const WeekView = memo(function WeekView({
 
     return (
       <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: 10 }}>
-        <View style={{ flexDirection:'row', width: ROW_W, alignSelf:'center' }}>
+        <View style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X }}>
           {dailyStats.map((stat, i) => (
             <TouchableOpacity
               key={i}
@@ -994,13 +1007,18 @@ const WeekView = memo(function WeekView({
               onPress={() => onPressDay?.(stat.date, weeksData[idx]?.ws, i)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.dateLabel, { marginBottom: 2 }]}>{stat.date}</Text>
+              <Text
+                onLayout={recordWeekDateTextWidth}
+                style={[styles.dateLabel, { marginBottom: 2 }]}
+              >
+                {stat.date}
+              </Text>
               <Text style={styles.dayLabel}>{DAY_LABELS[i]}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, alignSelf:'center', alignItems:'flex-end', height: 120, marginTop: 10 }}>
+        <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, alignItems:'flex-end', height: 120, marginTop: 10 }}>
           {dailyStats.map((stat, i) => {
             const hasTime = (stat.duration || 0) > 0;
             const hasCount = (stat.totalCount || 0) > 0;
@@ -1077,7 +1095,7 @@ const WeekView = memo(function WeekView({
         </TouchableOpacity>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, introProgress, weeksData, onPressDay, onTapBar]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar]);
 
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
@@ -1665,56 +1683,72 @@ export default function EntryListScreen({ route, navigation }) {
     }
     if (widgetKind === 'calendar') {
       return (
-        <View style={styles.calendarArea}>
-          <MonthCalendar
-            startDate={meta.startDate || new Date()}
-            endDate={meta.endDate || new Date()}
-            entriesByDaySet={entriesByDaySet}
-            monthDate={monthDate}
-            onPrev={isShare ? undefined : prevMonth}
-            onNext={isShare ? undefined : nextMonth}
-            canPrev={isShare ? false : canPrevMonth}
-            canNext={isShare ? false : canNextMonth}
-            highlightDate={highlightDate}
-          />
+        <View style={styles.dashboardContentFrame}>
+          <View style={styles.dashboardGraphGuide}>
+            <View style={styles.calendarArea}>
+              <MonthCalendar
+                startDate={meta.startDate || new Date()}
+                endDate={meta.endDate || new Date()}
+                entriesByDaySet={entriesByDaySet}
+                monthDate={monthDate}
+                onPrev={isShare ? undefined : prevMonth}
+                onNext={isShare ? undefined : nextMonth}
+                canPrev={isShare ? false : canPrevMonth}
+                canNext={isShare ? false : canNextMonth}
+                highlightDate={highlightDate}
+              />
+            </View>
+          </View>
         </View>
       );
     }
     if (widgetKind === 'goal') {
       if (dashboardTarget === DASHBOARD_TARGETS.HABIT) return null;
       return (
-        <View style={styles.goalWidgetArea}>
-          <View style={styles.rewardBlackBox}>
-            <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+        <View style={styles.dashboardContentFrame}>
+          <View style={styles.dashboardGraphGuide}>
+            <View style={styles.goalWidgetArea}>
+              <View style={styles.rewardBlackBox}>
+                <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+              </View>
+            </View>
           </View>
         </View>
       );
     }
     if (widgetKind === 'weeklyBar') {
       return (
-        <View style={styles.weeklyWidgetArea}>
-          <WeekView
-            weeksData={weeksData}
-            currentIndex={weekIndex}
-            onIndexChange={isShare ? undefined : setWeekIndex}
-            introProgress={isShare ? undefined : weekK}
-            onPressDay={isShare ? undefined : handlePressDay}
-            onTapBar={isShare ? undefined : runWeek}
-            challengeStartDate={meta.startDate}
-            challengeEndDate={meta.endDate}
-          />
+        <View style={styles.dashboardContentFrame}>
+          <View style={styles.dashboardGraphGuide}>
+            <View style={styles.weeklyWidgetArea}>
+              <WeekView
+                weeksData={weeksData}
+                currentIndex={weekIndex}
+                onIndexChange={isShare ? undefined : setWeekIndex}
+                introProgress={isShare ? undefined : weekK}
+                onPressDay={isShare ? undefined : handlePressDay}
+                onTapBar={isShare ? undefined : runWeek}
+                challengeStartDate={meta.startDate}
+                challengeEndDate={meta.endDate}
+              />
+            </View>
+          </View>
         </View>
       );
     }
     if (widgetKind === 'grass') {
       return (
-        <View style={styles.grassWidgetArea}>
-          <GrassGraph
-            entries={entries}
-            startDate={meta.startDate}
-            endDate={meta.endDate}
-            dashboardReturnTrigger={isShare ? 0 : grassDashboardReturnTick}
-          />
+        <View style={styles.dashboardContentFrame}>
+          <View style={styles.dashboardGraphGuide}>
+            <View style={styles.grassWidgetArea}>
+              <GrassGraph
+                entries={entries}
+                startDate={meta.startDate}
+                endDate={meta.endDate}
+                dashboardReturnTrigger={isShare ? 0 : grassDashboardReturnTick}
+              />
+            </View>
+          </View>
         </View>
       );
     }
@@ -2769,7 +2803,22 @@ grassArrowText: {
   lineHeight: 12,
   includeFontPadding: false,
 },
+dashboardContentFrame: {
+  flex: 1,
+  width: '100%',
+  height: '100%',
+  justifyContent: 'center',
+  overflow: 'hidden',
+},
+dashboardGraphGuide: {
+  flex: 1,
+  width: '100%',
+  height: '100%',
+  justifyContent: 'center',
+  paddingHorizontal: 6,
+},
 rewardBlackBox: {
+  width: '100%',
   minHeight: 56,
   borderRadius: 12,
   backgroundColor: '#111',
@@ -2784,7 +2833,7 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
 
   calWrap: {
     width: '100%',
-    paddingHorizontal: 4,
+    paddingHorizontal: 0,
     paddingVertical: 4,
     borderWidth: 0,
   },
@@ -2897,4 +2946,3 @@ rewardBlockSpacing: {
   modalFieldValue: { fontSize: 13, color: '#111' },
   modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
 });
-;

@@ -1004,11 +1004,12 @@ const WeekView = memo(function WeekView({ weeksData, currentIndex=0, onIndexChan
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
   const isWeekLayoutReady = pageW > 0;
+  const WEEK_VIEW_HEIGHT = 170;
 
   return (
-    <View style={{ height: 180 }} onLayout={onLayout}>
+    <View style={{ height: WEEK_VIEW_HEIGHT }} onLayout={onLayout}>
       {!isWeekLayoutReady ? (
-        <View style={{ height: 180 }} />
+        <View style={{ height: WEEK_VIEW_HEIGHT }} />
       ) : (
       <ScrollView
         key={`week-${weeksData.length}`}
@@ -1254,7 +1255,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
 );
 
   return (
-    <View style={{ marginTop: 10 }} onLayout={onLayout}>
+    <View style={{ width: '100%' }} onLayout={onLayout}>
       <View style={{ width: containerWidth, height: 124 }}>
         <ScrollView
           ref={grassScrollRef}
@@ -1586,14 +1587,16 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'goal') {
       if (dashboardTarget === DASHBOARD_TARGETS.HABIT) return null;
       return (
-        <View style={[styles.rewardBlackBox, { flex: 1, margin: 0, width: '100%', height: '100%', minHeight: 60 }]}>
-          <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+        <View style={styles.goalWidgetArea}>
+          <View style={styles.rewardBlackBox}>
+            <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
+          </View>
         </View>
       );
     }
     if (widgetKind === 'weeklyBar') {
       return (
-        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+        <View style={styles.weeklyWidgetArea}>
           <WeekView
             weeksData={weeksData}
             currentIndex={weekIndex}
@@ -1607,7 +1610,7 @@ export default function EntryListScreen({ route, navigation }) {
     }
     if (widgetKind === 'grass') {
       return (
-        <View style={[styles.sectionBox, { marginVertical: 0 }]}>
+        <View style={styles.grassWidgetArea}>
           <GrassGraph
             entries={entries}
             startDate={meta.startDate}
@@ -2136,7 +2139,7 @@ export default function EntryListScreen({ route, navigation }) {
       ? sourceLayout
       : getDefaultDashboardLayout(dashboardTarget);
 
-    const GRID_ROW_HEIGHT_VIEW = 120;
+    const GRID_ROW_HEIGHT_VIEW = 90;
     const GRID_ROW_GAP_VIEW = 8;
     const GRID_CELL_PADDING_VIEW = 4;
 
@@ -2544,8 +2547,18 @@ postSummaryRow: {
 
   progressLabel: { marginTop: 10, color: textGrey },
   row: { flexDirection: 'row', marginTop: 16 },
-  donutArea: { width: 90, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 10 },
-  calendarArea: { flex: 1, justifyContent: 'center' },
+  donutArea: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 0,
+  },
+  calendarArea: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+  },
 
   sectionBox: { marginTop: 10 },
   sectionLabel: { fontSize: 12, color: textGrey, marginBottom: 6 },
@@ -2554,33 +2567,75 @@ postSummaryRow: {
 accumText:      { fontSize: 10, color: textGrey, fontWeight: '700' },
 countBelowText: { fontSize: 10, color: textGrey, fontWeight: '700' },
 
-// 보상박스는 그대로 두고(배경/모서리/폰트), 높이만 살짝 키우고 싶다면 여기만 조절
+goalWidgetArea: {
+  flex: 1,
+  width: '100%',
+  justifyContent: 'center',
+},
+grassWidgetArea: {
+  flex: 1,
+  width: '100%',
+  justifyContent: 'center',
+},
+weeklyWidgetArea: {
+  flex: 1,
+  width: '100%',
+  justifyContent: 'center',
+},
 rewardBlackBox: {
-  backgroundColor: '#111',
+  minHeight: 56,
   borderRadius: 12,
-  paddingVertical: 16,  // ← 필요하면 18~20 정도로 더 키워도 OK
+  backgroundColor: '#111',
+  paddingVertical: 10,
   paddingHorizontal: 16,
   alignItems: 'center',
   justifyContent: 'center',
 },
-rewardBlackText: { fontSize: 18, fontWeight: '900', color: '#fff' },
+rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
 
   hr: { height: 1, backgroundColor: '#C7C7C7', marginHorizontal: 8, marginBottom: 8 },
 
-  calWrap: { padding: 10, borderWidth: 0 },
-  calHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  calNavBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  calNavText: { fontSize: 18, fontWeight: '800', color: '#111' },
-  calTitle: { fontSize: 14, fontWeight: '700', color: '#111' },
+  calWrap: {
+    width: '100%',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    borderWidth: 0,
+  },
+  calHeaderRow: {
+    minHeight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  calNavBtn: { paddingHorizontal: 6, paddingVertical: 1 },
+  calNavText: { fontSize: 15, fontWeight: '800', color: '#111' },
+  calTitle: { fontSize: 12, fontWeight: '700', color: '#111' },
 
-  calDowRow: { flexDirection: 'row', justifyContent: 'flex-start', marginTop: 6 },
-  calDow: { width: '14.2857%', textAlign: 'center', fontSize: 10, color: textGrey },
+  calDowRow: { flexDirection: 'row', justifyContent: 'flex-start', marginTop: 3 },
+  calDow: { width: '14.2857%', textAlign: 'center', fontSize: 9, color: textGrey },
 
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
-  calCell: { width: '14.2857%', height: 26, alignItems: 'center', justifyContent: 'center', marginVertical: 2, borderRadius: 4 },
-  calBadge: { minWidth: 20, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#111', borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginHorizontal: 1, marginVertical: 3.5 },
-  calBadgeText: { color: '#fff', fontWeight: '800', fontSize: 13, fontSize: 10.5 },
-  calCellText: { fontSize: 10.5, color: '#111' },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 3 },
+  calCell: {
+    width: '14.2857%',
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 1,
+    borderRadius: 4,
+  },
+  calBadge: {
+    minWidth: 17,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    backgroundColor: '#111',
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 1,
+    marginVertical: 1,
+  },
+  calBadgeText: { color: '#fff', fontWeight: '800', fontSize: 9.5 },
+  calCellText: { fontSize: 9.5, color: '#111' },
   calCellTextDim: { color: textGrey },
 
 

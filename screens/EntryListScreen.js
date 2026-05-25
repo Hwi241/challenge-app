@@ -1366,11 +1366,15 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
             {/* 월 라벨 영역 */}
             <View style={{ height: TOP_LABEL_H, width: graphWidth, position: "relative", marginBottom: 4 }}>
               {monthLabels.map((ml, i) => (
-                <Text key={i} style={{
-                  position: "absolute",
-                  left: ml.col * (cellSize + CELL_GAP),
-                  fontSize: 10, color: "#6B7280", fontWeight: "700",
-                }}>{ml.label}</Text>
+                <Text
+                  key={i}
+                  style={[
+                    styles.grassMonthLabel,
+                    { left: ml.col * (cellSize + CELL_GAP) },
+                  ]}
+                >
+                  {ml.label}
+                </Text>
               ))}
             </View>
             {/* 잔디 블록 영역 */}
@@ -1382,18 +1386,18 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
 
         {/* 좌측 화살표 (Absolute) - 월 글씨 위치에 맞춤 */}
           {canScrollGrass && scrollPos.x > 5 && (
-          <View style={{ position: 'absolute', left: -4, top: 0, height: TOP_LABEL_H, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
-            <TouchableOpacity onPress={() => grassScrollRef.current?.scrollTo({x: 0, animated: true})} hitSlop={{top:15, bottom:15, left:15, right:15}}>
-              <Text style={{ fontSize: 18, fontWeight: "900", color: "#6B7280", marginTop: -6 }}>{"‹"}</Text>
+          <View style={styles.grassArrowLeft}>
+            <TouchableOpacity onPress={() => grassScrollRef.current?.scrollTo({x: 0, animated: true})} hitSlop={{top:12, bottom:12, left:12, right:12}}>
+              <Text style={styles.grassArrowText}>{"‹"}</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* 우측 화살표 (Absolute) */}
           {canScrollGrass && scrollPos.x + containerWidth < graphWidth - 5 && (
-          <View style={{ position: 'absolute', right: -4, top: 0, height: TOP_LABEL_H, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingHorizontal: 2 }}>
-            <TouchableOpacity onPress={() => grassScrollRef.current?.scrollToEnd({animated: true})} hitSlop={{top:15, bottom:15, left:15, right:15}}>
-              <Text style={{ fontSize: 18, fontWeight: "900", color: "#6B7280", marginTop: -6 }}>{"›"}</Text>
+          <View style={styles.grassArrowRight}>
+            <TouchableOpacity onPress={() => grassScrollRef.current?.scrollToEnd({animated: true})} hitSlop={{top:12, bottom:12, left:12, right:12}}>
+              <Text style={styles.grassArrowText}>{"›"}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -2726,6 +2730,44 @@ weekPagerDotInRange: {
 },
 weekPagerDotOutRange: {
   backgroundColor: '#E5E7EB',
+},
+grassMonthLabel: {
+  position: 'absolute',
+  top: 3,
+  fontSize: 10,
+  lineHeight: 12,
+  fontWeight: '700',
+  color: '#6B7280',
+  includeFontPadding: false,
+},
+grassArrowLeft: {
+  position: 'absolute',
+  left: 0,
+  top: 3,
+  height: 12,
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  backgroundColor: 'rgba(255,255,255,0.72)',
+  borderRadius: 6,
+  paddingHorizontal: 2,
+},
+grassArrowRight: {
+  position: 'absolute',
+  right: 0,
+  top: 3,
+  height: 12,
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  backgroundColor: 'rgba(255,255,255,0.72)',
+  borderRadius: 6,
+  paddingHorizontal: 2,
+},
+grassArrowText: {
+  fontSize: 12,
+  fontWeight: '800',
+  color: '#6B7280',
+  lineHeight: 12,
+  includeFontPadding: false,
 },
 rewardBlackBox: {
   minHeight: 56,

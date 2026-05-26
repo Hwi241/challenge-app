@@ -389,6 +389,109 @@ const NotiPreviewSwitch = ({ notification, startDate, endDate })=>{
   return <Text style={{ fontSize:12, color:textGrey, textAlign:'center' }}>알림 없음</Text>;
 };
 
+const DashboardWidgetHeader = memo(function DashboardWidgetHeader({
+  title,
+  leftLabel = '‹',
+  rightLabel = '›',
+  onLeft,
+  onRight,
+  canLeft = true,
+  canRight = true,
+  hideSides = false,
+}) {
+  return (
+    <View style={styles.dashboardWidgetHeaderRow}>
+      <TouchableOpacity
+        onPress={canLeft && !hideSides ? onLeft : undefined}
+        disabled={hideSides || !canLeft}
+        style={[
+          styles.dashboardWidgetHeaderSideSlot,
+          !canLeft && !hideSides && styles.dashboardWidgetHeaderSideDisabled,
+          hideSides && styles.dashboardWidgetHeaderSideInvisible,
+        ]}
+        hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.dashboardWidgetHeaderNavText}>{leftLabel}</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.dashboardWidgetHeaderTitle}>{title}</Text>
+
+      <TouchableOpacity
+        onPress={canRight && !hideSides ? onRight : undefined}
+        disabled={hideSides || !canRight}
+        style={[
+          styles.dashboardWidgetHeaderSideSlot,
+          !canRight && !hideSides && styles.dashboardWidgetHeaderSideDisabled,
+          hideSides && styles.dashboardWidgetHeaderSideInvisible,
+        ]}
+        hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.dashboardWidgetHeaderNavText}>{rightLabel}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
+  title,
+  leftText = '‹',
+  rightText = '›',
+  onLeft,
+  onRight,
+  canLeft = true,
+  canRight = true,
+}) {
+  return (
+    <View style={styles.calendarHeaderGridRow}>
+      <TouchableOpacity
+        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridLeftCell]}
+        onPress={canLeft ? onLeft : undefined}
+        disabled={!canLeft}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.dashboardWidgetHeaderNavText, !canLeft && styles.dashboardWidgetHeaderNavDisabled]}>
+          {leftText}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridRightCell]}
+        onPress={canRight ? onRight : undefined}
+        disabled={!canRight}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.dashboardWidgetHeaderNavText, !canRight && styles.dashboardWidgetHeaderNavDisabled]}>
+          {rightText}
+        </Text>
+      </TouchableOpacity>
+
+      <View pointerEvents="none" style={styles.calendarHeaderGridTitleLayer}>
+        <Text style={styles.dashboardWidgetHeaderTitle}>{title}</Text>
+      </View>
+    </View>
+  );
+});
+
+const DashboardWidgetShell = memo(function DashboardWidgetShell({
+  header,
+  children,
+}) {
+  return (
+    <View style={styles.dashboardWidgetShell}>
+      {header ? (
+        <View style={styles.dashboardWidgetHeaderSlot}>
+          {header}
+        </View>
+      ) : null}
+      <View style={styles.dashboardWidgetBodySlot}>
+        {children}
+      </View>
+    </View>
+  );
+});
+
 /* ───────── 달력 ───────── */
 const MonthCalendar = memo(function MonthCalendar({
   startDate, endDate, entriesByDaySet, onPrev, onNext, monthDate, canPrev, canNext, highlightDate = null,
@@ -426,26 +529,6 @@ const MonthCalendar = memo(function MonthCalendar({
 
   return (
     <View style={styles.calWrap} {...panResponder.panHandlers}>
-      <View style={styles.calHeaderRow}>
-        <TouchableOpacity
-          onPress={canPrev ? onPrev : undefined}
-          disabled={!canPrev}
-          style={[styles.calNavBtn, !canPrev && {opacity:0.3}]}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-        >
-          <Text style={styles.calNavText}>{'‹'}</Text>
-        </TouchableOpacity>
-        <Text style={styles.calTitle}>{`${month + 1}월`}</Text>
-        <TouchableOpacity
-          onPress={canNext ? onNext : undefined}
-          disabled={!canNext}
-          style={[styles.calNavBtn, !canNext && {opacity:0.3}]}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-        >
-          <Text style={styles.calNavText}>{'›'}</Text>
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.calDowRow}>
         {CAL_HEADER.map((ch, i)=><Text key={`dow-${i}`} style={styles.calDow}>{ch}</Text>)}
       </View>
@@ -939,6 +1022,59 @@ const DashboardLineChart = memo(function DashboardLineChart({
         <View style={{ width: '100%', height: 185 }} />
       )}
     </View>
+  );
+});
+
+const DashboardProgressWidget = memo(function DashboardProgressWidget({
+  overallPct,
+  progress,
+  onPress,
+  disabled = false,
+}) {
+  const [box, setBox] = useState({ width: 0, height: 0 });
+
+  const onLayout = useCallback((event) => {
+    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
+    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
+    if (width > 0 && height > 0) {
+      setBox((prev) => (
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height }
+      ));
+    }
+  }, []);
+
+  const SAFE_PAD = 4;
+
+  const availableW = Math.max(1, box.width - SAFE_PAD * 2);
+  const availableH = Math.max(1, box.height - SAFE_PAD * 2);
+  const donutSize = box.width > 0 && box.height > 0
+    ? Math.floor(Math.min(availableW, availableH))
+    : 0;
+  const donutStroke = donutSize > 0
+    ? Math.max(3, Math.round(donutSize * (PROGRESS_DONUT_STROKE / PROGRESS_DONUT_SIZE)))
+    : PROGRESS_DONUT_STROKE;
+
+  return (
+    <TouchableOpacity
+      style={[styles.donutArea, styles.progressWidgetRoot]}
+      onLayout={onLayout}
+      onPress={disabled ? undefined : onPress}
+      activeOpacity={0.8}
+      disabled={disabled}
+    >
+      <View style={styles.progressDonutBody}>
+        {donutSize > 0 ? (
+          <Donut
+            targetPercent={overallPct}
+            progress={progress}
+            size={donutSize}
+            stroke={donutStroke}
+          />
+        ) : null}
+      </View>
+    </TouchableOpacity>
   );
 });
 
@@ -1734,114 +1870,111 @@ export default function EntryListScreen({ route, navigation }) {
 
     if (widgetKind === 'progress' || kind === 'overallProgress') {
       return (
-        <TouchableOpacity style={styles.donutArea} onPress={isShare ? undefined : () => runDonut()} activeOpacity={0.8} disabled={isShare}>
-          <Text style={[styles.sectionLabel, styles.progressLabel, { textAlign:'center', marginBottom: 8 }]}>전체 진행률</Text>
-          <View style={{ marginTop: 28, alignItems: 'center' }}>
-            <Donut targetPercent={overallPct} progress={isShare ? undefined : donutK} size={PROGRESS_DONUT_SIZE} stroke={PROGRESS_DONUT_STROKE} />
-          </View>
-        </TouchableOpacity>
+        <DashboardWidgetShell
+          header={
+            <DashboardWidgetHeader
+              title="전체 진행률"
+              hideSides
+            />
+          }
+        >
+          <DashboardProgressWidget
+            overallPct={overallPct}
+            progress={isShare ? undefined : donutK}
+            onPress={isShare ? undefined : runDonut}
+            disabled={isShare}
+          />
+        </DashboardWidgetShell>
       );
     }
     if (widgetKind === 'calendar') {
       return (
-        <View style={styles.dashboardContentFrame}>
-          <View style={styles.dashboardGraphGuide}>
-            <View style={styles.calendarArea}>
-              <MonthCalendar
-                startDate={meta.startDate || new Date()}
-                endDate={meta.endDate || new Date()}
-                entriesByDaySet={entriesByDaySet}
-                monthDate={monthDate}
-                onPrev={isShare ? undefined : prevMonth}
-                onNext={isShare ? undefined : nextMonth}
-                canPrev={isShare ? false : canPrevMonth}
-                canNext={isShare ? false : canNextMonth}
-                highlightDate={highlightDate}
+        <View style={styles.calendarArea}>
+          <DashboardWidgetShell
+            header={
+              <CalendarHeaderGrid
+                title={`${monthDate.getMonth() + 1}월`}
+                onLeft={isShare ? undefined : prevMonth}
+                onRight={isShare ? undefined : nextMonth}
+                canLeft={isShare ? false : canPrevMonth}
+                canRight={isShare ? false : canNextMonth}
               />
-            </View>
-          </View>
+            }
+          >
+            <MonthCalendar
+              startDate={meta.startDate || new Date()}
+              endDate={meta.endDate || new Date()}
+              entriesByDaySet={entriesByDaySet}
+              monthDate={monthDate}
+              onPrev={isShare ? undefined : prevMonth}
+              onNext={isShare ? undefined : nextMonth}
+              canPrev={isShare ? false : canPrevMonth}
+              canNext={isShare ? false : canNextMonth}
+              highlightDate={highlightDate}
+            />
+          </DashboardWidgetShell>
         </View>
       );
     }
     if (widgetKind === 'goal') {
       if (dashboardTarget === DASHBOARD_TARGETS.HABIT) return null;
       return (
-        <View style={styles.dashboardContentFrame}>
-          <View style={styles.dashboardGraphGuide}>
-            <View style={styles.goalWidgetArea}>
-              <View style={styles.rewardBlackBox}>
-                <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-              </View>
-            </View>
+        <View style={styles.goalWidgetArea}>
+          <View style={styles.rewardBlackBox}>
+            <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
           </View>
         </View>
       );
     }
     if (widgetKind === 'weeklyBar') {
       return (
-        <View style={styles.dashboardContentFrame}>
-          <View style={styles.dashboardGraphGuide}>
-            <View style={styles.weeklyWidgetArea}>
-              <WeekView
-                weeksData={weeksData}
-                currentIndex={weekIndex}
-                onIndexChange={isShare ? undefined : setWeekIndex}
-                introProgress={isShare ? undefined : weekK}
-                onPressDay={isShare ? undefined : handlePressDay}
-                onTapBar={isShare ? undefined : runWeek}
-                challengeStartDate={meta.startDate}
-                challengeEndDate={meta.endDate}
-              />
-            </View>
-          </View>
+        <View style={styles.weeklyWidgetArea}>
+          <WeekView
+            weeksData={weeksData}
+            currentIndex={weekIndex}
+            onIndexChange={isShare ? undefined : setWeekIndex}
+            introProgress={isShare ? undefined : weekK}
+            onPressDay={isShare ? undefined : handlePressDay}
+            onTapBar={isShare ? undefined : runWeek}
+            challengeStartDate={meta.startDate}
+            challengeEndDate={meta.endDate}
+          />
         </View>
       );
     }
     if (widgetKind === 'grass') {
       return (
-        <View style={styles.dashboardContentFrame}>
-          <View style={styles.dashboardGraphGuide}>
-            <View style={styles.grassWidgetArea}>
-              <GrassGraph
-                entries={entries}
-                startDate={meta.startDate}
-                endDate={meta.endDate}
-                dashboardReturnTrigger={isShare ? 0 : grassDashboardReturnTick}
-              />
-            </View>
-          </View>
+        <View style={styles.grassWidgetArea}>
+          <GrassGraph
+            entries={entries}
+            startDate={meta.startDate}
+            endDate={meta.endDate}
+            dashboardReturnTrigger={isShare ? 0 : grassDashboardReturnTick}
+          />
         </View>
       );
     }
     if (widgetKind === 'lineCount') {
       return (
-        <View style={styles.dashboardContentFrame}>
-          <View style={styles.dashboardGraphGuide}>
-            <DashboardLineChart
-              startDate={meta.startDate}
-              entries={entries}
-              metric="count"
-              interactive={!isShare}
-              introProgress={isShare ? undefined : lineK}
-            />
-          </View>
-        </View>
+        <DashboardLineChart
+          startDate={meta.startDate}
+          entries={entries}
+          metric="count"
+          interactive={!isShare}
+          introProgress={isShare ? undefined : lineK}
+        />
       );
     }
 
     if (widgetKind === 'lineMinutes') {
       return (
-        <View style={styles.dashboardContentFrame}>
-          <View style={styles.dashboardGraphGuide}>
-            <DashboardLineChart
-              startDate={meta.startDate}
-              entries={entries}
-              metric="minutes"
-              interactive={!isShare}
-              introProgress={isShare ? undefined : lineK}
-            />
-          </View>
-        </View>
+        <DashboardLineChart
+          startDate={meta.startDate}
+          entries={entries}
+          metric="minutes"
+          interactive={!isShare}
+          introProgress={isShare ? undefined : lineK}
+        />
       );
     }
     return <View style={{flex:1, backgroundColor:'#eee', borderRadius:8, justifyContent:'center', alignItems:'center'}}><Text>준비중 ({kind})</Text></View>;
@@ -2354,6 +2487,7 @@ export default function EntryListScreen({ route, navigation }) {
     const GRID_ROW_HEIGHT_VIEW = 90;
     const GRID_ROW_GAP_VIEW = 8;
     const GRID_CELL_PADDING_VIEW = 4;
+    const DASHBOARD_BOARD_SIDE_BLEED = 4;
 
     const fixedSizes = {
       goal_black_box: { w: 6, h: 1 },
@@ -2421,8 +2555,10 @@ export default function EntryListScreen({ route, navigation }) {
             paddingHorizontal: GRID_CELL_PADDING_VIEW,
           }}
         >
-          <View style={{ height, minHeight: height, position: 'relative' }}>
-            {renderDashboardWidget(item, isShare)}
+          <View style={styles.dashboardGuideBox}>
+            <View style={styles.dashboardWidgetCard}>
+              {renderDashboardWidget(item, isShare)}
+            </View>
           </View>
         </View>
       );
@@ -2446,8 +2582,10 @@ export default function EntryListScreen({ route, navigation }) {
           </View>
         )}
 
-        <View style={{ position: 'relative', width: '100%', height: boardHeight }}>
-          {safeLayout.map((item, index) => renderAbsoluteSlot(item, index))}
+        <View style={{ marginHorizontal: -DASHBOARD_BOARD_SIDE_BLEED }}>
+          <View style={{ position: 'relative', width: '100%', height: boardHeight }}>
+            {safeLayout.map((item, index) => renderAbsoluteSlot(item, index))}
+          </View>
         </View>
       </View>
     );
@@ -2766,6 +2904,37 @@ postSummaryRow: {
     justifyContent: 'center',
     paddingTop: 0,
   },
+  progressWidgetRoot: {
+    justifyContent: 'flex-start',
+  },
+  progressHeaderRow: {
+    width: '100%',
+    minHeight: 22,
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressTitleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111',
+    textAlign: 'center',
+  },
+  progressHeaderSideSlot: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  progressHeaderInvisibleText: {
+    opacity: 0,
+  },
+  progressDonutBody: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 4,
+  },
   calendarArea: {
     flex: 1,
     width: '100%',
@@ -2889,6 +3058,16 @@ grassArrowText: {
   lineHeight: 12,
   includeFontPadding: false,
 },
+dashboardGuideBox: {
+  width: '100%',
+  height: '100%',
+},
+dashboardWidgetCard: {
+  flex: 1,
+  width: '100%',
+  height: '100%',
+  overflow: 'hidden',
+},
 dashboardContentFrame: {
   flex: 1,
   width: '100%',
@@ -2920,7 +3099,8 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
   calWrap: {
     width: '100%',
     paddingHorizontal: 0,
-    paddingVertical: 4,
+    paddingTop: 0,
+    paddingBottom: 4,
     borderWidth: 0,
   },
   calHeaderRow: {
@@ -2932,6 +3112,84 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
   calNavBtn: { paddingHorizontal: 6, paddingVertical: 1 },
   calNavText: { fontSize: 15, fontWeight: '800', color: '#111' },
   calTitle: { fontSize: 12, fontWeight: '700', color: '#111' },
+  dashboardWidgetShell: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  dashboardWidgetHeaderSlot: {
+    width: '100%',
+    height: 22,
+    minHeight: 22,
+    marginTop: 4,
+    paddingHorizontal: 0,
+  },
+  dashboardWidgetBodySlot: {
+    flex: 1,
+    width: '100%',
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  dashboardWidgetHeaderRow: {
+    minHeight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dashboardWidgetHeaderSideSlot: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  dashboardWidgetHeaderSideDisabled: {
+    opacity: 0.3,
+  },
+  dashboardWidgetHeaderSideInvisible: {
+    opacity: 0,
+  },
+  dashboardWidgetHeaderNavText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111',
+  },
+  dashboardWidgetHeaderNavDisabled: {
+    opacity: 0.3,
+  },
+  calendarHeaderGridRow: {
+    width: '100%',
+    height: 22,
+    minHeight: 22,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  calendarHeaderGridEdgeCell: {
+    position: 'absolute',
+    top: 0,
+    width: '14.2857%',
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarHeaderGridLeftCell: {
+    left: 0,
+  },
+  calendarHeaderGridRightCell: {
+    right: 0,
+  },
+  calendarHeaderGridTitleLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dashboardWidgetHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111',
+    textAlign: 'center',
+  },
 
   calDowRow: { flexDirection: 'row', justifyContent: 'flex-start', marginTop: 3 },
   calDow: { width: '14.2857%', textAlign: 'center', fontSize: 9, color: textGrey },
@@ -2967,10 +3225,10 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
   countLabel: { fontSize: 10, color: '#333', marginTop: 2, textAlign:'center' },
 
   entry: {
-  flexDirection: 'row',
-  paddingHorizontal: EDGE + NARROW_PLUS,  // ⬅️ 여기만 바뀜
-  paddingVertical: 12
-},
+    flexDirection: 'row',
+    paddingHorizontal: EDGE + NARROW_PLUS,
+    paddingVertical: 12,
+  },
 rewardBlockSpacing: {
   marginTop: REWARD_TOP_GAP,
   marginBottom: REWARD_BOTTOM_GAP,

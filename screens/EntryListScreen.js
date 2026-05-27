@@ -597,20 +597,24 @@ const MonthCalendar = memo(function MonthCalendar({
     calCellOuterH - CAL_CELL_MARGIN_V * 2
   );
   const calCellFontSize = Math.max(
-    scaleCal(7, 6.5, 9),
-    Math.min(scaleCal(9.5, 8, 13), calCellH * 0.62)
+    scaleCal(7.9, 7.2, 10.1),
+    Math.min(scaleCal(10.8, 9.1, 11.8), calCellH * 0.7)
   );
   const calBadgeFontSize = Math.max(
-    scaleCal(7, 6.5, 9),
-    Math.min(scaleCal(9.5, 8, 13), calCellH * 0.6)
+    scaleCal(7.7, 7, 9.9),
+    Math.min(scaleCal(10.5, 8.8, 11.5), calCellH * 0.68)
+  );
+  const calTodayFontSize = Math.min(
+    scaleCal(11.2, 9.2, 11.8),
+    calCellFontSize + scaleCal(0.5, 0.3, 0.8)
   );
   const calBadgeMinWidth = Math.max(
-    scaleCal(13, 11, 16),
-    Math.min(scaleCal(17, 14, 24), calCellH * 0.95)
+    scaleCal(14, 12, 17),
+    Math.min(scaleCal(18.2, 15, 25), calCellH * 1.02)
   );
   const calBadgePaddingV = calCellH <= scaleCal(12, 10, 16)
     ? 0
-    : Math.round(scaleCal(1, 1, 2));
+    : Math.round(scaleCal(1.2, 1, 2.2));
 
   const calCellDynamicStyle = {
     height: calCellH,
@@ -709,7 +713,7 @@ const MonthCalendar = memo(function MonthCalendar({
 
             return (
               <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
-                <Text style={[styles.calCellText, calCellTextDynamicStyle, { color: cellColor }, isToday && !cert && { fontWeight: '900' }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+                <Text style={[styles.calCellText, calCellTextDynamicStyle, { color: cellColor }, isToday && !cert && { color: '#000', fontWeight: '900', fontSize: calTodayFontSize, lineHeight: calTodayFontSize + scaleCal(2, 1.5, 4) }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
                   {d.getDate()}
                 </Text>
               </View>
@@ -887,10 +891,38 @@ const LineGradientChart = memo(function LineGradientChart({
 
 const safeNodePts = useMemo(() => {
  if (!Array.isArray(nodePts) || nodePts.length === 0) return [];
- return nodePts.map((point) => ({
-   ...point,
-   x: Math.min(Math.max(point.x, pointSafeInset), width - pointSafeInset),
- }));
+
+ const minX = pointSafeInset;
+ const maxX = width - pointSafeInset;
+
+ const interpolateYOnSegment = (a, b, targetX, fallbackY) => {
+   if (!a || !b) return fallbackY;
+   const dx = b.x - a.x;
+   if (Math.abs(dx) < 0.001) return fallbackY;
+   const t = Math.max(0, Math.min(1, (targetX - a.x) / dx));
+   return a.y + (b.y - a.y) * t;
+ };
+
+ return nodePts.map((point, index) => {
+   const safeX = Math.min(Math.max(point.x, minX), maxX);
+
+   if (Math.abs(safeX - point.x) < 0.001) {
+     return point;
+   }
+
+   const prev = nodePts[index - 1] || null;
+   const next = nodePts[index + 1] || null;
+
+   const yOnLine = safeX < point.x
+     ? interpolateYOnSegment(prev, point, safeX, point.y)
+     : interpolateYOnSegment(point, next, safeX, point.y);
+
+   return {
+     ...point,
+     x: safeX,
+     y: yOnLine,
+   };
+ });
 }, [nodePts, pointSafeInset, width]);
 
   const yScale = useCallback((v, vmax)=> {
@@ -921,12 +953,16 @@ const safeNodePts = useMemo(() => {
     return nodePts;
   }, [series, metric, top, ch, left, nodePts, introProgress, introBaselineY]);
 
+  const linePts = useMemo(() => {
+    return safeNodePts.length >= 2 ? safeNodePts : pts;
+  }, [safeNodePts, pts]);
+
   const pathD = useMemo(()=>{
-    if(!pts.length) return '';
-    let d = `M ${pts[0].x} ${pts[0].y}`;
-    for(let i=1;i<pts.length;i++) d += ` L ${pts[i].x} ${pts[i].y}`;
+    if(!linePts.length) return '';
+    let d = `M ${linePts[0].x} ${linePts[0].y}`;
+    for(let i=1;i<linePts.length;i++) d += ` L ${linePts[i].x} ${linePts[i].y}`;
     return d;
-  }, [pts]);
+  }, [linePts]);
 
   const baselineY = top + ch + 0.5;
   const areaGap = LINE_AREA_GAP;
@@ -995,7 +1031,7 @@ const safeNodePts = useMemo(() => {
   const handleRelease = useCallback((evt)=>{
     if(!interactive) return;
     const { locationX:x, locationY:y } = evt.nativeEvent;
-    const nearX = (cx, r=16) => Math.abs(x - cx) <= r;
+    const nearX = (cx, r = LINE_TOUCH_RADIUS) => Math.abs(x - cx) <= r;
 
     // 페이저 점 터치 - Y 범위 체크
     if (showPager && y >= dotCy - LINE_TOUCH_RADIUS && y <= dotCy + LINE_TOUCH_RADIUS) {
@@ -1525,6 +1561,35 @@ const WeekView = memo(function WeekView({
   const WEEK_PAGER_ARROW_HIT_W = Math.round(scaleWeek(22, 18, 30));
   const WEEK_PAGER_ARROW_FONT_SIZE = scaleWeek(15, 13, 20);
 
+const todayKey = useMemo(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return keyOf(today);
+}, []);
+
+const WEEK_TODAY_DATE_FONT_SIZE = Math.min(
+  scaleWeek(11.2, 9.2, 14.8),
+  WEEK_DATE_FONT_SIZE + scaleWeek(0.6, 0.4, 1)
+);
+const WEEK_TODAY_DATE_LINE_H = Math.max(
+  WEEK_DATE_LINE_H,
+  Math.round(WEEK_TODAY_DATE_FONT_SIZE + scaleWeek(2, 1.5, 4))
+);
+
+const WEEK_TODAY_DAY_FONT_SIZE = Math.min(
+  scaleWeek(10.2, 8.8, 13.8),
+  WEEK_DAY_FONT_SIZE + scaleWeek(0.4, 0.2, 0.8)
+);
+const WEEK_TODAY_DAY_LINE_H = Math.max(
+  WEEK_DAY_LINE_H,
+  Math.round(WEEK_TODAY_DAY_FONT_SIZE + scaleWeek(2, 1.5, 4))
+);
+const WEEK_TODAY_EMPTY_DOT_COLOR = '#9CA3AF';
+const WEEK_TODAY_TEXT_STYLE = {
+  color: '#000',
+  fontWeight: '900',
+};
+
   const renderWeek = useCallback(({ dailyStats }, idx) => {
     const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
     const maxCount = Math.max(...dailyStats.map(s => s.totalCount || 0), 1);
@@ -1532,7 +1597,14 @@ const WeekView = memo(function WeekView({
     return (
       <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: WEEK_GRAPH_BOTTOM_GAP }}>
         <View style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, height: WEEK_DATE_ROW_HEIGHT }}>
-          {dailyStats.map((stat, i) => (
+          {dailyStats.map((stat, i) => {
+            const weekStart = weeksData[idx]?.ws ? new Date(weeksData[idx].ws) : null;
+            if (weekStart) weekStart.setHours(0, 0, 0, 0);
+            const actualDate = weekStart ? new Date(weekStart) : null;
+            if (actualDate) actualDate.setDate(weekStart.getDate() + i);
+            const isTodayDate = actualDate ? keyOf(actualDate) === todayKey : false;
+
+            return (
             <TouchableOpacity
               key={i}
               style={{ width: COL_W, alignItems:'center' }}
@@ -1549,6 +1621,12 @@ const WeekView = memo(function WeekView({
                     lineHeight: WEEK_DATE_LINE_H,
                     includeFontPadding: false,
                   },
+                  isTodayDate && {
+                    color: '#000',
+                    fontWeight: '900',
+                    fontSize: WEEK_TODAY_DATE_FONT_SIZE,
+                    lineHeight: WEEK_TODAY_DATE_LINE_H,
+                  },
                 ]}
               >
                 {stat.date}
@@ -1561,18 +1639,30 @@ const WeekView = memo(function WeekView({
                     lineHeight: WEEK_DAY_LINE_H,
                     includeFontPadding: false,
                   },
+                  isTodayDate && {
+                    color: '#000',
+                    fontWeight: '900',
+                    fontSize: WEEK_TODAY_DAY_FONT_SIZE,
+                    lineHeight: WEEK_TODAY_DAY_LINE_H,
+                  },
                 ]}
               >
                 {DAY_LABELS[i]}
               </Text>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
 
         <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, alignItems:'flex-end', height: WEEK_BAR_ROW_HEIGHT, marginTop: WEEK_BAR_TOP_GAP }}>
           {dailyStats.map((stat, i) => {
             const hasTime = (stat.duration || 0) > 0;
             const hasCount = (stat.totalCount || 0) > 0;
+            const weekStart = weeksData[idx]?.ws ? new Date(weeksData[idx].ws) : null;
+            if (weekStart) weekStart.setHours(0, 0, 0, 0);
+            const actualDate = weekStart ? new Date(weekStart) : null;
+            if (actualDate) actualDate.setDate(weekStart.getDate() + i);
+            const isTodayBar = actualDate ? keyOf(actualDate) === todayKey : false;
 
             if (!hasTime && !hasCount) {
               return (
@@ -1582,7 +1672,7 @@ const WeekView = memo(function WeekView({
                     width: WEEK_EMPTY_DOT_SIZE,
                     height: WEEK_EMPTY_DOT_SIZE,
                     borderRadius: WEEK_EMPTY_DOT_SIZE / 2,
-                    backgroundColor: '#D1D5DB',
+                    backgroundColor: isTodayBar ? WEEK_TODAY_EMPTY_DOT_COLOR : '#D1D5DB',
                     marginBottom: WEEK_BAR_VERTICAL_GAP,
                   }}
                 />
@@ -1609,7 +1699,7 @@ const WeekView = memo(function WeekView({
 
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
-                  <Text style={styles.barText}>{`${stat.duration}분`}</Text>
+                  <Text style={[styles.barText, { fontSize: WEEK_BAR_TEXT_FONT_SIZE, lineHeight: WEEK_BAR_TEXT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{`${stat.duration}분`}</Text>
                   <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
                     {(() => {
                       if (segDurations.length <= 1) {
@@ -1630,7 +1720,7 @@ const WeekView = memo(function WeekView({
                       });
                     })()}
                   </View>
-                  <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }]}>{(stat.totalCount || 0) > 0 ? `${stat.totalCount}회` : '—'}</Text>
+                  <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }, isTodayBar && hasCount && WEEK_TODAY_TEXT_STYLE]}>{(stat.totalCount || 0) > 0 ? `${stat.totalCount}회` : '—'}</Text>
                 </View>
               );
             }
@@ -1638,7 +1728,7 @@ const WeekView = memo(function WeekView({
             const segCount = stat.totalCount || 0;
             return (
               <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
-                <Text style={styles.barText}>{' '}</Text>
+                <Text style={[styles.barText, { fontSize: WEEK_BAR_TEXT_FONT_SIZE, lineHeight: WEEK_BAR_TEXT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{' '}</Text>
                 <View style={{ marginVertical: 2, height: hCount, justifyContent:'flex-end', alignItems:'center' }}>
                   {(() => {
                     const segGap = 2;
@@ -1653,14 +1743,14 @@ const WeekView = memo(function WeekView({
                     ));
                   })()}
                 </View>
-                <Text style={styles.countLabel}>{`${stat.totalCount}회`}</Text>
+                <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{`${stat.totalCount}회`}</Text>
               </View>
             );
           })}
         </TouchableOpacity>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_DATE_ROW_HEIGHT, WEEK_DATE_DAY_GAP, WEEK_DATE_FONT_SIZE, WEEK_DATE_LINE_H, WEEK_DAY_FONT_SIZE, WEEK_DAY_LINE_H, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_DATE_ROW_HEIGHT, WEEK_DATE_DAY_GAP, WEEK_DATE_FONT_SIZE, WEEK_DATE_LINE_H, WEEK_DAY_FONT_SIZE, WEEK_DAY_LINE_H, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar, todayKey, WEEK_TODAY_DATE_FONT_SIZE, WEEK_TODAY_DATE_LINE_H, WEEK_TODAY_DAY_FONT_SIZE, WEEK_TODAY_DAY_LINE_H, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE]);
 
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;

@@ -496,6 +496,20 @@ const DashboardWidgetShell = memo(function DashboardWidgetShell({
 const MonthCalendar = memo(function MonthCalendar({
   startDate, endDate, entriesByDaySet, onPrev, onNext, monthDate, canPrev, canNext, highlightDate = null,
 }) {
+  const [calendarBox, setCalendarBox] = useState({ width: 0, height: 0 });
+
+  const onCalendarLayout = useCallback((event) => {
+    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
+    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
+    if (width > 0 && height > 0) {
+      setCalendarBox((prev) => (
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height }
+      ));
+    }
+  }, []);
+
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const first = new Date(year, month, 1);
@@ -504,6 +518,51 @@ const MonthCalendar = memo(function MonthCalendar({
   const cells = [];
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+
+  const calendarRows = Math.max(1, Math.ceil(cells.length / 7));
+  const CAL_DOW_H = 14;
+  const CAL_GRID_TOP_GAP = 3;
+  const CAL_BOTTOM_PAD = 4;
+  const CAL_CELL_MARGIN_V = 1;
+
+  const availableCalendarH = Math.max(
+    1,
+    (calendarBox.height || 0) - CAL_DOW_H - CAL_GRID_TOP_GAP - CAL_BOTTOM_PAD
+  );
+  const calCellOuterH = Math.max(
+    8,
+    Math.floor(availableCalendarH / calendarRows)
+  );
+  const calCellH = Math.max(
+    8,
+    calCellOuterH - CAL_CELL_MARGIN_V * 2
+  );
+  const calCellFontSize = Math.max(7, Math.min(9.5, Math.floor(calCellH * 0.62)));
+  const calBadgeFontSize = Math.max(7, Math.min(9.5, Math.floor(calCellH * 0.6)));
+  const calBadgeMinWidth = Math.max(13, Math.min(17, Math.round(calCellH * 0.95)));
+  const calBadgePaddingV = calCellH <= 12 ? 0 : 1;
+
+  const calCellDynamicStyle = {
+    height: calCellH,
+    marginVertical: CAL_CELL_MARGIN_V,
+  };
+
+  const calCellTextDynamicStyle = {
+    fontSize: calCellFontSize,
+    lineHeight: calCellFontSize + 2,
+    includeFontPadding: false,
+  };
+
+  const calBadgeDynamicStyle = {
+    minWidth: calBadgeMinWidth,
+    paddingVertical: calBadgePaddingV,
+  };
+
+  const calBadgeTextDynamicStyle = {
+    fontSize: calBadgeFontSize,
+    lineHeight: calBadgeFontSize + 2,
+    includeFontPadding: false,
+  };
 
   const inRange = (d) => {
     const ds = new Date(startDate); ds.setHours(0,0,0,0);
@@ -528,19 +587,29 @@ const MonthCalendar = memo(function MonthCalendar({
   });
 
   return (
-    <View style={styles.calWrap} {...panResponder.panHandlers}>
+    <View style={styles.calWrap} onLayout={onCalendarLayout} {...panResponder.panHandlers}>
       <View style={styles.calDowRow}>
-        {CAL_HEADER.map((ch, i)=><Text key={`dow-${i}`} style={styles.calDow}>{ch}</Text>)}
+        {CAL_HEADER.map((ch, i)=>(
+          <Text
+            key={`dow-${i}`}
+            style={[
+              styles.calDow,
+              { height: CAL_DOW_H, lineHeight: CAL_DOW_H, includeFontPadding: false },
+            ]}
+          >
+            {ch}
+          </Text>
+        ))}
       </View>
 
       <View style={styles.calGrid}>
         {(() => {
           const today = new Date(); today.setHours(0,0,0,0);
           return cells.map((d, idx) => {
-            if (!d) return <View key={`e${idx}`} style={styles.calCell}/>;
+            if (!d) return <View key={`e${idx}`} style={[styles.calCell, calCellDynamicStyle]}/>;
             const ranged = inRange(d);
             const isThisMonth = d.getMonth()===month;
-            if (!isThisMonth) return <View key={`o${idx}`} style={styles.calCell} />;
+            if (!isThisMonth) return <View key={`o${idx}`} style={[styles.calCell, calCellDynamicStyle]} />;
 
                         const isFuture = d > today;
             const cert = isCert(d);
@@ -554,17 +623,17 @@ const MonthCalendar = memo(function MonthCalendar({
 
             if (cert) {
               return (
-                <View key={`d${idx}`} style={styles.calCell}>
-                  <View style={[styles.calBadge, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
-                    <Text style={styles.calBadgeText}>{d.getDate()}</Text>
+                <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
+                  <View style={[styles.calBadge, calBadgeDynamicStyle, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
+                    <Text style={[styles.calBadgeText, calBadgeTextDynamicStyle]}>{d.getDate()}</Text>
                   </View>
                 </View>
               );
             }
 
             return (
-              <View key={`d${idx}`} style={styles.calCell}>
-                <Text style={[styles.calCellText, { color: cellColor }, isToday && !cert && { fontWeight: '900' }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+              <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
+                <Text style={[styles.calCellText, calCellTextDynamicStyle, { color: cellColor }, isToday && !cert && { fontWeight: '900' }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
                   {d.getDate()}
                 </Text>
               </View>
@@ -994,24 +1063,32 @@ const DashboardLineChart = memo(function DashboardLineChart({
   introProgress=1,
   interactive=true,
 }) {
-  const [chartW, setChartW] = useState(0);
+  const [chartBox, setChartBox] = useState({ width: 0, height: 0 });
 
   const onLayout = useCallback((event) => {
     const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
-    if (width > 0 && width !== chartW) setChartW(width);
-  }, [chartW]);
+    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
+    if (width > 0 && height > 0) {
+      setChartBox((prev) => (
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height }
+      ));
+    }
+  }, []);
 
-  const chartWidth = Math.max(1, chartW);
+  const chartWidth = Math.max(1, chartBox.width);
+  const chartHeight = Math.max(1, chartBox.height);
 
   return (
     <View style={styles.lineWidgetArea} onLayout={onLayout}>
-      {chartW > 0 ? (
+      {chartBox.width > 0 && chartBox.height > 0 ? (
         <LineGradientChart
           startDate={startDate}
           entries={entries}
           metric={metric}
           width={chartWidth}
-          height={185}
+          height={chartHeight}
           introProgress={introProgress}
           interactive={interactive}
           pagerIndex={metric === 'minutes' ? 1 : 0}
@@ -1019,7 +1096,7 @@ const DashboardLineChart = memo(function DashboardLineChart({
           plotInset={0}
         />
       ) : (
-        <View style={{ width: '100%', height: 185 }} />
+        <View style={{ flex: 1, width: '100%' }} />
       )}
     </View>
   );
@@ -1092,6 +1169,7 @@ const WeekView = memo(function WeekView({
 }) {
   const scrollRef = useRef(null);
   const [pageW, setPageW] = useState(0);
+  const [viewH, setViewH] = useState(0);
   const [weekDateTextWidth, setWeekDateTextWidth] = useState(0);
 
   const recordWeekDateTextWidth = useCallback((event) => {
@@ -1102,8 +1180,10 @@ const WeekView = memo(function WeekView({
 
   const onLayout = useCallback((e) => {
     const w = Math.floor(e.nativeEvent.layout.width || SCREEN_WIDTH);
+    const h = Math.floor(e.nativeEvent.layout.height || 0);
     if (w && w !== pageW) setPageW(w);
-  }, [pageW]);
+    if (h && h !== viewH) setViewH(h);
+  }, [pageW, viewH]);
 
   const PADDING_H = 0;
   const WEEK_BAR_W = 16;
@@ -1190,12 +1270,28 @@ const WeekView = memo(function WeekView({
     return result;
   }, [weeksData, currentIndex, challengeStartDate, challengeEndDate]);
 
+  const WEEK_FALLBACK_VIEW_HEIGHT = 184;
+  const WEEK_CONTROL_HEIGHT = 20;
+  const WEEK_DATE_ROW_HEIGHT = 24;
+  const WEEK_BAR_TOP_GAP = 10;
+  const WEEK_GRAPH_BOTTOM_GAP = 10;
+
+  const WEEK_VIEW_HEIGHT = viewH > 0 ? viewH : WEEK_FALLBACK_VIEW_HEIGHT;
+  const WEEK_GRAPH_HEIGHT = Math.max(1, WEEK_VIEW_HEIGHT - WEEK_CONTROL_HEIGHT);
+  const WEEK_BAR_ROW_HEIGHT = Math.max(
+    48,
+    WEEK_GRAPH_HEIGHT - WEEK_DATE_ROW_HEIGHT - WEEK_BAR_TOP_GAP - WEEK_GRAPH_BOTTOM_GAP
+  );
+  const WEEK_BAR_VALUE_MAX_H = Math.max(16, WEEK_BAR_ROW_HEIGHT - 30);
+  const WEEK_BAR_VALUE_BASE_H = Math.min(10, Math.max(4, WEEK_BAR_VALUE_MAX_H * 0.25));
+  const WEEK_BAR_VALUE_RANGE_H = Math.max(1, WEEK_BAR_VALUE_MAX_H - WEEK_BAR_VALUE_BASE_H);
+
   const renderWeek = useCallback(({ dailyStats }, idx) => {
     const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
     const maxCount = Math.max(...dailyStats.map(s => s.totalCount || 0), 1);
 
     return (
-      <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: 10 }}>
+      <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: WEEK_GRAPH_BOTTOM_GAP }}>
         <View style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X }}>
           {dailyStats.map((stat, i) => (
             <TouchableOpacity
@@ -1215,7 +1311,7 @@ const WeekView = memo(function WeekView({
           ))}
         </View>
 
-        <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, alignItems:'flex-end', height: 120, marginTop: 10 }}>
+        <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, alignItems:'flex-end', height: WEEK_BAR_ROW_HEIGHT, marginTop: WEEK_BAR_TOP_GAP }}>
           {dailyStats.map((stat, i) => {
             const hasTime = (stat.duration || 0) > 0;
             const hasCount = (stat.totalCount || 0) > 0;
@@ -1229,10 +1325,16 @@ const WeekView = memo(function WeekView({
             }
 
             const hTime = hasTime
-              ? Math.min((stat.duration / maxTime) * 80 + 10, 90) * introProgress
+              ? Math.min(
+                (stat.duration / maxTime) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
+                WEEK_BAR_VALUE_MAX_H
+              ) * introProgress
               : 0;
             const hCount = (!hasTime && hasCount)
-              ? Math.min((stat.totalCount / maxCount) * 80 + 10, 90) * introProgress
+              ? Math.min(
+                (stat.totalCount / maxCount) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
+                WEEK_BAR_VALUE_MAX_H
+              ) * introProgress
               : 0;
 
             if (hasTime) {
@@ -1292,17 +1394,14 @@ const WeekView = memo(function WeekView({
         </TouchableOpacity>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar]);
 
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
   const isWeekLayoutReady = pageW > 0;
-  const WEEK_VIEW_HEIGHT = 184;
-  const WEEK_CONTROL_HEIGHT = 20;
-  const WEEK_GRAPH_HEIGHT = WEEK_VIEW_HEIGHT - WEEK_CONTROL_HEIGHT;
 
   return (
-    <View style={{ height: WEEK_VIEW_HEIGHT }} onLayout={onLayout}>
+    <View style={{ flex: 1, width: '100%' }} onLayout={onLayout}>
       {!isWeekLayoutReady ? (
         <View style={{ height: WEEK_GRAPH_HEIGHT }} />
       ) : (
@@ -1393,7 +1492,10 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     useEffect(() => {
       return () => {};
     }, []);
-  const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - EDGE * 2);
+  const [containerSize, setContainerSize] = useState({
+    width: SCREEN_WIDTH - EDGE * 2,
+    height: 124,
+  });
   const [waveIntensity, setWaveIntensity] = useState(() => new Array(60 * 7).fill(0));
   const sparkTimersRef = React.useRef([]);
   const grassScrollRef = useRef(null);
@@ -1402,8 +1504,15 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const [scrollPos, setScrollPos] = useState({ x: 0, w: 0 });
 
   const onLayout = useCallback((e) => {
-    const w = e.nativeEvent.layout.width;
-    if (w > 0) setContainerWidth(w);
+    const w = Math.floor(e?.nativeEvent?.layout?.width || 0);
+    const h = Math.floor(e?.nativeEvent?.layout?.height || 0);
+    if (w > 0 && h > 0) {
+      setContainerSize((prev) => (
+        prev.width === w && prev.height === h
+          ? prev
+          : { width: w, height: h }
+      ));
+    }
   }, []);
 
   useEffect(() => { if (onTap) onTap(() => setWaveTrigger(t => t + 1)); }, [onTap]);
@@ -1451,9 +1560,34 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     };
   }, [waveTrigger]);
 
+  const containerWidth = Math.max(1, containerSize.width);
+  const containerHeight = Math.max(1, containerSize.height);
+
   const LEFT_LABEL_W = 0;
-  const CELL_GAP = 3;
-  const cellSize = 12;
+  const TOP_LABEL_H = 18;
+  const TOP_LABEL_GAP = 4;
+
+  const MIN_CELL_SIZE = 8;
+  const MAX_CELL_SIZE = 18;
+  const MIN_CELL_GAP = 2;
+  const MAX_CELL_GAP = 4;
+
+  const CELL_GAP = Math.max(
+    MIN_CELL_GAP,
+    Math.min(MAX_CELL_GAP, Math.round(containerHeight / 44))
+  );
+  const availableGridHeight = Math.max(
+    1,
+    containerHeight - TOP_LABEL_H - TOP_LABEL_GAP
+  );
+  const cellSize = Math.max(
+    MIN_CELL_SIZE,
+    Math.min(
+      MAX_CELL_SIZE,
+      Math.floor((availableGridHeight - (GRASS_ROWS - 1) * CELL_GAP) / GRASS_ROWS)
+    )
+  );
+  const graphBoxHeight = TOP_LABEL_H + TOP_LABEL_GAP + GRASS_ROWS * cellSize + (GRASS_ROWS - 1) * CELL_GAP;
 
   const { cellData, weekStarts, monthLabels } = useMemo(() => {
     if (!startDate || !endDate) return { cellData: [], weekStarts: [], monthLabels: [] };
@@ -1522,8 +1656,6 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     const contentWidth = contentCols * colUnit - CELL_GAP;
     const canScrollGrass = contentWidth > containerWidth + 1;
   const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
-  const TOP_LABEL_H = 18;
-
   const handlePressGrass = useCallback(() => {
     setWaveTrigger((t) => t + 1);
     if (typeof onTapGrass === 'function') {
@@ -1562,8 +1694,8 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
 );
 
   return (
-    <View style={{ width: '100%' }} onLayout={onLayout}>
-      <View style={{ width: containerWidth, height: 124 }}>
+    <View style={{ flex: 1, width: '100%', justifyContent: 'center' }} onLayout={onLayout}>
+      <View style={{ width: containerWidth, height: graphBoxHeight }}>
         <ScrollView
           ref={grassScrollRef}
           horizontal
@@ -1579,7 +1711,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
         >
           <View>
             {/* 월 라벨 영역 */}
-            <View style={{ height: TOP_LABEL_H, width: graphWidth, position: "relative", marginBottom: 4 }}>
+            <View style={{ height: TOP_LABEL_H, width: graphWidth, position: "relative", marginBottom: TOP_LABEL_GAP }}>
               {monthLabels.map((ml, i) => (
                 <Text
                   key={i}
@@ -2489,17 +2621,12 @@ export default function EntryListScreen({ route, navigation }) {
     const GRID_CELL_PADDING_VIEW = 4;
     const DASHBOARD_BOARD_SIDE_BLEED = 4;
 
-    const fixedSizes = {
-      goal_black_box: { w: 6, h: 1 },
-    };
-
     const safeLayout = baseLayout
       .map((item, index) => {
         const widgetId = item.widgetId || item.id || item.i || `dashboard_graph_${index}`;
-        const fixedSize = fixedSizes[widgetId];
 
-        const rawW = fixedSize?.w ?? item.w;
-        const rawH = fixedSize?.h ?? item.h;
+        const rawW = item.w;
+        const rawH = item.h;
 
         const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(rawW) || GRID_COLUMNS));
         const safeH = Math.max(1, Number(rawH) || 1);
@@ -3083,7 +3210,9 @@ dashboardGraphGuide: {
   paddingHorizontal: 6,
 },
 rewardBlackBox: {
+  flex: 1,
   width: '100%',
+  height: '100%',
   minHeight: 56,
   borderRadius: 12,
   backgroundColor: '#111',
@@ -3097,11 +3226,14 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
   hr: { height: 1, backgroundColor: '#C7C7C7', marginHorizontal: 8, marginBottom: 8 },
 
   calWrap: {
+    flex: 1,
     width: '100%',
+    height: '100%',
     paddingHorizontal: 0,
     paddingTop: 0,
     paddingBottom: 4,
     borderWidth: 0,
+    justifyContent: 'center',
   },
   calHeaderRow: {
     minHeight: 22,

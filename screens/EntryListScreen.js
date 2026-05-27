@@ -217,7 +217,13 @@ const StickyDebugPeek = ({ visible, count, onPress }) => {
 };
 
 /* ───────── 도넛 ───────── */
-const Donut = memo(function Donut({ targetPercent = 0, progress = 1, size = 110, stroke = 12 }) {
+const Donut = memo(function Donut({
+  targetPercent = 0,
+  progress = 1,
+  size = 110,
+  stroke = 12,
+  labelFontSize = 20,
+}) {
   const radius = (size - stroke) / 2;
   const cx = size / 2, cy = size / 2;
   const circumference = 2 * Math.PI * radius;
@@ -241,7 +247,7 @@ const Donut = memo(function Donut({ targetPercent = 0, progress = 1, size = 110,
         <Circle cx={cx} cy={cy} r={innerRadius} fill="#111" />
       </Svg>
       <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ fontSize: 20, fontWeight: '900', color: '#fff' }}>{display}%</Text>
+        <Text style={{ fontSize: labelFontSize, lineHeight: labelFontSize + 2, fontWeight: '900', color: '#fff', includeFontPadding: false }}>{display}%</Text>
       </View>
     </View>
   );
@@ -563,14 +569,24 @@ const MonthCalendar = memo(function MonthCalendar({
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
 
   const calendarRows = Math.max(1, Math.ceil(cells.length / 7));
-  const CAL_DOW_H = 14;
-  const CAL_GRID_TOP_GAP = 3;
-  const CAL_BOTTOM_PAD = 4;
-  const CAL_CELL_MARGIN_V = 1;
+
+  const CALENDAR_BODY_BASE_HEIGHT = 142;
+  const calendarBodyHeight = Math.max(1, calendarBox.height || CALENDAR_BODY_BASE_HEIGHT);
+  const CALENDAR_SCALE_RAW = calendarBodyHeight / CALENDAR_BODY_BASE_HEIGHT;
+  const CALENDAR_SCALE = Math.max(0.75, Math.min(1.45, CALENDAR_SCALE_RAW));
+  const scaleCal = (value, min, max) => {
+    const scaled = value * CALENDAR_SCALE;
+    return Math.max(min, Math.min(max, scaled));
+  };
+
+  const CAL_DOW_H = Math.round(scaleCal(14, 11, 20));
+  const CAL_GRID_TOP_GAP = Math.round(scaleCal(3, 2, 7));
+  const CAL_BOTTOM_PAD = Math.round(scaleCal(4, 3, 8));
+  const CAL_CELL_MARGIN_V = scaleCal(1, 0.5, 2);
 
   const availableCalendarH = Math.max(
     1,
-    (calendarBox.height || 0) - CAL_DOW_H - CAL_GRID_TOP_GAP - CAL_BOTTOM_PAD
+    calendarBodyHeight - CAL_DOW_H - CAL_GRID_TOP_GAP - CAL_BOTTOM_PAD
   );
   const calCellOuterH = Math.max(
     8,
@@ -580,10 +596,21 @@ const MonthCalendar = memo(function MonthCalendar({
     8,
     calCellOuterH - CAL_CELL_MARGIN_V * 2
   );
-  const calCellFontSize = Math.max(7, Math.min(9.5, Math.floor(calCellH * 0.62)));
-  const calBadgeFontSize = Math.max(7, Math.min(9.5, Math.floor(calCellH * 0.6)));
-  const calBadgeMinWidth = Math.max(13, Math.min(17, Math.round(calCellH * 0.95)));
-  const calBadgePaddingV = calCellH <= 12 ? 0 : 1;
+  const calCellFontSize = Math.max(
+    scaleCal(7, 6.5, 9),
+    Math.min(scaleCal(9.5, 8, 13), calCellH * 0.62)
+  );
+  const calBadgeFontSize = Math.max(
+    scaleCal(7, 6.5, 9),
+    Math.min(scaleCal(9.5, 8, 13), calCellH * 0.6)
+  );
+  const calBadgeMinWidth = Math.max(
+    scaleCal(13, 11, 16),
+    Math.min(scaleCal(17, 14, 24), calCellH * 0.95)
+  );
+  const calBadgePaddingV = calCellH <= scaleCal(12, 10, 16)
+    ? 0
+    : Math.round(scaleCal(1, 1, 2));
 
   const calCellDynamicStyle = {
     height: calCellH,
@@ -592,18 +619,19 @@ const MonthCalendar = memo(function MonthCalendar({
 
   const calCellTextDynamicStyle = {
     fontSize: calCellFontSize,
-    lineHeight: calCellFontSize + 2,
+    lineHeight: calCellFontSize + scaleCal(2, 1.5, 4),
     includeFontPadding: false,
   };
 
   const calBadgeDynamicStyle = {
     minWidth: calBadgeMinWidth,
     paddingVertical: calBadgePaddingV,
+    borderRadius: scaleCal(8, 6, 12),
   };
 
   const calBadgeTextDynamicStyle = {
     fontSize: calBadgeFontSize,
-    lineHeight: calBadgeFontSize + 2,
+    lineHeight: calBadgeFontSize + scaleCal(2, 1.5, 4),
     includeFontPadding: false,
   };
 
@@ -637,7 +665,12 @@ const MonthCalendar = memo(function MonthCalendar({
             key={`dow-${i}`}
             style={[
               styles.calDow,
-              { height: CAL_DOW_H, lineHeight: CAL_DOW_H, includeFontPadding: false },
+              {
+                height: CAL_DOW_H,
+                lineHeight: CAL_DOW_H,
+                fontSize: scaleCal(9, 7.5, 13),
+                includeFontPadding: false,
+              },
             ]}
           >
             {ch}
@@ -718,17 +751,56 @@ const LineGradientChart = memo(function LineGradientChart({
   edgePointInset=null,
   plotTopInset=16,
   plotBottomInset=42,
+  scaleLayout=false,
+  layoutBaseHeight=185,
 }){
+  const lineBaseHeight = Math.max(1, Number(layoutBaseHeight) || 185);
+  const lineScaleRaw = (Math.max(1, Number(height) || 185)) / lineBaseHeight;
+  const LINE_SCALE = scaleLayout ? Math.max(0.75, Math.min(1.45, lineScaleRaw)) : 1;
+  const scaleLine = (value, min, max) => {
+    const scaled = value * LINE_SCALE;
+    return Math.max(min, Math.min(max, scaled));
+  };
+
   const axisInset = Math.max(0, Number(plotInset) || 0);
-  const EDGE_DEFAULT_MARKER_R = 3.2;
-  const EDGE_DEFAULT_MARKER_STROKE_W = 2;
+
+  const EDGE_DEFAULT_MARKER_R = scaleLine(3.2, 2.6, 4.8);
+  const EDGE_DEFAULT_MARKER_STROKE_W = scaleLine(2, 1.6, 3);
+  const SELECTED_MARKER_R = scaleLine(3.8, 3, 5.4);
+  const SELECTED_MARKER_STROKE_W = scaleLine(2.1, 1.7, 3.2);
+  const LINE_STROKE_W = scaleLine(1.6, 1.2, 2.4);
+  const LINE_AXIS_STROKE_W = scaleLine(1, 0.8, 1.5);
+  const LINE_AREA_GAP = scaleLine(6, 4, 10);
+
+  const LINE_AXIS_LABEL_FONT_SIZE = scaleLine(10, 8, 13);
+  const LINE_AXIS_LABEL_Y_OFFSET = scaleLine(16, 12, 22);
+
+  const LINE_LABEL_FONT_SIZE = scaleLine(10, 8, 13);
+  const LINE_LABEL_H = Math.round(scaleLine(18, 15, 24));
+  const LINE_LABEL_RX = scaleLine(6, 4, 8);
+  const LINE_LABEL_BOTTOM_PAD = scaleLine(6, 5, 8);
+
+  const LINE_LABEL_CHAR_W = scaleLine(5.5, 4.6, 7.2);
+  const LINE_LABEL_W_PAD = scaleLine(10, 8, 16);
+  const LINE_LABEL_MIN_W = scaleLine(70, 58, 96);
+  const LINE_LABEL_MAX_W = scaleLine(130, 110, 170);
+  const LINE_LABEL_GAP = Math.round(scaleLine(8, 4, 12));
+  const LINE_LABEL_END_GAP = Math.round(scaleLine(10, 4, 14));
+
+  const LINE_PAGER_DOT_R = scaleLine(4, 3, 6);
+  const LINE_PAGER_DOT_Y_OFFSET = scaleLine(14, 10, 22);
+  const LINE_PAGER_DOT_X_GAP = scaleLine(10, 8, 16);
+  const LINE_TOUCH_RADIUS = scaleLine(16, 12, 22);
+
   const autoPointSafeInset = EDGE_DEFAULT_MARKER_R + EDGE_DEFAULT_MARKER_STROKE_W / 2;
   const pointSafeInset = Math.max(
     0,
     Number(edgePointInset ?? (axisInset === 0 ? autoPointSafeInset : axisInset)) || 0
   );
-  const top = Math.max(0, Number(plotTopInset) || 0);
-  const bottom = Math.max(0, Number(plotBottomInset) || 0);
+  const rawTopInset = Math.max(0, Number(plotTopInset) || 0);
+  const rawBottomInset = Math.max(0, Number(plotBottomInset) || 0);
+  const top = scaleLayout ? Math.round(scaleLine(rawTopInset, 6, 24)) : rawTopInset;
+  const bottom = scaleLayout ? Math.round(scaleLine(rawBottomInset, 22, 54)) : rawBottomInset;
   const left = axisInset, right = axisInset;
   const cw = Math.max(1, width - left - right);
   const ch = Math.max(1, height - top - bottom);
@@ -857,7 +929,7 @@ const safeNodePts = useMemo(() => {
   }, [pts]);
 
   const baselineY = top + ch + 0.5;
-  const areaGap = 6;
+  const areaGap = LINE_AREA_GAP;
   const areaD = useMemo(()=>{
     if(!pts.length) return '';
     const bottomY = baselineY - areaGap;
@@ -885,7 +957,7 @@ const safeNodePts = useMemo(() => {
 
   const placeLabel = (p, text, isEnd=false)=>{
     const { w, h } = labelDims(text);
-    const vGap = isEnd ? LABEL_END_GAP : LABEL_GAP;
+    const vGap = isEnd ? LINE_LABEL_END_GAP : LINE_LABEL_GAP;
     const above = p.y - h - vGap;
     const below = p.y + vGap;
 
@@ -898,18 +970,18 @@ const safeNodePts = useMemo(() => {
     return { lx, ly, w, h };
   };
 
-  const dotCy = baselineY + 14;
-  const dotCx1 = left + cw/2 - 10;
-  const dotCx2 = left + cw/2 + 10;
+  const dotCy = baselineY + LINE_PAGER_DOT_Y_OFFSET;
+  const dotCx1 = left + cw/2 - LINE_PAGER_DOT_X_GAP;
+  const dotCx2 = left + cw/2 + LINE_PAGER_DOT_X_GAP;
 
 
  const shouldCaptureTouch = useCallback((evt) => {
   if (!interactive) return false;
   const { locationX: x, locationY: y } = evt.nativeEvent;
-  const nearX = (cx, r = 16) => Math.abs(x - cx) <= r;
+  const nearX = (cx, r = LINE_TOUCH_RADIUS) => Math.abs(x - cx) <= r;
 
   // 페이저 점(●●) 터치 캡처 - Y 범위도 체크
-  if (showPager && y >= dotCy - 16 && y <= dotCy + 16) {
+  if (showPager && y >= dotCy - LINE_TOUCH_RADIUS && y <= dotCy + LINE_TOUCH_RADIUS) {
     if (nearX(dotCx1) || nearX(dotCx2)) return true;
   }
 
@@ -926,7 +998,7 @@ const safeNodePts = useMemo(() => {
     const nearX = (cx, r=16) => Math.abs(x - cx) <= r;
 
     // 페이저 점 터치 - Y 범위 체크
-    if (showPager && y >= dotCy - 16 && y <= dotCy + 16) {
+    if (showPager && y >= dotCy - LINE_TOUCH_RADIUS && y <= dotCy + LINE_TOUCH_RADIUS) {
       if (nearX(dotCx1)) { onSelectPagerIndex(0); return; }
       if (nearX(dotCx2)) { onSelectPagerIndex(1); return; }
     }
@@ -976,25 +1048,25 @@ const safeNodePts = useMemo(() => {
         </Defs>
 
         {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} />}
-        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={1.6} />}
+        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={LINE_STROKE_W} />}
 
         {/* X축 */}
-        <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={progressGrey} strokeWidth={1} />
+        <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={progressGrey} strokeWidth={LINE_AXIS_STROKE_W} />
 
         {/* 좌/우 라벨 */}
-        <SvgText x={left+4} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="start">
+        <SvgText x={left+4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={textGrey} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="start">
           {`${String(new Date(start).getFullYear()).slice(2)}-${pad2(new Date(start).getMonth()+1)}-${pad2(new Date(start).getDate())}`}
         </SvgText>
-        <SvgText x={left+cw-4} y={top + ch + 16} fill={textGrey} fontSize={10} fontWeight="700" textAnchor="end">
+        <SvgText x={left+cw-4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={textGrey} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="end">
           {`Today ${String((new Date()).getFullYear()).slice(2)}-${pad2((new Date()).getMonth()+1)}-${pad2((new Date()).getDate())}`}
         </SvgText>
 
         {/* 마커/라벨 */}
         {!selPoint && safeEndNode && (
-          <Circle cx={safeEndNode.x} cy={safeEndNode.y} r={3.2} fill="#fff" stroke={baseBlack} strokeWidth={2}/>
+          <Circle cx={safeEndNode.x} cy={safeEndNode.y} r={EDGE_DEFAULT_MARKER_R} fill="#fff" stroke={baseBlack} strokeWidth={EDGE_DEFAULT_MARKER_STROKE_W}/>
         )}
         {selPoint && (
-          <Circle cx={selPoint.x} cy={selPoint.y} r={3.8} fill="#fff" stroke={baseBlack} strokeWidth={2.1}/>
+          <Circle cx={selPoint.x} cy={selPoint.y} r={SELECTED_MARKER_R} fill="#fff" stroke={baseBlack} strokeWidth={SELECTED_MARKER_STROKE_W}/>
         )}
         {selPoint && selectedLabel && (() => {
           const pos = placeLabel(selPoint, selectedLabel, selectedIdx === series.length - 1);
@@ -1022,8 +1094,8 @@ const safeNodePts = useMemo(() => {
         {/* 내장 페이저 점 */}
         {showPager && (
         <>
-        <Circle cx={left + cw/2 - 10} cy={top + ch + 14} r={4} fill={pagerIndex===0 ? '#111' : '#D1D5DB'} />
-        <Circle cx={left + cw/2 + 10} cy={top + ch + 14} r={4} fill={pagerIndex===1 ? '#111' : '#D1D5DB'} />
+        <Circle cx={dotCx1} cy={dotCy} r={LINE_PAGER_DOT_R} fill={pagerIndex===0 ? '#111' : '#D1D5DB'} />
+        <Circle cx={dotCx2} cy={dotCy} r={LINE_PAGER_DOT_R} fill={pagerIndex===1 ? '#111' : '#D1D5DB'} />
         </>
         )}
       </Svg>
@@ -1145,6 +1217,8 @@ const DashboardLineChart = memo(function DashboardLineChart({
           plotInset={0}
           plotTopInset={DASHBOARD_LINE_PLOT_TOP}
           plotBottomInset={DASHBOARD_LINE_PLOT_BOTTOM}
+          scaleLayout
+          layoutBaseHeight={168}
         />
       ) : (
         <View style={{ flex: 1, width: '100%' }} />
@@ -1173,7 +1247,20 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
     }
   }, []);
 
-  const SAFE_PAD = 4;
+  const PROGRESS_BODY_BASE_HEIGHT = 146;
+  const progressBodyHeight = Math.max(1, box.height || PROGRESS_BODY_BASE_HEIGHT);
+  const PROGRESS_SCALE_RAW = progressBodyHeight / PROGRESS_BODY_BASE_HEIGHT;
+  const PROGRESS_SCALE = Math.max(0.75, Math.min(1.45, PROGRESS_SCALE_RAW));
+  const scaleProgress = (value, min, max) => {
+    const scaled = value * PROGRESS_SCALE;
+    return Math.max(min, Math.min(max, scaled));
+  };
+
+  const donutLabelFontSize = donutSize > 0
+    ? Math.round(Math.max(11, Math.min(28, donutSize * (20 / PROGRESS_DONUT_SIZE))))
+    : 20;
+
+  const SAFE_PAD = Math.round(scaleProgress(4, 3, 8));
 
   const availableW = Math.max(1, box.width - SAFE_PAD * 2);
   const availableH = Math.max(1, box.height - SAFE_PAD * 2);
@@ -1199,6 +1286,7 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
             progress={progress}
             size={donutSize}
             stroke={donutStroke}
+            labelFontSize={donutLabelFontSize}
           />
         ) : null}
       </View>
@@ -1208,6 +1296,71 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
 
 
 /* ───────── 주간 뷰 ───────── */
+const DashboardGoalWidget = memo(function DashboardGoalWidget({
+  rewardText,
+}) {
+  const [box, setBox] = useState({ width: 0, height: 0 });
+
+  const onLayout = useCallback((event) => {
+    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
+    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
+    if (width > 0 && height > 0) {
+      setBox((prev) => (
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height }
+      ));
+    }
+  }, []);
+
+  const GOAL_BASE_HEIGHT = 80;
+  const goalBoxHeight = Math.max(1, box.height || GOAL_BASE_HEIGHT);
+  const GOAL_SCALE_RAW = goalBoxHeight / GOAL_BASE_HEIGHT;
+  const GOAL_SCALE = Math.max(0.75, Math.min(1.45, GOAL_SCALE_RAW));
+  const scaleGoal = (value, min, max) => {
+    const scaled = value * GOAL_SCALE;
+    return Math.max(min, Math.min(max, scaled));
+  };
+
+  const goalPaddingV = Math.round(scaleGoal(10, 6, 18));
+  const goalPaddingH = Math.round(scaleGoal(16, 10, 28));
+  const goalRadius = Math.round(scaleGoal(12, 8, 20));
+  const goalFontSize = scaleGoal(17, 13, 24);
+  const goalLineHeight = Math.round(scaleGoal(21, 16, 31));
+
+  return (
+    <View style={styles.goalWidgetArea} onLayout={onLayout}>
+      <View
+        style={[
+          styles.rewardBlackBox,
+          {
+            minHeight: 0,
+            borderRadius: goalRadius,
+            paddingVertical: goalPaddingV,
+            paddingHorizontal: goalPaddingH,
+          },
+        ]}
+      >
+        <Text
+          numberOfLines={2}
+          ellipsizeMode="tail"
+          style={[
+            styles.rewardBlackText,
+            {
+              fontSize: goalFontSize,
+              lineHeight: goalLineHeight,
+              includeFontPadding: false,
+              textAlign: 'center',
+            },
+          ]}
+        >
+          {rewardText ?? '—'}
+        </Text>
+      </View>
+    </View>
+  );
+});
+
 const WeekView = memo(function WeekView({
   weeksData,
   currentIndex = 0,
@@ -1678,18 +1831,30 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const containerWidth = Math.max(1, containerSize.width);
   const containerHeight = Math.max(1, containerSize.height);
 
-  const LEFT_LABEL_W = 0;
-  const TOP_LABEL_H = 18;
-  const TOP_LABEL_GAP = 4;
+  const GRASS_BASE_HEIGHT = 168;
+  const GRASS_SCALE_RAW = containerHeight / GRASS_BASE_HEIGHT;
+  const GRASS_SCALE = Math.max(0.75, Math.min(1.45, GRASS_SCALE_RAW));
+  const scaleGrass = (value, min, max) => {
+    const scaled = value * GRASS_SCALE;
+    return Math.max(min, Math.min(max, scaled));
+  };
 
-  const MIN_CELL_SIZE = 8;
-  const MAX_CELL_SIZE = 18;
-  const MIN_CELL_GAP = 2;
-  const MAX_CELL_GAP = 4;
+  const LEFT_LABEL_W = 0;
+  const TOP_LABEL_H = Math.round(scaleGrass(18, 14, 26));
+  const TOP_LABEL_GAP = Math.round(scaleGrass(4, 3, 8));
+
+  const MIN_CELL_SIZE = scaleGrass(8, 6, 12);
+  const MAX_CELL_SIZE = scaleGrass(18, 14, 26);
+  const MIN_CELL_GAP = scaleGrass(2, 1.5, 3);
+  const MAX_CELL_GAP = scaleGrass(4, 3, 6);
+
+  const GRASS_CELL_RADIUS = scaleGrass(2, 1.5, 4);
+  const GRASS_MONTH_FONT_SIZE = scaleGrass(9, 7.5, 13);
+  const GRASS_MONTH_LINE_H = Math.round(scaleGrass(12, 10, 18));
 
   const CELL_GAP = Math.max(
     MIN_CELL_GAP,
-    Math.min(MAX_CELL_GAP, Math.round(containerHeight / 44))
+    Math.min(MAX_CELL_GAP, scaleGrass(4, 2, 6))
   );
   const availableGridHeight = Math.max(
     1,
@@ -1704,7 +1869,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   );
   const graphBoxHeight = TOP_LABEL_H + TOP_LABEL_GAP + GRASS_ROWS * cellSize + (GRASS_ROWS - 1) * CELL_GAP;
 const GRASS_ARROW_BOX_H = TOP_LABEL_H;
-const GRASS_ARROW_SIZE = Math.max(12, Math.min(16, TOP_LABEL_H * 0.82));
+const GRASS_ARROW_SIZE = scaleGrass(15, 12, 18);
 
   const { cellData, weekStarts, monthLabels } = useMemo(() => {
     if (!startDate || !endDate) return { cellData: [], weekStarts: [], monthLabels: [] };
@@ -1798,7 +1963,7 @@ const GRASS_ARROW_SIZE = Math.max(12, Math.min(16, TOP_LABEL_H * 0.82));
               return (
                 <View key={row} style={{
                   width: cellSize, height: cellSize,
-                  borderRadius: 2,
+                  borderRadius: GRASS_CELL_RADIUS,
                   backgroundColor: wave > 0.05 ? waveColor : baseColor,
                   marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
                 }} />
@@ -1834,7 +1999,12 @@ const GRASS_ARROW_SIZE = Math.max(12, Math.min(16, TOP_LABEL_H * 0.82));
                   key={i}
                   style={[
                     styles.grassMonthLabel,
-                    { left: ml.col * (cellSize + CELL_GAP) },
+                    {
+                      left: ml.col * (cellSize + CELL_GAP),
+                      fontSize: GRASS_MONTH_FONT_SIZE,
+                      lineHeight: GRASS_MONTH_LINE_H,
+                      includeFontPadding: false,
+                    },
                   ]}
                 >
                   {ml.label}
@@ -2168,11 +2338,9 @@ export default function EntryListScreen({ route, navigation }) {
     if (widgetKind === 'goal') {
       if (dashboardTarget === DASHBOARD_TARGETS.HABIT) return null;
       return (
-        <View style={styles.goalWidgetArea}>
-          <View style={styles.rewardBlackBox}>
-            <Text style={styles.rewardBlackText}>{meta.rewardTitle ?? meta.reward ?? '—'}</Text>
-          </View>
-        </View>
+        <DashboardGoalWidget
+          rewardText={meta.rewardTitle ?? meta.reward}
+        />
       );
     }
     if (widgetKind === 'weeklyBar') {

@@ -673,6 +673,8 @@ const LineGradientChart = memo(function LineGradientChart({
   showPager=true,
   plotInset=12,
   edgePointInset=null,
+  plotTopInset=16,
+  plotBottomInset=42,
 }){
   const axisInset = Math.max(0, Number(plotInset) || 0);
   const EDGE_DEFAULT_MARKER_R = 3.2;
@@ -682,9 +684,11 @@ const LineGradientChart = memo(function LineGradientChart({
     0,
     Number(edgePointInset ?? (axisInset === 0 ? autoPointSafeInset : axisInset)) || 0
   );
-  const left = axisInset, right = axisInset, top = 16, bottom = 42;
-  const cw = width - left - right;
-  const ch = height - top - bottom;
+  const top = Math.max(0, Number(plotTopInset) || 0);
+  const bottom = Math.max(0, Number(plotBottomInset) || 0);
+  const left = axisInset, right = axisInset;
+  const cw = Math.max(1, width - left - right);
+  const ch = Math.max(1, height - top - bottom);
   const introBaselineY = top + ch + 0.5;
 
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
@@ -1079,6 +1083,8 @@ const DashboardLineChart = memo(function DashboardLineChart({
 
   const chartWidth = Math.max(1, chartBox.width);
   const chartHeight = Math.max(1, chartBox.height);
+  const DASHBOARD_LINE_PLOT_TOP = 10;
+  const DASHBOARD_LINE_PLOT_BOTTOM = 30;
 
   return (
     <View style={styles.lineWidgetArea} onLayout={onLayout}>
@@ -1094,6 +1100,8 @@ const DashboardLineChart = memo(function DashboardLineChart({
           pagerIndex={metric === 'minutes' ? 1 : 0}
           showPager={false}
           plotInset={0}
+          plotTopInset={DASHBOARD_LINE_PLOT_TOP}
+          plotBottomInset={DASHBOARD_LINE_PLOT_BOTTOM}
         />
       ) : (
         <View style={{ flex: 1, width: '100%' }} />
@@ -2616,7 +2624,7 @@ export default function EntryListScreen({ route, navigation }) {
       ? sourceLayout
       : getDefaultDashboardLayout(dashboardTarget);
 
-    const GRID_ROW_HEIGHT_VIEW = 90;
+    const GRID_ROW_HEIGHT_VIEW = 80;
     const GRID_ROW_GAP_VIEW = 8;
     const GRID_CELL_PADDING_VIEW = 4;
     const DASHBOARD_BOARD_SIDE_BLEED = 4;

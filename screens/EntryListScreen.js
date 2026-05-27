@@ -389,6 +389,50 @@ const NotiPreviewSwitch = ({ notification, startDate, endDate })=>{
   return <Text style={{ fontSize:12, color:textGrey, textAlign:'center' }}>알림 없음</Text>;
 };
 
+const DashboardArrow = memo(function DashboardArrow({
+  direction = 'left',
+  size = 15,
+  boxHeight = 20,
+  disabled = false,
+  style = null,
+}) {
+  const chevronSize = Math.max(9, (Number(size) || 15) * 0.86);
+  const strokeWidth = Math.max(1.7, Math.min(2.7, chevronSize * 0.16));
+  const isRight = direction === 'right';
+  const pathD = isRight
+    ? 'M8.5 5.5 L13 10 L8.5 14.5'
+    : 'M11.5 5.5 L7 10 L11.5 14.5';
+
+  return (
+    <View
+      style={[
+        styles.dashboardArrowBox,
+        {
+          height: boxHeight,
+        },
+        style,
+      ]}
+      pointerEvents="none"
+    >
+      <Svg
+        width={chevronSize}
+        height={boxHeight}
+        viewBox="0 0 20 20"
+      >
+        <Path
+          d={pathD}
+          fill="none"
+          stroke="#111"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={disabled ? 0.3 : 1}
+        />
+      </Svg>
+    </View>
+  );
+});
+
 const DashboardWidgetHeader = memo(function DashboardWidgetHeader({
   title,
   leftLabel = '‹',
@@ -443,28 +487,27 @@ const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
   canLeft = true,
   canRight = true,
 }) {
+  const CALENDAR_ARROW_BOX_H = 22;
+  const CALENDAR_ARROW_SIZE = 16;
+
   return (
     <View style={styles.calendarHeaderGridRow}>
       <TouchableOpacity
-        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridLeftCell]}
+        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridLeftCell, { alignItems: 'center', justifyContent: 'center' }]}
         onPress={canLeft ? onLeft : undefined}
         disabled={!canLeft}
         activeOpacity={0.7}
       >
-        <Text style={[styles.dashboardWidgetHeaderNavText, !canLeft && styles.dashboardWidgetHeaderNavDisabled]}>
-          {leftText}
-        </Text>
+        <DashboardArrow direction="left" size={CALENDAR_ARROW_SIZE} boxHeight={CALENDAR_ARROW_BOX_H} disabled={!canLeft} />
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridRightCell]}
+        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridRightCell, { alignItems: 'center', justifyContent: 'center' }]}
         onPress={canRight ? onRight : undefined}
         disabled={!canRight}
         activeOpacity={0.7}
       >
-        <Text style={[styles.dashboardWidgetHeaderNavText, !canRight && styles.dashboardWidgetHeaderNavDisabled]}>
-          {rightText}
-        </Text>
+        <DashboardArrow direction="right" size={CALENDAR_ARROW_SIZE} boxHeight={CALENDAR_ARROW_BOX_H} disabled={!canRight} />
       </TouchableOpacity>
 
       <View pointerEvents="none" style={styles.calendarHeaderGridTitleLayer}>
@@ -1278,21 +1321,56 @@ const WeekView = memo(function WeekView({
     return result;
   }, [weeksData, currentIndex, challengeStartDate, challengeEndDate]);
 
-  const WEEK_FALLBACK_VIEW_HEIGHT = 184;
-  const WEEK_CONTROL_HEIGHT = 20;
-  const WEEK_DATE_ROW_HEIGHT = 24;
-  const WEEK_BAR_TOP_GAP = 10;
-  const WEEK_GRAPH_BOTTOM_GAP = 10;
+  const WEEK_FALLBACK_VIEW_HEIGHT = 168;
+  const WEEK_BASE_VIEW_HEIGHT = 168;
 
   const WEEK_VIEW_HEIGHT = viewH > 0 ? viewH : WEEK_FALLBACK_VIEW_HEIGHT;
+  const WEEK_SCALE_RAW = WEEK_VIEW_HEIGHT / WEEK_BASE_VIEW_HEIGHT;
+  const WEEK_SCALE = Math.max(0.75, Math.min(1.45, WEEK_SCALE_RAW));
+  const scaleWeek = (value, min, max) => {
+    const scaled = value * WEEK_SCALE;
+    return Math.max(min, Math.min(max, scaled));
+  };
+
+  const WEEK_CONTROL_HEIGHT = Math.round(scaleWeek(20, 18, 28));
+  const WEEK_DATE_FONT_SIZE = scaleWeek(10, 8, 14);
+  const WEEK_DATE_LINE_H = Math.round(scaleWeek(13, 11, 18));
+  const WEEK_DAY_FONT_SIZE = scaleWeek(9, 8, 13);
+  const WEEK_DAY_LINE_H = Math.round(scaleWeek(12, 10, 17));
+  const WEEK_DATE_DAY_GAP = Math.round(scaleWeek(2, 1, 5));
+  const WEEK_DATE_ROW_HEIGHT = WEEK_DATE_LINE_H + WEEK_DATE_DAY_GAP + WEEK_DAY_LINE_H;
+
+  const WEEK_BAR_TOP_GAP = Math.round(scaleWeek(6, 4, 12));
+  const WEEK_GRAPH_BOTTOM_GAP = Math.round(scaleWeek(8, 6, 16));
+
+  const WEEK_BAR_TEXT_FONT_SIZE = scaleWeek(10, 8, 14);
+  const WEEK_BAR_TEXT_LINE_H = Math.round(scaleWeek(12, 10, 18));
+  const WEEK_COUNT_FONT_SIZE = scaleWeek(10, 8, 14);
+  const WEEK_COUNT_LINE_H = Math.round(scaleWeek(14, 11, 20));
+  const WEEK_BAR_VERTICAL_GAP = Math.round(scaleWeek(2, 1, 5));
+  const WEEK_BAR_LABEL_STACK_H = WEEK_BAR_TEXT_LINE_H + WEEK_COUNT_LINE_H + WEEK_BAR_VERTICAL_GAP * 2;
+
   const WEEK_GRAPH_HEIGHT = Math.max(1, WEEK_VIEW_HEIGHT - WEEK_CONTROL_HEIGHT);
   const WEEK_BAR_ROW_HEIGHT = Math.max(
-    48,
+    Math.round(scaleWeek(48, 36, 76)),
     WEEK_GRAPH_HEIGHT - WEEK_DATE_ROW_HEIGHT - WEEK_BAR_TOP_GAP - WEEK_GRAPH_BOTTOM_GAP
   );
-  const WEEK_BAR_VALUE_MAX_H = Math.max(16, WEEK_BAR_ROW_HEIGHT - 30);
-  const WEEK_BAR_VALUE_BASE_H = Math.min(10, Math.max(4, WEEK_BAR_VALUE_MAX_H * 0.25));
+  const WEEK_BAR_VALUE_MAX_H = Math.max(
+    Math.round(scaleWeek(16, 12, 32)),
+    WEEK_BAR_ROW_HEIGHT - WEEK_BAR_LABEL_STACK_H
+  );
+  const WEEK_BAR_VALUE_BASE_H = Math.min(
+    scaleWeek(10, 4, 16),
+    Math.max(4, WEEK_BAR_VALUE_MAX_H * 0.25)
+  );
   const WEEK_BAR_VALUE_RANGE_H = Math.max(1, WEEK_BAR_VALUE_MAX_H - WEEK_BAR_VALUE_BASE_H);
+
+  const WEEK_EMPTY_DOT_SIZE = scaleWeek(4, 3, 6);
+  const WEEK_PAGER_DOT_SIZE = scaleWeek(5, 4, 8);
+  const WEEK_PAGER_DOT_ACTIVE_SIZE = scaleWeek(6, 5, 9);
+  const WEEK_PAGER_DOT_HIT_W = Math.round(scaleWeek(12, 10, 18));
+  const WEEK_PAGER_ARROW_HIT_W = Math.round(scaleWeek(22, 18, 30));
+  const WEEK_PAGER_ARROW_FONT_SIZE = scaleWeek(15, 13, 20);
 
   const renderWeek = useCallback(({ dailyStats }, idx) => {
     const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
@@ -1300,7 +1378,7 @@ const WeekView = memo(function WeekView({
 
     return (
       <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: WEEK_GRAPH_BOTTOM_GAP }}>
-        <View style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X }}>
+        <View style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, height: WEEK_DATE_ROW_HEIGHT }}>
           {dailyStats.map((stat, i) => (
             <TouchableOpacity
               key={i}
@@ -1310,11 +1388,30 @@ const WeekView = memo(function WeekView({
             >
               <Text
                 onLayout={recordWeekDateTextWidth}
-                style={[styles.dateLabel, { marginBottom: 2 }]}
+                style={[
+                  styles.dateLabel,
+                  {
+                    marginBottom: WEEK_DATE_DAY_GAP,
+                    fontSize: WEEK_DATE_FONT_SIZE,
+                    lineHeight: WEEK_DATE_LINE_H,
+                    includeFontPadding: false,
+                  },
+                ]}
               >
                 {stat.date}
               </Text>
-              <Text style={styles.dayLabel}>{DAY_LABELS[i]}</Text>
+              <Text
+                style={[
+                  styles.dayLabel,
+                  {
+                    fontSize: WEEK_DAY_FONT_SIZE,
+                    lineHeight: WEEK_DAY_LINE_H,
+                    includeFontPadding: false,
+                  },
+                ]}
+              >
+                {DAY_LABELS[i]}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -1327,7 +1424,15 @@ const WeekView = memo(function WeekView({
             if (!hasTime && !hasCount) {
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
-                  <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', marginBottom: 2 }} />
+                  <View
+                  style={{
+                    width: WEEK_EMPTY_DOT_SIZE,
+                    height: WEEK_EMPTY_DOT_SIZE,
+                    borderRadius: WEEK_EMPTY_DOT_SIZE / 2,
+                    backgroundColor: '#D1D5DB',
+                    marginBottom: WEEK_BAR_VERTICAL_GAP,
+                  }}
+                />
                 </View>
               );
             }
@@ -1352,7 +1457,7 @@ const WeekView = memo(function WeekView({
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
                   <Text style={styles.barText}>{`${stat.duration}분`}</Text>
-                  <View style={{ marginVertical: 2, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
+                  <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
                     {(() => {
                       if (segDurations.length <= 1) {
                         return <View style={[styles.bar, { height: hTime, backgroundColor: baseBlack }]} />;
@@ -1372,7 +1477,7 @@ const WeekView = memo(function WeekView({
                       });
                     })()}
                   </View>
-                  <Text style={styles.countLabel}>{(stat.totalCount || 0) > 0 ? `${stat.totalCount}회` : '—'}</Text>
+                  <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }]}>{(stat.totalCount || 0) > 0 ? `${stat.totalCount}회` : '—'}</Text>
                 </View>
               );
             }
@@ -1402,7 +1507,7 @@ const WeekView = memo(function WeekView({
         </TouchableOpacity>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_DATE_ROW_HEIGHT, WEEK_DATE_DAY_GAP, WEEK_DATE_FONT_SIZE, WEEK_DATE_LINE_H, WEEK_DAY_FONT_SIZE, WEEK_DAY_LINE_H, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar]);
 
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
@@ -1445,14 +1550,14 @@ const WeekView = memo(function WeekView({
       </ScrollView>
       )}
 
-      <View style={styles.weekPagerControl}>
+      <View style={[styles.weekPagerControl, { height: WEEK_CONTROL_HEIGHT }]}>
         <TouchableOpacity
-          style={styles.weekPagerArrowHit}
+          style={[styles.weekPagerArrowHit, { width: WEEK_PAGER_ARROW_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
           onPress={() => goWeek(currentIndex - 1)}
           disabled={!canPrevWeek}
           activeOpacity={0.7}
         >
-          <Text style={[styles.weekPagerArrow, !canPrevWeek && styles.weekPagerArrowDisabled]}>{'‹'}</Text>
+          <DashboardArrow direction="left" size={WEEK_PAGER_ARROW_FONT_SIZE} boxHeight={WEEK_CONTROL_HEIGHT} disabled={!canPrevWeek} />
         </TouchableOpacity>
 
         <View style={styles.weekPagerDots}>
@@ -1463,29 +1568,31 @@ const WeekView = memo(function WeekView({
               ? styles.weekPagerDotInRange
               : styles.weekPagerDotOutRange;
 
+            const dotSize = week.isCurrent ? WEEK_PAGER_DOT_ACTIVE_SIZE : WEEK_PAGER_DOT_SIZE;
+
             return (
               <TouchableOpacity
                 key={week.key}
-                style={styles.weekPagerDotHit}
+                style={[styles.weekPagerDotHit, { width: WEEK_PAGER_DOT_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
                 onPress={() => {
                   if (week.dataIndex >= 0) goWeek(week.dataIndex);
                 }}
                 disabled={week.dataIndex < 0}
                 activeOpacity={0.75}
               >
-                <View style={[styles.weekPagerDot, dotStyle]} />
+                <View style={[styles.weekPagerDot, dotStyle, { width: dotSize, height: dotSize, borderRadius: dotSize / 2 }]} />
               </TouchableOpacity>
             );
           })}
         </View>
 
         <TouchableOpacity
-          style={styles.weekPagerArrowHit}
+          style={[styles.weekPagerArrowHit, { width: WEEK_PAGER_ARROW_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
           onPress={() => goWeek(currentIndex + 1)}
           disabled={!canNextWeek}
           activeOpacity={0.7}
         >
-          <Text style={[styles.weekPagerArrow, !canNextWeek && styles.weekPagerArrowDisabled]}>{'›'}</Text>
+          <DashboardArrow direction="right" size={WEEK_PAGER_ARROW_FONT_SIZE} boxHeight={WEEK_CONTROL_HEIGHT} disabled={!canNextWeek} />
         </TouchableOpacity>
       </View>
     </View>
@@ -1596,6 +1703,8 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     )
   );
   const graphBoxHeight = TOP_LABEL_H + TOP_LABEL_GAP + GRASS_ROWS * cellSize + (GRASS_ROWS - 1) * CELL_GAP;
+const GRASS_ARROW_BOX_H = TOP_LABEL_H;
+const GRASS_ARROW_SIZE = Math.max(12, Math.min(16, TOP_LABEL_H * 0.82));
 
   const { cellData, weekStarts, monthLabels } = useMemo(() => {
     if (!startDate || !endDate) return { cellData: [], weekStarts: [], monthLabels: [] };
@@ -1743,7 +1852,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
           {canScrollGrass && scrollPos.x > 5 && (
           <View style={styles.grassArrowLeft}>
             <TouchableOpacity onPress={() => grassScrollRef.current?.scrollTo({x: 0, animated: true})} hitSlop={{top:12, bottom:12, left:12, right:12}}>
-              <Text style={styles.grassArrowText}>{"‹"}</Text>
+              <DashboardArrow direction="left" size={GRASS_ARROW_SIZE} boxHeight={GRASS_ARROW_BOX_H} />
             </TouchableOpacity>
           </View>
         )}
@@ -1752,7 +1861,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
           {canScrollGrass && scrollPos.x + containerWidth < graphWidth - 5 && (
           <View style={styles.grassArrowRight}>
             <TouchableOpacity onPress={() => grassScrollRef.current?.scrollToEnd({animated: true})} hitSlop={{top:12, bottom:12, left:12, right:12}}>
-              <Text style={styles.grassArrowText}>{"›"}</Text>
+              <DashboardArrow direction="right" size={GRASS_ARROW_SIZE} boxHeight={GRASS_ARROW_BOX_H} />
             </TouchableOpacity>
           </View>
         )}
@@ -3116,6 +3225,17 @@ weekPagerArrowHit: {
   alignItems: 'center',
   justifyContent: 'center',
 },
+  dashboardArrowBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dashboardArrowText: {
+    fontWeight: '800',
+    color: '#111',
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
 weekPagerArrow: {
   fontSize: 15,
   fontWeight: '800',
@@ -3167,10 +3287,10 @@ grassMonthLabel: {
 grassArrowLeft: {
   position: 'absolute',
   left: 0,
-  top: 3,
-  height: 12,
+  top: 0,
+  height: 18,
   alignItems: 'center',
-  justifyContent: 'flex-start',
+  justifyContent: 'center',
   backgroundColor: 'rgba(255,255,255,0.72)',
   borderRadius: 6,
   paddingHorizontal: 2,
@@ -3178,10 +3298,10 @@ grassArrowLeft: {
 grassArrowRight: {
   position: 'absolute',
   right: 0,
-  top: 3,
-  height: 12,
+  top: 0,
+  height: 18,
   alignItems: 'center',
-  justifyContent: 'flex-start',
+  justifyContent: 'center',
   backgroundColor: 'rgba(255,255,255,0.72)',
   borderRadius: 6,
   paddingHorizontal: 2,

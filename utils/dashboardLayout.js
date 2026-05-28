@@ -28,11 +28,89 @@ const clampNumber = (value, min, max, fallback) => {
   return Math.max(min, Math.min(max, n));
 };
 
+const LEGACY_GRID_HEIGHT_BY_WIDGET_ID = {
+  overall_progress: 2,
+  goal_black_box: 1,
+  month_calendar: 2,
+  weekly_bar: 2,
+  line_count_cumulative: 2,
+  line_minutes: 2,
+  grass_graph: 2,
+};
+
+const INTERNAL_GRID_HEIGHT_BY_WIDGET_ID = {
+  overall_progress: 4,
+  goal_black_box: 2,
+  month_calendar: 4,
+  weekly_bar: 4,
+  line_count_cumulative: 4,
+  line_minutes: 4,
+  grass_graph: 4,
+};
+
+const getLayoutItemWidgetId = (item) => item?.widgetId || item?.id || item?.i || '';
+
+const looksLikeLegacyDashboardLayout = (layout = []) => {
+  if (!Array.isArray(layout) || layout.length === 0) return false;
+
+  let legacyMatches = 0;
+  let internalMatches = 0;
+
+  layout.forEach((item) => {
+    const widgetId = getLayoutItemWidgetId(item);
+    const h = Number(item?.h);
+    if (!Number.isFinite(h)) return;
+
+    if (LEGACY_GRID_HEIGHT_BY_WIDGET_ID[widgetId] === h) {
+      legacyMatches += 1;
+    }
+    if (INTERNAL_GRID_HEIGHT_BY_WIDGET_ID[widgetId] === h) {
+      internalMatches += 1;
+    }
+  });
+
+  return legacyMatches > 0 && legacyMatches >= internalMatches;
+};
+
+const migrateDashboardLayoutToInternalGrid = (layout = []) => {
+  if (!looksLikeLegacyDashboardLayout(layout)) return layout;
+
+  return layout.map((item) => {
+    const widgetId = getLayoutItemWidgetId(item);
+    const rawY = Number(item?.y);
+    const rawH = Number(item?.h);
+    const safeY = Number.isFinite(rawY) ? Math.max(0, rawY) : 0;
+    const safeH = Number.isFinite(rawH) ? Math.max(1, rawH) : 1;
+
+    const legacyH = LEGACY_GRID_HEIGHT_BY_WIDGET_ID[widgetId];
+    const internalH = INTERNAL_GRID_HEIGHT_BY_WIDGET_ID[widgetId];
+
+    let nextH = safeH;
+
+    if (widgetId === 'goal_black_box') {
+      nextH = safeH <= 2 ? 2 : safeH;
+    } else if (Number.isFinite(legacyH) && Number.isFinite(internalH)) {
+      if (safeH === legacyH || safeH < internalH) {
+        nextH = internalH;
+      }
+    } else {
+      nextH = safeH * 2;
+    }
+
+    return {
+      ...item,
+      y: safeY * 2,
+      h: nextH,
+    };
+  });
+};
+
 export const normalizeDashboardLayout = (layout = [], target = DASHBOARD_TARGETS.CHALLENGE) => {
   const normalizedTarget = resolveDashboardTarget(target);
-  const source = Array.isArray(layout) && layout.length
+  const sourceBeforeMigration = Array.isArray(layout) && layout.length
     ? layout
     : getDefaultDashboardLayout(normalizedTarget);
+  const source = migrateDashboardLayoutToInternalGrid(sourceBeforeMigration);
 
   return source
     .map((item, index) => {
@@ -71,27 +149,57 @@ const writeLayoutMap = async (map) => {
 };
 
 const sanitizeDashboardLayout = (layout, target) => {
-  const source = Array.isArray(layout)
+  const sourceBeforeMigration = Array.isArray(layout)
     ? layout
     : getDefaultDashboardLayout(target);
+  const source = migrateDashboardLayoutToInternalGrid(sourceBeforeMigration);
 
   return source
     .filter(Boolean)
     .map((item, index) => {
       const rawId = item.id || item.widgetId || item.i;
+      const widgetId = item.widgetId || rawId;
+      const widget = getWidgetById(widgetId) || null;
       const columnCount = typeof GRID_COLUMNS === 'number' ? GRID_COLUMNS : 3;
-      const width = Math.max(1, Math.min(columnCount, Number(item.w) || columnCount));
+
+      const defaultSize = widget?.defaultSize || { w: columnCount, h: 1 };
+      const minSize = widget?.minSize || { w: 1, h: 1 };
+      const maxSize = widget?.maxSize || { w: columnCount, h: 12 };
+
+      const rawW = Number(item.w);
+      const rawH = Number(item.h);
+
+      const fallbackW = Math.max(1, Math.min(columnCount, Number(defaultSize.w) || columnCount));
+      const fallbackH = Math.max(1, Number(defaultSize.h) || 1);
+
+      const width = Math.max(
+        Number(minSize.w) || 1,
+        Math.min(
+          columnCount,
+          Number(maxSize.w) || columnCount,
+          Number.isFinite(rawW) ? rawW : fallbackW
+        )
+      );
+
+      const height = Math.max(
+        Number(minSize.h) || 1,
+        Math.min(
+          Number(maxSize.h) || 12,
+          Number.isFinite(rawH) ? rawH : fallbackH
+        )
+      );
+
       const rawY = Number(item.y);
       const safeY = Number.isFinite(rawY) ? Math.max(0, rawY) : index;
 
       return {
         ...item,
         id: rawId,
-        widgetId: item.widgetId || rawId,
+        widgetId,
         x: Math.max(0, Math.min(columnCount - width, Number(item.x) || 0)),
         y: safeY,
         w: width,
-        h: Math.max(1, Number(item.h) || 1),
+        h: height,
       };
     })
     .filter((item) => item.id || item.widgetId);
@@ -135,7 +243,7 @@ export const saveDashboardLayoutForChallenge = async (challengeId, layout, targe
     console.warn('Failed to save dashboard layout', error);
     throw error;
   }
-};;
+};
 
 export const resetDashboardLayoutForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
   const id = String(challengeId || '');

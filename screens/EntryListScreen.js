@@ -3004,12 +3004,9 @@ export default function EntryListScreen({ route, navigation }) {
         const rawH = item.h;
 
         const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(rawW) || GRID_COLUMNS));
-        const sourceH = Math.max(1, Number(rawH) || 1);
-        const sourceY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
-
-        const safeH = sourceH * 2;
+        const safeH = Math.max(1, Number(rawH) || 1);
         const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x) || 0));
-        const safeY = sourceY * 2;
+        const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
 
         return {
           ...item,

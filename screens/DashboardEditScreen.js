@@ -37,16 +37,22 @@ function resolveTarget(params) {
 function normalizeLayoutItem(item, index) {
  const widgetId = item?.widgetId || item?.id || item?.i || DEFAULT_WIDGET_IDS[index] || `graph_${index}`;
  const catalog = getWidgetById(widgetId) || {};
- const fixedSizes = {
- grass_graph: { w: 6, h: 2 },
- weekly_bar: { w: 6, h: 2 },
- line_count_cumulative: { w: 6, h: 2 },
- line_minutes: { w: 6, h: 2 },
- goal_black_box: { w: 6, h: 1 },
- overall_progress: { w: 2, h: 2 },
- month_calendar: { w: 4, h: 2 },
- };
- const fixedSize = fixedSizes[widgetId];
+ const defaultSize = catalog?.defaultSize || { w: GRID_COLUMNS, h: 2 };
+ const minSize = catalog?.minSize || { w: 1, h: 1 };
+ const maxSize = catalog?.maxSize || { w: GRID_COLUMNS, h: 12 };
+
+ const rawW = Number(item?.w ?? defaultSize.w);
+ const rawH = Number(item?.h ?? defaultSize.h);
+
+ const safeW = Math.max(
+   Number(minSize.w) || 1,
+   Math.min(GRID_COLUMNS, Number(maxSize.w) || GRID_COLUMNS, Number.isFinite(rawW) ? rawW : defaultSize.w)
+ );
+ const safeH = Math.max(
+   Number(minSize.h) || 1,
+   Math.min(Number(maxSize.h) || 12, Number.isFinite(rawH) ? rawH : defaultSize.h)
+ );
+
  return {
  ...catalog,
  ...item,
@@ -54,8 +60,8 @@ function normalizeLayoutItem(item, index) {
  widgetId,
  x: Number.isFinite(Number(item?.x)) ? Number(item.x) : 0,
  y: Number.isFinite(Number(item?.y)) ? Number(item.y) : index,
- w: Math.max(1, Math.min(GRID_COLUMNS, Number(fixedSize?.w || item?.w || catalog?.defaultSize?.w || GRID_COLUMNS))),
- h: Math.max(1, Number(fixedSize?.h || item?.h || catalog?.defaultSize?.h || 1)),
+ w: safeW,
+ h: safeH,
  };
 }
 
@@ -332,8 +338,8 @@ export default function DashboardEditScreen({ route, navigation }) {
    return Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
  }, [layout, previewLayout, gestureDraggingWidgetId]);
 
-const GRID_ROW_HEIGHT = 90;
-const GRID_ROW_GAP = 10;
+const GRID_ROW_HEIGHT = 46;
+const GRID_ROW_GAP = 4;
 const GRID_CELL_PADDING = 5;
 const GRID_DRAG_STEP_THRESHOLD = 0.62;
 const AUTO_SCROLL_EDGE_SIZE = 110;
@@ -1427,7 +1433,7 @@ const layoutRows = useMemo(() => {
  <View style={styles.contentHeader}>
  <Text style={styles.challengeTitle} numberOfLines={1}>{title}</Text>
  <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>
- <Text style={styles.addText}>그래프 추가</Text>
+ <Text style={styles.addText}>위젯 추가</Text>
  </TouchableOpacity>
  </View>
 
@@ -1459,14 +1465,14 @@ const layoutRows = useMemo(() => {
  <View style={styles.modalOverlay}>
  <View style={styles.modalSheet}>
  <View style={styles.modalHeader}>
- <Text style={styles.modalTitle}>그래프 추가</Text>
+ <Text style={styles.modalTitle}>위젯 추가</Text>
  <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setPickerVisible(false)}>
  <Text style={styles.modalCloseText}>×</Text>
  </TouchableOpacity>
  </View>
 
  {pickerWidgets.length === 0 ? (
- <Text style={styles.emptyText}>추가할 수 있는 그래프가 없습니다.</Text>
+ <Text style={styles.emptyText}>추가할 수 있는 위젯이 없습니다.</Text>
  ) : (
  <ScrollView style={styles.pickerList}>
  {pickerWidgets.map((widget) => {

@@ -21,8 +21,8 @@ export const WIDGET_CATALOG = [
     defaultOwned: true,
     supports: ['challenge', 'habit'],
     defaultSize: { w: 2, h: 4 },
-    minSize: { w: 1, h: 2 },
-    maxSize: { w: 6, h: 4 },
+    minSize: { w: 2, h: 3 },
+    maxSize: { w: 4, h: 4 },
     kind: 'progress',
   },
   {
@@ -47,7 +47,7 @@ export const WIDGET_CATALOG = [
     defaultOwned: true,
     supports: ['challenge', 'habit'],
     defaultSize: { w: 4, h: 4 },
-    minSize: { w: 2, h: 4 },
+    minSize: { w: 4, h: 3 },
     maxSize: { w: 6, h: 6 },
     kind: 'calendar',
   },
@@ -56,16 +56,16 @@ export const WIDGET_CATALOG = [
   { id: 't1_today_meter', title: '오늘 집중 미터', tier: 1, price: 30, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 1, h: 2 }, minSize: { w: 1, h: 2 }, maxSize: { w: 2, h: 4 }, kind: 'placeholder' },
   { id: 't1_mini_summary', title: '미니 요약 카드', tier: 1, price: 30, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 1, h: 2 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 2 }, kind: 'placeholder' },
 
-  { id: 'weekly_bar', title: '주간 막대 위젯', tier: 2, price: 80, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 6, h: 6 }, kind: 'weeklyBar' },
+  { id: 'weekly_bar', title: '주간 막대 위젯', tier: 2, price: 80, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 3 }, maxSize: { w: 6, h: 6 }, kind: 'weeklyBar' },
   { id: 't2_weekly_heat', title: '주간 열감 지도', tier: 2, price: 80, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 3, h: 6 }, kind: 'placeholder' },
   { id: 't2_record_balance', title: '기록 균형 카드', tier: 2, price: 80, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 2, h: 4 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 4 }, kind: 'placeholder' },
 
-  { id: 'line_count_cumulative', title: '누적 선형 위젯', tier: 3, price: 200, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 6, h: 6 }, kind: 'lineCount' },
+  { id: 'line_count_cumulative', title: '누적 선형 위젯', tier: 3, price: 200, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 3 }, maxSize: { w: 6, h: 6 }, kind: 'lineCount' },
   { id: 't3_streak_curve', title: '연속 기록 곡선', tier: 3, price: 200, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 3, h: 6 }, kind: 'placeholder' },
   { id: 't3_goal_velocity', title: '목표 속도계', tier: 3, price: 200, shop: true, placeholder: true, supports: ['challenge'], defaultSize: { w: 2, h: 4 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 4 }, kind: 'placeholder' },
 
-  { id: 'line_minutes', title: '시간 선형 위젯', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 6, h: 6 }, kind: 'lineMinutes' },
-  { id: 'grass_graph', title: '잔디 위젯', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 3, h: 4 }, maxSize: { w: 6, h: 6 }, kind: 'grass' },
+  { id: 'line_minutes', title: '시간 선형 위젯', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 3 }, maxSize: { w: 6, h: 6 }, kind: 'lineMinutes' },
+  { id: 'grass_graph', title: '잔디 위젯', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 3 }, maxSize: { w: 6, h: 6 }, kind: 'grass' },
   { id: 't4_animated_pulse', title: '애니메이션 펄스', tier: 4, price: 500, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 3, h: 6 }, kind: 'placeholder' },
 
   { id: 't5_all_black_theme', title: '올블랙 전용 테마', tier: 5, price: 1000, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 3, h: 2 }, maxSize: { w: 3, h: 6 }, kind: 'theme' },

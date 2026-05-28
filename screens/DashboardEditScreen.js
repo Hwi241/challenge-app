@@ -340,7 +340,7 @@ export default function DashboardEditScreen({ route, navigation }) {
 
 const GRID_ROW_HEIGHT = 46;
 const GRID_ROW_GAP = 4;
-const GRID_CELL_PADDING = 5;
+const GRID_CELL_PADDING = 4;
 const GRID_DRAG_STEP_THRESHOLD = 0.62;
 const AUTO_SCROLL_EDGE_SIZE = 110;
 const AUTO_SCROLL_STEP = 9;
@@ -1410,9 +1410,9 @@ const layoutRows = useMemo(() => {
    const frame = getGridItemFrame(dragPlaceholder, gridWidth);
    return (
      <View pointerEvents="none" style={[styles.dragPlaceholderOverlay, {
-       left: frame.left + GRID_CELL_PADDING,
+       left: frame.left,
        top: frame.top,
-       width: Math.max(0, frame.width - GRID_CELL_PADDING * 2),
+       width: frame.width,
        height: frame.height,
      }]} />
    );
@@ -1584,7 +1584,7 @@ const styles = StyleSheet.create({
  },
  graphCell: {
  width: '100%',
- paddingHorizontal: 5,
+ paddingHorizontal: 0,
  },
  gridSpacer: {
  minHeight: 1,

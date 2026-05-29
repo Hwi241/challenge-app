@@ -2472,7 +2472,7 @@ graphCard: {
  elevation: 3,
 },
 graphCardResizeDraggingHidden: {
- opacity: 0,
+ opacity: 0.35,
 },
 resizeHandleCenterLayer: {
  ...StyleSheet.absoluteFillObject,

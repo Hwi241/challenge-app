@@ -2643,8 +2643,8 @@ resizeActiveOverlay: {
 },
 resizeActiveCornerHitbox: {
  position: 'absolute',
- width: 56,
- height: 56,
+ width: 72,
+ height: 72,
  zIndex: 24,
  elevation: 10,
 },

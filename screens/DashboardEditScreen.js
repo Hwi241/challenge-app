@@ -2680,7 +2680,7 @@ resizeActiveDiagonalDash: {
 resizeGhostFrameOverlay: {
  position: 'absolute',
  zIndex: 9998,
- elevation: 40,
+ elevation: 0,
  borderWidth: 1.5,
  borderStyle: 'solid',
  borderColor: '#B8B8B8',

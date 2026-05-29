@@ -528,6 +528,7 @@ const GRID_ROW_GAP = 4;
 const GRID_CELL_PADDING = 4;
 const RESIZE_FRAME_INSET = 2;
 const RESIZE_ACTIVE_CORNER_SIZE = 12;
+const RESIZE_CORNER_OUTSET = 5;
 const RESIZE_GHOST_RESISTANCE = 0.22;
 const RESIZE_GHOST_MAX_OVERSHOOT = 12;
 const RESIZE_GHOST_BOUNCE_BACK_MS = 90;
@@ -2186,8 +2187,14 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
 
  const snapFrame = getGridItemFrame(resizeGhostFrame, gridWidth);
  const visualFrame = resizeGhostFrame.visualFramePx || snapFrame;
- const width = Math.max(1, Number(visualFrame.width) || 1);
- const height = Math.max(1, Number(visualFrame.height) || 1);
+ const cardFrame = {
+ left: visualFrame.left + RESIZE_FRAME_INSET,
+ top: visualFrame.top + RESIZE_FRAME_INSET,
+ width: Math.max(1, (Number(visualFrame.width) || 1) - RESIZE_FRAME_INSET * 2),
+ height: Math.max(1, (Number(visualFrame.height) || 1) - RESIZE_FRAME_INSET * 2),
+ };
+ const width = cardFrame.width;
+ const height = cardFrame.height;
  const cornerSize = RESIZE_ACTIVE_CORNER_SIZE;
 
  const diagonalStartX = cornerSize;
@@ -2216,8 +2223,8 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  style={[
  styles.resizeGhostFrameOverlay,
  {
- left: visualFrame.left,
- top: visualFrame.top,
+ left: cardFrame.left,
+ top: cardFrame.top,
  width,
  height,
  },
@@ -2518,14 +2525,14 @@ resizeActiveCornerHitbox: {
  elevation: 10,
 },
 resizeActiveCornerHitboxTopRight: {
- top: -8,
- right: -8,
+ top: -RESIZE_CORNER_OUTSET,
+ right: -RESIZE_CORNER_OUTSET,
  alignItems: 'flex-end',
  justifyContent: 'flex-start',
 },
 resizeActiveCornerHitboxBottomLeft: {
- left: -8,
- bottom: -8,
+ left: -RESIZE_CORNER_OUTSET,
+ bottom: -RESIZE_CORNER_OUTSET,
  alignItems: 'flex-start',
  justifyContent: 'flex-end',
 },
@@ -2689,14 +2696,14 @@ resizeGhostCorner: {
  borderColor: '#111',
 },
 resizeGhostCornerTopRight: {
- top: 0,
- right: 0,
+ top: -RESIZE_CORNER_OUTSET,
+ right: -RESIZE_CORNER_OUTSET,
  borderTopWidth: 3,
  borderRightWidth: 3,
 },
 resizeGhostCornerBottomLeft: {
- left: 0,
- bottom: 0,
+ left: -RESIZE_CORNER_OUTSET,
+ bottom: -RESIZE_CORNER_OUTSET,
  borderLeftWidth: 3,
  borderBottomWidth: 3,
 },

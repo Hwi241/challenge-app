@@ -2217,6 +2217,13 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  transform: [{ rotate: `${diagonalAngle}deg` }],
  };
 
+ const ghostDashMotionPad = 36;
+ const ghostDiagonalDashStyle = {
+ width: diagonalLength + ghostDashMotionPad * 2,
+ marginLeft: -ghostDashMotionPad,
+ transform: [{ translateX: resizeDashTranslateX }],
+ };
+
  return (
  <View
  pointerEvents="none"
@@ -2233,7 +2240,12 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerTopRight]} />
  <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerBottomLeft]} />
  <View style={[styles.resizeGhostDiagonalTrack, diagonalTrackStyle]}>
- <View style={styles.resizeGhostDiagonalDash} />
+ <Animated.View
+ style={[
+ styles.resizeGhostDiagonalDash,
+ ghostDiagonalDashStyle,
+ ]}
+ />
  </View>
  </View>
  );
@@ -2561,7 +2573,7 @@ resizeActiveDiagonalTrack: {
  justifyContent: 'center',
 },
 resizeActiveDiagonalDash: {
- borderTopWidth: 2,
+ borderTopWidth: 1.2,
  borderStyle: 'dashed',
  borderColor: '#111',
 },
@@ -2714,7 +2726,7 @@ resizeGhostDiagonalTrack: {
  justifyContent: 'center',
 },
 resizeGhostDiagonalDash: {
- borderTopWidth: 1.5,
+ borderTopWidth: 1.2,
  borderStyle: 'dashed',
  borderColor: '#111',
 },

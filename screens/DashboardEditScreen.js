@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
  Alert,
+ Animated,
  Dimensions,
+ Easing,
  Modal,
  ScrollView,
  StyleSheet,
@@ -190,6 +192,351 @@ const dashboardItemsOverlap = (a, b) => {
   );
 };
 
+const reflowDashboardLayoutWithFixedItem = (layout = [], fixedWidgetId, fixedFrame) => {
+ const source = Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
+ const fixedSource = source.find((item) => (item.widgetId || item.id) === fixedWidgetId);
+
+ if (!fixedSource || !fixedWidgetId) {
+ return repairDashboardLayoutOverlaps(source);
+ }
+
+ const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(fixedFrame?.w) || Number(fixedSource.w) || 1));
+ const safeH = Math.max(1, Number(fixedFrame?.h) || Number(fixedSource.h) || 1);
+ const maxX = Math.max(0, GRID_COLUMNS - safeW);
+ const safeX = Math.max(0, Math.min(maxX, Number(fixedFrame?.x) || 0));
+ const safeY = Math.max(0, Number(fixedFrame?.y) || 0);
+
+ const fixedItem = {
+ ...fixedSource,
+ x: safeX,
+ y: safeY,
+ w: safeW,
+ h: safeH,
+ };
+
+ const placed = [fixedItem];
+
+ const clampReflowItem = (item) => {
+ const itemW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
+ const itemH = Math.max(1, Number(item?.h) || 1);
+ const itemMaxX = Math.max(0, GRID_COLUMNS - itemW);
+ const itemX = Math.max(0, Math.min(itemMaxX, Number(item?.x) || 0));
+ const itemY = Math.max(0, Number(item?.y) || 0);
+ return { ...item, x: itemX, y: itemY, w: itemW, h: itemH };
+ };
+
+ const hasCollisionWithPlaced = (candidate) => {
+ return placed.some((placedItem) => {
+ const placedId = placedItem.widgetId || placedItem.id;
+ const candidateId = candidate.widgetId || candidate.id;
+ if (placedId === candidateId) return false;
+ return dashboardItemsOverlap(candidate, placedItem);
+ });
+ };
+
+ const findNextFreePosition = (item) => {
+ const normalized = clampReflowItem(item);
+ const startX = normalized.x;
+ const startY = normalized.y;
+ const maxXForItem = Math.max(0, GRID_COLUMNS - normalized.w);
+ const maxPlacedRow = placed.reduce((max, placedItem) => {
+ return Math.max(max, (Number(placedItem.y) || 0) + (Number(placedItem.h) || 1));
+ }, startY);
+ const maxSearchY = Math.max(startY + 80, maxPlacedRow + 80);
+
+ for (let y = startY; y <= maxSearchY; y += 1) {
+ const xOrder = [];
+ for (let x = startX; x <= maxXForItem; x += 1) xOrder.push(x);
+ for (let x = 0; x < startX; x += 1) xOrder.push(x);
+
+ for (const x of xOrder) {
+ const candidate = { ...normalized, x, y };
+ if (!hasCollisionWithPlaced(candidate)) {
+ return candidate;
+ }
+ }
+ }
+
+ return { ...normalized, x: startX, y: maxSearchY + 1 };
+ };
+
+ const otherItems = source
+ .filter((item) => (item.widgetId || item.id) !== fixedWidgetId)
+ .map(clampReflowItem)
+ .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+ otherItems.forEach((item) => {
+ placed.push(findNextFreePosition(item));
+ });
+
+ return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+};
+
+const clampDashboardResizeSize = (widgetId, rawW, rawH, bounds = {}) => {
+ const catalog = getWidgetById(widgetId) || {};
+ const minSize = catalog?.minSize || { w: 1, h: 1 };
+ const maxSize = catalog?.maxSize || { w: GRID_COLUMNS, h: 12 };
+
+ const minW = Math.max(1, Number(minSize.w) || 1);
+ const minH = Math.max(1, Number(minSize.h) || 1);
+ const catalogMaxW = Math.max(minW, Math.min(GRID_COLUMNS, Number(maxSize.w) || GRID_COLUMNS));
+ const catalogMaxH = Math.max(minH, Number(maxSize.h) || 12);
+ const boundMaxW = Number.isFinite(Number(bounds.maxW)) ? Math.max(minW, Number(bounds.maxW)) : catalogMaxW;
+ const boundMaxH = Number.isFinite(Number(bounds.maxH)) ? Math.max(minH, Number(bounds.maxH)) : catalogMaxH;
+ const maxW = Math.max(minW, Math.min(catalogMaxW, boundMaxW));
+ const maxH = Math.max(minH, Math.min(catalogMaxH, boundMaxH));
+
+ return {
+ w: Math.max(minW, Math.min(maxW, Number(rawW) || minW)),
+ h: Math.max(minH, Math.min(maxH, Number(rawH) || minH)),
+ };
+};
+
+const getAnchoredResizeFrame = (widgetId, origin, corner, deltaCols, deltaRows) => {
+ const safeOrigin = {
+ x: Math.max(0, Number(origin?.x) || 0),
+ y: Math.max(0, Number(origin?.y) || 0),
+ w: Math.max(1, Number(origin?.w) || 1),
+ h: Math.max(1, Number(origin?.h) || 1),
+ };
+
+ if (corner === 'topRight') {
+ const fixedLeft = safeOrigin.x;
+ const fixedBottom = safeOrigin.y + safeOrigin.h;
+ const rawW = safeOrigin.w + deltaCols;
+ const rawH = safeOrigin.h - deltaRows;
+ const maxW = Math.max(1, GRID_COLUMNS - fixedLeft);
+ const maxH = Math.max(1, fixedBottom);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW, maxH });
+
+ return {
+ x: fixedLeft,
+ y: Math.max(0, fixedBottom - clamped.h),
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
+ if (corner === 'bottomLeft') {
+ const fixedRight = safeOrigin.x + safeOrigin.w;
+ const fixedTop = safeOrigin.y;
+ const rawW = safeOrigin.w - deltaCols;
+ const rawH = safeOrigin.h + deltaRows;
+ const maxW = Math.max(1, fixedRight);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW });
+
+ return {
+ x: Math.max(0, fixedRight - clamped.w),
+ y: fixedTop,
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
+ const fallback = clampDashboardResizeSize(widgetId, safeOrigin.w, safeOrigin.h);
+ return {
+ x: safeOrigin.x,
+ y: safeOrigin.y,
+ w: fallback.w,
+ h: fallback.h,
+ };
+};
+
+
+
+const applyResizeResistancePx = (rawValue, minValue, maxValue) => {
+ const numeric = Number(rawValue) || 0;
+ const safeMin = Number(minValue) || 0;
+ const safeMax = Math.max(safeMin, Number(maxValue) || safeMin);
+
+ if (numeric < safeMin) {
+ return Math.max(
+ safeMin - RESIZE_GHOST_MAX_OVERSHOOT,
+ safeMin + (numeric - safeMin) * RESIZE_GHOST_RESISTANCE,
+ );
+ }
+
+ if (numeric > safeMax) {
+ return Math.min(
+ safeMax + RESIZE_GHOST_MAX_OVERSHOOT,
+ safeMax + (numeric - safeMax) * RESIZE_GHOST_RESISTANCE,
+ );
+ }
+
+ return numeric;
+};
+
+const getResizeCatalogBounds = (widgetId) => {
+ const catalog = getWidgetById(widgetId) || {};
+ const minSize = catalog?.minSize || { w: 1, h: 1 };
+ const maxSize = catalog?.maxSize || { w: GRID_COLUMNS, h: 12 };
+
+ const minW = Math.max(1, Number(minSize.w) || 1);
+ const minH = Math.max(1, Number(minSize.h) || 1);
+ const maxW = Math.max(minW, Math.min(GRID_COLUMNS, Number(maxSize.w) || GRID_COLUMNS));
+ const maxH = Math.max(minH, Number(maxSize.h) || 12);
+
+ return { minW, minH, maxW, maxH };
+};
+
+const getResizeGridItemFrame = (item, gridW) => {
+ const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
+ const safeH = Math.max(1, Number(item?.h) || 1);
+ const maxX = Math.max(0, GRID_COLUMNS - safeW);
+ const safeX = Math.max(0, Math.min(maxX, Number(item?.x) || 0));
+ const safeY = Math.max(0, Number(item?.y) || 0);
+ const slotWidth = gridW > 0 ? gridW / GRID_COLUMNS : 0;
+
+ return {
+ left: safeX * slotWidth + GRID_CELL_PADDING,
+ top: safeY * (GRID_ROW_HEIGHT + GRID_ROW_GAP),
+ width: Math.max(0, safeW * slotWidth - GRID_CELL_PADDING * 2),
+ height: safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * GRID_ROW_GAP,
+ safeX,
+ safeY,
+ safeW,
+ safeH,
+ };
+};
+
+const getResizeGridItemHeight = (h) => {
+ const safeH = Math.max(1, Number(h) || 1);
+ return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * GRID_ROW_GAP;
+};
+
+const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, translationY, gridW) => {
+ if (!gridW) {
+ return {
+ visualFramePx: null,
+ boundedFramePx: null,
+ isBeyondLimit: false,
+ };
+ }
+
+ const slotWidth = gridW / GRID_COLUMNS;
+ const originFrame = getResizeGridItemFrame(origin, gridW);
+ const bounds = getResizeCatalogBounds(widgetId);
+
+ const originX = Math.max(0, Number(origin?.x) || 0);
+ const originY = Math.max(0, Number(origin?.y) || 0);
+ const originW = Math.max(1, Number(origin?.w) || 1);
+ const originH = Math.max(1, Number(origin?.h) || 1);
+
+ const minWidthPx = Math.max(0, bounds.minW * slotWidth - GRID_CELL_PADDING * 2);
+ const maxWidthCells = corner === 'bottomLeft'
+ ? Math.min(bounds.maxW, originX + originW)
+ : Math.min(bounds.maxW, GRID_COLUMNS - originX);
+ const maxHeightCells = corner === 'topRight'
+ ? Math.min(bounds.maxH, originY + originH)
+ : bounds.maxH;
+
+ const maxWidthPx = Math.max(minWidthPx, maxWidthCells * slotWidth - GRID_CELL_PADDING * 2);
+ const minHeightPx = getResizeGridItemHeight(bounds.minH);
+ const maxHeightPx = getResizeGridItemHeight(maxHeightCells);
+
+ const originLeft = originFrame.left;
+ const originTop = originFrame.top;
+ const originRight = originFrame.left + originFrame.width;
+ const originBottom = originFrame.top + originFrame.height;
+
+ const rawX = Number(translationX) || 0;
+ const rawY = Number(translationY) || 0;
+
+ if (corner === 'topRight') {
+ const rawWidth = originFrame.width + rawX;
+ const rawHeight = originFrame.height - rawY;
+ const boundedWidth = Math.max(minWidthPx, Math.min(maxWidthPx, rawWidth));
+ const boundedHeight = Math.max(minHeightPx, Math.min(maxHeightPx, rawHeight));
+ const visualWidth = applyResizeResistancePx(rawWidth, minWidthPx, maxWidthPx);
+ const visualHeight = applyResizeResistancePx(rawHeight, minHeightPx, maxHeightPx);
+
+ const boundedFramePx = {
+ left: originLeft,
+ top: originBottom - boundedHeight,
+ width: boundedWidth,
+ height: boundedHeight,
+ };
+
+ const visualFramePx = {
+ left: originLeft,
+ top: originBottom - visualHeight,
+ width: visualWidth,
+ height: visualHeight,
+ };
+
+ return {
+ visualFramePx,
+ boundedFramePx,
+ isBeyondLimit:
+ Math.abs(visualFramePx.left - boundedFramePx.left) > 0.5 ||
+ Math.abs(visualFramePx.top - boundedFramePx.top) > 0.5 ||
+ Math.abs(visualFramePx.width - boundedFramePx.width) > 0.5 ||
+ Math.abs(visualFramePx.height - boundedFramePx.height) > 0.5,
+ };
+ }
+
+ if (corner === 'bottomLeft') {
+ const rawWidth = originFrame.width - rawX;
+ const rawHeight = originFrame.height + rawY;
+ const boundedWidth = Math.max(minWidthPx, Math.min(maxWidthPx, rawWidth));
+ const boundedHeight = Math.max(minHeightPx, Math.min(maxHeightPx, rawHeight));
+ const visualWidth = applyResizeResistancePx(rawWidth, minWidthPx, maxWidthPx);
+ const visualHeight = applyResizeResistancePx(rawHeight, minHeightPx, maxHeightPx);
+
+ const boundedFramePx = {
+ left: originRight - boundedWidth,
+ top: originTop,
+ width: boundedWidth,
+ height: boundedHeight,
+ };
+
+ const visualFramePx = {
+ left: originRight - visualWidth,
+ top: originTop,
+ width: visualWidth,
+ height: visualHeight,
+ };
+
+ return {
+ visualFramePx,
+ boundedFramePx,
+ isBeyondLimit:
+ Math.abs(visualFramePx.left - boundedFramePx.left) > 0.5 ||
+ Math.abs(visualFramePx.top - boundedFramePx.top) > 0.5 ||
+ Math.abs(visualFramePx.width - boundedFramePx.width) > 0.5 ||
+ Math.abs(visualFramePx.height - boundedFramePx.height) > 0.5,
+ };
+ }
+
+ const fallbackFrame = {
+ left: originFrame.left,
+ top: originFrame.top,
+ width: originFrame.width,
+ height: originFrame.height,
+ };
+
+ return {
+ visualFramePx: fallbackFrame,
+ boundedFramePx: fallbackFrame,
+ isBeyondLimit: false,
+ };
+};
+
+
+const GRID_ROW_HEIGHT = 46;
+const GRID_ROW_GAP = 4;
+const GRID_CELL_PADDING = 4;
+const RESIZE_FRAME_INSET = 2;
+const RESIZE_ACTIVE_CORNER_SIZE = 12;
+const RESIZE_GHOST_RESISTANCE = 0.22;
+const RESIZE_GHOST_MAX_OVERSHOOT = 12;
+const RESIZE_GHOST_BOUNCE_BACK_MS = 90;
+const GRID_DRAG_STEP_THRESHOLD = 0.62;
+const RESIZE_GRID_STEP_THRESHOLD = 0.9;
+const AUTO_SCROLL_EDGE_SIZE = 110;
+const AUTO_SCROLL_STEP = 9;
+const AUTO_SCROLL_INTERVAL_MS = 16;
+
 export default function DashboardEditScreen({ route, navigation }) {
  const insets = useSafeAreaInsets();
  const params = route?.params || {};
@@ -207,11 +554,20 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [dragOverlayItem, setDragOverlayItem] = useState(null);
  const [dragOverlayStart, setDragOverlayStart] = useState({ x: 0, y: 0 });
  const [previewLayout, setPreviewLayout] = useState(null);
+const [resizeGhostFrame, setResizeGhostFrame] = useState(null);
+const [activeResizeWidgetId, setActiveResizeWidgetId] = useState(null);
+const [resizeDraggingWidgetId, setResizeDraggingWidgetId] = useState(null);
  const lastDropTargetRef = useRef(null);
  const dragOriginRef = useRef(null);
  const previewTargetRef = useRef(null);
  const previewLayoutSignatureRef = useRef('');
+ const resizeOriginRef = useRef(null);
+ const resizePreviewSignatureRef = useRef('');
+const resizePreviewSizeRef = useRef('');
  const dragCleanupTimerRef = useRef(null);
+ const resizeDashAnimRef = useRef(new Animated.Value(0));
+ const resizeGhostBounceTimerRef = useRef(null);
+ const resizeGhostBounceSignatureRef = useRef('');
  const scrollRef = useRef(null);
  const scrollYRef = useRef(0);
  const dragStartScrollYRef = useRef(0);
@@ -257,11 +613,47 @@ export default function DashboardEditScreen({ route, navigation }) {
  };
  }, []);
 
+useEffect(() => {
+ const dashAnim = resizeDashAnimRef.current;
+ if (!activeResizeWidgetId) {
+   dashAnim.stopAnimation();
+   dashAnim.setValue(0);
+   return undefined;
+ }
+
+ dashAnim.setValue(0);
+ const loop = Animated.loop(
+   Animated.timing(dashAnim, {
+     toValue: 1,
+     duration: 900,
+     easing: Easing.linear,
+     useNativeDriver: true,
+   })
+ );
+ loop.start();
+
+ return () => {
+   loop.stop();
+ };
+}, [activeResizeWidgetId]);
+const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
+ inputRange: [0, 1],
+ outputRange: [-18, 0],
+});
+
  const clearScheduledDragVisualCleanup = useCallback(() => {
  if (dragCleanupTimerRef.current) {
    clearTimeout(dragCleanupTimerRef.current);
    dragCleanupTimerRef.current = null;
  }
+ }, []);
+
+ const clearResizeGhostBounceTimer = useCallback(() => {
+ if (resizeGhostBounceTimerRef.current) {
+ clearTimeout(resizeGhostBounceTimerRef.current);
+ resizeGhostBounceTimerRef.current = null;
+ }
+ resizeGhostBounceSignatureRef.current = '';
  }, []);
 
  const stopDashboardAutoScroll = useCallback(() => {
@@ -311,17 +703,25 @@ export default function DashboardEditScreen({ route, navigation }) {
  }, []);
 
  const clearDragVisualState = useCallback(() => {
+ clearResizeGhostBounceTimer();
  stopDashboardAutoScroll();
  setGestureDraggingWidgetId(null);
+ setResizeDraggingWidgetId(null);
  setGestureDragOffset({ x: 0, y: 0 });
  setDragPlaceholder(null);
  setPreviewLayout(null);
+ setResizeGhostFrame(null);
  setDragOverlayItem(null);
  setDragOverlayStart({ x: 0, y: 0 });
  dragOriginRef.current = null;
+ resizeOriginRef.current = null;
+ resizePreviewSizeRef.current = '';
  lastDropTargetRef.current = null;
  previewLayoutSignatureRef.current = '';
- }, []);const scheduleDragVisualCleanup = useCallback(() => {
+ resizePreviewSignatureRef.current = '';
+ }, []);
+
+const scheduleDragVisualCleanup = useCallback(() => {
  clearScheduledDragVisualCleanup();
  dragCleanupTimerRef.current = setTimeout(() => {
    dragCleanupTimerRef.current = null;
@@ -332,19 +732,11 @@ export default function DashboardEditScreen({ route, navigation }) {
  const placedIds = useMemo(() => new Set(layout.map(item => item.widgetId || item.id)), [layout]);
 
  const displayLayout = useMemo(() => {
-   if (previewLayout && gestureDraggingWidgetId) {
-     return Array.isArray(previewLayout) ? previewLayout : [];
+   if (Array.isArray(previewLayout) && previewLayout.length > 0 && gestureDraggingWidgetId) {
+     return previewLayout.map(normalizeLayoutItem);
    }
    return Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
  }, [layout, previewLayout, gestureDraggingWidgetId]);
-
-const GRID_ROW_HEIGHT = 46;
-const GRID_ROW_GAP = 4;
-const GRID_CELL_PADDING = 4;
-const GRID_DRAG_STEP_THRESHOLD = 0.62;
-const AUTO_SCROLL_EDGE_SIZE = 110;
-const AUTO_SCROLL_STEP = 9;
-const AUTO_SCROLL_INTERVAL_MS = 16;
 
 const getStableGridDelta = (rawDelta) => {
   const numeric = Number(rawDelta) || 0;
@@ -352,6 +744,14 @@ const getStableGridDelta = (rawDelta) => {
   if (abs < GRID_DRAG_STEP_THRESHOLD) return 0;
   const sign = numeric < 0 ? -1 : 1;
   return sign * Math.floor(abs + (1 - GRID_DRAG_STEP_THRESHOLD));
+};
+
+const getResizeStableGridDelta = (rawDelta) => {
+  const numeric = Number(rawDelta) || 0;
+  const abs = Math.abs(numeric);
+  if (abs < RESIZE_GRID_STEP_THRESHOLD) return 0;
+  const sign = numeric < 0 ? -1 : 1;
+  return sign * Math.floor(abs + (1 - RESIZE_GRID_STEP_THRESHOLD));
 };
 
 const getGridItemHeight = (h) => {
@@ -1140,6 +1540,93 @@ const layoutRows = useMemo(() => {
  });
  }, [dashboardTarget]);
 
+const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, nextSize, options = {}) => {
+ if (!targetWidgetId || !nextSize) {
+ return Array.isArray(sourceLayout) ? sourceLayout : [];
+ }
+
+ const source = Array.isArray(sourceLayout) ? sourceLayout.map(normalizeLayoutItem) : [];
+ let resizedItem = null;
+
+ const resizedLayout = source.map((item) => {
+ const currentId = item.widgetId || item.id;
+ if (currentId !== targetWidgetId) return item;
+
+ const nextW = Number(nextSize.w);
+ const nextH = Number(nextSize.h);
+ const clamped = clampDashboardResizeSize(targetWidgetId, nextW, nextH);
+ const maxX = Math.max(0, GRID_COLUMNS - clamped.w);
+ const rawX = Number.isFinite(Number(nextSize.x)) ? Number(nextSize.x) : Number(item.x) || 0;
+ const rawY = Number.isFinite(Number(nextSize.y)) ? Number(nextSize.y) : Number(item.y) || 0;
+ const safeX = Math.max(0, Math.min(maxX, rawX));
+ const safeY = Math.max(0, rawY);
+
+ resizedItem = {
+ ...item,
+ x: safeX,
+ y: safeY,
+ w: clamped.w,
+ h: clamped.h,
+ };
+
+ return resizedItem;
+ });
+
+ if (!resizedItem) return source;
+
+ const isPreview = options?.isPreview === true;
+
+ try {
+ const reflowed = calculateReflowLayout(resizedLayout, targetWidgetId, {
+ type: 'resize',
+ x: resizedItem.x,
+ y: resizedItem.y,
+ w: resizedItem.w,
+ h: resizedItem.h,
+ hoverX: resizedItem.x,
+ hoverY: resizedItem.y,
+ isPreview,
+ });
+
+ return reflowDashboardLayoutWithFixedItem(
+ Array.isArray(reflowed) ? reflowed : resizedLayout,
+ targetWidgetId,
+ resizedItem,
+ );
+ } catch (error) {
+ if (!isPreview) {
+ console.warn('[DashboardEditScreen] resize reflow failed:', error?.message || error);
+ }
+ return reflowDashboardLayoutWithFixedItem(
+ resizedLayout,
+ targetWidgetId,
+ resizedItem,
+ );
+ }
+}, []);
+
+const resizeLayoutItem = useCallback((widgetId, nextSize) => {
+ if (!widgetId || !nextSize) return;
+
+ setLayout((prev) => buildResizedLayoutWithReflow(prev, widgetId, nextSize, {
+ isPreview: false,
+ }));
+}, [buildResizedLayoutWithReflow]);
+
+const getLayoutPreviewSignature = useCallback((items) => {
+ return Array.isArray(items)
+ ? items
+ .map((item) => [
+ item.widgetId || item.id || '',
+ Number(item.x) || 0,
+ Number(item.y) || 0,
+ Number(item.w) || 0,
+ Number(item.h) || 0,
+ ].join(':'))
+ .join('|')
+ : '';
+}, []);
+
  const signalDashboardEditReturn = useCallback((mode) => {
     const returnRouteKey = route?.params?.returnRouteKey;
     if (!returnRouteKey) return;
@@ -1201,9 +1688,212 @@ const layoutRows = useMemo(() => {
  const safeH = Math.max(1, Number(item.h || 1));
  const isCompactCard = safeH === 1;
  const cardHeight = getGridItemHeight(safeH);
+ const innerCardHeight = Math.max(0, cardHeight - RESIZE_FRAME_INSET * 2);
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
+const isResizeActive = activeResizeWidgetId === widgetId;
+const isThisResizeDragging = resizeDraggingWidgetId === widgetId;
+
+const resizeFrameWidth = slotWidth ? Math.max(0, slotWidth * safeW) : 0;
+const resizeCornerSize = RESIZE_ACTIVE_CORNER_SIZE;
+const resizeDashMotionPad = 36;
+
+const ghostDiagonalH = isResizeActive && resizeGhostFrame?.visualFramePx ? resizeGhostFrame.visualFramePx.height : cardHeight;
+const ghostDiagonalW = isResizeActive && resizeGhostFrame?.visualFramePx ? resizeGhostFrame.visualFramePx.width : resizeFrameWidth;
+
+const resizeDiagonalStartX = resizeCornerSize;
+const resizeDiagonalStartY = Math.max(resizeCornerSize, ghostDiagonalH - resizeCornerSize);
+const resizeDiagonalEndX = Math.max(resizeDiagonalStartX, ghostDiagonalW - resizeCornerSize);
+const resizeDiagonalEndY = resizeCornerSize;
+const resizeDiagonalDX = resizeDiagonalEndX - resizeDiagonalStartX;
+const resizeDiagonalDY = resizeDiagonalEndY - resizeDiagonalStartY;
+const resizeDiagonalLength = Math.max(1, Math.sqrt(
+ resizeDiagonalDX * resizeDiagonalDX + resizeDiagonalDY * resizeDiagonalDY
+));
+const resizeDiagonalAngle = Math.atan2(resizeDiagonalDY, resizeDiagonalDX) * (180 / Math.PI);
+const resizeDiagonalMidX = (resizeDiagonalStartX + resizeDiagonalEndX) / 2;
+const resizeDiagonalMidY = (resizeDiagonalStartY + resizeDiagonalEndY) / 2;
+const resizeDiagonalTrackStyle = {
+ left: resizeDiagonalMidX - resizeDiagonalLength / 2,
+ top: resizeDiagonalMidY - 5,
+ width: resizeDiagonalLength,
+ transform: [{ rotate: `${resizeDiagonalAngle}deg` }],
+};
+const resizeDiagonalDashStyle = {
+ width: resizeDiagonalLength + resizeDashMotionPad,
+ transform: [{ translateX: resizeDashTranslateX }],
+};
+
+ const scheduleResizeGhostBounceBack = (widgetId, nextFrame, boundedFramePx, signature) => {
+ if (!widgetId || !boundedFramePx || !signature) return;
+
+ clearResizeGhostBounceTimer();
+ resizeGhostBounceSignatureRef.current = signature;
+
+ resizeGhostBounceTimerRef.current = setTimeout(() => {
+ if (resizeGhostBounceSignatureRef.current !== signature) return;
+
+ setResizeGhostFrame((current) => {
+ if (!current || current.widgetId !== widgetId) return current;
+
+ return {
+ ...current,
+ x: nextFrame.x,
+ y: nextFrame.y,
+ w: nextFrame.w,
+ h: nextFrame.h,
+ visualFramePx: boundedFramePx,
+ boundedFramePx,
+ };
+ });
+
+ resizeGhostBounceTimerRef.current = null;
+ }, RESIZE_GHOST_BOUNCE_BACK_MS);
+};
+
+const buildResizeGesture = (corner) => Gesture.Pan()
+ .enabled(isResizeActive)
+ .runOnJS(true)
+ .onBegin(() => {
+ setResizeDraggingWidgetId(widgetId);
+ resizeOriginRef.current = {
+ x: safeX,
+ y: safeY,
+ w: safeW,
+ h: safeH,
+ };
+ resizePreviewSignatureRef.current = '';
+ resizePreviewSizeRef.current = `${safeX}:${safeY}:${safeW}:${safeH}`;
+ clearResizeGhostBounceTimer();
+ setPreviewLayout(null);
+ const initialGhostState = getResizeGhostVisualFramePx(
+ widgetId,
+ { x: safeX, y: safeY, w: safeW, h: safeH },
+ corner,
+ 0,
+ 0,
+ gridWidth,
+ );
+ setResizeGhostFrame({
+ widgetId,
+ x: safeX,
+ y: safeY,
+ w: safeW,
+ h: safeH,
+ visualFramePx: initialGhostState.visualFramePx,
+ boundedFramePx: initialGhostState.boundedFramePx,
+ });
+ })
+ .onUpdate((event) => {
+ const origin = resizeOriginRef.current || {
+ x: safeX,
+ y: safeY,
+ w: safeW,
+ h: safeH,
+ };
+
+ const deltaColsRaw = slotWidth ? event.translationX / slotWidth : 0;
+ const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+ const deltaCols = getResizeStableGridDelta(deltaColsRaw);
+ const deltaRows = getResizeStableGridDelta(deltaRowsRaw);
+
+ const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, deltaRows);
+ const ghostState = getResizeGhostVisualFramePx(
+ widgetId,
+ origin,
+ corner,
+ event.translationX,
+ event.translationY,
+ gridWidth,
+ );
+
+ const visualFrame = ghostState.visualFramePx;
+ const boundedFrame = ghostState.boundedFramePx;
+ const visualSignature = [
+ widgetId,
+ nextFrame.x,
+ nextFrame.y,
+ nextFrame.w,
+ nextFrame.h,
+ Math.round(Number(visualFrame?.left) || 0),
+ Math.round(Number(visualFrame?.top) || 0),
+ Math.round(Number(visualFrame?.width) || 0),
+ Math.round(Number(visualFrame?.height) || 0),
+ ].join(':');
+
+ if (resizePreviewSignatureRef.current === visualSignature) {
+ return;
+ }
+
+ resizePreviewSignatureRef.current = visualSignature;
+ resizePreviewSizeRef.current = `${nextFrame.x}:${nextFrame.y}:${nextFrame.w}:${nextFrame.h}`;
+
+ setResizeGhostFrame({
+ widgetId,
+ x: nextFrame.x,
+ y: nextFrame.y,
+ w: nextFrame.w,
+ h: nextFrame.h,
+ visualFramePx: visualFrame,
+ boundedFramePx: boundedFrame,
+ });
+
+ if (ghostState.isBeyondLimit) {
+ scheduleResizeGhostBounceBack(widgetId, nextFrame, boundedFrame, visualSignature);
+ } else {
+ clearResizeGhostBounceTimer();
+ }
+ })
+ .onEnd((event) => {
+ const origin = resizeOriginRef.current || {
+ x: safeX,
+ y: safeY,
+ w: safeW,
+ h: safeH,
+ };
+
+ const deltaColsRaw = slotWidth ? event.translationX / slotWidth : 0;
+ const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+ const deltaCols = getResizeStableGridDelta(deltaColsRaw);
+ const deltaRows = getResizeStableGridDelta(deltaRowsRaw);
+
+ if (deltaCols === 0 && deltaRows === 0) {
+ clearResizeGhostBounceTimer();
+ setPreviewLayout(null);
+ setResizeGhostFrame(null);
+ setResizeDraggingWidgetId(null);
+ resizeOriginRef.current = null;
+ resizePreviewSignatureRef.current = '';
+ resizePreviewSizeRef.current = '';
+ return;
+ }
+
+ const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, deltaRows);
+ resizeLayoutItem(widgetId, nextFrame);
+ clearResizeGhostBounceTimer();
+ setPreviewLayout(null);
+ setResizeGhostFrame(null);
+ setResizeDraggingWidgetId(null);
+ resizeOriginRef.current = null;
+ resizePreviewSignatureRef.current = '';
+ resizePreviewSizeRef.current = '';
+ })
+ .onFinalize(() => {
+ clearResizeGhostBounceTimer();
+ setResizeDraggingWidgetId(null);
+ resizeOriginRef.current = null;
+ resizePreviewSignatureRef.current = '';
+ resizePreviewSizeRef.current = '';
+ setPreviewLayout(null);
+ setResizeGhostFrame(null);
+ });
+
+const topRightResizeGesture = buildResizeGesture('topRight');
+const bottomLeftResizeGesture = buildResizeGesture('bottomLeft');
+
+const canMoveCard = !activeResizeWidgetId && !resizeDraggingWidgetId;
 
  const testGesture = Gesture.Pan()
+   .enabled(canMoveCard)
    .activateAfterLongPress(300)
    .runOnJS(true)
    .onBegin(() => {
@@ -1334,15 +2024,70 @@ const layoutRows = useMemo(() => {
      scheduleDragVisualCleanup();
    });
 
+const cardLeftPx = safeX * slotWidth + GRID_CELL_PADDING;
+const cardTopPx = safeY * (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+const ghostVisualFrame = isResizeActive && resizeGhostFrame?.visualFramePx;
+const resizeOverlayDynamicStyle = ghostVisualFrame
+ ? {
+ position: 'absolute',
+ left: ghostVisualFrame.left - cardLeftPx,
+ top: ghostVisualFrame.top - cardTopPx,
+ width: ghostVisualFrame.width,
+ height: ghostVisualFrame.height,
+ zIndex: 12,
+ }
+ : styles.resizeActiveOverlay;
+
  const cardContent = (
  <View key={widgetId} style={styles.graphCell}>
  <View style={[
- styles.graphCard,
+ styles.resizeFrame,
  { minHeight: cardHeight, height: cardHeight },
- isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  gestureDraggingWidgetId === widgetId && {
    opacity: 0.16,
  },
+]}>
+ {isResizeActive && (
+ <View pointerEvents="box-none" style={resizeOverlayDynamicStyle}>
+ <GestureDetector gesture={topRightResizeGesture}>
+ <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxTopRight]}>
+ {!isThisResizeDragging && (
+ <View style={[styles.resizeActiveCorner, styles.resizeActiveCornerTopRight]} />
+ )}
+ </View>
+ </GestureDetector>
+
+ <GestureDetector gesture={bottomLeftResizeGesture}>
+ <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxBottomLeft]}>
+ {!isThisResizeDragging && (
+ <View style={[styles.resizeActiveCorner, styles.resizeActiveCornerBottomLeft]} />
+ )}
+ </View>
+ </GestureDetector>
+
+ {!isThisResizeDragging && (
+ <View pointerEvents="none" style={[styles.resizeActiveDiagonalTrack, resizeDiagonalTrackStyle]}>
+ <Animated.View
+ style={[
+ styles.resizeActiveDiagonalDash,
+ resizeDiagonalDashStyle,
+ ]}
+ />
+ </View>
+ )}
+ </View>
+ )}
+
+ <View style={[
+ styles.graphCard,
+ {
+ minHeight: innerCardHeight,
+ height: innerCardHeight,
+ margin: RESIZE_FRAME_INSET,
+ },
+ isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
+ isResizeActive && styles.graphCardResizeActive,
+ isThisResizeDragging && styles.graphCardResizeDraggingHidden,
  ]}>
  <View style={styles.graphHeader}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
@@ -1351,6 +2096,24 @@ const layoutRows = useMemo(() => {
  </TouchableOpacity>
  </View>
  <Text style={[styles.graphMeta, isCompactCard && { marginTop: 4 }]}>{safeW + 'x' + safeH}</Text>
+ </View>
+
+ <View pointerEvents="box-none" style={styles.resizeHandleCenterLayer}>
+ <TouchableOpacity
+ activeOpacity={0.82}
+ style={[
+ styles.resizeHandle,
+ isResizeActive && styles.resizeHandleActive,
+ ]}
+ onPress={(event) => {
+ event?.stopPropagation?.();
+ setActiveResizeWidgetId((current) => current === widgetId ? null : widgetId);
+ }}
+ >
+ <View style={styles.resizeHandleCornerTopRight} />
+ <View style={styles.resizeHandleCornerBottomLeft} />
+ </TouchableOpacity>
+</View>
  </View>
  </View>
  );
@@ -1418,6 +2181,57 @@ const layoutRows = useMemo(() => {
    );
  };
 
+ const renderResizeGhostFrameOverlay = () => {
+ if (!resizeGhostFrame || !gridWidth || !resizeDraggingWidgetId) return null;
+
+ const snapFrame = getGridItemFrame(resizeGhostFrame, gridWidth);
+ const visualFrame = resizeGhostFrame.visualFramePx || snapFrame;
+ const width = Math.max(1, Number(visualFrame.width) || 1);
+ const height = Math.max(1, Number(visualFrame.height) || 1);
+ const cornerSize = RESIZE_ACTIVE_CORNER_SIZE;
+
+ const diagonalStartX = cornerSize;
+ const diagonalStartY = Math.max(cornerSize, height - cornerSize);
+ const diagonalEndX = Math.max(diagonalStartX, width - cornerSize);
+ const diagonalEndY = cornerSize;
+ const diagonalDX = diagonalEndX - diagonalStartX;
+ const diagonalDY = diagonalEndY - diagonalStartY;
+ const diagonalLength = Math.max(1, Math.sqrt(
+ diagonalDX * diagonalDX + diagonalDY * diagonalDY
+ ));
+ const diagonalAngle = Math.atan2(diagonalDY, diagonalDX) * (180 / Math.PI);
+ const diagonalMidX = (diagonalStartX + diagonalEndX) / 2;
+ const diagonalMidY = (diagonalStartY + diagonalEndY) / 2;
+
+ const diagonalTrackStyle = {
+ left: diagonalMidX - diagonalLength / 2,
+ top: diagonalMidY - 2,
+ width: diagonalLength,
+ transform: [{ rotate: `${diagonalAngle}deg` }],
+ };
+
+ return (
+ <View
+ pointerEvents="none"
+ style={[
+ styles.resizeGhostFrameOverlay,
+ {
+ left: visualFrame.left,
+ top: visualFrame.top,
+ width,
+ height,
+ },
+ ]}
+ >
+ <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerTopRight]} />
+ <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerBottomLeft]} />
+ <View style={[styles.resizeGhostDiagonalTrack, diagonalTrackStyle]}>
+ <View style={styles.resizeGhostDiagonalDash} />
+ </View>
+ </View>
+ );
+ };
+
  return (
  <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -1429,7 +2243,13 @@ const layoutRows = useMemo(() => {
  <View style={styles.headerSpacer} />
  </View>
 
- <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}>
+ <ScrollView
+ ref={scrollRef}
+ scrollEnabled={!resizeDraggingWidgetId}
+ onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+ scrollEventThrottle={16}
+ contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}
+>
  <View style={styles.contentHeader}>
  <Text style={styles.challengeTitle} numberOfLines={1}>{title}</Text>
  <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>
@@ -1443,6 +2263,7 @@ const layoutRows = useMemo(() => {
  <View style={[styles.grid, { overflow: 'visible', minHeight: gridBoardHeight }]} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
  {renderDragPlaceholderOverlay()}
  {(Array.isArray(displayLayout) ? displayLayout : []).map((item, index) => renderAbsoluteGraphCard(item, index))}
+ {renderResizeGhostFrameOverlay()}
  </View>
  )}
  </ScrollView>
@@ -1589,7 +2410,11 @@ const styles = StyleSheet.create({
  gridSpacer: {
  minHeight: 1,
  },
- graphCard: {
+ resizeFrame: {
+ position: 'relative',
+ width: '100%',
+},
+graphCard: {
  minHeight: 132,
  borderRadius: 8,
  borderWidth: 1,
@@ -1631,6 +2456,108 @@ const styles = StyleSheet.create({
  fontSize: 12,
  color: '#777',
  },
+ graphCardResizeActive: {
+ borderColor: '#111',
+ shadowColor: '#000',
+ shadowOffset: { width: 0, height: 4 },
+ shadowOpacity: 0.08,
+ shadowRadius: 8,
+ elevation: 3,
+},
+graphCardResizeDraggingHidden: {
+ opacity: 0,
+},
+resizeHandleCenterLayer: {
+ ...StyleSheet.absoluteFillObject,
+ alignItems: 'center',
+ justifyContent: 'center',
+ zIndex: 20,
+ elevation: 8,
+},
+resizeHandle: {
+ width: 34,
+ height: 34,
+ borderRadius: 17,
+ backgroundColor: '#111',
+ alignItems: 'center',
+ justifyContent: 'center',
+},
+resizeHandleActive: {
+ backgroundColor: '#000',
+ transform: [{ scale: 1.08 }],
+},
+resizeHandleCornerTopRight: {
+ position: 'absolute',
+ top: 8,
+ right: 8,
+ width: 9,
+ height: 9,
+ borderTopWidth: 2,
+ borderRightWidth: 2,
+ borderColor: '#fff',
+},
+resizeHandleCornerBottomLeft: {
+ position: 'absolute',
+ bottom: 8,
+ left: 8,
+ width: 9,
+ height: 9,
+ borderBottomWidth: 2,
+ borderLeftWidth: 2,
+ borderColor: '#fff',
+},
+resizeActiveOverlay: {
+ ...StyleSheet.absoluteFillObject,
+ zIndex: 12,
+},
+resizeActiveCornerHitbox: {
+ position: 'absolute',
+ width: 56,
+ height: 56,
+ zIndex: 24,
+ elevation: 10,
+},
+resizeActiveCornerHitboxTopRight: {
+ top: -8,
+ right: -8,
+ alignItems: 'flex-end',
+ justifyContent: 'flex-start',
+},
+resizeActiveCornerHitboxBottomLeft: {
+ left: -8,
+ bottom: -8,
+ alignItems: 'flex-start',
+ justifyContent: 'flex-end',
+},
+resizeActiveCorner: {
+ position: 'absolute',
+ width: RESIZE_ACTIVE_CORNER_SIZE,
+ height: RESIZE_ACTIVE_CORNER_SIZE,
+ borderColor: '#111',
+},
+resizeActiveCornerTopRight: {
+ top: 0,
+ right: 0,
+ borderTopWidth: 3,
+ borderRightWidth: 3,
+},
+resizeActiveCornerBottomLeft: {
+ left: 0,
+ bottom: 0,
+ borderLeftWidth: 3,
+ borderBottomWidth: 3,
+},
+resizeActiveDiagonalTrack: {
+ position: 'absolute',
+ height: 10,
+ overflow: 'hidden',
+ justifyContent: 'center',
+},
+resizeActiveDiagonalDash: {
+ borderTopWidth: 2,
+ borderStyle: 'dashed',
+ borderColor: '#111',
+},
  emptyText: {
  paddingVertical: 24,
  textAlign: 'center',
@@ -1743,4 +2670,45 @@ const styles = StyleSheet.create({
  zIndex: 998,
  pointerEvents: 'none',
  },
+resizeGhostFrameOverlay: {
+ position: 'absolute',
+ zIndex: 9998,
+ elevation: 40,
+ borderWidth: 1.5,
+ borderStyle: 'solid',
+ borderColor: '#B8B8B8',
+ borderRadius: 10,
+ backgroundColor: 'transparent',
+ overflow: 'visible',
+ pointerEvents: 'none',
+},
+resizeGhostCorner: {
+ position: 'absolute',
+ width: RESIZE_ACTIVE_CORNER_SIZE,
+ height: RESIZE_ACTIVE_CORNER_SIZE,
+ borderColor: '#111',
+},
+resizeGhostCornerTopRight: {
+ top: 0,
+ right: 0,
+ borderTopWidth: 3,
+ borderRightWidth: 3,
+},
+resizeGhostCornerBottomLeft: {
+ left: 0,
+ bottom: 0,
+ borderLeftWidth: 3,
+ borderBottomWidth: 3,
+},
+resizeGhostDiagonalTrack: {
+ position: 'absolute',
+ height: 4,
+ overflow: 'hidden',
+ justifyContent: 'center',
+},
+resizeGhostDiagonalDash: {
+ borderTopWidth: 1.5,
+ borderStyle: 'dashed',
+ borderColor: '#111',
+},
 });

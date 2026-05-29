@@ -72,6 +72,68 @@ const looksLikeLegacyDashboardLayout = (layout = []) => {
   return legacyMatches > 0 && legacyMatches >= internalMatches;
 };
 
+const doGridItemsOverlap = (a, b) => {
+  const ax = Number(a?.x) || 0;
+  const ay = Number(a?.y) || 0;
+  const aw = Math.max(1, Number(a?.w) || 1);
+  const ah = Math.max(1, Number(a?.h) || 1);
+
+  const bx = Number(b?.x) || 0;
+  const by = Number(b?.y) || 0;
+  const bw = Math.max(1, Number(b?.w) || 1);
+  const bh = Math.max(1, Number(b?.h) || 1);
+
+  const xOverlap = ax < bx + bw && ax + aw > bx;
+  const yOverlap = ay < by + bh && ay + ah > by;
+
+  return xOverlap && yOverlap;
+};
+
+const compactDashboardLayoutVertical = (layout = []) => {
+  if (!Array.isArray(layout) || layout.length === 0) return [];
+
+  const ordered = layout
+    .filter(Boolean)
+    .map((item, index) => ({ ...item, __order: index }))
+    .sort((a, b) => {
+      const ay = Number(a?.y) || 0;
+      const by = Number(b?.y) || 0;
+      if (ay !== by) return ay - by;
+      const ax = Number(a?.x) || 0;
+      const bx = Number(b?.x) || 0;
+      if (ax !== bx) return ax - bx;
+      return (a.__order || 0) - (b.__order || 0);
+    });
+
+  const placed = [];
+
+  ordered.forEach((source) => {
+    const next = { ...source };
+    delete next.__order;
+
+    let y = 0;
+    const maxSearchY = 999;
+
+    while (y <= maxSearchY) {
+      next.y = y;
+      const hasCollision = placed.some((placedItem) => doGridItemsOverlap(next, placedItem));
+      if (!hasCollision) break;
+      y += 1;
+    }
+
+    placed.push(next);
+  });
+
+  return placed.sort((a, b) => {
+    const ay = Number(a?.y) || 0;
+    const by = Number(b?.y) || 0;
+    if (ay !== by) return ay - by;
+    const ax = Number(a?.x) || 0;
+    const bx = Number(b?.x) || 0;
+    return ax - bx;
+  });
+};
+
 const migrateDashboardLayoutToInternalGrid = (layout = []) => {
   if (!looksLikeLegacyDashboardLayout(layout)) return layout;
 
@@ -87,7 +149,18 @@ const migrateDashboardLayoutToInternalGrid = (layout = []) => {
 
     let nextH = safeH;
 
-    if (widgetId === 'goal_black_box') {
+    const widget = getWidgetById(widgetId);
+    const currentMinH = Number(widget?.minSize?.h);
+    const currentMaxH = Number(widget?.maxSize?.h);
+    const isCurrentValidHeight =
+      Number.isFinite(currentMinH) &&
+      Number.isFinite(currentMaxH) &&
+      safeH >= currentMinH &&
+      safeH <= currentMaxH;
+
+    if (isCurrentValidHeight) {
+      nextH = safeH;
+    } else if (widgetId === 'goal_black_box') {
       nextH = safeH <= 2 ? 2 : safeH;
     } else if (Number.isFinite(legacyH) && Number.isFinite(internalH)) {
       if (safeH === legacyH || safeH < internalH) {
@@ -112,7 +185,7 @@ export const normalizeDashboardLayout = (layout = [], target = DASHBOARD_TARGETS
     : getDefaultDashboardLayout(normalizedTarget);
   const source = migrateDashboardLayoutToInternalGrid(sourceBeforeMigration);
 
-  return source
+  const normalizedLayout = source
     .map((item, index) => {
       const widget = getWidgetById(item?.widgetId);
       if (!widget || !supportsWidgetTarget(widget, normalizedTarget)) return null;
@@ -136,6 +209,8 @@ export const normalizeDashboardLayout = (layout = [], target = DASHBOARD_TARGETS
     })
     .filter(Boolean)
     .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+  return compactDashboardLayoutVertical(normalizedLayout);
 };
 
 const readLayoutMap = async () => {
@@ -154,7 +229,7 @@ const sanitizeDashboardLayout = (layout, target) => {
     : getDefaultDashboardLayout(target);
   const source = migrateDashboardLayoutToInternalGrid(sourceBeforeMigration);
 
-  return source
+  const sanitizedLayout = source
     .filter(Boolean)
     .map((item, index) => {
       const rawId = item.id || item.widgetId || item.i;
@@ -203,6 +278,8 @@ const sanitizeDashboardLayout = (layout, target) => {
       };
     })
     .filter((item) => item.id || item.widgetId);
+
+  return compactDashboardLayoutVertical(sanitizedLayout);
 };
 
 export const getDashboardLayoutForChallenge = async (challengeId, target) => {

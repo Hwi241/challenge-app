@@ -559,6 +559,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [dragPlaceholder, setDragPlaceholder] = useState(null);
  const [dragOverlayItem, setDragOverlayItem] = useState(null);
  const [dragOverlayStart, setDragOverlayStart] = useState({ x: 0, y: 0 });
+ const [dragOverlayTouchOffset, setDragOverlayTouchOffset] = useState({ x: 0, y: 0 });
  const [previewLayout, setPreviewLayout] = useState(null);
 const [resizeGhostFrame, setResizeGhostFrame] = useState(null);
 const [activeResizeWidgetId, setActiveResizeWidgetId] = useState(null);
@@ -719,6 +720,7 @@ const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
  setResizeGhostFrame(null);
  setDragOverlayItem(null);
  setDragOverlayStart({ x: 0, y: 0 });
+ setDragOverlayTouchOffset({ x: 0, y: 0 });
  dragOriginRef.current = null;
  resizeOriginRef.current = null;
  resizePreviewSizeRef.current = '';
@@ -2021,7 +2023,28 @@ const canMoveCard = !activeResizeWidgetId && !resizeDraggingWidgetId;
      clearScheduledDragVisualCleanup();
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
+     const overlayWidth = slotWidth ? slotWidth * safeW : 0;
+     const overlayHeight = cardHeight || 0;
+     const localTouchX = Math.max(
+      0,
+      Math.min(
+       overlayWidth || Number.MAX_SAFE_INTEGER,
+       Number(event.x) || 0,
+      ),
+     );
+     const localTouchY = Math.max(
+      0,
+      Math.min(
+       overlayHeight || Number.MAX_SAFE_INTEGER,
+       Number(event.y) || 0,
+      ),
+     );
+
      setDragOverlayStart({ x: Number(event.absoluteX) || 0, y: Number(event.absoluteY) || 0 });
+     setDragOverlayTouchOffset({
+      x: localTouchX,
+      y: localTouchY,
+     });
      setDragOverlayItem({
        widgetId: item.widgetId,
        w: safeW, h: safeH, cardHeight, isCompactCard, safeW, safeH,
@@ -2031,7 +2054,6 @@ const canMoveCard = !activeResizeWidgetId && !resizeDraggingWidgetId;
    .onUpdate((event) => {
      const nextOffset = { x: event.translationX, y: event.translationY };
      setGestureDragOffset(nextOffset);
-     updateDashboardAutoScroll(event.absoluteY);
      const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
      const scrollDelta = scrollYRef.current - dragStartScrollYRef.current;
      const rawGridDY = (event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
@@ -2241,8 +2263,10 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
    const overlayH = o.cardHeight || 120;
    const touchX = Number(dragOverlayStart.x) || 0;
    const touchY = Number(dragOverlayStart.y) || 0;
-   const left = touchX ? touchX - overlayW / 2 : 16;
-   const top = touchY ? touchY - overlayH / 2 : 120;
+   const touchOffsetX = Math.max(0, Number(dragOverlayTouchOffset.x) || 0);
+   const touchOffsetY = Math.max(0, Number(dragOverlayTouchOffset.y) || 0);
+   const left = touchX ? touchX - touchOffsetX : 16;
+   const top = touchY ? touchY - touchOffsetY : 120;
    return (
      <View pointerEvents="none" style={{
        position: 'absolute', zIndex: 9999, elevation: 50,
@@ -2455,7 +2479,7 @@ const renderResizeGuideOverlay = () => {
 
  <ScrollView
  ref={scrollRef}
- scrollEnabled={!resizeDraggingWidgetId}
+ scrollEnabled={!resizeDraggingWidgetId && !gestureDraggingWidgetId}
  onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
  scrollEventThrottle={16}
  contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}

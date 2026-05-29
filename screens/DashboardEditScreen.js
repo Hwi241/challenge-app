@@ -629,7 +629,7 @@ useEffect(() => {
  const loop = Animated.loop(
    Animated.timing(dashAnim, {
      toValue: 1,
-     duration: 900,
+     duration: 650,
      easing: Easing.linear,
      useNativeDriver: true,
    })
@@ -1657,6 +1657,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const cornerSize = RESIZE_ACTIVE_CORNER_SIZE;
  const cornerStroke = 3;
  const diagonalStroke = 1.2;
+ const bottomLeftCornerLift = 2;
 
  const svgWidth = safeWidth + safeOffset * 2;
  const svgHeight = safeHeight + safeOffset * 2;
@@ -1671,11 +1672,11 @@ const getLayoutPreviewSignature = useCallback((items) => {
  };
  const bottomLeftOuter = {
  x: 0,
- y: svgHeight - cornerSize,
+ y: svgHeight - cornerSize - bottomLeftCornerLift,
  };
  const bottomLeftJoint = {
  x: 0,
- y: svgHeight,
+ y: svgHeight - bottomLeftCornerLift,
  };
 
  return (
@@ -1703,16 +1704,16 @@ const getLayoutPreviewSignature = useCallback((items) => {
  fill="#111"
  />
  <Rect
- x={svgWidth - cornerStroke}
+ x={svgWidth - cornerStroke - 1}
  y={topRightOuter.y}
- width={cornerStroke}
+ width={cornerStroke + 1}
  height={cornerSize}
  fill="#111"
  />
 
  <Rect
  x={bottomLeftOuter.x}
- y={svgHeight - cornerStroke}
+ y={bottomLeftJoint.y - cornerStroke}
  width={cornerSize}
  height={cornerStroke}
  fill="#111"

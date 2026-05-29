@@ -727,6 +727,18 @@ const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
  resizePreviewSignatureRef.current = '';
  }, []);
 
+const exitResizeMode = useCallback(() => {
+ clearResizeGhostBounceTimer();
+ stopDashboardAutoScroll();
+ setActiveResizeWidgetId(null);
+ setResizeDraggingWidgetId(null);
+ setResizeGhostFrame(null);
+ setPreviewLayout(null);
+ resizeOriginRef.current = null;
+ resizePreviewSignatureRef.current = '';
+ resizePreviewSizeRef.current = '';
+}, [clearResizeGhostBounceTimer, stopDashboardAutoScroll]);
+
 const scheduleDragVisualCleanup = useCallback(() => {
  clearScheduledDragVisualCleanup();
  dragCleanupTimerRef.current = setTimeout(() => {
@@ -2325,6 +2337,74 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  );
  };
 
+const renderResizeDismissOverlay = () => {
+ if (!activeResizeWidgetId || resizeDraggingWidgetId || !gridWidth) return null;
+
+ const sourceItems = Array.isArray(displayLayout) ? displayLayout : [];
+ const activeItem = sourceItems.find((item) => {
+ const itemId = item?.widgetId || item?.id;
+ return itemId === activeResizeWidgetId;
+ });
+
+ if (!activeItem) return null;
+
+ const activeFrame = getResizeGridItemFrame(activeItem, gridWidth);
+ const boardHeight = Math.max(
+ gridBoardHeight,
+ activeFrame.top + activeFrame.height,
+ );
+
+ const topHeight = Math.max(0, activeFrame.top);
+ const bottomTop = activeFrame.top + activeFrame.height;
+ const bottomHeight = Math.max(0, boardHeight - bottomTop);
+ const leftWidth = Math.max(0, activeFrame.left);
+ const rightLeft = activeFrame.left + activeFrame.width;
+ const rightWidth = Math.max(0, gridWidth - rightLeft);
+
+ const renderDismissZone = (key, styleData) => {
+ const w = Number(styleData?.width);
+ const h = Number(styleData?.height);
+ if (w <= 0 || h <= 0) return null;
+ return (
+ <TouchableOpacity
+ key={key}
+ activeOpacity={1}
+ onPress={exitResizeMode}
+ style={[styles.resizeDismissZone, styleData]}
+ />
+ );
+ };
+
+ return (
+ <>
+ {renderDismissZone('top', {
+ left: 0,
+ top: 0,
+ width: gridWidth,
+ height: topHeight,
+ })}
+ {renderDismissZone('bottom', {
+ left: 0,
+ top: bottomTop,
+ width: gridWidth,
+ height: bottomHeight,
+ })}
+ {renderDismissZone('left', {
+ left: 0,
+ top: activeFrame.top,
+ width: leftWidth,
+ height: activeFrame.height,
+ })}
+ {renderDismissZone('right', {
+ left: rightLeft,
+ top: activeFrame.top,
+ width: rightWidth,
+ height: activeFrame.height,
+ })}
+ </>
+ );
+ };
+
 const renderResizeGuideOverlay = () => {
  if (!activeResizeWidgetId || !gridWidth) return null;
 
@@ -2393,6 +2473,7 @@ const renderResizeGuideOverlay = () => {
  <View style={[styles.grid, { overflow: 'visible', minHeight: gridBoardHeight }]} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
  {renderDragPlaceholderOverlay()}
  {(Array.isArray(displayLayout) ? displayLayout : []).map((item, index) => renderAbsoluteGraphCard(item, index))}
+ {renderResizeDismissOverlay()}
  {renderResizeGhostFrameOverlay()}
  {renderResizeGuideOverlay()}
  </View>
@@ -2801,6 +2882,12 @@ resizeActiveDiagonalDash: {
  zIndex: 998,
  pointerEvents: 'none',
  },
+resizeDismissZone: {
+ position: 'absolute',
+ zIndex: 40,
+ elevation: 1,
+ backgroundColor: 'transparent',
+},
 resizeGhostFrameOverlay: {
  position: 'absolute',
  zIndex: 9998,

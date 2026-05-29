@@ -24,7 +24,7 @@ import {
 } from '../constants/widgetCatalog';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Svg, { Line } from 'react-native-svg';
+import Svg, { Line, Rect } from 'react-native-svg';
 
 const AnimatedSvgLine = Animated.createAnimatedComponent(Line);
 
@@ -1648,23 +1648,34 @@ const getLayoutPreviewSignature = useCallback((items) => {
   const renderResizeCornerDiagonalSvg = ({
  width,
  height,
- edgeOffset = 0,
+ edgeOffset = RESIZE_CORNER_OUTSET,
  }) => {
  const safeWidth = Math.max(1, Number(width) || 1);
  const safeHeight = Math.max(1, Number(height) || 1);
  const safeOffset = Math.max(0, Number(edgeOffset) || 0);
 
+ const cornerSize = RESIZE_ACTIVE_CORNER_SIZE;
+ const cornerStroke = 3;
+ const diagonalStroke = 1.2;
+
  const svgWidth = safeWidth + safeOffset * 2;
  const svgHeight = safeHeight + safeOffset * 2;
 
- const bottomLeftElbow = {
- x: 0,
- y: svgHeight,
+ const topRightOuter = {
+ x: svgWidth - cornerSize,
+ y: 0,
  };
-
- const topRightElbow = {
+ const topRightJoint = {
  x: svgWidth,
  y: 0,
+ };
+ const bottomLeftOuter = {
+ x: 0,
+ y: svgHeight - cornerSize,
+ };
+ const bottomLeftJoint = {
+ x: 0,
+ y: svgHeight,
  };
 
  return (
@@ -1684,13 +1695,43 @@ const getLayoutPreviewSignature = useCallback((items) => {
  },
  ]}
  >
+ <Rect
+ x={topRightOuter.x}
+ y={topRightOuter.y}
+ width={cornerSize}
+ height={cornerStroke}
+ fill="#111"
+ />
+ <Rect
+ x={svgWidth - cornerStroke}
+ y={topRightOuter.y}
+ width={cornerStroke}
+ height={cornerSize}
+ fill="#111"
+ />
+
+ <Rect
+ x={bottomLeftOuter.x}
+ y={svgHeight - cornerStroke}
+ width={cornerSize}
+ height={cornerStroke}
+ fill="#111"
+ />
+ <Rect
+ x={bottomLeftOuter.x}
+ y={bottomLeftOuter.y}
+ width={cornerStroke}
+ height={cornerSize}
+ fill="#111"
+ />
+
  <AnimatedSvgLine
- x1={bottomLeftElbow.x}
- y1={bottomLeftElbow.y}
- x2={topRightElbow.x}
- y2={topRightElbow.y}
+ x1={bottomLeftJoint.x}
+ y1={bottomLeftJoint.y}
+ x2={topRightJoint.x}
+ y2={topRightJoint.y}
  stroke="#111"
- strokeWidth={1.2}
+ strokeWidth={diagonalStroke}
  strokeDasharray="6 5"
  strokeDashoffset={resizeDashTranslateX}
  strokeLinecap="butt"
@@ -2096,6 +2137,7 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  }
  : styles.resizeActiveOverlay;
 
+
  const cardContent = (
  <View key={widgetId} style={styles.graphCell}>
  <View style={[
@@ -2108,27 +2150,14 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  {isResizeActive && (
  <View pointerEvents="box-none" style={resizeOverlayDynamicStyle}>
  <GestureDetector gesture={topRightResizeGesture}>
- <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxTopRight]}>
- {!isThisResizeDragging && (
- <View style={[styles.resizeActiveCorner, styles.resizeActiveCornerTopRight]} />
- )}
- </View>
+ <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxTopRight]} />
  </GestureDetector>
 
  <GestureDetector gesture={bottomLeftResizeGesture}>
- <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxBottomLeft]}>
- {!isThisResizeDragging && (
- <View style={[styles.resizeActiveCorner, styles.resizeActiveCornerBottomLeft]} />
- )}
- </View>
+ <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxBottomLeft]} />
  </GestureDetector>
 
- {!isThisResizeDragging && renderResizeCornerDiagonalSvg({
- width: ghostDiagonalW,
- height: ghostDiagonalH,
- edgeOffset: RESIZE_CORNER_OUTSET,
- })}
- </View>
+  </View>
  )}
 
  <View style={[
@@ -2239,14 +2268,14 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
 
  const snapFrame = getGridItemFrame(resizeGhostFrame, gridWidth);
  const visualFrame = resizeGhostFrame.visualFramePx || snapFrame;
- const cardFrame = {
- left: visualFrame.left + RESIZE_FRAME_INSET,
- top: visualFrame.top + RESIZE_FRAME_INSET,
- width: Math.max(1, (Number(visualFrame.width) || 1) - RESIZE_FRAME_INSET * 2),
- height: Math.max(1, (Number(visualFrame.height) || 1) - RESIZE_FRAME_INSET * 2),
+ const guideFrame = {
+ left: visualFrame.left,
+ top: visualFrame.top,
+ width: Math.max(1, Number(visualFrame.width) || 1),
+ height: Math.max(1, Number(visualFrame.height) || 1),
  };
- const width = cardFrame.width;
- const height = cardFrame.height;
+ const width = guideFrame.width;
+ const height = guideFrame.height;
  const cornerSize = RESIZE_ACTIVE_CORNER_SIZE;
 
  const diagonalStartX = cornerSize;
@@ -2282,18 +2311,48 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  style={[
  styles.resizeGhostFrameOverlay,
  {
- left: cardFrame.left,
- top: cardFrame.top,
+ left: guideFrame.left,
+ top: guideFrame.top,
  width,
  height,
  },
  ]}
  >
- <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerTopRight]} />
- <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerBottomLeft]} />
+ </View>
+ );
+ };
+
+const renderResizeGuideOverlay = () => {
+ if (!activeResizeWidgetId || !gridWidth) return null;
+
+ const sourceItems = Array.isArray(displayLayout) ? displayLayout : [];
+ const activeItem = sourceItems.find((item) => {
+ const itemId = item?.widgetId || item?.id;
+ return itemId === activeResizeWidgetId;
+ });
+
+ if (!activeItem) return null;
+
+ const baseFrame = getResizeGridItemFrame(activeItem, gridWidth);
+ const dragFrame = resizeGhostFrame?.visualFramePx;
+ const guideFrame = dragFrame || baseFrame;
+
+ return (
+ <View
+ pointerEvents="none"
+ style={[
+ styles.resizeGhostFrameOverlay,
+ {
+ left: guideFrame.left,
+ top: guideFrame.top,
+ width: Math.max(1, Number(guideFrame.width) || 1),
+ height: Math.max(1, Number(guideFrame.height) || 1),
+ },
+ ]}
+ >
  {renderResizeCornerDiagonalSvg({
- width,
- height,
+ width: Math.max(1, Number(guideFrame.width) || 1),
+ height: Math.max(1, Number(guideFrame.height) || 1),
  edgeOffset: RESIZE_CORNER_OUTSET,
  })}
  </View>
@@ -2332,6 +2391,7 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  {renderDragPlaceholderOverlay()}
  {(Array.isArray(displayLayout) ? displayLayout : []).map((item, index) => renderAbsoluteGraphCard(item, index))}
  {renderResizeGhostFrameOverlay()}
+ {renderResizeGuideOverlay()}
  </View>
  )}
  </ScrollView>
@@ -2586,14 +2646,14 @@ resizeActiveCornerHitbox: {
  elevation: 10,
 },
 resizeActiveCornerHitboxTopRight: {
- top: -RESIZE_CORNER_OUTSET,
- right: -RESIZE_CORNER_OUTSET,
+ top: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ right: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
  alignItems: 'flex-end',
  justifyContent: 'flex-start',
 },
 resizeActiveCornerHitboxBottomLeft: {
- left: -RESIZE_CORNER_OUTSET,
- bottom: -RESIZE_CORNER_OUTSET,
+ left: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ bottom: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
  alignItems: 'flex-start',
  justifyContent: 'flex-end',
 },
@@ -2757,14 +2817,14 @@ resizeGhostCorner: {
  borderColor: '#111',
 },
 resizeGhostCornerTopRight: {
- top: -RESIZE_CORNER_OUTSET,
- right: -RESIZE_CORNER_OUTSET,
+ top: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ right: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
  borderTopWidth: 3,
  borderRightWidth: 3,
 },
 resizeGhostCornerBottomLeft: {
- left: -RESIZE_CORNER_OUTSET,
- bottom: -RESIZE_CORNER_OUTSET,
+ left: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ bottom: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
  borderLeftWidth: 3,
  borderBottomWidth: 3,
 },

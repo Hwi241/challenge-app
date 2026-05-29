@@ -24,6 +24,9 @@ import {
 } from '../constants/widgetCatalog';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Svg, { Line } from 'react-native-svg';
+
+const AnimatedSvgLine = Animated.createAnimatedComponent(Line);
 
 import {
  getDashboardLayoutStateForChallenge,
@@ -1642,7 +1645,61 @@ const getLayoutPreviewSignature = useCallback((items) => {
     });
   }, [challengeId, navigation, route?.params?.returnRouteKey]);
 
-  const saveLayout = useCallback(async () => {
+  const renderResizeCornerDiagonalSvg = ({
+ width,
+ height,
+ edgeOffset = 0,
+ }) => {
+ const safeWidth = Math.max(1, Number(width) || 1);
+ const safeHeight = Math.max(1, Number(height) || 1);
+ const safeOffset = Math.max(0, Number(edgeOffset) || 0);
+
+ const svgWidth = safeWidth + safeOffset * 2;
+ const svgHeight = safeHeight + safeOffset * 2;
+
+ const bottomLeftElbow = {
+ x: 0,
+ y: svgHeight,
+ };
+
+ const topRightElbow = {
+ x: svgWidth,
+ y: 0,
+ };
+
+ return (
+ <Svg
+ pointerEvents="none"
+ width={svgWidth}
+ height={svgHeight}
+ overflow="visible"
+ style={[
+ StyleSheet.absoluteFill,
+ {
+ left: -safeOffset,
+ top: -safeOffset,
+ width: svgWidth,
+ height: svgHeight,
+ overflow: 'visible',
+ },
+ ]}
+ >
+ <AnimatedSvgLine
+ x1={bottomLeftElbow.x}
+ y1={bottomLeftElbow.y}
+ x2={topRightElbow.x}
+ y2={topRightElbow.y}
+ stroke="#111"
+ strokeWidth={1.2}
+ strokeDasharray="6 5"
+ strokeDashoffset={resizeDashTranslateX}
+ strokeLinecap="butt"
+ />
+ </Svg>
+ );
+ };
+
+ const saveLayout = useCallback(async () => {
  if (!challengeId) {
  Alert.alert('오류', '대시보드 대상을 찾지 못했습니다.');
  return;
@@ -2066,16 +2123,11 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  </View>
  </GestureDetector>
 
- {!isThisResizeDragging && (
- <View pointerEvents="none" style={[styles.resizeActiveDiagonalTrack, resizeDiagonalTrackStyle]}>
- <Animated.View
- style={[
- styles.resizeActiveDiagonalDash,
- resizeDiagonalDashStyle,
- ]}
- />
- </View>
- )}
+ {!isThisResizeDragging && renderResizeCornerDiagonalSvg({
+ width: ghostDiagonalW,
+ height: ghostDiagonalH,
+ edgeOffset: RESIZE_CORNER_OUTSET,
+ })}
  </View>
  )}
 
@@ -2239,14 +2291,11 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  >
  <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerTopRight]} />
  <View style={[styles.resizeGhostCorner, styles.resizeGhostCornerBottomLeft]} />
- <View style={[styles.resizeGhostDiagonalTrack, diagonalTrackStyle]}>
- <Animated.View
- style={[
- styles.resizeGhostDiagonalDash,
- ghostDiagonalDashStyle,
- ]}
- />
- </View>
+ {renderResizeCornerDiagonalSvg({
+ width,
+ height,
+ edgeOffset: RESIZE_CORNER_OUTSET,
+ })}
  </View>
  );
  };

@@ -1415,20 +1415,24 @@ const WeekView = memo(function WeekView({
   const scrollXRef = useRef(new Animated.Value(0));
   const scrollX = scrollXRef.current;
   const [pageW, setPageW] = useState(0);
-  const [viewH, setViewH] = useState(0);
-  const [weekDateTextWidth, setWeekDateTextWidth] = useState(0);
+  const [viewH, setViewH] = useState(168);
+  const [weekDateTextWidth, setWeekDateTextWidth] = useState(34);
 
   const recordWeekDateTextWidth = useCallback((event) => {
     const width = Math.ceil(event?.nativeEvent?.layout?.width || 0);
     if (width <= 0) return;
-    setWeekDateTextWidth((prev) => (width > prev ? width : prev));
+
+    setWeekDateTextWidth((prev) => {
+      if (width <= prev + 1) return prev;
+      return width;
+    });
   }, []);
 
   const onLayout = useCallback((e) => {
     const w = Math.floor(e.nativeEvent.layout.width || SCREEN_WIDTH);
     const h = Math.floor(e.nativeEvent.layout.height || 0);
     if (w && w !== pageW) setPageW(w);
-    if (h && h !== viewH) setViewH(h);
+    if (h && Math.abs(h - viewH) >= 4) setViewH(h);
   }, [pageW, viewH]);
 
   const PADDING_H = 0;
@@ -2665,14 +2669,37 @@ export default function EntryListScreen({ route, navigation }) {
     isDonutAnimatingRef.current = true;
     setDonutK(0);
     animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
-  }, [animateK]);
-  const runWeek = useCallback(() => {
+  }, [animateK, hasWeeklyDataReady, hasWeeklyBarData]);
+  const hasWeeklyDataReady = Array.isArray(weeksData) && weeksData.length > 0;
+
+const hasWeeklyBarData = useMemo(() => (
+  hasWeeklyDataReady &&
+  weeksData.some((week) => (
+    Array.isArray(week?.dailyStats) &&
+    week.dailyStats.some((stat) => (
+      (Number(stat?.duration) || 0) > 0 ||
+      (Number(stat?.totalCount) || 0) > 0
+    ))
+  ))
+), [weeksData, hasWeeklyDataReady]);
+
+const runWeek = useCallback(() => {
+    if (hasWeeklyDataReady && !hasWeeklyBarData) {
+      setWeekK(1);
+      return;
+    }
     if (isWeekAnimatingRef.current) return;
     isWeekAnimatingRef.current = true;
     setWeekK(0);
     animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
-  }, [animateK]);
+  }, [animateK, hasWeeklyDataReady, hasWeeklyBarData]);
  const runLine = useCallback(() => {  animateK(setLineK); }, [animateK]);
+  useEffect(() => {
+    if (hasWeeklyDataReady && !hasWeeklyBarData) {
+      setWeekK(1);
+    }
+  }, [hasWeeklyDataReady, hasWeeklyBarData]);
+
   const runAllIntro = useCallback(() => {
     if (!isDonutAnimatingRef.current) {
       isDonutAnimatingRef.current = true;
@@ -2680,9 +2707,13 @@ export default function EntryListScreen({ route, navigation }) {
       animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
     }
     if (!isWeekAnimatingRef.current) {
-      isWeekAnimatingRef.current = true;
-      setWeekK(0);
-      animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
+      if (hasWeeklyDataReady && !hasWeeklyBarData) {
+        setWeekK(1);
+      } else {
+        isWeekAnimatingRef.current = true;
+        setWeekK(0);
+        animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
+      }
     }
     setLineK(0);
     animateK(setLineK);
@@ -2984,32 +3015,46 @@ export default function EntryListScreen({ route, navigation }) {
     dashboardReturnIntroHandledRef.current = false;
   }, [isFocused]);
 
-  // 인트로 애니메이션 — 데이터·레이아웃 준비 완료 후 requestAnimationFrame으로 실행
+  // 인트로 애니메이션 — 데이터·레이아웃 준비 + InteractionManager + 320ms 안정화 후 실행
   useEffect(() => {
     if (!isFocused || introReadyTick === 0) return;
     if (!Array.isArray(dashboardLayout) || dashboardLayout.length === 0) return;
-    const raf = requestAnimationFrame(() => {
-            const suppressDashboardReturn = dashboardReturnSuppressUntilRef.current > Date.now();
-      const dashboardReturnMode = dashboardReturnModeRef.current;
 
-      if (skipDashboardReturnIntroRef.current || suppressDashboardReturn) {
-        
-        if (dashboardReturnMode === 'save' || dashboardReturnMode === 'cancel') {
-          if (!dashboardReturnIntroHandledRef.current) {
-            dashboardReturnIntroHandledRef.current = true;
-            runAllIntro();
+    let cancelled = false;
+    let timeoutId = null;
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+
+        const suppressDashboardReturn = dashboardReturnSuppressUntilRef.current > Date.now();
+        const dashboardReturnMode = dashboardReturnModeRef.current;
+
+        if (skipDashboardReturnIntroRef.current || suppressDashboardReturn) {
+          if (dashboardReturnMode === 'save' || dashboardReturnMode === 'cancel') {
+            if (!dashboardReturnIntroHandledRef.current) {
+              dashboardReturnIntroHandledRef.current = true;
+              runAllIntro();
+            }
+            return;
           }
+
+          setDonutK(1);
+          setWeekK(1);
+          setLineK(1);
           return;
         }
-
-        setDonutK(1);
-        setWeekK(1);
-        setLineK(1);
-        return;
-      }
-      runAllIntro();
+        runAllIntro();
+      }, 320);
     });
-    return () => cancelAnimationFrame(raf);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (task && typeof task.cancel === 'function') {
+        task.cancel();
+      }
+    };
   }, [isFocused, introReadyTick, dashboardLayout.length, runAllIntro, navigation]);
 
   useEffect(() => {

@@ -1311,10 +1311,22 @@ const renderAbsoluteGraphCard = (item, index) => {
   if (!gridWidth) return null;
   const frame = getGridItemFrame(item, gridWidth);
   const key = item.widgetId || item.id || String(index);
+  const isActiveAbsoluteCard = key === activeResizeWidgetId;
+
   return (
-    <View key={'abs-' + key} style={[styles.absoluteGraphCell, {
-      left: frame.left, top: frame.top, width: frame.width, height: frame.height,
-    }]}>
+    <View
+ key={'abs-' + key}
+ style={[
+ styles.absoluteGraphCell,
+ {
+ left: frame.left,
+ top: frame.top,
+ width: frame.width,
+ height: frame.height,
+ },
+ isActiveAbsoluteCard && styles.absoluteGraphCellResizeActive,
+ ]}
+ >
       {renderGraphCard(item, index)}
     </View>
   );
@@ -2128,17 +2140,18 @@ const canMoveCard = !resizeDraggingWidgetId;
    .runOnJS(true)
    .onBegin(() => {
      clearScheduledDragVisualCleanup();
-     if (activeResizeWidgetId) {
- setActiveResizeWidgetId(null);
- setResizeGhostFrame(null);
- setPreviewLayout(null);
- }
      previewLayoutSignatureRef.current = '';
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
    })
    .onStart((event) => {
      dragStartScrollYRef.current = scrollYRef.current;
      clearScheduledDragVisualCleanup();
+
+     if (activeResizeWidgetId) {
+ setResizeGhostFrame(null);
+ setPreviewLayout(null);
+ }
+
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
      const overlayWidth = slotWidth ? slotWidth * safeW : 0;
@@ -2272,6 +2285,12 @@ const canMoveCard = !resizeDraggingWidgetId;
        });
      }
 
+if (activeResizeWidgetId === widgetId) {
+ setActiveResizeWidgetId(null);
+ setResizeGhostFrame(null);
+ setPreviewLayout(null);
+}
+
      scheduleDragVisualCleanup();
    })
    .onFinalize(() => {
@@ -2349,7 +2368,7 @@ isResizeActive && styles.graphCellResizeActive,
  </View>
  </View>
 
- {isResizeActive && !isThisResizeDragging && (
+ {isResizeActive && !isThisResizeDragging && gestureDraggingWidgetId !== widgetId && (
 <TouchableOpacity
 style={styles.removeBtnBottomRight}
 onPress={() => removeGraph(widgetId)}
@@ -2492,7 +2511,7 @@ activeOpacity={0.82}
  };
 
 const renderResizeDismissOverlay = () => {
- if (!activeResizeWidgetId || resizeDraggingWidgetId || !gridWidth) return null;
+ if (!activeResizeWidgetId || resizeDraggingWidgetId || gestureDraggingWidgetId || !gridWidth) return null;
 
  const sourceItems = Array.isArray(displayLayout) ? displayLayout : [];
  const activeItem = sourceItems.find((item) => {
@@ -2569,7 +2588,7 @@ const renderResizeDismissOverlay = () => {
  };
 
 const renderResizeGuideOverlay = () => {
- if (!activeResizeWidgetId || !gridWidth) return null;
+ if (!activeResizeWidgetId || gestureDraggingWidgetId || !gridWidth) return null;
 
  const sourceItems = Array.isArray(displayLayout) ? displayLayout : [];
  const activeItem = sourceItems.find((item) => {
@@ -3137,6 +3156,10 @@ resizeActiveDiagonalDash: {
  absoluteGraphCell: {
  position: 'absolute',
  },
+absoluteGraphCellResizeActive: {
+ zIndex: 120,
+ elevation: 30,
+},
  dragPlaceholderOverlay: {
  position: 'absolute',
  borderWidth: 1.2,

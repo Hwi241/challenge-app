@@ -576,6 +576,7 @@ export default function DashboardEditScreen({ route, navigation }) {
 const [resizeGhostFrame, setResizeGhostFrame] = useState(null);
 const [activeResizeWidgetId, setActiveResizeWidgetId] = useState(null);
 const [resizeDraggingWidgetId, setResizeDraggingWidgetId] = useState(null);
+const [resizeDimWidgetId, setResizeDimWidgetId] = useState(null);
  const lastDropTargetRef = useRef(null);
  const dragOriginRef = useRef(null);
  const previewTargetRef = useRef(null);
@@ -733,6 +734,7 @@ const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
  stopDashboardAutoScroll();
  setGestureDraggingWidgetId(null);
  setDraggingOriginalWidgetId(null);
+ setResizeDimWidgetId(null);
  setResizeDraggingWidgetId(null);
  setGestureDragOffset({ x: 0, y: 0 });
  setDragPlaceholder(null);
@@ -754,6 +756,7 @@ const exitResizeMode = useCallback(() => {
  stopDashboardAutoScroll();
  setActiveResizeWidgetId(null);
  setResizeDraggingWidgetId(null);
+ setResizeDimWidgetId(null);
  setResizeGhostFrame(null);
  setPreviewLayout(null);
  resizeOriginRef.current = null;
@@ -1930,15 +1933,14 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
 const isResizeActive = activeResizeWidgetId === widgetId;
 const isThisResizeDragging = resizeDraggingWidgetId === widgetId;
-const isThisResizeGhostActive = resizeGhostFrame?.widgetId === widgetId;
+const isThisResizeDimActive = resizeDimWidgetId === widgetId;
 const isThisGestureDragging =
  draggingOriginalWidgetId === widgetId ||
  gestureDraggingWidgetId === widgetId ||
  dragOverlayItem?.widgetId === widgetId;
 const shouldDimOriginalCard =
  isThisGestureDragging ||
- isThisResizeDragging ||
- isThisResizeGhostActive;
+ isThisResizeDimActive;
 const displaySizeText =
  isResizeActive && resizeGhostFrame?.widgetId === widgetId
  ? `${resizeGhostFrame.w}x${resizeGhostFrame.h}`
@@ -2006,6 +2008,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  .runOnJS(true)
  .onBegin(() => {
  setResizeDraggingWidgetId(widgetId);
+ setResizeDimWidgetId(null);
  resizeOriginRef.current = {
  x: safeX,
  y: safeY,
@@ -2035,6 +2038,9 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  boundedFramePx: initialGhostState.boundedFramePx,
  });
  })
+.onStart(() => {
+ setResizeDimWidgetId(widgetId);
+})
  .onUpdate((event) => {
  const origin = resizeOriginRef.current || {
  x: safeX,
@@ -2114,6 +2120,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setPreviewLayout(null);
  setResizeGhostFrame(null);
  setResizeDraggingWidgetId(null);
+ setResizeDimWidgetId(null);
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
@@ -2126,6 +2133,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setPreviewLayout(null);
  setResizeGhostFrame(null);
  setResizeDraggingWidgetId(null);
+ setResizeDimWidgetId(null);
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
@@ -2133,6 +2141,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  .onFinalize(() => {
  clearResizeGhostBounceTimer();
  setResizeDraggingWidgetId(null);
+ setResizeDimWidgetId(null);
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';

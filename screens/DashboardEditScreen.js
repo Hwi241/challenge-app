@@ -586,6 +586,7 @@ const [resizeDimWidgetId, setResizeDimWidgetId] = useState(null);
 const resizePreviewSizeRef = useRef('');
  const dragCleanupTimerRef = useRef(null);
  const resizeDashAnimRef = useRef(new Animated.Value(0));
+ const resizeTouchOpacityRef = useRef(new Animated.Value(1));
  const resizeGhostBounceTimerRef = useRef(null);
  const resizeGhostBounceSignatureRef = useRef('');
  const scrollRef = useRef(null);
@@ -1931,6 +1932,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const cardHeight = getGridItemHeight(safeH);
  const innerCardHeight = Math.max(0, cardHeight - RESIZE_FRAME_INSET * 2);
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
+const resizeTouchOpacity = resizeTouchOpacityRef.current;
 const isResizeActive = activeResizeWidgetId === widgetId;
 const isThisResizeDragging = resizeDraggingWidgetId === widgetId;
 const isThisResizeDimActive = resizeDimWidgetId === widgetId;
@@ -1938,10 +1940,7 @@ const isThisGestureDragging =
  draggingOriginalWidgetId === widgetId ||
  gestureDraggingWidgetId === widgetId ||
  dragOverlayItem?.widgetId === widgetId;
-const shouldDimOriginalCard =
- isThisGestureDragging ||
- isThisResizeDimActive ||
- isThisResizeDragging;
+const shouldDimOriginalCard = isThisGestureDragging;
 const displaySizeText =
  isResizeActive && resizeGhostFrame?.widgetId === widgetId
  ? `${resizeGhostFrame.w}x${resizeGhostFrame.h}`
@@ -2007,9 +2006,18 @@ const resizeDiagonalDashStyle = {
 const buildResizeGesture = (corner) => Gesture.Pan()
  .enabled(isResizeActive)
  .runOnJS(true)
+ .onTouchesDown(() => {
+ resizeTouchOpacityRef.current.setValue(0.16);
+})
+.onTouchesUp(() => {
+ resizeTouchOpacityRef.current.setValue(1);
+})
+.onTouchesCancelled(() => {
+ resizeTouchOpacityRef.current.setValue(1);
+})
  .onBegin(() => {
  setResizeDraggingWidgetId(widgetId);
- setResizeDimWidgetId(widgetId);
+ resizeTouchOpacityRef.current.setValue(0.16);
  resizeOriginRef.current = {
  x: safeX,
  y: safeY,
@@ -2052,7 +2060,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  const deltaCols = getResizeStableGridDelta(deltaColsRaw);
  const deltaRows = getResizeStableGridDelta(deltaRowsRaw);
 
- const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, deltaRows);
+const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, deltaRows);
  const ghostState = getResizeGhostVisualFramePx(
  widgetId,
  origin,
@@ -2101,7 +2109,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  }
  })
  .onEnd((event) => {
- const origin = resizeOriginRef.current || {
+const origin = resizeOriginRef.current || {
  x: safeX,
  y: safeY,
  w: safeW,
@@ -2118,8 +2126,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setPreviewLayout(null);
  setResizeGhostFrame(null);
  setResizeDraggingWidgetId(null);
- setResizeDimWidgetId(null);
- resizeOriginRef.current = null;
+  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
  return;
@@ -2131,15 +2138,14 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setPreviewLayout(null);
  setResizeGhostFrame(null);
  setResizeDraggingWidgetId(null);
- setResizeDimWidgetId(null);
- resizeOriginRef.current = null;
+  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
  })
  .onFinalize(() => {
- clearResizeGhostBounceTimer();
+clearResizeGhostBounceTimer();
  setResizeDraggingWidgetId(null);
- setResizeDimWidgetId(null);
+ resizeTouchOpacityRef.current.setValue(1);
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
@@ -2371,7 +2377,7 @@ isResizeActive && styles.graphCellResizeActive,
   </View>
  )}
 
- <View style={[
+ <Animated.View style={[
  styles.graphCard,
  {
  minHeight: innerCardHeight,
@@ -2380,16 +2386,14 @@ isResizeActive && styles.graphCellResizeActive,
  },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  isResizeActive && styles.graphCardResizeActive,
+ shouldDimOriginalCard && styles.graphCardDimmed,
  ]}>
- {shouldDimOriginalCard && (
- <View pointerEvents="none" style={styles.graphCardDimOverlay} />
- )}
-
  <View style={styles.graphHeader}>
  <View style={styles.graphTitleGroup}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
  </View>
  </View>
+ </Animated.View>
 
  {isResizeActive && !isThisGestureDragging && (
 <TouchableOpacity
@@ -2400,7 +2404,6 @@ activeOpacity={0.82}
 <Text style={styles.removeText}>삭제</Text>
 </TouchableOpacity>
 )}
- </View>
 
  <View
 pointerEvents="none"
@@ -2993,12 +2996,8 @@ graphCard: {
 graphCardResizeDraggingHidden: {
  opacity: 0.35,
 },
-graphCardDimOverlay: {
- ...StyleSheet.absoluteFillObject,
- borderRadius: 8,
- backgroundColor: 'rgba(255,255,255,0.72)',
- zIndex: 8,
- elevation: 2,
+graphCardDimmed: {
+ opacity: 0.16,
 },
 resizeHandle: {
  width: 28,

@@ -65,6 +65,9 @@ import { getOwnedWidgets } from '../utils/widgetOwnership';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const DASHBOARD_WIDGET_HEADER_HEIGHT = 28;
+const DASHBOARD_WIDGET_HEADER_TOP_OFFSET = 0;
+const DASHBOARD_WIDGET_HEADER_TITLE_TOP_ADJUST = -6;
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const CAL_HEADER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const ICON = require('../assets/icon.png');
@@ -468,7 +471,13 @@ const DashboardWidgetHeader = memo(function DashboardWidgetHeader({
         <Text style={styles.dashboardWidgetHeaderNavText}>{leftLabel}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.dashboardWidgetHeaderTitle}>{title}</Text>
+      <Text
+ style={styles.dashboardWidgetHeaderTitle}
+ numberOfLines={1}
+ ellipsizeMode="tail"
+>
+ {title}
+</Text>
 
       <TouchableOpacity
         onPress={canRight && !hideSides ? onRight : undefined}
@@ -502,7 +511,7 @@ const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
   return (
     <View style={styles.calendarHeaderGridRow}>
       <TouchableOpacity
-        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridLeftCell, { alignItems: 'center', justifyContent: 'center' }]}
+        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridLeftCell]}
         onPress={canLeft ? onLeft : undefined}
         disabled={!canLeft}
         activeOpacity={0.7}
@@ -511,7 +520,7 @@ const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridRightCell, { alignItems: 'center', justifyContent: 'center' }]}
+        style={[styles.calendarHeaderGridEdgeCell, styles.calendarHeaderGridRightCell]}
         onPress={canRight ? onRight : undefined}
         disabled={!canRight}
         activeOpacity={0.7}
@@ -520,7 +529,13 @@ const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
       </TouchableOpacity>
 
       <View pointerEvents="none" style={styles.calendarHeaderGridTitleLayer}>
-        <Text style={styles.dashboardWidgetHeaderTitle}>{title}</Text>
+        <Text
+ style={styles.dashboardWidgetHeaderTitle}
+ numberOfLines={1}
+ ellipsizeMode="tail"
+>
+ {title}
+</Text>
       </View>
     </View>
   );
@@ -1604,11 +1619,11 @@ const WEEK_TODAY_TEXT_STYLE = {
 
   const renderWeekHeader = useCallback(() => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) {
-      return <View style={{ height: WEEK_DATE_ROW_HEIGHT }} />;
+      return <View style={{ height: DASHBOARD_WIDGET_HEADER_HEIGHT }} />;
     }
 
     return (
-      <View style={{ width: '100%', height: WEEK_DATE_ROW_HEIGHT, overflow: 'hidden' }}>
+      <View style={{ width: '100%', height: DASHBOARD_WIDGET_HEADER_HEIGHT, overflow: 'hidden', justifyContent: 'flex-start' }}>
         <Animated.View
           style={{
             flexDirection: 'row',
@@ -1833,9 +1848,9 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
     <DashboardWidgetShell
       header={renderWeekHeader()}
       headerSlotStyle={{
-        height: WEEK_DATE_ROW_HEIGHT,
-        minHeight: WEEK_DATE_ROW_HEIGHT,
-        marginTop: 0,
+        height: DASHBOARD_WIDGET_HEADER_HEIGHT,
+        minHeight: DASHBOARD_WIDGET_HEADER_HEIGHT,
+        marginTop: DASHBOARD_WIDGET_HEADER_TOP_OFFSET,
       }}
     >
       <View style={{ flex: 1, width: '100%' }} onLayout={onLayout}>
@@ -3872,13 +3887,19 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
     justifyContent: 'space-between',
   },
   dashboardWidgetHeaderSideSlot: {
-    paddingHorizontal: 6,
+    width: 24,
+    paddingHorizontal: 0,
     paddingVertical: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    transform: [{ translateY: DASHBOARD_WIDGET_HEADER_TITLE_TOP_ADJUST }],
   },
   dashboardWidgetHeaderSideDisabled: {
     opacity: 0.3,
   },
   dashboardWidgetHeaderSideInvisible: {
+    width: 0,
+    paddingHorizontal: 0,
     opacity: 0,
   },
   dashboardWidgetHeaderNavText: {
@@ -3900,9 +3921,10 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
     position: 'absolute',
     top: 0,
     width: '14.2857%',
-    height: 22,
+    height: DASHBOARD_WIDGET_HEADER_HEIGHT,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    transform: [{ translateY: DASHBOARD_WIDGET_HEADER_TITLE_TOP_ADJUST }],
   },
   calendarHeaderGridLeftCell: {
     left: 0,
@@ -3917,13 +3939,18 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
     top: 0,
     bottom: 0,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   dashboardWidgetHeaderTitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 12,
+    lineHeight: 14,
     fontWeight: '700',
     color: '#111',
     textAlign: 'center',
+    includeFontPadding: false,
+    transform: [{ translateY: DASHBOARD_WIDGET_HEADER_TITLE_TOP_ADJUST }],
   },
 
   calDowRow: { flexDirection: 'row', justifyContent: 'flex-start', marginTop: 3 },
@@ -4025,6 +4052,4 @@ rewardBlockSpacing: {
   modalFieldValue: { fontSize: 13, color: '#111' },
   modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
 });
-
-
 

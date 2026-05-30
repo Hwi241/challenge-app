@@ -20,6 +20,7 @@ import {
   Platform,
   PanResponder,
   Animated,
+  InteractionManager,
   useWindowDimensions,
   } from 'react-native';
 import { SafeAreaView,
@@ -2541,6 +2542,7 @@ export default function EntryListScreen({ route, navigation }) {
 
   const [showDebug] = useState(true);
   const shareRef = useRef(null);
+  const [offscreenRenderReady, setOffscreenRenderReady] = useState(false);
   const grassTapRef = useRef(null);
   const isDonutAnimatingRef = useRef(false);
   const isWeekAnimatingRef = useRef(false);
@@ -2931,6 +2933,39 @@ export default function EntryListScreen({ route, navigation }) {
     return () => cancelAnimationFrame(raf);
   }, [isFocused, introReadyTick, dashboardLayout.length, runAllIntro, navigation]);
 
+  useEffect(() => {
+    if (!isFocused) {
+      setOffscreenRenderReady(false);
+      return;
+    }
+
+    if (introReadyTick === 0) {
+      setOffscreenRenderReady(false);
+      return;
+    }
+
+    setOffscreenRenderReady(false);
+
+    let cancelled = false;
+    let timeoutId = null;
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      timeoutId = setTimeout(() => {
+        if (!cancelled) {
+          setOffscreenRenderReady(true);
+        }
+      }, 2800);
+    });
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (task && typeof task.cancel === 'function') {
+        task.cancel();
+      }
+    };
+  }, [isFocused, introReadyTick, challengeId]);
+
   useEffect(()=>()=>{
     aliveRef.current = false;
     loadingRef.current = false;
@@ -3157,7 +3192,12 @@ export default function EntryListScreen({ route, navigation }) {
 
   const handleShare = useCallback(async ()=>{
     try {
-      await new Promise(r => setTimeout(r, 80));
+      if (!offscreenRenderReady) {
+        setOffscreenRenderReady(true);
+        await new Promise(r => setTimeout(r, 320));
+      } else {
+        await new Promise(r => setTimeout(r, 80));
+      }
       const node = shareRef.current;
       if (!node) throw new Error('공유 뷰를 찾지 못했습니다.');
       const uri = await captureRef(node, { format: 'png', quality: 1, result: 'tmpfile' });
@@ -3171,7 +3211,7 @@ export default function EntryListScreen({ route, navigation }) {
       console.log(e);
       console.log('공유 실패', '이미지 생성/공유 중 문제가 발생했어요. 다시 시도해 주세요.');
     }
-  }, [ meta.title ]);
+  }, [ meta.title, offscreenRenderReady ]);
 
   /* ── RAW 모드 ── */
   if (KILL_UI_AND_SHOW_RAW) {
@@ -3212,6 +3252,7 @@ export default function EntryListScreen({ route, navigation }) {
       <StickyDebugPeek visible={DEBUG_ON} count={debug?.count ?? 0} onPress={reload} />
 
       {/* 공유 캡처용: 화면 밖 — 헤더 + 보상 + 요약 + 전체 목록 포함 */}
+{offscreenRenderReady && (
 <View pointerEvents="none" style={{ position:'absolute', left:-9999, top:-9999, width:SCREEN_WIDTH, opacity:0 }}>
 <ViewShot ref={shareRef} options={{ format: 'png', quality: 1 }}>
   <View style={[styles.container, { backgroundColor: '#fff' }]} collapsable={false}>
@@ -3229,8 +3270,8 @@ export default function EntryListScreen({ route, navigation }) {
     <View style={{ height: EDGE }} />
   </View>
 </ViewShot>
-
 </View>
+)}
 
 
       <DebugPanel
@@ -3347,6 +3388,7 @@ export default function EntryListScreen({ route, navigation }) {
         <Text style={styles.shareBtnText}>공유</Text>
       </TouchableOpacity>
      {/* 그래프 1×1 캡처(오프스크린) */}
+{offscreenRenderReady && (
 <WidgetDonutCapture1x1
   challengeId={challengeId}
   deps={[overallPct /* 또는 progressPct 등 진행률 변수 */]}
@@ -3354,6 +3396,7 @@ export default function EntryListScreen({ route, navigation }) {
    <Donut targetPercent={overallPct} progress={1} size={size} />
   )}
 />
+)}
 
 
     </SafeAreaView>

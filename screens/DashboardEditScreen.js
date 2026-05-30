@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
  Alert,
  Animated,
+ BackHandler,
  Dimensions,
  Easing,
  Modal,
@@ -1573,19 +1574,41 @@ const layoutRows = useMemo(() => {
 }, [dashboardTarget]);
 
  const removeGraph = useCallback((widgetId) => {
+ const targetItem = layout.find((item) => (item.widgetId || item.id) === widgetId);
+ const targetTitle = targetItem?.title || targetItem?.name || widgetId || '위젯';
+
+ if (layout.length <= 1) {
+ Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
+ return;
+ }
+
+ Alert.alert(
+ '위젯 삭제',
+ `"${targetTitle}" 위젯을 대시보드에서 삭제할까요?`,
+ [
+ { text: '취소', style: 'cancel' },
+ {
+ text: '삭제',
+ style: 'destructive',
+ onPress: () => {
  setLayout((current) => {
  if (current.length <= 1) {
  Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
  return current;
  }
- const nextLayout = current.filter(item => (item.widgetId || item.id) !== widgetId);
+
+ const nextLayout = current.filter((item) => (item.widgetId || item.id) !== widgetId);
  return compactDashboardLayoutSpaces(
-   repairDashboardLayoutOverlaps(
-     normalizeLayout(nextLayout, dashboardTarget),
-   ),
+ repairDashboardLayoutOverlaps(
+ normalizeLayout(nextLayout, dashboardTarget),
+ ),
  );
  });
- }, [dashboardTarget]);
+ },
+ },
+ ],
+ );
+ }, [dashboardTarget, layout]);
 
 const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, nextSize, options = {}) => {
  if (!targetWidgetId || !nextSize) {
@@ -1687,6 +1710,45 @@ const getLayoutPreviewSignature = useCallback((items) => {
       source: returnRouteKey,
     });
   }, [challengeId, navigation, route?.params?.returnRouteKey]);
+
+  const returnToEntryList = useCallback((mode = 'cancel') => {
+ signalDashboardEditReturn(mode);
+
+ if (!challengeId) {
+ navigation.goBack();
+ return;
+ }
+
+ const entryListParams = {
+ challengeId,
+ title,
+ challengeTitle: title,
+ type: params?.type,
+ challengeType: params?.challengeType,
+ isHabit: params?.isHabit,
+ habitId: params?.habitId,
+ item: params?.item,
+ challenge: params?.challenge,
+ };
+
+ if (typeof navigation.replace === 'function') {
+ navigation.replace('EntryList', entryListParams);
+ return;
+ }
+
+ navigation.navigate('EntryList', entryListParams);
+ }, [challengeId, navigation, params, signalDashboardEditReturn, title]);
+
+ useEffect(() => {
+ const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+ returnToEntryList('cancel');
+ return true;
+ });
+
+ return () => {
+ subscription.remove();
+ };
+ }, [returnToEntryList]);
 
   const renderResizeCornerDiagonalSvg = ({
  width,
@@ -1833,13 +1895,20 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
  const safeH = Math.max(1, Number(item.h || 1));
  const isCompactCard = safeH === 1;
- const shouldUseProgressCompactTitle =
- widgetId === 'overall_progress' ||
- String(baseTitleText || '').includes('전체') ||
- String(baseTitleText || '').includes('진행');
+ const isNarrowTitleCard = safeW <= 3;
+ const compactTitleByWidgetId = {
+ overall_progress: '진행률',
+ goal_black_box: '목표',
+};
+ const compactTitleByText = (() => {
+ const text = String(baseTitleText || '');
+ if (text.includes('전체') && text.includes('진행')) return '진행률';
+ if (text.includes('도전') && text.includes('목표')) return '목표';
+ return null;
+})();
 
- const titleText = shouldUseProgressCompactTitle
- ? '진행률'
+ const titleText = isNarrowTitleCard
+ ? (compactTitleByWidgetId[widgetId] || compactTitleByText || baseTitleText)
  : baseTitleText;
  const cardHeight = getGridItemHeight(safeH);
  const innerCardHeight = Math.max(0, cardHeight - RESIZE_FRAME_INSET * 2);
@@ -2517,7 +2586,7 @@ const renderResizeGuideOverlay = () => {
  <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
  <View style={styles.header}>
- <TouchableOpacity style={styles.backBtn} onPress={() => { signalDashboardEditReturn('cancel'); navigation.goBack(); }}>
+ <TouchableOpacity style={styles.backBtn} onPress={() => returnToEntryList('cancel')}>
  <Text style={styles.backText}>‹</Text>
  </TouchableOpacity>
  <Text style={styles.screenTitle}>대시보드 수정</Text>
@@ -2579,7 +2648,7 @@ const renderResizeGuideOverlay = () => {
  </ScrollView>
 
  <View style={[styles.footer, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
- <TouchableOpacity style={[styles.footerButton, styles.cancelButton]} onPress={() => { signalDashboardEditReturn('cancel'); navigation.goBack(); }}>
+ <TouchableOpacity style={[styles.footerButton, styles.cancelButton]} onPress={() => returnToEntryList('cancel')}>
  <Text style={styles.cancelButtonText}>취소</Text>
  </TouchableOpacity>
  <TouchableOpacity style={[styles.footerButton, styles.saveButton]} onPress={saveLayout}>

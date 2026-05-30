@@ -1827,12 +1827,20 @@ const getLayoutPreviewSignature = useCallback((items) => {
    );
  }
  const widgetId = item.widgetId || item.id || `graph_${index}`;
- const titleText = item.title || item.name || widgetId;
+ const baseTitleText = item.title || item.name || widgetId;
  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w || GRID_COLUMNS)));
  const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x || 0)));
  const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
  const safeH = Math.max(1, Number(item.h || 1));
  const isCompactCard = safeH === 1;
+ const shouldUseProgressCompactTitle =
+ widgetId === 'overall_progress' ||
+ String(baseTitleText || '').includes('전체') ||
+ String(baseTitleText || '').includes('진행');
+
+ const titleText = shouldUseProgressCompactTitle
+ ? '진행률'
+ : baseTitleText;
  const cardHeight = getGridItemHeight(safeH);
  const innerCardHeight = Math.max(0, cardHeight - RESIZE_FRAME_INSET * 2);
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
@@ -2257,20 +2265,20 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  event?.stopPropagation?.();
  setActiveResizeWidgetId((current) => current === widgetId ? null : widgetId);
  }}
- >
+>
  <View style={styles.resizeHandleCornerTopRight} />
  <View style={styles.resizeHandleCornerBottomLeft} />
  </TouchableOpacity>
  </View>
  </View>
 
- <View pointerEvents="none" style={styles.graphMetaCenterLayer}>
- <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
- </View>
-
  <TouchableOpacity style={styles.removeBtnBottomRight} onPress={() => removeGraph(widgetId)}>
  <Text style={styles.removeText}>×</Text>
  </TouchableOpacity>
+ </View>
+
+ <View pointerEvents="none" style={styles.graphMetaCenterLayer}>
+ <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
  </View>
  </View>
  </View>
@@ -2820,12 +2828,15 @@ graphCard: {
  alignItems: 'center',
  justifyContent: 'center',
  pointerEvents: 'none',
+ zIndex: 30,
+ elevation: 9,
  },
  graphMetaCenter: {
- fontSize: 13,
+ fontSize: 15,
  fontWeight: '900',
- color: '#777',
+ color: '#111',
  textAlign: 'center',
+ includeFontPadding: false,
  },
  graphCardResizeActive: {
  borderColor: '#111',
@@ -2842,13 +2853,15 @@ resizeHandle: {
  width: 28,
  height: 28,
  borderRadius: 14,
- backgroundColor: '#111',
+ borderWidth: 1,
+ borderColor: '#ccc',
+ backgroundColor: '#fff',
  alignItems: 'center',
  justifyContent: 'center',
 },
 resizeHandleActive: {
- backgroundColor: '#000',
- transform: [{ scale: 1.08 }],
+ backgroundColor: '#fff',
+ borderColor: '#ccc',
 },
 resizeHandleCornerTopRight: {
  position: 'absolute',
@@ -2858,7 +2871,7 @@ resizeHandleCornerTopRight: {
  height: 8,
  borderTopWidth: 2,
  borderRightWidth: 2,
- borderColor: '#fff',
+ borderColor: '#111',
 },
 resizeHandleCornerBottomLeft: {
  position: 'absolute',
@@ -2868,7 +2881,7 @@ resizeHandleCornerBottomLeft: {
  height: 8,
  borderBottomWidth: 2,
  borderLeftWidth: 2,
- borderColor: '#fff',
+ borderColor: '#111',
 },
 resizeActiveOverlay: {
  ...StyleSheet.absoluteFillObject,

@@ -529,11 +529,12 @@ const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
 const DashboardWidgetShell = memo(function DashboardWidgetShell({
   header,
   children,
+  headerSlotStyle = null,
 }) {
   return (
     <View style={styles.dashboardWidgetShell}>
       {header ? (
-        <View style={styles.dashboardWidgetHeaderSlot}>
+        <View style={[styles.dashboardWidgetHeaderSlot, headerSlotStyle]}>
           {header}
         </View>
       ) : null}
@@ -1411,6 +1412,8 @@ const WeekView = memo(function WeekView({
   challengeEndDate,
 }) {
   const scrollRef = useRef(null);
+  const scrollXRef = useRef(new Animated.Value(0));
+  const scrollX = scrollXRef.current;
   const [pageW, setPageW] = useState(0);
   const [viewH, setViewH] = useState(0);
   const [weekDateTextWidth, setWeekDateTextWidth] = useState(0);
@@ -1447,9 +1450,11 @@ const WeekView = memo(function WeekView({
   const goWeek = useCallback((targetIndex) => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;
     const nextIndex = Math.max(0, Math.min(Number(targetIndex) || 0, weeksData.length - 1));
-    scrollRef.current?.scrollTo({ x: nextIndex * pageW, animated: true });
+    const nextX = nextIndex * pageW;
+    scrollRef.current?.scrollTo({ x: nextX, animated: true });
+    scrollX.setValue(nextX);
     if (typeof onIndexChange === 'function') onIndexChange(nextIndex);
-  }, [pageW, weeksData, onIndexChange]);
+  }, [pageW, weeksData, onIndexChange, scrollX]);
 
   const monthPagerWeeks = useMemo(() => {
     if (!Array.isArray(weeksData) || weeksData.length === 0) return [];
@@ -1545,7 +1550,7 @@ const WeekView = memo(function WeekView({
   const WEEK_GRAPH_HEIGHT = Math.max(1, WEEK_VIEW_HEIGHT - WEEK_CONTROL_HEIGHT);
   const WEEK_BAR_ROW_HEIGHT = Math.max(
     Math.round(scaleWeek(48, 36, 76)),
-    WEEK_GRAPH_HEIGHT - WEEK_DATE_ROW_HEIGHT - WEEK_BAR_TOP_GAP - WEEK_GRAPH_BOTTOM_GAP
+    WEEK_GRAPH_HEIGHT - WEEK_BAR_TOP_GAP - WEEK_GRAPH_BOTTOM_GAP
   );
   const WEEK_BAR_VALUE_MAX_H = Math.max(
     Math.round(scaleWeek(16, 12, 32)),
@@ -1593,70 +1598,120 @@ const WEEK_TODAY_TEXT_STYLE = {
   fontWeight: '900',
 };
 
-  const renderWeek = useCallback(({ dailyStats }, idx) => {
+  const renderWeekHeader = useCallback(() => {
+    if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) {
+      return <View style={{ height: WEEK_DATE_ROW_HEIGHT }} />;
+    }
+
+    return (
+      <View style={{ width: '100%', height: WEEK_DATE_ROW_HEIGHT, overflow: 'hidden' }}>
+        <Animated.View
+          style={{
+            flexDirection: 'row',
+            width: pageW * weeksData.length,
+            transform: [
+              {
+                translateX: Animated.multiply(scrollX, -1),
+              },
+            ],
+          }}
+        >
+          {weeksData.map((week, idx) => {
+            const dailyStats = Array.isArray(week?.dailyStats) ? week.dailyStats : [];
+
+            return (
+              <View key={`week-header-${idx}`} style={{ width: pageW }}>
+                <View style={{ flexDirection: 'row', width: ROW_W, marginLeft: ROW_OFFSET_X, height: WEEK_DATE_ROW_HEIGHT }}>
+                  {dailyStats.map((stat, i) => {
+                    const weekStart = week?.ws ? new Date(week.ws) : null;
+                    if (weekStart) weekStart.setHours(0, 0, 0, 0);
+                    const actualDate = weekStart ? new Date(weekStart) : null;
+                    if (actualDate) actualDate.setDate(weekStart.getDate() + i);
+                    const isTodayDate = actualDate ? keyOf(actualDate) === todayKey : false;
+
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        style={{ width: COL_W, alignItems: 'center' }}
+                        onPress={() => onPressDay?.(stat.date, week?.ws, i)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          onLayout={recordWeekDateTextWidth}
+                          style={[
+                            styles.dateLabel,
+                            {
+                              marginBottom: WEEK_DATE_DAY_GAP,
+                              fontSize: WEEK_DATE_FONT_SIZE,
+                              lineHeight: WEEK_DATE_LINE_H,
+                              includeFontPadding: false,
+                            },
+                            isTodayDate && {
+                              color: '#000',
+                              fontWeight: '900',
+                              fontSize: WEEK_TODAY_DATE_FONT_SIZE,
+                              lineHeight: WEEK_TODAY_DATE_LINE_H,
+                            },
+                          ]}
+                        >
+                          {stat.date}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dayLabel,
+                            {
+                              fontSize: WEEK_DAY_FONT_SIZE,
+                              lineHeight: WEEK_DAY_LINE_H,
+                              includeFontPadding: false,
+                            },
+                            isTodayDate && {
+                              color: '#000',
+                              fontWeight: '900',
+                              fontSize: WEEK_TODAY_DAY_FONT_SIZE,
+                              lineHeight: WEEK_TODAY_DAY_LINE_H,
+                            },
+                          ]}
+                        >
+                          {DAY_LABELS[i]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+        </Animated.View>
+      </View>
+    );
+  }, [
+    pageW,
+    weeksData,
+    scrollX,
+    ROW_W,
+    ROW_OFFSET_X,
+    COL_W,
+    WEEK_DATE_ROW_HEIGHT,
+    WEEK_DATE_DAY_GAP,
+    WEEK_DATE_FONT_SIZE,
+    WEEK_DATE_LINE_H,
+    WEEK_DAY_FONT_SIZE,
+    WEEK_DAY_LINE_H,
+    recordWeekDateTextWidth,
+    onPressDay,
+    todayKey,
+    WEEK_TODAY_DATE_FONT_SIZE,
+    WEEK_TODAY_DATE_LINE_H,
+    WEEK_TODAY_DAY_FONT_SIZE,
+    WEEK_TODAY_DAY_LINE_H,
+  ]);
+
+const renderWeek = useCallback(({ dailyStats }, idx) => {
     const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
     const maxCount = Math.max(...dailyStats.map(s => s.totalCount || 0), 1);
 
     return (
       <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: WEEK_GRAPH_BOTTOM_GAP }}>
-        <View style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, height: WEEK_DATE_ROW_HEIGHT }}>
-          {dailyStats.map((stat, i) => {
-            const weekStart = weeksData[idx]?.ws ? new Date(weeksData[idx].ws) : null;
-            if (weekStart) weekStart.setHours(0, 0, 0, 0);
-            const actualDate = weekStart ? new Date(weekStart) : null;
-            if (actualDate) actualDate.setDate(weekStart.getDate() + i);
-            const isTodayDate = actualDate ? keyOf(actualDate) === todayKey : false;
-
-            return (
-            <TouchableOpacity
-              key={i}
-              style={{ width: COL_W, alignItems:'center' }}
-              onPress={() => onPressDay?.(stat.date, weeksData[idx]?.ws, i)}
-              activeOpacity={0.7}
-            >
-              <Text
-                onLayout={recordWeekDateTextWidth}
-                style={[
-                  styles.dateLabel,
-                  {
-                    marginBottom: WEEK_DATE_DAY_GAP,
-                    fontSize: WEEK_DATE_FONT_SIZE,
-                    lineHeight: WEEK_DATE_LINE_H,
-                    includeFontPadding: false,
-                  },
-                  isTodayDate && {
-                    color: '#000',
-                    fontWeight: '900',
-                    fontSize: WEEK_TODAY_DATE_FONT_SIZE,
-                    lineHeight: WEEK_TODAY_DATE_LINE_H,
-                  },
-                ]}
-              >
-                {stat.date}
-              </Text>
-              <Text
-                style={[
-                  styles.dayLabel,
-                  {
-                    fontSize: WEEK_DAY_FONT_SIZE,
-                    lineHeight: WEEK_DAY_LINE_H,
-                    includeFontPadding: false,
-                  },
-                  isTodayDate && {
-                    color: '#000',
-                    fontWeight: '900',
-                    fontSize: WEEK_TODAY_DAY_FONT_SIZE,
-                    lineHeight: WEEK_TODAY_DAY_LINE_H,
-                  },
-                ]}
-              >
-                {DAY_LABELS[i]}
-              </Text>
-            </TouchableOpacity>
-            );
-          })}
-        </View>
-
         <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, alignItems:'flex-end', height: WEEK_BAR_ROW_HEIGHT, marginTop: WEEK_BAR_TOP_GAP }}>
           {dailyStats.map((stat, i) => {
             const hasTime = (stat.duration || 0) > 0;
@@ -1753,95 +1808,119 @@ const WEEK_TODAY_TEXT_STYLE = {
         </TouchableOpacity>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_DATE_ROW_HEIGHT, WEEK_DATE_DAY_GAP, WEEK_DATE_FONT_SIZE, WEEK_DATE_LINE_H, WEEK_DAY_FONT_SIZE, WEEK_DAY_LINE_H, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, recordWeekDateTextWidth, introProgress, weeksData, onPressDay, onTapBar, todayKey, WEEK_TODAY_DATE_FONT_SIZE, WEEK_TODAY_DATE_LINE_H, WEEK_TODAY_DAY_FONT_SIZE, WEEK_TODAY_DAY_LINE_H, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE]);
+
+  useEffect(() => {
+    if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;
+    const safeIndex = Math.max(0, Math.min(currentIndex, weeksData.length - 1));
+    const x = safeIndex * pageW;
+
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ x, animated: false });
+      scrollX.setValue(x);
+    });
+  }, [currentIndex, pageW, weeksData.length, scrollX]);
 
   const canPrevWeek = currentIndex > 0;
   const canNextWeek = currentIndex < weeksData.length - 1;
   const isWeekLayoutReady = pageW > 0;
 
   return (
-    <View style={{ flex: 1, width: '100%' }} onLayout={onLayout}>
-      {!isWeekLayoutReady ? (
-        <View style={{ height: WEEK_GRAPH_HEIGHT }} />
-      ) : (
-      <ScrollView
-        key={`week-${weeksData.length}`}
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        snapToInterval={pageW}
-        snapToAlignment="start"
-        decelerationRate="fast"
-        showsHorizontalScrollIndicator={false}
-        style={{ height: WEEK_GRAPH_HEIGHT }}
-        contentOffset={{ x: initialOffsetX, y: 0 }}
-        onMomentumScrollEnd={(e) => {
-          const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
-          if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
-        }}
-        onScrollEndDrag={(e) => {
-          const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
-          if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
-        }}
-        directionalLockEnabled
-        nestedScrollEnabled
-        scrollEventThrottle={16}
-        onStartShouldSetResponderCapture={() => false}
-      >
-        {weeksData.map((w, idx) => (
-          <View key={`wk-${idx}`} style={{ width: pageW }}>
-            {renderWeek(w, idx)}
+    <DashboardWidgetShell
+      header={renderWeekHeader()}
+      headerSlotStyle={{
+        height: WEEK_DATE_ROW_HEIGHT,
+        minHeight: WEEK_DATE_ROW_HEIGHT,
+        marginTop: 0,
+      }}
+    >
+      <View style={{ flex: 1, width: '100%' }} onLayout={onLayout}>
+        {!isWeekLayoutReady ? (
+          <View style={{ height: WEEK_GRAPH_HEIGHT }} />
+        ) : (
+        <Animated.ScrollView
+          key={`week-${weeksData.length}`}
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          snapToInterval={pageW}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          showsHorizontalScrollIndicator={false}
+          style={{ height: WEEK_GRAPH_HEIGHT }}
+          contentOffset={{ x: initialOffsetX, y: 0 }}
+          onMomentumScrollEnd={(e) => {
+            const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
+            if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
+          }}
+          onScrollEndDrag={(e) => {
+            const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
+            if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
+          }}
+          directionalLockEnabled
+          nestedScrollEnabled
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: true }
+          )}
+          onStartShouldSetResponderCapture={() => false}
+        >
+          {weeksData.map((w, idx) => (
+            <View key={`wk-${idx}`} style={{ width: pageW }}>
+              {renderWeek(w, idx)}
+            </View>
+          ))}
+        </Animated.ScrollView>
+        )}
+
+        <View style={[styles.weekPagerControl, { height: WEEK_CONTROL_HEIGHT }]}>
+          <TouchableOpacity
+            style={[styles.weekPagerArrowHit, { width: WEEK_PAGER_ARROW_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
+            onPress={() => goWeek(currentIndex - 1)}
+            disabled={!canPrevWeek}
+            activeOpacity={0.7}
+          >
+            <DashboardArrow direction="left" size={WEEK_PAGER_ARROW_FONT_SIZE} boxHeight={WEEK_CONTROL_HEIGHT} disabled={!canPrevWeek} />
+          </TouchableOpacity>
+
+          <View style={styles.weekPagerDots}>
+            {monthPagerWeeks.map((week) => {
+              const dotStyle = week.isCurrent
+                ? styles.weekPagerDotActive
+                : week.inChallengeRange
+                ? styles.weekPagerDotInRange
+                : styles.weekPagerDotOutRange;
+
+              const dotSize = week.isCurrent ? WEEK_PAGER_DOT_ACTIVE_SIZE : WEEK_PAGER_DOT_SIZE;
+
+              return (
+                <TouchableOpacity
+                  key={week.key}
+                  style={[styles.weekPagerDotHit, { width: WEEK_PAGER_DOT_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
+                  onPress={() => {
+                    if (week.dataIndex >= 0) goWeek(week.dataIndex);
+                  }}
+                  disabled={week.dataIndex < 0}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.weekPagerDot, dotStyle, { width: dotSize, height: dotSize, borderRadius: dotSize / 2 }]} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        ))}
-      </ScrollView>
-      )}
 
-      <View style={[styles.weekPagerControl, { height: WEEK_CONTROL_HEIGHT }]}>
-        <TouchableOpacity
-          style={[styles.weekPagerArrowHit, { width: WEEK_PAGER_ARROW_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
-          onPress={() => goWeek(currentIndex - 1)}
-          disabled={!canPrevWeek}
-          activeOpacity={0.7}
-        >
-          <DashboardArrow direction="left" size={WEEK_PAGER_ARROW_FONT_SIZE} boxHeight={WEEK_CONTROL_HEIGHT} disabled={!canPrevWeek} />
-        </TouchableOpacity>
-
-        <View style={styles.weekPagerDots}>
-          {monthPagerWeeks.map((week) => {
-            const dotStyle = week.isCurrent
-              ? styles.weekPagerDotActive
-              : week.inChallengeRange
-              ? styles.weekPagerDotInRange
-              : styles.weekPagerDotOutRange;
-
-            const dotSize = week.isCurrent ? WEEK_PAGER_DOT_ACTIVE_SIZE : WEEK_PAGER_DOT_SIZE;
-
-            return (
-              <TouchableOpacity
-                key={week.key}
-                style={[styles.weekPagerDotHit, { width: WEEK_PAGER_DOT_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
-                onPress={() => {
-                  if (week.dataIndex >= 0) goWeek(week.dataIndex);
-                }}
-                disabled={week.dataIndex < 0}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.weekPagerDot, dotStyle, { width: dotSize, height: dotSize, borderRadius: dotSize / 2 }]} />
-              </TouchableOpacity>
-            );
-          })}
+          <TouchableOpacity
+            style={[styles.weekPagerArrowHit, { width: WEEK_PAGER_ARROW_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
+            onPress={() => goWeek(currentIndex + 1)}
+            disabled={!canNextWeek}
+            activeOpacity={0.7}
+          >
+            <DashboardArrow direction="right" size={WEEK_PAGER_ARROW_FONT_SIZE} boxHeight={WEEK_CONTROL_HEIGHT} disabled={!canNextWeek} />
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[styles.weekPagerArrowHit, { width: WEEK_PAGER_ARROW_HIT_W, height: WEEK_CONTROL_HEIGHT }]}
-          onPress={() => goWeek(currentIndex + 1)}
-          disabled={!canNextWeek}
-          activeOpacity={0.7}
-        >
-          <DashboardArrow direction="right" size={WEEK_PAGER_ARROW_FONT_SIZE} boxHeight={WEEK_CONTROL_HEIGHT} disabled={!canNextWeek} />
-        </TouchableOpacity>
       </View>
-    </View>
+    </DashboardWidgetShell>
   );
 });
 

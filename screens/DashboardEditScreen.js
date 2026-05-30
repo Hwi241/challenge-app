@@ -1764,6 +1764,20 @@ const getLayoutPreviewSignature = useCallback((items) => {
  challengeId,
  title,
  challengeTitle: title,
+ targetScore:
+ params?.targetScore ??
+ params?.goalScore ??
+ params?.challenge?.targetScore ??
+ params?.challenge?.goalScore ??
+ params?.item?.targetScore ??
+ params?.item?.goalScore,
+ goalScore:
+ params?.goalScore ??
+ params?.targetScore ??
+ params?.challenge?.goalScore ??
+ params?.challenge?.targetScore ??
+ params?.item?.goalScore ??
+ params?.item?.targetScore,
  type: params?.type,
  challengeType: params?.challengeType,
  isHabit: params?.isHabit,

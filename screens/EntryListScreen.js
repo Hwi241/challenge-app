@@ -2346,7 +2346,8 @@ export default function EntryListScreen({ route, navigation }) {
     challengeId,
     title: titleFromRoute,
     startDate: startDateFromRoute,
-    targetScore = 7,
+    targetScore: targetScoreFromRoute,
+    goalScore: goalScoreFromRoute,
     endDate: endDateFromRoute,
     rewardTitle: rewardTitleFromRoute,
     reward: rewardFromRoute,
@@ -2433,6 +2434,45 @@ export default function EntryListScreen({ route, navigation }) {
   const [weeksData, setWeeksData] = useState([]);
   const [weekIndex, setWeekIndex] = useState(0);
   const [currentScore, setCurrentScore] = useState(0);
+
+  const normalizeTargetScore = useCallback((value, fallback = 7) => {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    const fallbackNumeric = Number(fallback);
+    return Number.isFinite(fallbackNumeric) && fallbackNumeric > 0 ? fallbackNumeric : 7;
+  }, []);
+
+  useEffect(() => {
+    const routeScore =
+      targetScoreFromRoute ??
+      goalScoreFromRoute ??
+      params.challenge?.targetScore ??
+      params.challenge?.goalScore ??
+      params.item?.targetScore ??
+      params.item?.goalScore;
+
+    if (routeScore == null) return;
+
+    setTargetScore((current) => normalizeTargetScore(routeScore, current));
+  }, [
+    targetScoreFromRoute,
+    goalScoreFromRoute,
+    params.challenge?.targetScore,
+    params.challenge?.goalScore,
+    params.item?.targetScore,
+    params.item?.goalScore,
+    normalizeTargetScore,
+  ]);
+
+  const [targetScore, setTargetScore] = useState(() => normalizeTargetScore(
+    targetScoreFromRoute ??
+    goalScoreFromRoute ??
+    params.challenge?.targetScore ??
+    params.challenge?.goalScore ??
+    params.item?.targetScore ??
+    params.item?.goalScore,
+    7,
+  ));
 
   const renderDashboardWidget = (item, isShare = false) => {
         // DASHBOARD_RENDER_NORMALIZED_WIDGET_META
@@ -2595,11 +2635,13 @@ export default function EntryListScreen({ route, navigation }) {
       challengeId,
       type: params.type || params.challengeType || params.item?.type || params.challenge?.type,
       title: displayTitle || meta?.title || params.title || params.challengeTitle || params.item?.title || params.challenge?.title,
+      targetScore,
+      goalScore: meta?.goalScore ?? meta?.targetScore ?? targetScore,
       item: params.item,
       challenge: params.challenge,
       returnRouteKey: route?.key,
     });
-  }, [navigation, challengeId, params, displayTitle, meta, route?.key]);
+  }, [navigation, challengeId, params, displayTitle, meta, route?.key, targetScore, meta?.goalScore, meta?.targetScore]);
 
   const totalCount = Array.isArray(entries) ? entries.length : 0;
 
@@ -3045,7 +3087,7 @@ const runWeek = useCallback(() => {
           return;
         }
         runAllIntro();
-      }, 320);
+      }, 180);
     });
 
     return () => {

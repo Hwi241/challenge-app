@@ -2377,7 +2377,7 @@ isResizeActive && styles.graphCellResizeActive,
   </View>
  )}
 
- <Animated.View style={[
+ <View style={[
  styles.graphCard,
  {
  minHeight: innerCardHeight,
@@ -2385,16 +2385,23 @@ isResizeActive && styles.graphCellResizeActive,
  margin: RESIZE_FRAME_INSET,
  },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
+]}>
+ <Animated.View
+ pointerEvents="none"
+ style={[
+ styles.graphCardVisualSurface,
  isResizeActive && styles.graphCardResizeActive,
  isResizeActive && { opacity: resizeTouchOpacity },
  shouldDimOriginalCard && styles.graphCardDimmed,
- ]}>
+ ]}
+ />
+
  <View style={styles.graphHeader}>
  <View style={styles.graphTitleGroup}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
  </View>
  </View>
- </Animated.View>
+</View>
 
  {isResizeActive && !isThisGestureDragging && (
 <TouchableOpacity
@@ -2924,18 +2931,28 @@ graphCellResizeActive: {
 graphCard: {
  minHeight: 132,
  borderRadius: 8,
+ padding: 12,
+ },
+graphCardVisualSurface: {
+ ...StyleSheet.absoluteFillObject,
+ borderRadius: 8,
  borderWidth: 1,
  borderColor: '#d8d8d8',
  borderTopWidth: 3,
  borderTopColor: '#111',
  backgroundColor: '#fff',
- padding: 12,
+ zIndex: 0,
+ elevation: 0,
  },
  graphHeader: {
  flexDirection: 'row',
  alignItems: 'center',
  justifyContent: 'flex-start',
+ position: 'relative',
+ zIndex: 2,
+ elevation: 1,
  },
+ 
  graphTitleGroup: {
  flexDirection: 'row',
  alignItems: 'center',

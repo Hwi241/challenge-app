@@ -1,4 +1,6 @@
 import { grantEntryCreationStars } from '../utils/starEarning';
+import { spendStars } from '../utils/starWallet';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PALETTE = {
@@ -12,6 +14,51 @@ const PALETTE = {
   gray600: "#525252",
   gray700: "#374151",
   gray800: "#111111"
+};
+
+const pad2 = (value) => String(value).padStart(2, '0');
+
+const toLocalDateOnly = (value = new Date()) => {
+ const d = value instanceof Date ? new Date(value) : new Date(value);
+ if (Number.isNaN(d.getTime())) {
+ const today = new Date();
+ today.setHours(0, 0, 0, 0);
+ return today;
+ }
+ d.setHours(0, 0, 0, 0);
+ return d;
+};
+
+const getLocalDateKey = (value = new Date()) => {
+ const d = toLocalDateOnly(value);
+ return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+const formatKoreanDate = (value = new Date()) => {
+ const d = toLocalDateOnly(value);
+ return `${d.getFullYear()}년 ${pad2(d.getMonth() + 1)}월 ${pad2(d.getDate())}일`;
+};
+
+const parseDateValue = (value) => {
+ if (!value) return null;
+ const d = new Date(value);
+ if (Number.isNaN(d.getTime())) return null;
+ return toLocalDateOnly(d);
+};
+
+const clampLocalDate = (value, minDate, maxDate) => {
+ const d = toLocalDateOnly(value);
+ const min = toLocalDateOnly(minDate || d);
+ const max = toLocalDateOnly(maxDate || d);
+ if (d.getTime() < min.getTime()) return min;
+ if (d.getTime() > max.getTime()) return max;
+ return d;
+};
+
+const toEntryTimestamp = (value) => {
+ const d = toLocalDateOnly(value);
+ d.setHours(12, 0, 0, 0);
+ return d.getTime();
 };
 
 // screens/UploadScreen.js
@@ -81,6 +128,10 @@ const MAX_MINUTES = 1440; // 24시간
   const [imageUri, setImageUri] = useState(null);
   const [busy, setBusy] = useState(false);
   const [challengeTitle, setChallengeTitle] = useState('');
+  const [challengeInfo, setChallengeInfo] = useState(null);
+  const [selectedEntryDate, setSelectedEntryDate] = useState(() => toLocalDateOnly(new Date()));
+  const [dateEditEnabled, setDateEditEnabled] = useState(false);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
   const submittedRef = useRef(false);
 
   // 화면 포커스될 때마다 state 초기화
@@ -91,14 +142,20 @@ const MAX_MINUTES = 1440; // 24시간
       setDuration('');
       setImageUri(null);
       setBusy(false);
-      submittedRef.current = false;
+      setSelectedEntryDate(toLocalDateOnly(new Date()));
+      setDateEditEnabled(false);
+      setDatePickerVisible(false);
+      setChallengeInfo(null);
       submittedRef.current = false;
 
       if (challengeId) {
         AsyncStorage.getItem('challenges').then(raw => {
           const list = raw ? JSON.parse(raw) : [];
           const found = list.find(c => String(c.id) === String(challengeId));
-          if (found) setChallengeTitle(found.title || '');
+          if (found) {
+            setChallengeTitle(found.title || '');
+            setChallengeInfo(found);
+          }
         }).catch(() => {});
       }
     }, [challengeId])
@@ -107,7 +164,7 @@ const MAX_MINUTES = 1440; // 24시간
   // 뒤로가기 시 경고
   useEffect(() => {
     const onBack = navigation.addListener('beforeRemove', (e) => {
-      const hasContent = text.trim() || imageUri || duration;
+      const hasContent = text.trim() || imageUri || duration || isPastEntryDate;
       if (!hasContent || submittedRef.current) return;
       e.preventDefault();
       Alert.alert(
@@ -120,11 +177,11 @@ const MAX_MINUTES = 1440; // 24시간
       );
     });
     return onBack;
-  }, [navigation, text, imageUri, duration]);
+  }, [navigation, text, imageUri, duration, isPastEntryDate]);
   // 안드로이드 하드웨어/제스처 뒤로가기
   useEffect(() => {
     const onHardwareBack = () => {
-      const hasContent = text.trim() || imageUri || duration;
+      const hasContent = text.trim() || imageUri || duration || isPastEntryDate;
       if (!hasContent || submittedRef.current) return false;
       Alert.alert(
         '작성 중인 내용이 있어요',
@@ -138,7 +195,7 @@ const MAX_MINUTES = 1440; // 24시간
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
-  }, [navigation, text, imageUri, duration]);
+  }, [navigation, text, imageUri, duration, isPastEntryDate]);
 
 
 
@@ -211,17 +268,49 @@ const MAX_MINUTES = 1440; // 24시간
     setDuration(String(n));
   }, []);
 
-  const onSubmit = useCallback(async () => {
+  const todayDate = toLocalDateOnly(new Date());
+  const challengeStartDate = parseDateValue(challengeInfo?.startDate);
+  const minEntryDate =
+    challengeStartDate && challengeStartDate.getTime() <= todayDate.getTime()
+      ? challengeStartDate
+      : todayDate;
+  const maxEntryDate = todayDate;
+  const safeSelectedEntryDate = clampLocalDate(selectedEntryDate, minEntryDate, maxEntryDate);
+  const selectedEntryDateKey = getLocalDateKey(safeSelectedEntryDate);
+  const todayEntryDateKey = getLocalDateKey(todayDate);
+  const isPastEntryDate = selectedEntryDateKey !== todayEntryDateKey;
+
+  const openEntryDatePicker = useCallback(() => {
+    if (busy) return;
+    setDateEditEnabled(true);
+    setDatePickerVisible(true);
+  }, [busy]);
+
+  const handleEntryDateChange = useCallback((event, pickedDate) => {
+    setDatePickerVisible(false);
+    if (event?.type === 'dismissed' || !pickedDate) return;
+    const today = toLocalDateOnly(new Date());
+    const start = parseDateValue(challengeInfo?.startDate);
+    const minDate =
+      start && start.getTime() <= today.getTime()
+        ? start
+        : today;
+    const nextDate = clampLocalDate(pickedDate, minDate, today);
+    setSelectedEntryDate(nextDate);
+  }, [challengeInfo?.startDate]);
+
+  const saveEntry = useCallback(async ({ isPastEntry = false } = {}) => {
     if (busy) return;
     setBusy(true);
     submittedRef.current = false;
-    submittedRef.current = false;
     let starReward = null;
-  try {
+
+    try {
       if (!challengeId) {
         Alert.alert('오류', '도전 정보를 찾을 수 없습니다.');
         return;
       }
+
       const trimmed = (text || '').trim();
 
       if (!trimmed && !imageUri) {
@@ -229,29 +318,48 @@ const MAX_MINUTES = 1440; // 24시간
         return;
       }
 
-      // 최종 클램프
       const rawDur = toNumberOrZero(duration);
       const finalDur = duration ? Math.min(Math.max(rawDur, 1), MAX_MINUTES) : 0;
+      const entryTimestamp = isPastEntry ? toEntryTimestamp(safeSelectedEntryDate) : Date.now();
+
+      if (isPastEntry) {
+        const spendResult = await spendStars(1, 'past_entry_date_override', {
+          challengeId,
+          date: selectedEntryDateKey,
+        });
+
+        if (!spendResult?.ok) {
+          Alert.alert(
+            '별이 부족합니다',
+            `과거 기록을 등록하려면 1★가 필요합니다.\n현재 보유 별: ${spendResult?.balance ?? 0}★`
+          );
+          return;
+        }
+      }
 
       const entry = {
         id: `en_${Date.now()}`,
         text: trimmed,
         imageUri: imageUri || null,
         duration: finalDur,
-        timestamp: Date.now(),
+        timestamp: entryTimestamp,
+        ...(isPastEntry && {
+          isPastEntry: true,
+          adjustedDateCost: 1,
+          adjustedDateKey: selectedEntryDateKey,
+        }),
       };
 
-      // entries 저장
       const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
       const list = raw ? JSON.parse(raw) : [];
       list.unshift(entry);
       await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
 
-      // challenge의 currentScore 갱신
       const challRaw = await AsyncStorage.getItem('challenges');
       const challenges = challRaw ? JSON.parse(challRaw) : [];
       const idx = challenges.findIndex((c) => c.id === challengeId);
       let nextTitle, nextStart, nextEnd, nextGoal, nextReward;
+
       if (idx >= 0) {
         const isHabit = challenges[idx]?.type === 'habit';
         const streakLevel = isHabit ? calcStreakLevel(list) : undefined;
@@ -269,28 +377,40 @@ const MAX_MINUTES = 1440; // 24시간
         nextGoal = challenges[idx]?.goalScore;
         nextReward = challenges[idx]?.reward;
       }
-      // STAR_REWARD_SAFE_WRAP
-      try {
-        starReward = await grantEntryCreationStars({ challengeId, entryId: entry.id });
-      } catch (rewardError) {
-        console.log('스타 보상 지급 실패:', rewardError?.message || rewardError);
+
+      if (!isPastEntry) {
+        try {
+          starReward = await grantEntryCreationStars({
+            challengeId,
+            entryId: entry.id,
+            timestamp: entryTimestamp,
+          });
+        } catch (rewardError) {
+          console.log('스타 보상 지급 실패:', rewardError?.message || rewardError);
+        }
       }
 
       if (Math.random() < 0.3) {
         console.log('[AD_INTERSTITIAL_PLACEHOLDER] 전면광고 표시 위치');
       }
 
-      const completeMessage = starReward?.granted && starReward?.amount > 0
-        ? `인증이 등록되었습니다.\n+${starReward?.amount}★ 획득`
-        : '인증이 등록되었습니다.';
+      const completeMessage = isPastEntry
+        ? '과거 기록이 등록되었습니다.\n-1★ 사용\n과거 기록은 인증 보상이 지급되지 않습니다.'
+        : starReward?.granted && starReward?.amount > 0
+          ? `인증이 등록되었습니다.\n+${starReward?.amount}★ 획득`
+          : '인증이 등록되었습니다.';
 
       Alert.alert('완료', completeMessage, [
         {
           text: '확인',
           onPress: () => {
             submittedRef.current = true;
-            submittedRef.current = true;
-            setText(''); setImageUri(null); setDuration('');
+            setText('');
+            setImageUri(null);
+            setDuration('');
+            setSelectedEntryDate(toLocalDateOnly(new Date()));
+            setDateEditEnabled(false);
+            setDatePickerVisible(false);
             navigation.replace('EntryList', {
               challengeId,
               title: nextTitle,
@@ -309,7 +429,52 @@ const MAX_MINUTES = 1440; // 24시간
       setBusy(false);
       submittedRef.current = false;
     }
-  }, [busy, challengeId, text, imageUri, duration, navigation]);
+  }, [
+    busy,
+    challengeId,
+    text,
+    imageUri,
+    duration,
+    safeSelectedEntryDate,
+    selectedEntryDateKey,
+    navigation,
+  ]);
+
+  const onSubmit = useCallback(() => {
+    if (busy) return;
+
+    const trimmed = (text || '').trim();
+
+    if (!challengeId) {
+      Alert.alert('오류', '도전 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!trimmed && !imageUri) {
+      Alert.alert('확인', '텍스트 또는 사진 중 하나는 입력/선택해주세요.');
+      return;
+    }
+
+    if (isPastEntryDate) {
+      Alert.alert(
+        '과거 기록 등록',
+        '선택한 날짜로 과거 기록을 등록합니다.\n과거 기록은 인증 보상 없이 1★가 차감됩니다.\n계속할까요?',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '등록하기',
+            style: 'destructive',
+            onPress: () => saveEntry({ isPastEntry: true }),
+          },
+        ]
+      );
+      return;
+    }
+
+    saveEntry({ isPastEntry: false });
+  }, [busy, challengeId, text, imageUri, isPastEntryDate, saveEntry]);
+
+
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -322,6 +487,41 @@ const MAX_MINUTES = 1440; // 24시간
         <View style={styles.titleBox}>
           <Text style={styles.titleBoxText}>{challengeTitle}</Text>
         </View>
+      )}
+
+      <View style={styles.dateBox}>
+        <View style={styles.dateTextGroup}>
+          <Text style={styles.dateLabel}>기록 날짜</Text>
+          <Text style={[
+            styles.dateValue,
+            dateEditEnabled && styles.dateValueActive,
+          ]}>
+            {formatKoreanDate(safeSelectedEntryDate)}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.dateCostButton,
+            (busy || datePickerVisible) && styles.dateCostButtonDisabled,
+          ]}
+          onPress={openEntryDatePicker}
+          activeOpacity={0.88}
+          disabled={busy || datePickerVisible}
+        >
+          <Text style={styles.dateCostButtonText}>★-1</Text>
+        </TouchableOpacity>
+      </View>
+
+      {datePickerVisible && (
+        <DateTimePicker
+          value={safeSelectedEntryDate}
+          mode="date"
+          display="default"
+          minimumDate={minEntryDate}
+          maximumDate={maxEntryDate}
+          onChange={handleEntryDateChange}
+        />
       )}
 
       <View style={styles.card}>
@@ -418,6 +618,55 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  dateBox: {
+    backgroundColor: PALETTE.white,
+    borderWidth: 1,
+    borderColor: PALETTE.gray200,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  dateTextGroup: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PALETTE.gray600,
+    marginBottom: 4,
+  },
+  dateValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: PALETTE.gray800,
+  },
+  dateValueActive: {
+    color: PALETTE.black,
+  },
+  dateCostButton: {
+    minWidth: 56,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: PALETTE.gray800,
+    backgroundColor: PALETTE.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  dateCostButtonDisabled: {
+    opacity: 0.55,
+  },
+  dateCostButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: PALETTE.gray800,
+  },
   card: {
     backgroundColor: PALETTE.white,
     borderWidth: 1,

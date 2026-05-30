@@ -1930,11 +1930,15 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
 const isResizeActive = activeResizeWidgetId === widgetId;
 const isThisResizeDragging = resizeDraggingWidgetId === widgetId;
+const isThisResizeGhostActive = resizeGhostFrame?.widgetId === widgetId;
 const isThisGestureDragging =
  draggingOriginalWidgetId === widgetId ||
  gestureDraggingWidgetId === widgetId ||
  dragOverlayItem?.widgetId === widgetId;
-const shouldDimOriginalCard = isThisGestureDragging || isThisResizeDragging;
+const shouldDimOriginalCard =
+ isThisGestureDragging ||
+ isThisResizeDragging ||
+ isThisResizeGhostActive;
 const displaySizeText =
  isResizeActive && resizeGhostFrame?.widgetId === widgetId
  ? `${resizeGhostFrame.w}x${resizeGhostFrame.h}`

@@ -616,16 +616,16 @@ const MonthCalendar = memo(function MonthCalendar({
     calCellOuterH - CAL_CELL_MARGIN_V * 2
   );
   const calCellFontSize = Math.max(
-    scaleCal(7.9, 7.2, 9.8),
-    Math.min(scaleCal(10.8, 9.1, 10.4), calCellH * 0.64)
+    scaleCal(10.1, 9.7, 11.4),
+    Math.min(scaleCal(11.8, 10.2, 11.5), calCellH * 0.72)
   );
   const calBadgeFontSize = Math.max(
-    scaleCal(7.7, 7, 9.6),
-    Math.min(scaleCal(10.5, 8.8, 10.2), calCellH * 0.62)
+    scaleCal(9.2, 8.9, 10.3),
+    Math.min(scaleCal(11, 9.5, 10.8), calCellH * 0.68)
   );
   const calTodayFontSize = Math.min(
-    scaleCal(11.2, 9.2, 10.8),
-    calCellFontSize + scaleCal(0.5, 0.3, 0.5)
+    scaleCal(12.2, 10.8, 11.8),
+    calCellFontSize + scaleCal(0.6, 0.4, 0.6)
   );
   const calBadgeMinWidth = Math.max(
     scaleCal(14, 12, 17),
@@ -691,7 +691,7 @@ const MonthCalendar = memo(function MonthCalendar({
               {
                 height: CAL_DOW_H,
                 lineHeight: CAL_DOW_H,
-                fontSize: scaleCal(9, 7.5, 13),
+                fontSize: scaleCal(10.5, 9.5, 13),
                 includeFontPadding: false,
               },
             ]}
@@ -1549,20 +1549,20 @@ const WeekView = memo(function WeekView({
   };
 
   const WEEK_CONTROL_HEIGHT = Math.round(scaleWeek(20, 18, 28));
-  const WEEK_DATE_FONT_SIZE = scaleWeek(10, 8, 10.5);
-  const WEEK_DATE_LINE_H = Math.round(scaleWeek(13, 11, 18));
-  const WEEK_DAY_FONT_SIZE = scaleWeek(9, 8, 10);
-  const WEEK_DAY_LINE_H = Math.round(scaleWeek(12, 10, 17));
+  const WEEK_DATE_FONT_SIZE = scaleWeek(10.5, 9.5, 11);
+  const WEEK_DATE_LINE_H = Math.round(scaleWeek(13.5, 11.5, 18));
+  const WEEK_DAY_FONT_SIZE = scaleWeek(9.5, 9, 10.5);
+  const WEEK_DAY_LINE_H = Math.round(scaleWeek(12.5, 10.5, 17));
   const WEEK_DATE_DAY_GAP = Math.round(scaleWeek(2, 1, 5));
   const WEEK_DATE_ROW_HEIGHT = WEEK_DATE_LINE_H + WEEK_DATE_DAY_GAP + WEEK_DAY_LINE_H;
 
   const WEEK_BAR_TOP_GAP = Math.round(scaleWeek(6, 4, 12));
   const WEEK_GRAPH_BOTTOM_GAP = Math.round(scaleWeek(8, 6, 16));
 
-  const WEEK_BAR_TEXT_FONT_SIZE = scaleWeek(10, 8, 10.5);
-  const WEEK_BAR_TEXT_LINE_H = Math.round(scaleWeek(12, 10, 18));
-  const WEEK_COUNT_FONT_SIZE = scaleWeek(10, 8, 10.5);
-  const WEEK_COUNT_LINE_H = Math.round(scaleWeek(14, 11, 20));
+  const WEEK_BAR_TEXT_FONT_SIZE = scaleWeek(10.5, 9, 11);
+  const WEEK_BAR_TEXT_LINE_H = Math.round(scaleWeek(12.5, 10.5, 18));
+  const WEEK_COUNT_FONT_SIZE = scaleWeek(10.5, 9, 11);
+  const WEEK_COUNT_LINE_H = Math.round(scaleWeek(14.5, 11.5, 20));
   const WEEK_BAR_VERTICAL_GAP = Math.round(scaleWeek(2, 1, 5));
   const WEEK_BAR_LABEL_STACK_H = WEEK_BAR_TEXT_LINE_H + WEEK_COUNT_LINE_H + WEEK_BAR_VERTICAL_GAP * 2;
 
@@ -1595,7 +1595,7 @@ const todayKey = useMemo(() => {
 }, []);
 
 const WEEK_TODAY_DATE_FONT_SIZE = Math.min(
-  scaleWeek(11.2, 9.2, 11),
+  scaleWeek(11.5, 10, 11.5),
   WEEK_DATE_FONT_SIZE + scaleWeek(0.5, 0.3, 0.5)
 );
 const WEEK_TODAY_DATE_LINE_H = Math.max(
@@ -1604,7 +1604,7 @@ const WEEK_TODAY_DATE_LINE_H = Math.max(
 );
 
 const WEEK_TODAY_DAY_FONT_SIZE = Math.min(
-  scaleWeek(10.2, 8.8, 10.5),
+  scaleWeek(10.6, 9.5, 10.8),
   WEEK_DAY_FONT_SIZE + scaleWeek(0.3, 0.2, 0.4)
 );
 const WEEK_TODAY_DAY_LINE_H = Math.max(
@@ -2040,8 +2040,8 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const MAX_CELL_GAP = scaleGrass(4, 3, 6);
 
   const GRASS_CELL_RADIUS = scaleGrass(2, 1.5, 4);
-  const GRASS_MONTH_FONT_SIZE = scaleGrass(9, 7.5, 10.8);
-  const GRASS_MONTH_LINE_H = Math.round(scaleGrass(12, 10, 15));
+  const GRASS_MONTH_FONT_SIZE = scaleGrass(10.5, 9.7, 11.2);
+  const GRASS_MONTH_LINE_H = Math.round(scaleGrass(13, 11, 16));
 
   const CELL_GAP = Math.max(
     MIN_CELL_GAP,
@@ -3768,8 +3768,8 @@ weekPagerDotOutRange: {
 grassMonthLabel: {
   position: 'absolute',
   top: 3,
-  fontSize: 10,
-  lineHeight: 12,
+  fontSize: 10.5,
+  lineHeight: 13,
   fontWeight: '700',
   color: '#6B7280',
   includeFontPadding: false,
@@ -4052,4 +4052,6 @@ rewardBlockSpacing: {
   modalFieldValue: { fontSize: 13, color: '#111' },
   modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
 });
+
+
 

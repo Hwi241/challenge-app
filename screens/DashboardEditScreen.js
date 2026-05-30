@@ -752,7 +752,7 @@ const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
  resizePreviewSignatureRef.current = '';
  }, []);
 
-const exitResizeMode = useCallback(() => {
+const resetResizeInteractionState = useCallback(() => {
  clearResizeGhostBounceTimer();
  stopDashboardAutoScroll();
  setActiveResizeWidgetId(null);
@@ -760,10 +760,15 @@ const exitResizeMode = useCallback(() => {
  setResizeDimWidgetId(null);
  setResizeGhostFrame(null);
  setPreviewLayout(null);
+ resizeTouchOpacityRef.current.setValue(1);
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
 }, [clearResizeGhostBounceTimer, stopDashboardAutoScroll]);
+
+const exitResizeMode = useCallback(() => {
+ resetResizeInteractionState();
+}, [resetResizeInteractionState]);
 
 const scheduleDragVisualCleanup = useCallback(() => {
  clearScheduledDragVisualCleanup();
@@ -792,6 +797,19 @@ const scheduleDragVisualCleanup = useCallback(() => {
    }
    return Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
  }, [layout, previewLayout, gestureDraggingWidgetId]);
+
+useEffect(() => {
+ if (!activeResizeWidgetId) return;
+
+ const hasActiveItem = Array.isArray(layout) && layout.some((item) => {
+ const itemId = item?.widgetId || item?.id;
+ return itemId === activeResizeWidgetId;
+ });
+
+ if (!hasActiveItem) {
+ resetResizeInteractionState();
+ }
+}, [activeResizeWidgetId, layout, resetResizeInteractionState]);
 
 const getStableGridDelta = (rawDelta) => {
   const numeric = Number(rawDelta) || 0;
@@ -1411,6 +1429,8 @@ const layoutRows = useMemo(() => {
  }, [dashboardTarget, placedIds]);
 
  const addGraph = useCallback((widget) => {
+ resetResizeInteractionState();
+
  const widgetId = widget?.id || widget?.widgetId;
  if (!widgetId) return;
 
@@ -1435,7 +1455,7 @@ const layoutRows = useMemo(() => {
  });
 
  setPickerVisible(false);
- }, [dashboardTarget]);
+ }, [dashboardTarget, resetResizeInteractionState]);
  const moveGraph = useCallback((widgetId, direction) => {
   setLayout((current) => {
     const source = Array.isArray(current) ? current.map(normalizeLayoutItem) : [];
@@ -1610,6 +1630,8 @@ const layoutRows = useMemo(() => {
  text: '삭제',
  style: 'destructive',
  onPress: () => {
+ resetResizeInteractionState();
+
  setLayout((current) => {
  if (current.length <= 1) {
  Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
@@ -1627,7 +1649,7 @@ const layoutRows = useMemo(() => {
  },
  ],
  );
- }, [dashboardTarget, layout]);
+ }, [dashboardTarget, layout, resetResizeInteractionState]);
 
 const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, nextSize, options = {}) => {
  if (!targetWidgetId || !nextSize) {

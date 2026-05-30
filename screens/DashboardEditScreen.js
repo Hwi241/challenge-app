@@ -546,6 +546,7 @@ const RESIZE_GHOST_MAX_OVERSHOOT = 42;
 const RESIZE_GHOST_MAX_EXPAND_RESISTANCE = 0.72;
 const RESIZE_GHOST_MAX_EXPAND_OVERSHOOT = 64;
 const RESIZE_GHOST_BOUNCE_BACK_MS = 260;
+const RESIZE_DISMISS_SAFE_PADDING = 20;
 const GRID_DRAG_STEP_THRESHOLD = 0.62;
 const RESIZE_GRID_STEP_THRESHOLD = 0.9;
 const AUTO_SCROLL_EDGE_SIZE = 110;
@@ -2119,7 +2120,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
 const topRightResizeGesture = buildResizeGesture('topRight');
 const bottomLeftResizeGesture = buildResizeGesture('bottomLeft');
 
-const canMoveCard = !activeResizeWidgetId && !resizeDraggingWidgetId;
+const canMoveCard = !resizeDraggingWidgetId;
 
  const testGesture = Gesture.Pan()
    .enabled(canMoveCard)
@@ -2127,7 +2128,11 @@ const canMoveCard = !activeResizeWidgetId && !resizeDraggingWidgetId;
    .runOnJS(true)
    .onBegin(() => {
      clearScheduledDragVisualCleanup();
-     setPreviewLayout(null);
+     if (activeResizeWidgetId) {
+ setActiveResizeWidgetId(null);
+ setResizeGhostFrame(null);
+ setPreviewLayout(null);
+ }
      previewLayoutSignatureRef.current = '';
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
    })
@@ -2273,6 +2278,17 @@ const canMoveCard = !activeResizeWidgetId && !resizeDraggingWidgetId;
      scheduleDragVisualCleanup();
    });
 
+const tapResizeGesture = Gesture.Tap()
+ .runOnJS(true)
+ .onEnd(() => {
+ if (activeResizeWidgetId || resizeDraggingWidgetId || gestureDraggingWidgetId) return;
+ setActiveResizeWidgetId(widgetId);
+ });
+
+const cardGesture = activeResizeWidgetId
+ ? testGesture
+ : Gesture.Exclusive(testGesture, tapResizeGesture);
+
 const cardLeftPx = safeX * slotWidth + GRID_CELL_PADDING;
 const cardTopPx = safeY * (GRID_ROW_HEIGHT + GRID_ROW_GAP);
 const ghostVisualFrame = isResizeActive && resizeGhostFrame?.visualFramePx;
@@ -2289,7 +2305,13 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
 
 
  const cardContent = (
- <View key={widgetId} style={styles.graphCell}>
+ <View
+key={widgetId}
+style={[
+styles.graphCell,
+isResizeActive && styles.graphCellResizeActive,
+]}
+>
  <View style={[
  styles.resizeFrame,
  { minHeight: cardHeight, height: cardHeight },
@@ -2324,26 +2346,18 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  <View style={styles.graphHeader}>
  <View style={styles.graphTitleGroup}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
- <TouchableOpacity
- activeOpacity={0.82}
- style={[
- styles.resizeHandle,
- isResizeActive && styles.resizeHandleActive,
- ]}
- onPress={(event) => {
- event?.stopPropagation?.();
- setActiveResizeWidgetId((current) => current === widgetId ? null : widgetId);
- }}
->
- <View style={styles.resizeHandleCornerTopRight} />
- <View style={styles.resizeHandleCornerBottomLeft} />
- </TouchableOpacity>
  </View>
  </View>
 
- <TouchableOpacity style={styles.removeBtnBottomRight} onPress={() => removeGraph(widgetId)}>
- <Text style={styles.removeText}>×</Text>
- </TouchableOpacity>
+ {isResizeActive && !isThisResizeDragging && (
+<TouchableOpacity
+style={styles.removeBtnBottomRight}
+onPress={() => removeGraph(widgetId)}
+activeOpacity={0.82}
+>
+<Text style={styles.removeText}>삭제</Text>
+</TouchableOpacity>
+)}
  </View>
 
  <View pointerEvents="none" style={styles.graphMetaCenterLayer}>
@@ -2353,7 +2367,7 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  </View>
  );
    return (
-     <GestureDetector gesture={testGesture}>{cardContent}</GestureDetector>
+     <GestureDetector gesture={cardGesture}>{cardContent}</GestureDetector>
    );
  };
  const renderGridSlot = (slot, index) => {
@@ -2489,16 +2503,25 @@ const renderResizeDismissOverlay = () => {
  if (!activeItem) return null;
 
  const activeFrame = getResizeGridItemFrame(activeItem, gridWidth, rowGap);
+ const safePadding = RESIZE_DISMISS_SAFE_PADDING;
+
+ const dismissFrame = {
+ left: Math.max(0, activeFrame.left - safePadding),
+ top: Math.max(0, activeFrame.top - safePadding),
+ width: Math.min(gridWidth, activeFrame.left + activeFrame.width + safePadding) - Math.max(0, activeFrame.left - safePadding),
+ height: activeFrame.height + safePadding * 2,
+ };
+
  const boardHeight = Math.max(
  gridBoardHeight,
- activeFrame.top + activeFrame.height,
+ dismissFrame.top + dismissFrame.height,
  );
 
- const topHeight = Math.max(0, activeFrame.top);
- const bottomTop = activeFrame.top + activeFrame.height;
+ const topHeight = Math.max(0, dismissFrame.top);
+ const bottomTop = dismissFrame.top + dismissFrame.height;
  const bottomHeight = Math.max(0, boardHeight - bottomTop);
- const leftWidth = Math.max(0, activeFrame.left);
- const rightLeft = activeFrame.left + activeFrame.width;
+ const leftWidth = Math.max(0, dismissFrame.left);
+ const rightLeft = dismissFrame.left + dismissFrame.width;
  const rightWidth = Math.max(0, gridWidth - rightLeft);
 
  const renderDismissZone = (key, styleData) => {
@@ -2531,15 +2554,15 @@ const renderResizeDismissOverlay = () => {
  })}
  {renderDismissZone('left', {
  left: 0,
- top: activeFrame.top,
+ top: dismissFrame.top,
  width: leftWidth,
- height: activeFrame.height,
+ height: dismissFrame.height,
  })}
  {renderDismissZone('right', {
  left: rightLeft,
- top: activeFrame.top,
+ top: dismissFrame.top,
  width: rightWidth,
- height: activeFrame.height,
+ height: dismissFrame.height,
  })}
  </>
  );
@@ -2639,8 +2662,8 @@ const renderResizeGuideOverlay = () => {
  ) : (
  <View style={[styles.grid, { overflow: 'visible', minHeight: gridBoardHeight }]} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
  {renderDragPlaceholderOverlay()}
- {(Array.isArray(displayLayout) ? displayLayout : []).map((item, index) => renderAbsoluteGraphCard(item, index))}
  {renderResizeDismissOverlay()}
+ {(Array.isArray(displayLayout) ? displayLayout : []).map((item, index) => renderAbsoluteGraphCard(item, index))}
  {renderResizeGhostFrameOverlay()}
  {renderResizeGuideOverlay()}
  </View>
@@ -2837,6 +2860,11 @@ const styles = StyleSheet.create({
  width: '100%',
  paddingHorizontal: 0,
  },
+graphCellResizeActive: {
+ position: 'relative',
+ zIndex: 80,
+ elevation: 20,
+},
  gridSpacer: {
  minHeight: 1,
  },
@@ -2875,9 +2903,10 @@ graphCard: {
  position: 'absolute',
  right: 12,
  bottom: 12,
- width: 28,
- height: 28,
- borderRadius: 14,
+ minWidth: 42,
+ height: 26,
+ paddingHorizontal: 9,
+ borderRadius: 13,
  borderWidth: 1,
  borderColor: '#ccc',
  alignItems: 'center',
@@ -2887,10 +2916,11 @@ graphCard: {
  elevation: 4,
  },
  removeText: {
- fontSize: 18,
+ fontSize: 11,
  fontWeight: '800',
  color: '#444',
- lineHeight: 22,
+ lineHeight: 13,
+ includeFontPadding: false,
  },
  graphMetaCenterLayer: {
  ...StyleSheet.absoluteFillObject,
@@ -3118,8 +3148,8 @@ resizeActiveDiagonalDash: {
  },
 resizeDismissZone: {
  position: 'absolute',
- zIndex: 40,
- elevation: 1,
+ zIndex: 20,
+ elevation: 0,
  backgroundColor: 'transparent',
 },
 resizeGhostFrameOverlay: {

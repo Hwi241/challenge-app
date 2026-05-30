@@ -8,6 +8,12 @@ import {
 } from '../constants/widgetCatalog';
 
 export const DASHBOARD_LAYOUTS_KEY = 'dashboard_layouts_by_challenge';
+export const DASHBOARD_ROW_GAPS_KEY = 'dashboard_row_gaps_by_challenge';
+
+export const DASHBOARD_ROW_GAP_MIN = 0;
+export const DASHBOARD_ROW_GAP_DEFAULT = 4;
+export const DASHBOARD_ROW_GAP_MAX = 36;
+export const DASHBOARD_ROW_GAP_STEP = 4;
 
 const parseJson = (raw, fallback) => {
   try {
@@ -26,6 +32,19 @@ const clampNumber = (value, min, max, fallback) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, n));
+};
+
+export const normalizeDashboardRowGap = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DASHBOARD_ROW_GAP_DEFAULT;
+
+  const rounded = Math.round(n / DASHBOARD_ROW_GAP_STEP) * DASHBOARD_ROW_GAP_STEP;
+  return clampNumber(
+    rounded,
+    DASHBOARD_ROW_GAP_MIN,
+    DASHBOARD_ROW_GAP_MAX,
+    DASHBOARD_ROW_GAP_DEFAULT
+  );
 };
 
 const LEGACY_GRID_HEIGHT_BY_WIDGET_ID = {
@@ -223,6 +242,16 @@ const writeLayoutMap = async (map) => {
   await AsyncStorage.setItem(DASHBOARD_LAYOUTS_KEY, JSON.stringify(map || {}));
 };
 
+const readRowGapMap = async () => {
+  const raw = await AsyncStorage.getItem(DASHBOARD_ROW_GAPS_KEY);
+  const parsed = parseJson(raw, {});
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+};
+
+const writeRowGapMap = async (map) => {
+  await AsyncStorage.setItem(DASHBOARD_ROW_GAPS_KEY, JSON.stringify(map || {}));
+};
+
 const sanitizeDashboardLayout = (layout, target) => {
   const sourceBeforeMigration = Array.isArray(layout)
     ? layout
@@ -367,5 +396,34 @@ export const getDashboardLayoutStateForChallenge = async (challengeId, target) =
       hasStoredLayout: false,
       layout: sanitizeDashboardLayout(getDefaultDashboardLayout(target), target),
     };
+  }
+};
+
+export const getDashboardRowGapForChallenge = async (challengeId) => {
+  if (!challengeId) return DASHBOARD_ROW_GAP_DEFAULT;
+
+  try {
+    const map = await readRowGapMap();
+    const storedValue = map[String(challengeId)];
+    return normalizeDashboardRowGap(storedValue);
+  } catch (error) {
+    console.warn('Failed to load dashboard row gap', error);
+    return DASHBOARD_ROW_GAP_DEFAULT;
+  }
+};
+
+export const saveDashboardRowGapForChallenge = async (challengeId, rowGap) => {
+  if (!challengeId) return DASHBOARD_ROW_GAP_DEFAULT;
+
+  const nextRowGap = normalizeDashboardRowGap(rowGap);
+
+  try {
+    const map = await readRowGapMap();
+    map[String(challengeId)] = nextRowGap;
+    await writeRowGapMap(map);
+    return nextRowGap;
+  } catch (error) {
+    console.warn('Failed to save dashboard row gap', error);
+    throw error;
   }
 };

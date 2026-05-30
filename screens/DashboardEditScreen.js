@@ -29,8 +29,14 @@ import Svg, { Line, Rect } from 'react-native-svg';
 const AnimatedSvgLine = Animated.createAnimatedComponent(Line);
 
 import {
+ DASHBOARD_ROW_GAP_DEFAULT,
+ DASHBOARD_ROW_GAP_MAX,
+ DASHBOARD_ROW_GAP_MIN,
+ DASHBOARD_ROW_GAP_STEP,
  getDashboardLayoutStateForChallenge,
+ getDashboardRowGapForChallenge,
  saveDashboardLayoutForChallenge,
+ saveDashboardRowGapForChallenge,
 } from '../utils/dashboardLayout';
 
 function resolveTarget(params) {
@@ -382,19 +388,20 @@ const getResizeCatalogBounds = (widgetId) => {
  return { minW, minH, maxW, maxH };
 };
 
-const getResizeGridItemFrame = (item, gridW) => {
+const getResizeGridItemFrame = (item, gridW, rowGap = GRID_ROW_GAP) => {
  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
  const safeH = Math.max(1, Number(item?.h) || 1);
  const maxX = Math.max(0, GRID_COLUMNS - safeW);
  const safeX = Math.max(0, Math.min(maxX, Number(item?.x) || 0));
  const safeY = Math.max(0, Number(item?.y) || 0);
  const slotWidth = gridW > 0 ? gridW / GRID_COLUMNS : 0;
+ const safeRowGap = Math.max(0, Number(rowGap) || 0);
 
  return {
  left: safeX * slotWidth + GRID_CELL_PADDING,
- top: safeY * (GRID_ROW_HEIGHT + GRID_ROW_GAP),
+ top: safeY * (GRID_ROW_HEIGHT + safeRowGap),
  width: Math.max(0, safeW * slotWidth - GRID_CELL_PADDING * 2),
- height: safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * GRID_ROW_GAP,
+ height: safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * safeRowGap,
  safeX,
  safeY,
  safeW,
@@ -402,12 +409,13 @@ const getResizeGridItemFrame = (item, gridW) => {
  };
 };
 
-const getResizeGridItemHeight = (h) => {
+const getResizeGridItemHeight = (h, rowGap = GRID_ROW_GAP) => {
  const safeH = Math.max(1, Number(h) || 1);
- return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * GRID_ROW_GAP;
+ const safeRowGap = Math.max(0, Number(rowGap) || 0);
+ return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * safeRowGap;
 };
 
-const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, translationY, gridW) => {
+const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, translationY, gridW, rowGap = GRID_ROW_GAP) => {
  if (!gridW) {
  return {
  visualFramePx: null,
@@ -417,7 +425,7 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
  }
 
  const slotWidth = gridW / GRID_COLUMNS;
- const originFrame = getResizeGridItemFrame(origin, gridW);
+ const originFrame = getResizeGridItemFrame(origin, gridW, rowGap);
  const bounds = getResizeCatalogBounds(widgetId);
 
  const originX = Math.max(0, Number(origin?.x) || 0);
@@ -434,8 +442,8 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
  : bounds.maxH;
 
  const maxWidthPx = Math.max(minWidthPx, maxWidthCells * slotWidth - GRID_CELL_PADDING * 2);
- const minHeightPx = getResizeGridItemHeight(bounds.minH);
- const maxHeightPx = getResizeGridItemHeight(maxHeightCells);
+ const minHeightPx = getResizeGridItemHeight(bounds.minH, rowGap);
+ const maxHeightPx = getResizeGridItemHeight(maxHeightCells, rowGap);
 
  const originLeft = originFrame.left;
  const originTop = originFrame.top;
@@ -526,7 +534,7 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
 };
 
 
-const GRID_ROW_HEIGHT = 46;
+const GRID_ROW_HEIGHT = 60;
 const GRID_ROW_GAP = 4;
 const GRID_CELL_PADDING = 4;
 const RESIZE_FRAME_INSET = 2;
@@ -551,6 +559,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const dashboardTarget = useMemo(() => resolveTarget(params), [params]);
 
  const [layout, setLayout] = useState([]);
+ const [rowGap, setRowGap] = useState(DASHBOARD_ROW_GAP_DEFAULT);
  const [pickerVisible, setPickerVisible] = useState(false);
  const [loading, setLoading] = useState(true);
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
@@ -583,13 +592,19 @@ const resizePreviewSizeRef = useRef('');
 
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
+ setRowGap(DASHBOARD_ROW_GAP_DEFAULT);
  setLayout(repairDashboardLayoutOverlaps(normalizeLayout([], dashboardTarget)));
  setLoading(false);
  return;
  }
 
  try {
- const state = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
+ const [state, storedRowGap] = await Promise.all([
+ getDashboardLayoutStateForChallenge(challengeId, dashboardTarget),
+ getDashboardRowGapForChallenge(challengeId),
+ ]);
+ setRowGap(storedRowGap);
+
  const rawLayout = state?.hasStoredLayout
  ? normalizeLayout(state.layout, dashboardTarget)
  : normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget);
@@ -597,6 +612,7 @@ const resizePreviewSizeRef = useRef('');
  setLayout(nextLayout);
  } catch (error) {
  console.log('대시보드 레이아웃 로드 실패:', error?.message || error);
+ setRowGap(DASHBOARD_ROW_GAP_DEFAULT);
  setLayout(repairDashboardLayoutOverlaps(normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget)));
  } finally {
  setLoading(false);
@@ -749,6 +765,17 @@ const scheduleDragVisualCleanup = useCallback(() => {
  }, 32);
  }, [clearDragVisualState, clearScheduledDragVisualCleanup]);
 
+ const decreaseRowGap = useCallback(() => {
+ setRowGap((current) => Math.max(DASHBOARD_ROW_GAP_MIN, current - DASHBOARD_ROW_GAP_STEP));
+ }, []);
+
+ const increaseRowGap = useCallback(() => {
+ setRowGap((current) => Math.min(DASHBOARD_ROW_GAP_MAX, current + DASHBOARD_ROW_GAP_STEP));
+ }, []);
+
+ const canDecreaseRowGap = rowGap > DASHBOARD_ROW_GAP_MIN;
+ const canIncreaseRowGap = rowGap < DASHBOARD_ROW_GAP_MAX;
+
  const placedIds = useMemo(() => new Set(layout.map(item => item.widgetId || item.id)), [layout]);
 
  const displayLayout = useMemo(() => {
@@ -776,7 +803,7 @@ const getResizeStableGridDelta = (rawDelta) => {
 
 const getGridItemHeight = (h) => {
   const safeH = Math.max(1, Number(h) || 1);
-  return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * GRID_ROW_GAP;
+  return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * rowGap;
 };
 
 const getGridItemFrame = (item, gridW) => {
@@ -788,7 +815,7 @@ const getGridItemFrame = (item, gridW) => {
   const slotWidth = gridW > 0 ? gridW / GRID_COLUMNS : 0;
   return {
     left: safeX * slotWidth + GRID_CELL_PADDING,
-    top: safeY * (GRID_ROW_HEIGHT + GRID_ROW_GAP),
+    top: safeY * (GRID_ROW_HEIGHT + rowGap),
     width: Math.max(0, safeW * slotWidth - GRID_CELL_PADDING * 2),
     height: getGridItemHeight(safeH),
     safeX, safeY, safeW, safeH,
@@ -1299,8 +1326,8 @@ const gridBoardHeight = useMemo(() => {
     return Math.max(max, y + h);
   }, 0);
   if (maxRow <= 0) return GRID_ROW_HEIGHT;
-  return maxRow * GRID_ROW_HEIGHT + Math.max(0, maxRow - 1) * GRID_ROW_GAP;
-}, [displayLayout]);
+  return maxRow * GRID_ROW_HEIGHT + Math.max(0, maxRow - 1) * rowGap;
+}, [displayLayout, rowGap]);
 
 const layoutRows = useMemo(() => {
  const rows = new Map();
@@ -1764,8 +1791,11 @@ const getLayoutPreviewSignature = useCallback((items) => {
  }
 
  try {
- await saveDashboardLayoutForChallenge(challengeId, layout, dashboardTarget);
-     const returnRouteKey = route?.params?.returnRouteKey;
+ await Promise.all([
+ saveDashboardLayoutForChallenge(challengeId, layout, dashboardTarget),
+ saveDashboardRowGapForChallenge(challengeId, rowGap),
+ ]);
+ const returnRouteKey = route?.params?.returnRouteKey;
     const dashboardEditReturnedAt = Date.now();
 
     if (returnRouteKey) {
@@ -1782,7 +1812,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  console.log('대시보드 저장 실패:', error?.message || error);
  Alert.alert('오류', '대시보드를 저장하지 못했습니다.');
  }
- }, [challengeId, dashboardTarget, layout, navigation, route?.params]);
+ }, [challengeId, dashboardTarget, layout, navigation, route?.params, rowGap]);
 
  const renderGraphCard = (item, index) => {
  if (item.isPlaceholder) {
@@ -1888,6 +1918,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  0,
  0,
  gridWidth,
+ rowGap,
  );
  setResizeGhostFrame({
  widgetId,
@@ -1908,7 +1939,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  };
 
  const deltaColsRaw = slotWidth ? event.translationX / slotWidth : 0;
- const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+ const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + rowGap);
  const deltaCols = getResizeStableGridDelta(deltaColsRaw);
  const deltaRows = getResizeStableGridDelta(deltaRowsRaw);
 
@@ -1920,6 +1951,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  event.translationX,
  event.translationY,
  gridWidth,
+ rowGap,
  );
 
  const visualFrame = ghostState.visualFramePx;
@@ -1968,7 +2000,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  };
 
  const deltaColsRaw = slotWidth ? event.translationX / slotWidth : 0;
- const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+ const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + rowGap);
  const deltaCols = getResizeStableGridDelta(deltaColsRaw);
  const deltaRows = getResizeStableGridDelta(deltaRowsRaw);
 
@@ -2056,7 +2088,7 @@ const canMoveCard = !activeResizeWidgetId && !resizeDraggingWidgetId;
      setGestureDragOffset(nextOffset);
      const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
      const scrollDelta = scrollYRef.current - dragStartScrollYRef.current;
-     const rawGridDY = (event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+     const rawGridDY = (event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + rowGap);
      const dX = slotWidth ? getStableGridDelta(rawGridDX) : 0;
      const dY = getStableGridDelta(rawGridDY);
      if (!slotWidth || (dX === 0 && dY === 0)) {
@@ -2372,7 +2404,7 @@ const renderResizeDismissOverlay = () => {
 
  if (!activeItem) return null;
 
- const activeFrame = getResizeGridItemFrame(activeItem, gridWidth);
+ const activeFrame = getResizeGridItemFrame(activeItem, gridWidth, rowGap);
  const boardHeight = Math.max(
  gridBoardHeight,
  activeFrame.top + activeFrame.height,
@@ -2440,7 +2472,7 @@ const renderResizeGuideOverlay = () => {
 
  if (!activeItem) return null;
 
- const baseFrame = getResizeGridItemFrame(activeItem, gridWidth);
+ const baseFrame = getResizeGridItemFrame(activeItem, gridWidth, rowGap);
  const dragFrame = resizeGhostFrame?.visualFramePx;
  const guideFrame = dragFrame || baseFrame;
 
@@ -2486,9 +2518,36 @@ const renderResizeGuideOverlay = () => {
 >
  <View style={styles.contentHeader}>
  <Text style={styles.challengeTitle} numberOfLines={1}>{title}</Text>
- <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>
- <Text style={styles.addText}>위젯 추가</Text>
+ <View style={styles.headerActions}>
+ <View style={styles.rowGapControl}>
+ <Text style={styles.rowGapLabel}>간격 {rowGap}px</Text>
+ <View style={styles.rowGapButtons}>
+ <TouchableOpacity
+ style={[styles.rowGapButton, !canDecreaseRowGap && styles.rowGapButtonDisabled]}
+ onPress={decreaseRowGap}
+ disabled={!canDecreaseRowGap}
+ activeOpacity={0.8}
+ >
+ <Text style={[styles.rowGapButtonText, !canDecreaseRowGap && styles.rowGapButtonTextDisabled]}>-</Text>
  </TouchableOpacity>
+ <TouchableOpacity
+ style={[
+ styles.rowGapButton,
+ styles.rowGapButtonWithDivider,
+ !canIncreaseRowGap && styles.rowGapButtonDisabled,
+ ]}
+ onPress={increaseRowGap}
+ disabled={!canIncreaseRowGap}
+ activeOpacity={0.8}
+ >
+ <Text style={[styles.rowGapButtonText, !canIncreaseRowGap && styles.rowGapButtonTextDisabled]}>+</Text>
+ </TouchableOpacity>
+ </View>
+ </View>
+ <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>
+ <Text style={styles.addText}>위젯추가</Text>
+ </TouchableOpacity>
+ </View>
  </View>
 
  {loading ? (
@@ -2615,6 +2674,57 @@ const styles = StyleSheet.create({
  alignItems: 'center',
  justifyContent: 'space-between',
  marginBottom: 14,
+ },
+ headerActions: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ gap: 8,
+ },
+ rowGapControl: {
+ height: 34,
+ flexDirection: 'row',
+ alignItems: 'center',
+ borderRadius: 8,
+ borderWidth: 1,
+ borderColor: '#D1D5DB',
+ backgroundColor: '#fff',
+ overflow: 'hidden',
+ },
+ rowGapLabel: {
+ paddingHorizontal: 8,
+ fontSize: 12,
+ fontWeight: '800',
+ color: '#111',
+ },
+ rowGapButtons: {
+ flexDirection: 'row',
+ height: '100%',
+ borderLeftWidth: 1,
+ borderLeftColor: '#E5E7EB',
+ },
+ rowGapButton: {
+ width: 30,
+ height: '100%',
+ alignItems: 'center',
+ justifyContent: 'center',
+ backgroundColor: '#fff',
+ },
+ rowGapButtonWithDivider: {
+ borderLeftWidth: 1,
+ borderLeftColor: '#E5E7EB',
+ },
+ rowGapButtonDisabled: {
+ backgroundColor: '#F3F4F6',
+ },
+ rowGapButtonText: {
+ fontSize: 16,
+ fontWeight: '900',
+ color: '#111',
+ lineHeight: 18,
+ includeFontPadding: false,
+ },
+ rowGapButtonTextDisabled: {
+ color: '#C7C7C7',
  },
  addBtn: {
  height: 34,

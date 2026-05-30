@@ -46,9 +46,11 @@ import Svg,
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  getDashboardLayoutStateForChallenge,
-  resolveDashboardTarget,
-  } from '../utils/dashboardLayout';
+ DASHBOARD_ROW_GAP_DEFAULT,
+ getDashboardLayoutStateForChallenge,
+ getDashboardRowGapForChallenge,
+ resolveDashboardTarget,
+ } from '../utils/dashboardLayout';
 import {
  DASHBOARD_TARGETS,
   GRID_COLUMNS,
@@ -2284,6 +2286,7 @@ export default function EntryListScreen({ route, navigation }) {
   const [dashboardLayout, setDashboardLayout] = useState(() =>
     getDefaultDashboardLayout(dashboardTarget).map((item) => ({ ...item })),
   );
+  const [dashboardRowGap, setDashboardRowGap] = useState(DASHBOARD_ROW_GAP_DEFAULT);
   const [dashboardLayoutHasStored, setDashboardLayoutHasStored] = useState(false);
 
   useFocusEffect(
@@ -2291,7 +2294,10 @@ export default function EntryListScreen({ route, navigation }) {
     let mounted = true;
     const loadDashboardLayout = async () => {
       try {
-        const result = await getDashboardLayoutStateForChallenge(challengeId, dashboardTarget);
+        const [result, storedRowGap] = await Promise.all([
+          getDashboardLayoutStateForChallenge(challengeId, dashboardTarget),
+          getDashboardRowGapForChallenge(challengeId),
+        ]);
         console.log('[DASHBOARD_DEBUG_LOAD_RESULT]', {
           challengeId,
           dashboardTarget,
@@ -2307,6 +2313,7 @@ export default function EntryListScreen({ route, navigation }) {
           ids: Array.isArray(result?.layout) ? result.layout.map(i => i.id || i.widgetId || i.i) : [],
         });
         if (!mounted) return;
+        setDashboardRowGap(storedRowGap);
         const nextLayout = Array.isArray(result?.layout) ? result.layout : getDefaultDashboardLayout(dashboardTarget);
         setDashboardLayoutHasStored(Boolean(result?.hasStoredLayout));
         setDashboardLayout(nextLayout.map((item) => ({ ...item })));
@@ -2314,6 +2321,7 @@ export default function EntryListScreen({ route, navigation }) {
         console.log('Failed to load dashboard layout', error);
         if (!mounted) return;
         const fallbackLayout = getDefaultDashboardLayout(dashboardTarget);
+        setDashboardRowGap(DASHBOARD_ROW_GAP_DEFAULT);
         setDashboardLayoutHasStored(false);
         setDashboardLayout(fallbackLayout.map((item) => ({ ...item })));
       }
@@ -2991,8 +2999,8 @@ export default function EntryListScreen({ route, navigation }) {
       ? sourceLayout
       : getDefaultDashboardLayout(dashboardTarget);
 
-    const GRID_ROW_HEIGHT_VIEW = 46;
-    const GRID_ROW_GAP_VIEW = 4;
+    const GRID_ROW_HEIGHT_VIEW = 60;
+    const GRID_ROW_GAP_VIEW = Math.max(0, Number(dashboardRowGap) || DASHBOARD_ROW_GAP_DEFAULT);
     const GRID_CELL_PADDING_VIEW = 4;
     const DASHBOARD_BOARD_SIDE_BLEED = 4;
 
@@ -3119,7 +3127,7 @@ export default function EntryListScreen({ route, navigation }) {
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate
-  , dashboardLayout,
+  , dashboardLayout, dashboardRowGap,
     displayTitle
   ]);
 
@@ -3141,7 +3149,7 @@ export default function EntryListScreen({ route, navigation }) {
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, entries, overallPct
-  ,
+  , dashboardRowGap,
     displayTitle
   ]);
 

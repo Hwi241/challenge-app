@@ -2386,7 +2386,7 @@ isResizeActive && styles.graphCellResizeActive,
  </View>
  </View>
 
- {isResizeActive && !isThisResizeDragging && !isThisGestureDragging && (
+ {isResizeActive && !isThisGestureDragging && (
 <TouchableOpacity
 style={styles.removeBtnBottomRight}
 onPress={() => removeGraph(widgetId)}
@@ -2399,10 +2399,7 @@ activeOpacity={0.82}
 
  <View
 pointerEvents="none"
-style={[
- styles.graphMetaCenterLayer,
- shouldDimOriginalCard && styles.graphMetaCenterLayerDimmed,
-]}
+style={styles.graphMetaCenterLayer}
 >
 <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
  </View>
@@ -2973,9 +2970,6 @@ graphCard: {
  zIndex: 30,
  elevation: 9,
  },
-graphMetaCenterLayerDimmed: {
- opacity: 0.16,
-},
  graphMetaCenter: {
  fontSize: 15,
  fontWeight: '900',

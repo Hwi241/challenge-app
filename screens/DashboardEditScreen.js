@@ -1940,7 +1940,8 @@ const isThisGestureDragging =
  dragOverlayItem?.widgetId === widgetId;
 const shouldDimOriginalCard =
  isThisGestureDragging ||
- isThisResizeDimActive;
+ isThisResizeDimActive ||
+ isThisResizeDragging;
 const displaySizeText =
  isResizeActive && resizeGhostFrame?.widgetId === widgetId
  ? `${resizeGhostFrame.w}x${resizeGhostFrame.h}`
@@ -2008,7 +2009,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  .runOnJS(true)
  .onBegin(() => {
  setResizeDraggingWidgetId(widgetId);
- setResizeDimWidgetId(null);
+ setResizeDimWidgetId(widgetId);
  resizeOriginRef.current = {
  x: safeX,
  y: safeY,
@@ -2038,9 +2039,6 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  boundedFramePx: initialGhostState.boundedFramePx,
  });
  })
-.onStart(() => {
- setResizeDimWidgetId(widgetId);
-})
  .onUpdate((event) => {
  const origin = resizeOriginRef.current || {
  x: safeX,
@@ -2152,7 +2150,9 @@ const buildResizeGesture = (corner) => Gesture.Pan()
 const topRightResizeGesture = buildResizeGesture('topRight');
 const bottomLeftResizeGesture = buildResizeGesture('bottomLeft');
 
-const canMoveCard = !resizeDraggingWidgetId;
+const canMoveCard =
+ !resizeDraggingWidgetId &&
+ (!activeResizeWidgetId || activeResizeWidgetId === widgetId);
 
  const testGesture = Gesture.Pan()
    .enabled(canMoveCard)
@@ -2325,8 +2325,10 @@ const tapResizeGesture = Gesture.Tap()
  setActiveResizeWidgetId(widgetId);
  });
 
+const disabledCardGesture = Gesture.Tap().enabled(false);
+
 const cardGesture = activeResizeWidgetId
- ? testGesture
+ ? (isResizeActive ? testGesture : disabledCardGesture)
  : Gesture.Exclusive(testGesture, tapResizeGesture);
 
 const cardLeftPx = safeX * slotWidth + GRID_CELL_PADDING;
@@ -2378,8 +2380,11 @@ isResizeActive && styles.graphCellResizeActive,
  },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  isResizeActive && styles.graphCardResizeActive,
- shouldDimOriginalCard && styles.graphCardDimmed,
  ]}>
+ {shouldDimOriginalCard && (
+ <View pointerEvents="none" style={styles.graphCardDimOverlay} />
+ )}
+
  <View style={styles.graphHeader}>
  <View style={styles.graphTitleGroup}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
@@ -2985,11 +2990,15 @@ graphCard: {
  shadowRadius: 8,
  elevation: 3,
 },
-graphCardDimmed: {
- opacity: 0.16,
-},
 graphCardResizeDraggingHidden: {
  opacity: 0.35,
+},
+graphCardDimOverlay: {
+ ...StyleSheet.absoluteFillObject,
+ borderRadius: 8,
+ backgroundColor: 'rgba(255,255,255,0.72)',
+ zIndex: 8,
+ elevation: 2,
 },
 resizeHandle: {
  width: 28,

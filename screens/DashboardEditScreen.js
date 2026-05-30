@@ -565,6 +565,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [pickerVisible, setPickerVisible] = useState(false);
  const [loading, setLoading] = useState(true);
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
+ const [draggingOriginalWidgetId, setDraggingOriginalWidgetId] = useState(null);
  const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
  const [gridWidth, setGridWidth] = useState(0);
  const [dragPlaceholder, setDragPlaceholder] = useState(null);
@@ -731,6 +732,7 @@ const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
  clearResizeGhostBounceTimer();
  stopDashboardAutoScroll();
  setGestureDraggingWidgetId(null);
+ setDraggingOriginalWidgetId(null);
  setResizeDraggingWidgetId(null);
  setGestureDragOffset({ x: 0, y: 0 });
  setDragPlaceholder(null);
@@ -1928,6 +1930,11 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
 const isResizeActive = activeResizeWidgetId === widgetId;
 const isThisResizeDragging = resizeDraggingWidgetId === widgetId;
+const isThisGestureDragging =
+ draggingOriginalWidgetId === widgetId ||
+ gestureDraggingWidgetId === widgetId ||
+ dragOverlayItem?.widgetId === widgetId;
+const shouldDimOriginalCard = isThisGestureDragging || isThisResizeDragging;
 const displaySizeText =
  isResizeActive && resizeGhostFrame?.widgetId === widgetId
  ? `${resizeGhostFrame.w}x${resizeGhostFrame.h}`
@@ -2152,6 +2159,7 @@ const canMoveCard = !resizeDraggingWidgetId;
  setPreviewLayout(null);
  }
 
+     setDraggingOriginalWidgetId(widgetId);
      setGestureDraggingWidgetId(widgetId);
      setGestureDragOffset({ x: 0, y: 0 });
      const overlayWidth = slotWidth ? slotWidth * safeW : 0;
@@ -2334,9 +2342,6 @@ isResizeActive && styles.graphCellResizeActive,
  <View style={[
  styles.resizeFrame,
  { minHeight: cardHeight, height: cardHeight },
- gestureDraggingWidgetId === widgetId && {
-   opacity: 0.16,
- },
 ]}>
  {isResizeActive && (
  <View pointerEvents="box-none" style={resizeOverlayDynamicStyle}>
@@ -2360,7 +2365,7 @@ isResizeActive && styles.graphCellResizeActive,
  },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  isResizeActive && styles.graphCardResizeActive,
- isThisResizeDragging && styles.graphCardResizeDraggingHidden,
+ shouldDimOriginalCard && styles.graphCardDimmed,
  ]}>
  <View style={styles.graphHeader}>
  <View style={styles.graphTitleGroup}>
@@ -2368,7 +2373,7 @@ isResizeActive && styles.graphCellResizeActive,
  </View>
  </View>
 
- {isResizeActive && !isThisResizeDragging && gestureDraggingWidgetId !== widgetId && (
+ {isResizeActive && !isThisResizeDragging && !isThisGestureDragging && (
 <TouchableOpacity
 style={styles.removeBtnBottomRight}
 onPress={() => removeGraph(widgetId)}
@@ -2379,8 +2384,14 @@ activeOpacity={0.82}
 )}
  </View>
 
- <View pointerEvents="none" style={styles.graphMetaCenterLayer}>
- <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
+ <View
+pointerEvents="none"
+style={[
+ styles.graphMetaCenterLayer,
+ shouldDimOriginalCard && styles.graphMetaCenterLayerDimmed,
+]}
+>
+<Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
  </View>
  </View>
  </View>
@@ -2949,6 +2960,9 @@ graphCard: {
  zIndex: 30,
  elevation: 9,
  },
+graphMetaCenterLayerDimmed: {
+ opacity: 0.16,
+},
  graphMetaCenter: {
  fontSize: 15,
  fontWeight: '900',
@@ -2963,6 +2977,9 @@ graphCard: {
  shadowOpacity: 0.08,
  shadowRadius: 8,
  elevation: 3,
+},
+graphCardDimmed: {
+ opacity: 0.16,
 },
 graphCardResizeDraggingHidden: {
  opacity: 0.35,
@@ -3007,8 +3024,8 @@ resizeActiveOverlay: {
 },
 resizeActiveCornerHitbox: {
  position: 'absolute',
- width: 72,
- height: 72,
+ width: 64,
+ height: 64,
  zIndex: 24,
  elevation: 10,
 },

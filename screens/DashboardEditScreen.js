@@ -1838,6 +1838,10 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
 const isResizeActive = activeResizeWidgetId === widgetId;
 const isThisResizeDragging = resizeDraggingWidgetId === widgetId;
+const displaySizeText =
+ isResizeActive && resizeGhostFrame?.widgetId === widgetId
+ ? `${resizeGhostFrame.w}x${resizeGhostFrame.h}`
+ : `${safeW}x${safeH}`;
 
 const resizeFrameWidth = slotWidth ? Math.max(0, slotWidth * safeW) : 0;
 const resizeCornerSize = RESIZE_ACTIVE_CORNER_SIZE;
@@ -2241,15 +2245,8 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  isThisResizeDragging && styles.graphCardResizeDraggingHidden,
  ]}>
  <View style={styles.graphHeader}>
+ <View style={styles.graphTitleGroup}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
- <TouchableOpacity style={styles.removeBtn} onPress={() => removeGraph(widgetId)}>
- <Text style={styles.removeText}>×</Text>
- </TouchableOpacity>
- </View>
- <Text style={[styles.graphMeta, isCompactCard && { marginTop: 4 }]}>{safeW + 'x' + safeH}</Text>
- </View>
-
- <View pointerEvents="box-none" style={styles.resizeHandleCenterLayer}>
  <TouchableOpacity
  activeOpacity={0.82}
  style={[
@@ -2264,7 +2261,17 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  <View style={styles.resizeHandleCornerTopRight} />
  <View style={styles.resizeHandleCornerBottomLeft} />
  </TouchableOpacity>
-</View>
+ </View>
+ </View>
+
+ <View pointerEvents="none" style={styles.graphMetaCenterLayer}>
+ <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
+ </View>
+
+ <TouchableOpacity style={styles.removeBtnBottomRight} onPress={() => removeGraph(widgetId)}>
+ <Text style={styles.removeText}>×</Text>
+ </TouchableOpacity>
+ </View>
  </View>
  </View>
  );
@@ -2773,15 +2780,24 @@ graphCard: {
  graphHeader: {
  flexDirection: 'row',
  alignItems: 'center',
+ justifyContent: 'flex-start',
+ },
+ graphTitleGroup: {
+ flexDirection: 'row',
+ alignItems: 'center',
  gap: 8,
+ maxWidth: '100%',
  },
  graphTitle: {
- flex: 1,
+ flexShrink: 1,
  fontSize: 15,
  fontWeight: '800',
  color: '#111',
  },
- removeBtn: {
+ removeBtnBottomRight: {
+ position: 'absolute',
+ right: 12,
+ bottom: 12,
  width: 28,
  height: 28,
  borderRadius: 14,
@@ -2790,6 +2806,8 @@ graphCard: {
  alignItems: 'center',
  justifyContent: 'center',
  backgroundColor: '#fff',
+ zIndex: 12,
+ elevation: 4,
  },
  removeText: {
  fontSize: 18,
@@ -2797,10 +2815,17 @@ graphCard: {
  color: '#444',
  lineHeight: 22,
  },
- graphMeta: {
- marginTop: 10,
- fontSize: 12,
+ graphMetaCenterLayer: {
+ ...StyleSheet.absoluteFillObject,
+ alignItems: 'center',
+ justifyContent: 'center',
+ pointerEvents: 'none',
+ },
+ graphMetaCenter: {
+ fontSize: 13,
+ fontWeight: '900',
  color: '#777',
+ textAlign: 'center',
  },
  graphCardResizeActive: {
  borderColor: '#111',
@@ -2813,17 +2838,10 @@ graphCard: {
 graphCardResizeDraggingHidden: {
  opacity: 0.35,
 },
-resizeHandleCenterLayer: {
- ...StyleSheet.absoluteFillObject,
- alignItems: 'center',
- justifyContent: 'center',
- zIndex: 20,
- elevation: 8,
-},
 resizeHandle: {
- width: 34,
- height: 34,
- borderRadius: 17,
+ width: 28,
+ height: 28,
+ borderRadius: 14,
  backgroundColor: '#111',
  alignItems: 'center',
  justifyContent: 'center',
@@ -2834,20 +2852,20 @@ resizeHandleActive: {
 },
 resizeHandleCornerTopRight: {
  position: 'absolute',
- top: 8,
- right: 8,
- width: 9,
- height: 9,
+ top: 7,
+ right: 7,
+ width: 8,
+ height: 8,
  borderTopWidth: 2,
  borderRightWidth: 2,
  borderColor: '#fff',
 },
 resizeHandleCornerBottomLeft: {
  position: 'absolute',
- bottom: 8,
- left: 8,
- width: 9,
- height: 9,
+ bottom: 7,
+ left: 7,
+ width: 8,
+ height: 8,
  borderBottomWidth: 2,
  borderLeftWidth: 2,
  borderColor: '#fff',

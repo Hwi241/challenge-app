@@ -2386,6 +2386,7 @@ isResizeActive && styles.graphCellResizeActive,
  },
  isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
  isResizeActive && styles.graphCardResizeActive,
+ isResizeActive && { opacity: resizeTouchOpacity },
  shouldDimOriginalCard && styles.graphCardDimmed,
  ]}>
  <View style={styles.graphHeader}>

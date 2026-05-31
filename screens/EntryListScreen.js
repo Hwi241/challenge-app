@@ -2366,6 +2366,8 @@ export default function EntryListScreen({ route, navigation }) {
     endDate: endDateFromRoute,
     rewardTitle: rewardTitleFromRoute,
     reward: rewardFromRoute,
+    dashboardEditLayout,
+    dashboardEditRowGap,
     readOnly = false,
   } = params;
 
@@ -3034,6 +3036,18 @@ const runWeek = useCallback(() => {
     const normalizedMode = dashboardEditReturnMode === 'save' ? 'save' : 'cancel';
     const suppressUntil = Date.now() + 2500;
 
+    if (normalizedMode === 'save') {
+      if (Array.isArray(dashboardEditLayout) && dashboardEditLayout.length > 0) {
+        setDashboardLayout(dashboardEditLayout.map((item) => ({ ...item })));
+        setDashboardLayoutHasStored(true);
+      }
+
+      const numericRowGap = Number(dashboardEditRowGap);
+      if (Number.isFinite(numericRowGap) && numericRowGap >= 0) {
+        setDashboardRowGap(numericRowGap);
+      }
+    }
+
     dashboardReturnModeRef.current = normalizedMode;
     dashboardReturnIntroHandledRef.current = false;
     dashboardReturnSuppressUntilRef.current = suppressUntil;
@@ -3056,11 +3070,13 @@ const runWeek = useCallback(() => {
     skipDashboardReturnIntroRef.current = true;
     skipDashboardReturnReloadRef.current = true;
 
-    setDonutK(0);
-    setWeekK(0);
-    setLineK(0);
-    setGrassDashboardReturnTick((tick) => tick + 1);
-  }, [dashboardEditReturnMode, dashboardEditReturnedAt]);
+    setDonutK(1);
+    setWeekK(1);
+    setLineK(1);
+    if (normalizedMode === 'save') {
+      setGrassDashboardReturnTick((tick) => tick + 1);
+    }
+  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap]);
 
   // focus 해제 시 저장 복귀 skip ref 초기화
   useEffect(() => {
@@ -3088,10 +3104,20 @@ const runWeek = useCallback(() => {
         const dashboardReturnMode = dashboardReturnModeRef.current;
 
         if (skipDashboardReturnIntroRef.current || suppressDashboardReturn) {
-          if (dashboardReturnMode === 'save' || dashboardReturnMode === 'cancel') {
+          if (dashboardReturnMode === 'save') {
             if (!dashboardReturnIntroHandledRef.current) {
               dashboardReturnIntroHandledRef.current = true;
               runAllIntro();
+            }
+            return;
+          }
+
+          if (dashboardReturnMode === 'cancel') {
+            if (!dashboardReturnIntroHandledRef.current) {
+              dashboardReturnIntroHandledRef.current = true;
+              setDonutK(1);
+              setWeekK(1);
+              setLineK(1);
             }
             return;
           }

@@ -1922,6 +1922,8 @@ const getLayoutPreviewSignature = useCallback((items) => {
         ...CommonActions.setParams({
           dashboardEditReturnMode: 'save',
           dashboardEditReturnedAt,
+          dashboardEditLayout: Array.isArray(layout) ? layout.map((item) => ({ ...item })) : [],
+          dashboardEditRowGap: rowGap,
         }),
         source: returnRouteKey,
       });

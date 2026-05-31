@@ -402,7 +402,7 @@ const getResizeGridItemFrame = (item, gridW, rowGap = GRID_ROW_GAP) => {
  left: safeX * slotWidth + GRID_CELL_PADDING,
  top: safeY * (GRID_ROW_HEIGHT + safeRowGap),
  width: Math.max(0, safeW * slotWidth - GRID_CELL_PADDING * 2),
- height: safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * safeRowGap,
+ height: safeH * GRID_ROW_HEIGHT,
  safeX,
  safeY,
  safeW,
@@ -412,8 +412,7 @@ const getResizeGridItemFrame = (item, gridW, rowGap = GRID_ROW_GAP) => {
 
 const getResizeGridItemHeight = (h, rowGap = GRID_ROW_GAP) => {
  const safeH = Math.max(1, Number(h) || 1);
- const safeRowGap = Math.max(0, Number(rowGap) || 0);
- return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * safeRowGap;
+ return safeH * GRID_ROW_HEIGHT;
 };
 
 const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, translationY, gridW, rowGap = GRID_ROW_GAP) => {
@@ -829,7 +828,7 @@ const getResizeStableGridDelta = (rawDelta) => {
 
 const getGridItemHeight = (h) => {
   const safeH = Math.max(1, Number(h) || 1);
-  return safeH * GRID_ROW_HEIGHT + Math.max(0, safeH - 1) * rowGap;
+  return safeH * GRID_ROW_HEIGHT;
 };
 
 const getGridItemFrame = (item, gridW) => {

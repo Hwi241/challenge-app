@@ -3267,7 +3267,7 @@ const runWeek = useCallback(() => {
       const leftPct = `${(safeX / GRID_COLUMNS) * 100}%`;
       const widthPct = `${(safeW / GRID_COLUMNS) * 100}%`;
       const top = safeY * (GRID_ROW_HEIGHT_VIEW + GRID_ROW_GAP_VIEW);
-      const height = safeH * GRID_ROW_HEIGHT_VIEW + Math.max(0, safeH - 1) * GRID_ROW_GAP_VIEW;
+      const height = safeH * GRID_ROW_HEIGHT_VIEW;
 
       return (
         <View

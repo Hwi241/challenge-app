@@ -560,6 +560,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const dashboardTarget = useMemo(() => resolveTarget(params), [params]);
 
  const [layout, setLayout] = useState([]);
+ const layoutRef = useRef([]);
  const [rowGap, setRowGap] = useState(DASHBOARD_ROW_GAP_DEFAULT);
  const [pickerVisible, setPickerVisible] = useState(false);
  const [loading, setLoading] = useState(true);
@@ -594,10 +595,25 @@ const resizePreviewSizeRef = useRef('');
  const autoScrollTimerRef = useRef(null);
  const autoScrollDirectionRef = useRef(0);
 
+const setDashboardLayoutImmediate = useCallback((updater) => {
+  setLayout((current) => {
+    const calculatedLayout = typeof updater === 'function'
+      ? updater(current)
+      : updater;
+    const nextLayout = Array.isArray(calculatedLayout)
+      ? calculatedLayout
+      : current;
+    layoutRef.current = Array.isArray(nextLayout)
+      ? nextLayout.map((item) => ({ ...item }))
+      : [];
+    return nextLayout;
+  });
+}, []);
+
  const loadLayout = useCallback(async () => {
  if (!challengeId) {
  setRowGap(DASHBOARD_ROW_GAP_DEFAULT);
- setLayout(repairDashboardLayoutOverlaps(normalizeLayout([], dashboardTarget)));
+ setDashboardLayoutImmediate(repairDashboardLayoutOverlaps(normalizeLayout([], dashboardTarget)));
  setLoading(false);
  return;
  }
@@ -613,15 +629,15 @@ const resizePreviewSizeRef = useRef('');
  ? normalizeLayout(state.layout, dashboardTarget)
  : normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget);
  const nextLayout = repairDashboardLayoutOverlaps(rawLayout);
- setLayout(nextLayout);
+ setDashboardLayoutImmediate(nextLayout);
  } catch (error) {
  console.log('대시보드 레이아웃 로드 실패:', error?.message || error);
  setRowGap(DASHBOARD_ROW_GAP_DEFAULT);
- setLayout(repairDashboardLayoutOverlaps(normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget)));
+ setDashboardLayoutImmediate(repairDashboardLayoutOverlaps(normalizeLayout(getDefaultDashboardLayout(dashboardTarget), dashboardTarget)));
  } finally {
  setLoading(false);
  }
- }, [challengeId, dashboardTarget]);
+ }, [challengeId, dashboardTarget, setDashboardLayoutImmediate]);
 
  useEffect(() => {
  loadLayout();
@@ -1433,7 +1449,7 @@ const layoutRows = useMemo(() => {
  const widgetId = widget?.id || widget?.widgetId;
  if (!widgetId) return;
 
- setLayout((current) => {
+ setDashboardLayoutImmediate((current) => {
  if (current.some(item => (item.widgetId || item.id) === widgetId)) return current;
 
  const nextItem = {
@@ -1454,9 +1470,9 @@ const layoutRows = useMemo(() => {
  });
 
  setPickerVisible(false);
- }, [dashboardTarget, resetResizeInteractionState]);
+ }, [dashboardTarget, resetResizeInteractionState, setDashboardLayoutImmediate]);
  const moveGraph = useCallback((widgetId, direction) => {
-  setLayout((current) => {
+  setDashboardLayoutImmediate((current) => {
     const source = Array.isArray(current) ? current.map(normalizeLayoutItem) : [];
     const movingItem = source.find((item) => item.widgetId === widgetId);
     if (!movingItem) return current;
@@ -1609,7 +1625,7 @@ const layoutRows = useMemo(() => {
     const resultLayout = placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
     return resultLayout;
   });
-}, [dashboardTarget]);
+}, [dashboardTarget, setDashboardLayoutImmediate]);
 
  const removeGraph = useCallback((widgetId) => {
  const targetItem = layout.find((item) => (item.widgetId || item.id) === widgetId);
@@ -1631,7 +1647,7 @@ const layoutRows = useMemo(() => {
  onPress: () => {
  resetResizeInteractionState();
 
- setLayout((current) => {
+ setDashboardLayoutImmediate((current) => {
  if (current.length <= 1) {
  Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
  return current;
@@ -1648,7 +1664,7 @@ const layoutRows = useMemo(() => {
  },
  ],
  );
- }, [dashboardTarget, layout, resetResizeInteractionState]);
+ }, [dashboardTarget, layout, resetResizeInteractionState, setDashboardLayoutImmediate]);
 
 const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, nextSize, options = {}) => {
  if (!targetWidgetId || !nextSize) {
@@ -1718,10 +1734,10 @@ const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, 
 const resizeLayoutItem = useCallback((widgetId, nextSize) => {
  if (!widgetId || !nextSize) return;
 
- setLayout((prev) => buildResizedLayoutWithReflow(prev, widgetId, nextSize, {
+ setDashboardLayoutImmediate((prev) => buildResizedLayoutWithReflow(prev, widgetId, nextSize, {
  isPreview: false,
  }));
-}, [buildResizedLayoutWithReflow]);
+}, [buildResizedLayoutWithReflow, setDashboardLayoutImmediate]);
 
 const getLayoutPreviewSignature = useCallback((items) => {
  return Array.isArray(items)
@@ -1910,10 +1926,13 @@ const getLayoutPreviewSignature = useCallback((items) => {
  }
 
  try {
- await Promise.all([
- saveDashboardLayoutForChallenge(challengeId, layout, dashboardTarget),
- saveDashboardRowGapForChallenge(challengeId, rowGap),
- ]);
+ const layoutToSave = Array.isArray(layoutRef.current) && layoutRef.current.length > 0
+   ? layoutRef.current.map((item) => ({ ...item }))
+   : layout;
+
+ await saveDashboardLayoutForChallenge(challengeId, layoutToSave, dashboardTarget);
+ await saveDashboardRowGapForChallenge(challengeId, rowGap);
+
  const returnRouteKey = route?.params?.returnRouteKey;
     const dashboardEditReturnedAt = Date.now();
 
@@ -1922,7 +1941,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
         ...CommonActions.setParams({
           dashboardEditReturnMode: 'save',
           dashboardEditReturnedAt,
-          dashboardEditLayout: Array.isArray(layout) ? layout.map((item) => ({ ...item })) : [],
+          dashboardEditLayout: Array.isArray(layoutToSave) ? layoutToSave.map((item) => ({ ...item })) : [],
           dashboardEditRowGap: rowGap,
         }),
         source: returnRouteKey,
@@ -1935,7 +1954,8 @@ const getLayoutPreviewSignature = useCallback((items) => {
     }
     navigation.goBack();
  } catch (error) {
- console.log('대시보드 저장 실패:', error?.message || error);
+ const errorMessage = error?.message || String(error);
+ console.log('대시보드 저장 실패:', errorMessage);
  Alert.alert('오류', '대시보드를 저장하지 못했습니다.');
  }
  }, [challengeId, dashboardTarget, layout, navigation, route?.params, rowGap]);

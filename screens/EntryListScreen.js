@@ -658,6 +658,31 @@ const MonthCalendar = memo(function MonthCalendar({
     includeFontPadding: false,
   };
 
+  const isCompactCalendar = CALENDAR_SCALE <= 0.85;
+  const compactCertBadgeHeight = Math.max(
+    calBadgeFontSize + scaleCal(5.2, 4.6, 6.2),
+    Math.min(calCellH - scaleCal(1.2, 0.8, 1.6), scaleCal(18, 16, 20))
+  );
+
+  const compactCertBadgeAdjustStyle = isCompactCalendar
+    ? {
+        minWidth: calBadgeMinWidth + scaleCal(1.4, 1.2, 2.2),
+        height: compactCertBadgeHeight,
+        paddingVertical: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ translateY: scaleCal(1.2, 0.8, 1.6) }],
+      }
+    : null;
+
+  const compactCertBadgeTextCenterStyle = isCompactCalendar
+    ? {
+        lineHeight: compactCertBadgeHeight,
+        textAlignVertical: 'center',
+        transform: [{ translateY: scaleCal(0.7, 0.5, 1) }],
+      }
+    : null;
+
   const inRange = (d) => {
     const ds = new Date(startDate); ds.setHours(0,0,0,0);
     const de = new Date(endDate); de.setHours(23,59,59,999);
@@ -723,8 +748,8 @@ const MonthCalendar = memo(function MonthCalendar({
             if (cert) {
               return (
                 <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
-                  <View style={[styles.calBadge, calBadgeDynamicStyle, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
-                    <Text style={[styles.calBadgeText, calBadgeTextDynamicStyle]}>{d.getDate()}</Text>
+                  <View style={[styles.calBadge, calBadgeDynamicStyle, compactCertBadgeAdjustStyle, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
+                    <Text style={[styles.calBadgeText, calBadgeTextDynamicStyle, compactCertBadgeTextCenterStyle]}>{d.getDate()}</Text>
                   </View>
                 </View>
               );

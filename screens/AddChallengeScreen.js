@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -92,6 +92,14 @@ export default function AddChallengeScreen() {
   const [showEndPicker, setShowEndPicker] = useState(false);
   const saveDraftDebounce = useRef(null);
   const suppressDraftRef = useRef(false);
+  const formScrollRef = useRef(null);
+  const descriptionInputRef = useRef(null);
+  const rewardInputRef = useRef(null);
+  const focusedInputRef = useRef(null);
+  const keyboardFrameRef = useRef(null);
+  const keyboardVisibleRef = useRef(false);
+  const scrollYRef = useRef(0);
+  const [keyboardBottomInset, setKeyboardBottomInset] = useState(0);
 const handleGoalChange = useCallback((txt)=>{
     const digits = (txt || '').replace(/[^\d]/g, '');
     if (!digits) { setCGoalScore(''); return; }
@@ -100,6 +108,69 @@ const handleGoalChange = useCallback((txt)=>{
     if (n > LIMITS.maxGoal) n = LIMITS.maxGoal;
     setCGoalScore(String(n));
   }, []);
+
+  const measureAndScrollToInput = useCallback((inputRef, extraOffset = 48) => {
+    const input = inputRef?.current;
+    const keyboardFrame = keyboardFrameRef.current;
+
+    if (!input?.measureInWindow || !keyboardFrame?.screenY) return;
+
+    requestAnimationFrame(() => {
+      input.measureInWindow((x, y, width, height) => {
+        const inputBottom = y + height;
+        const overlap = inputBottom + extraOffset - keyboardFrame.screenY;
+
+        if (overlap <= 0) return;
+
+        formScrollRef.current?.scrollTo({
+          y: Math.max(0, scrollYRef.current + overlap),
+          animated: false,
+        });
+      });
+    });
+  }, []);
+
+  const scrollToFocusedInput = useCallback((inputRef, extraOffset = 48) => {
+    focusedInputRef.current = inputRef;
+
+    if (!keyboardVisibleRef.current) return;
+
+    setTimeout(() => {
+      measureAndScrollToInput(inputRef, extraOffset);
+    }, 30);
+  }, [measureAndScrollToInput]);
+
+  useEffect(() => {
+    const handleKeyboardFrame = (event) => {
+      const nextFrame = event?.endCoordinates || null;
+      keyboardFrameRef.current = nextFrame;
+      keyboardVisibleRef.current = true;
+
+      const nextKeyboardHeight = Math.max(0, Number(nextFrame?.height) || 0);
+      setKeyboardBottomInset(nextKeyboardHeight);
+
+      if (focusedInputRef.current) {
+        setTimeout(() => {
+          measureAndScrollToInput(focusedInputRef.current, 48);
+        }, 30);
+      }
+    };
+
+    const showSub = Keyboard.addListener('keyboardDidShow', handleKeyboardFrame);
+    const changeSub = Keyboard.addListener('keyboardDidChangeFrame', handleKeyboardFrame);
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardFrameRef.current = null;
+      keyboardVisibleRef.current = false;
+      focusedInputRef.current = null;
+      setKeyboardBottomInset(0);
+    });
+
+    return () => {
+      showSub.remove();
+      changeSub.remove();
+      hideSub.remove();
+    };
+  }, [measureAndScrollToInput]);
 
   useEffect(() => {
     if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
@@ -153,6 +224,11 @@ const handleGoalChange = useCallback((txt)=>{
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
       <BackButton title="도전/습관 추가" />
       <View style={styles.tabWrap}>
         <TouchableOpacity style={[styles.tabBtn, !habitMode && styles.tabBtnActive]} onPress={() => setHabitMode(false)}>
@@ -162,7 +238,19 @@ const handleGoalChange = useCallback((txt)=>{
           <Text style={[styles.tabText, habitMode && styles.tabTextActive]}>습관 기록</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        ref={formScrollRef}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(spacing.xl * 3, keyboardBottomInset + spacing.xl * 2) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        onScroll={(event) => {
+          scrollYRef.current = event?.nativeEvent?.contentOffset?.y || 0;
+        }}
+        scrollEventThrottle={16}
+      >
         <View style={styles.card}>
           <Text style={styles.cardTitle}>기본 정보</Text>
           <Text style={styles.label}>{habitMode ? '습관 제목' : '도전 제목'}</Text>
@@ -174,7 +262,7 @@ const handleGoalChange = useCallback((txt)=>{
             </>
           )}
           <Text style={[styles.label, { marginTop: 15 }]}>{habitMode ? '습관 내용' : '도전 내용'}</Text>
-          <TextInput value={description} onChangeText={setDescription} placeholder="도전의 구체적인 내용을 적어주세요" style={[styles.input, styles.textarea]} multiline textAlignVertical="top" maxLength={LIMITS.description} />
+          <TextInput ref={descriptionInputRef} value={description} onChangeText={setDescription} placeholder="도전의 구체적인 내용을 적어주세요" style={[styles.input, styles.textarea]} multiline textAlignVertical="top" maxLength={LIMITS.description} onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)} />
           <View style={styles.row}>
             <View style={styles.col}>
               <Text style={styles.label}>시작일</Text>
@@ -211,7 +299,7 @@ const handleGoalChange = useCallback((txt)=>{
         ) : (
           <View style={[styles.card, { marginTop: 20 }]}>
             <Text style={styles.cardTitle}>보상</Text>
-            <TextInput value={reward} onChangeText={setReward} placeholder="보상을 입력하세요" style={styles.input} />
+            <TextInput ref={rewardInputRef} value={reward} onChangeText={setReward} placeholder="보상을 입력하세요" style={styles.input} onFocus={() => scrollToFocusedInput(rewardInputRef, 48)} />
           </View>
         )}
         <SettingSectionCard
@@ -370,11 +458,12 @@ const handleGoalChange = useCallback((txt)=>{
 
       <DateTimePickerModal isVisible={showStartPicker} mode="date" date={startDate || new Date()} onConfirm={d => { setStartDate(d); setShowStartPicker(false); }} onCancel={() => setShowStartPicker(false)} />
       <DateTimePickerModal isVisible={showEndPicker} mode="date" date={endDate || new Date()} onConfirm={d => { setEndDate(d); setShowEndPicker(false); }} onCancel={() => setShowEndPicker(false)} />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
+  container: { padding: spacing.lg, paddingBottom: spacing.xl * 3, backgroundColor: PALETTE.gray50 },
   card: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md, padding: spacing.lg },
   cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
   label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },

@@ -69,7 +69,7 @@ const toEntryTimestamp = (value) => {
 // - 🔧 폴리싱: 중복 탭 방지(busy), try/finally로 상태 복구
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -133,6 +133,77 @@ const MAX_MINUTES = 1440; // 24시간
   const [dateEditEnabled, setDateEditEnabled] = useState(false);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const submittedRef = useRef(false);
+  const formScrollRef = useRef(null);
+  const entryTextInputRef = useRef(null);
+  const durationInputRef = useRef(null);
+  const focusedInputRef = useRef(null);
+  const keyboardFrameRef = useRef(null);
+  const keyboardVisibleRef = useRef(false);
+  const scrollYRef = useRef(0);
+  const [keyboardBottomInset, setKeyboardBottomInset] = useState(0);
+
+  const measureAndScrollToInput = useCallback((inputRef, extraOffset = 48) => {
+    const input = inputRef?.current;
+    const keyboardFrame = keyboardFrameRef.current;
+
+    if (!input?.measureInWindow || !keyboardFrame?.screenY) return;
+
+    requestAnimationFrame(() => {
+      input.measureInWindow((x, y, width, height) => {
+        const inputBottom = y + height;
+        const overlap = inputBottom + extraOffset - keyboardFrame.screenY;
+
+        if (overlap <= 0) return;
+
+        formScrollRef.current?.scrollTo({
+          y: Math.max(0, scrollYRef.current + overlap),
+          animated: false,
+        });
+      });
+    });
+  }, []);
+
+  const scrollToFocusedInput = useCallback((inputRef, extraOffset = 48) => {
+    focusedInputRef.current = inputRef;
+
+    if (!keyboardVisibleRef.current) return;
+
+    setTimeout(() => {
+      measureAndScrollToInput(inputRef, extraOffset);
+    }, 30);
+  }, [measureAndScrollToInput]);
+
+  useEffect(() => {
+    const handleKeyboardFrame = (event) => {
+      const nextFrame = event?.endCoordinates || null;
+      keyboardFrameRef.current = nextFrame;
+      keyboardVisibleRef.current = true;
+
+      const nextKeyboardHeight = Math.max(0, Number(nextFrame?.height) || 0);
+      setKeyboardBottomInset(nextKeyboardHeight);
+
+      if (focusedInputRef.current) {
+        setTimeout(() => {
+          measureAndScrollToInput(focusedInputRef.current, 48);
+        }, 30);
+      }
+    };
+
+    const showSub = Keyboard.addListener('keyboardDidShow', handleKeyboardFrame);
+    const changeSub = Keyboard.addListener('keyboardDidChangeFrame', handleKeyboardFrame);
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardFrameRef.current = null;
+      keyboardVisibleRef.current = false;
+      focusedInputRef.current = null;
+      setKeyboardBottomInset(0);
+    });
+
+    return () => {
+      showSub.remove();
+      changeSub.remove();
+      hideSub.remove();
+    };
+  }, [measureAndScrollToInput]);
 
   // 화면 포커스될 때마다 state 초기화
   useFocusEffect(
@@ -478,8 +549,25 @@ const MAX_MINUTES = 1440; // 24시간
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
       <BackButton title="인증/기록 하기" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        ref={formScrollRef}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(spacing.xl * 3, keyboardBottomInset + spacing.xl * 2) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        onScroll={(event) => {
+          scrollYRef.current = event?.nativeEvent?.contentOffset?.y || 0;
+        }}
+        scrollEventThrottle={16}
+      >
       {/* 제목 중앙 정렬 */}
 
 
@@ -557,6 +645,7 @@ const MAX_MINUTES = 1440; // 24시간
 
         {/* "텍스트" 라벨 제거, 인증내용 500자, 자동 높이 확장 */}
         <TextInput
+          ref={entryTextInputRef}
           value={text}
           onChangeText={(t) => setText((t || '').slice(0, MAX_TEXT_LEN))}
           placeholder="인증 내용을 입력하세요"
@@ -565,6 +654,7 @@ const MAX_MINUTES = 1440; // 24시간
           editable={!busy}
           placeholderTextColor={PALETTE.gray400}
           maxLength={MAX_TEXT_LEN}
+          onFocus={() => scrollToFocusedInput(entryTextInputRef, 48)}
           onContentSizeChange={e => {
             const h = e?.nativeEvent?.contentSize?.height || 0;
             const minH = 120; // 최소
@@ -575,12 +665,14 @@ const MAX_MINUTES = 1440; // 24시간
 
         <Text style={[styles.label, { marginTop: spacing.md }]}>소요 시간(분)</Text>
         <TextInput
+          ref={durationInputRef}
           value={duration}
           onChangeText={handleDurationChange}
           placeholder="숫자만 입력"
           style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
           editable={!busy}
           placeholderTextColor={PALETTE.gray400}
+          onFocus={() => scrollToFocusedInput(durationInputRef, 48)}
           {...numericInputProps}
         />
       </View>
@@ -594,12 +686,13 @@ const MAX_MINUTES = 1440; // 24시간
         <Text style={buttonStyles.primary.label}>제출하기</Text>
       </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
+  container: { padding: spacing.lg, paddingBottom: spacing.xl * 3, backgroundColor: PALETTE.gray50 },
   screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign: 'center' },
 
   titleBox: {

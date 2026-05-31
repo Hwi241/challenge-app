@@ -20,6 +20,7 @@ import {
   Platform,
   PanResponder,
   Animated,
+  Easing,
   InteractionManager,
   useWindowDimensions,
   } from 'react-native';
@@ -1380,6 +1381,35 @@ const DashboardGoalWidget = memo(function DashboardGoalWidget({
   rewardText,
 }) {
   const [box, setBox] = useState({ width: 0, height: 0 });
+  const [measuredTextWidth, setMeasuredTextWidth] = useState(0);
+  const marqueeXRef = useRef(new Animated.Value(0));
+  const marqueeX = marqueeXRef.current;
+
+  const GOAL_FONT_SIZE = 18;
+  const GOAL_LINE_HEIGHT = 22;
+  const GOAL_PADDING_V = 10;
+  const GOAL_PADDING_H = 16;
+  const GOAL_RADIUS = 12;
+  const GOAL_MARQUEE_GAP = 36;
+
+  const goalText = String(rewardText ?? '—');
+  const estimatedTextWidth = Math.ceil(goalText.length * GOAL_FONT_SIZE * 0.9);
+  const effectiveTextWidth = Math.max(measuredTextWidth, estimatedTextWidth);
+  const textViewportWidth = Math.max(1, box.width - GOAL_PADDING_H * 2);
+  const shouldMarquee = effectiveTextWidth > textViewportWidth + 2;
+
+  const fixedGoalTextStyle = {
+    fontSize: GOAL_FONT_SIZE,
+    lineHeight: GOAL_LINE_HEIGHT,
+    includeFontPadding: false,
+    textAlign: 'center',
+  };
+
+  const marqueeGoalTextStyle = {
+    ...fixedGoalTextStyle,
+    width: effectiveTextWidth,
+    textAlign: 'left',
+  };
 
   const onLayout = useCallback((event) => {
     const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
@@ -1393,20 +1423,46 @@ const DashboardGoalWidget = memo(function DashboardGoalWidget({
     }
   }, []);
 
-  const GOAL_BASE_HEIGHT = 80;
-  const goalBoxHeight = Math.max(1, box.height || GOAL_BASE_HEIGHT);
-  const GOAL_SCALE_RAW = goalBoxHeight / GOAL_BASE_HEIGHT;
-  const GOAL_SCALE = Math.max(0.75, Math.min(1.45, GOAL_SCALE_RAW));
-  const scaleGoal = (value, min, max) => {
-    const scaled = value * GOAL_SCALE;
-    return Math.max(min, Math.min(max, scaled));
-  };
+  const handleGoalTextLayout = useCallback((event) => {
+    const layoutWidth = Math.ceil(event?.nativeEvent?.layout?.width || 0);
+    const lineWidth = Math.ceil(event?.nativeEvent?.lines?.[0]?.width || 0);
+    const nextWidth = Math.max(layoutWidth, lineWidth);
+    if (nextWidth > 0) {
+      setMeasuredTextWidth((prev) => (
+        Math.abs(prev - nextWidth) <= 1 ? prev : nextWidth
+      ));
+    }
+  }, []);
 
-  const goalPaddingV = Math.round(scaleGoal(10, 6, 18));
-  const goalPaddingH = Math.round(scaleGoal(16, 10, 28));
-  const goalRadius = Math.round(scaleGoal(12, 8, 20));
-  const goalFontSize = scaleGoal(17, 13, 20);
-  const goalLineHeight = Math.round(scaleGoal(21, 16, 26));
+  useEffect(() => {
+    marqueeX.stopAnimation();
+    marqueeX.setValue(0);
+
+    if (!shouldMarquee || effectiveTextWidth <= 0) {
+      return undefined;
+    }
+
+    const travelDistance = effectiveTextWidth + GOAL_MARQUEE_GAP;
+    const duration = Math.max(5200, Math.round(travelDistance * 36));
+
+    const animation = Animated.loop(
+      Animated.timing(marqueeX, {
+        toValue: -travelDistance,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+      { resetBeforeIteration: true }
+    );
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+      marqueeX.stopAnimation();
+      marqueeX.setValue(0);
+    };
+  }, [marqueeX, shouldMarquee, effectiveTextWidth]);
 
   return (
     <View style={styles.goalWidgetArea} onLayout={onLayout}>
@@ -1415,27 +1471,58 @@ const DashboardGoalWidget = memo(function DashboardGoalWidget({
           styles.rewardBlackBox,
           {
             minHeight: 0,
-            borderRadius: goalRadius,
-            paddingVertical: goalPaddingV,
-            paddingHorizontal: goalPaddingH,
+            borderRadius: GOAL_RADIUS,
+            paddingVertical: GOAL_PADDING_V,
+            paddingHorizontal: GOAL_PADDING_H,
           },
         ]}
       >
-        <Text
-          numberOfLines={2}
-          ellipsizeMode="tail"
-          style={[
-            styles.rewardBlackText,
-            {
-              fontSize: goalFontSize,
-              lineHeight: goalLineHeight,
-              includeFontPadding: false,
-              textAlign: 'center',
-            },
-          ]}
+        <View
+          style={{
+            width: '100%',
+            overflow: 'hidden',
+            alignItems: shouldMarquee ? 'flex-start' : 'center',
+            justifyContent: 'center',
+          }}
         >
-          {rewardText ?? '—'}
-        </Text>
+          {shouldMarquee ? (
+            <Animated.View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                transform: [{ translateX: marqueeX }],
+              }}
+            >
+              <Text
+                onLayout={handleGoalTextLayout}
+                onTextLayout={handleGoalTextLayout}
+                numberOfLines={1}
+                ellipsizeMode="clip"
+                style={[styles.rewardBlackText, marqueeGoalTextStyle]}
+              >
+                {goalText}
+              </Text>
+              <View style={{ width: GOAL_MARQUEE_GAP }} />
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="clip"
+                style={[styles.rewardBlackText, marqueeGoalTextStyle]}
+              >
+                {goalText}
+              </Text>
+              <View style={{ width: GOAL_MARQUEE_GAP }} />
+            </Animated.View>
+          ) : (
+            <Text
+              onLayout={handleGoalTextLayout}
+              onTextLayout={handleGoalTextLayout}
+              numberOfLines={1}
+              style={[styles.rewardBlackText, fixedGoalTextStyle]}
+            >
+              {goalText}
+            </Text>
+          )}
+        </View>
       </View>
     </View>
   );

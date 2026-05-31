@@ -1931,6 +1931,61 @@ const getLayoutPreviewSignature = useCallback((items) => {
  }
  }, [challengeId, dashboardTarget, layout, navigation, route?.params, rowGap]);
 
+ const renderGraphCardVisualContent = ({
+ titleText,
+ displaySizeText,
+ cardHeight,
+ innerCardHeight,
+ isCompactCard,
+ isResizeActive = false,
+ shouldDimOriginalCard = false,
+ resizeTouchOpacity = null,
+ resizeOverlay = null,
+ actionOverlay = null,
+ }) => (
+ <View style={[
+ styles.resizeFrame,
+ { minHeight: cardHeight, height: cardHeight },
+ ]}>
+ {resizeOverlay}
+
+ <View style={[
+ styles.graphCard,
+ {
+ minHeight: innerCardHeight,
+ height: innerCardHeight,
+ margin: RESIZE_FRAME_INSET,
+ },
+ isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
+ ]}>
+ <Animated.View
+ pointerEvents="none"
+ style={[
+ styles.graphCardVisualSurface,
+ isResizeActive && styles.graphCardResizeActive,
+ isResizeActive && resizeTouchOpacity && { opacity: resizeTouchOpacity },
+ shouldDimOriginalCard && styles.graphCardDimmed,
+ ]}
+ />
+
+ <View style={styles.graphHeader}>
+ <View style={styles.graphTitleGroup}>
+ <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
+ </View>
+ </View>
+ </View>
+
+ {actionOverlay}
+
+ <View
+ pointerEvents="none"
+ style={styles.graphMetaCenterLayer}
+ >
+ <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
+ </View>
+ </View>
+ );
+
  const renderGraphCard = (item, index) => {
  if (item.isPlaceholder) {
    const ph = item;
@@ -2388,19 +2443,7 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  : styles.resizeActiveOverlay;
 
 
- const cardContent = (
- <View
-key={widgetId}
-style={[
-styles.graphCell,
-isResizeActive && styles.graphCellResizeActive,
-]}
->
- <View style={[
- styles.resizeFrame,
- { minHeight: cardHeight, height: cardHeight },
-]}>
- {isResizeActive && (
+ const resizeCornerOverlay = isResizeActive ? (
  <View pointerEvents="box-none" style={resizeOverlayDynamicStyle}>
  <GestureDetector gesture={topRightResizeGesture}>
  <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxTopRight]} />
@@ -2409,53 +2452,38 @@ isResizeActive && styles.graphCellResizeActive,
  <GestureDetector gesture={bottomLeftResizeGesture}>
  <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxBottomLeft]} />
  </GestureDetector>
-
-  </View>
- )}
-
- <View style={[
- styles.graphCard,
- {
- minHeight: innerCardHeight,
- height: innerCardHeight,
- margin: RESIZE_FRAME_INSET,
- },
- isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
-]}>
- <Animated.View
- pointerEvents="none"
- style={[
- styles.graphCardVisualSurface,
- isResizeActive && styles.graphCardResizeActive,
- isResizeActive && { opacity: resizeTouchOpacity },
- shouldDimOriginalCard && styles.graphCardDimmed,
- ]}
- />
-
- <View style={styles.graphHeader}>
- <View style={styles.graphTitleGroup}>
- <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
  </View>
- </View>
-</View>
+ ) : null;
+ const removeActionOverlay = isResizeActive && !isThisGestureDragging ? (
+ <TouchableOpacity
+ style={styles.removeBtnBottomRight}
+ onPress={() => removeGraph(widgetId)}
+ activeOpacity={0.82}
+ >
+ <Text style={styles.removeText}>삭제</Text>
+ </TouchableOpacity>
+ ) : null;
 
- {isResizeActive && !isThisGestureDragging && (
-<TouchableOpacity
-style={styles.removeBtnBottomRight}
-onPress={() => removeGraph(widgetId)}
-activeOpacity={0.82}
->
-<Text style={styles.removeText}>삭제</Text>
-</TouchableOpacity>
-)}
-
+ const cardContent = (
  <View
-pointerEvents="none"
-style={styles.graphMetaCenterLayer}
+key={widgetId}
+style={[
+styles.graphCell,
+isResizeActive && styles.graphCellResizeActive,
+]}
 >
-<Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
- </View>
- </View>
+ {renderGraphCardVisualContent({
+ titleText,
+ displaySizeText,
+ cardHeight,
+ innerCardHeight,
+ isCompactCard,
+ isResizeActive,
+ shouldDimOriginalCard,
+ resizeTouchOpacity,
+ resizeOverlay: resizeCornerOverlay,
+ actionOverlay: removeActionOverlay,
+ })}
  </View>
  );
    return (
@@ -2481,7 +2509,7 @@ style={styles.graphMetaCenterLayer}
    const gy = gestureDragOffset.y;
    const gx = gestureDragOffset.x;
    const slotW = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
-   const overlayW = slotW ? slotW * Math.max(1, Number(o.w || 1)) : '90%';
+   const overlayW = slotW ? Math.max(0, slotW * Math.max(1, Number(o.w || 1)) - GRID_CELL_PADDING * 2) : '90%';
    const overlayH = o.cardHeight || 120;
    const touchX = Number(dragOverlayStart.x) || 0;
    const touchY = Number(dragOverlayStart.y) || 0;
@@ -2489,24 +2517,31 @@ style={styles.graphMetaCenterLayer}
    const touchOffsetY = Math.max(0, Number(dragOverlayTouchOffset.y) || 0);
    const left = touchX ? touchX - touchOffsetX : 16;
    const top = touchY ? touchY - touchOffsetY : 120;
+   const overlayInnerHeight = Math.max(0, overlayH - RESIZE_FRAME_INSET * 2);
+
    return (
-     <View pointerEvents="none" style={{
-       position: 'absolute', zIndex: 9999, elevation: 50,
-       width: overlayW,
-       minHeight: overlayH,
-       left, top,
-       transform: [{ translateX: gx }, { translateY: gy }],
-       borderRadius: 8,
-       borderWidth: 1, borderColor: '#d8d8d8',
-       backgroundColor: '#fff',
-       padding: 12,
-       shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-       shadowOpacity: 0.2, shadowRadius: 12,
-     }}>
-       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-         <Text style={{ fontSize: 15, fontWeight: '800', color: '#111' }} numberOfLines={1}>{o.titleText}</Text>
-       </View>
-       <Text style={{ marginTop: 10, fontSize: 12, color: '#777' }}>{o.safeW + 'x' + o.safeH}</Text>
+     <View
+       pointerEvents="none"
+       style={{
+         position: 'absolute',
+         zIndex: 9999,
+         elevation: 50,
+         width: overlayW,
+         minHeight: overlayH,
+         left,
+         top,
+         transform: [{ translateX: gx }, { translateY: gy }],
+       }}
+     >
+       {renderGraphCardVisualContent({
+         titleText: o.titleText,
+         displaySizeText: o.safeW + 'x' + o.safeH,
+         cardHeight: overlayH,
+         innerCardHeight: overlayInnerHeight,
+         isCompactCard: o.isCompactCard,
+         isResizeActive: false,
+         shouldDimOriginalCard: false,
+       })}
      </View>
    );
  };

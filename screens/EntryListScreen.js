@@ -1555,6 +1555,10 @@ const WeekView = memo(function WeekView({
   const WEEK_DAY_LINE_H = Math.round(scaleWeek(12.5, 10.5, 17));
   const WEEK_DATE_DAY_GAP = Math.round(scaleWeek(2, 1, 5));
   const WEEK_DATE_ROW_HEIGHT = WEEK_DATE_LINE_H + WEEK_DATE_DAY_GAP + WEEK_DAY_LINE_H;
+  const WEEK_HEADER_SLOT_HEIGHT = Math.max(
+    DASHBOARD_WIDGET_HEADER_HEIGHT,
+    WEEK_DATE_ROW_HEIGHT
+  );
 
   const WEEK_BAR_TOP_GAP = Math.round(scaleWeek(6, 4, 12));
   const WEEK_GRAPH_BOTTOM_GAP = Math.round(scaleWeek(8, 6, 16));
@@ -1619,11 +1623,11 @@ const WEEK_TODAY_TEXT_STYLE = {
 
   const renderWeekHeader = useCallback(() => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) {
-      return <View style={{ height: DASHBOARD_WIDGET_HEADER_HEIGHT }} />;
+      return <View style={{ height: WEEK_HEADER_SLOT_HEIGHT }} />;
     }
 
     return (
-      <View style={{ width: '100%', height: DASHBOARD_WIDGET_HEADER_HEIGHT, overflow: 'hidden', justifyContent: 'flex-start' }}>
+      <View style={{ width: '100%', height: WEEK_HEADER_SLOT_HEIGHT, overflow: 'hidden', justifyContent: 'flex-start' }}>
         <Animated.View
           style={{
             flexDirection: 'row',
@@ -1710,6 +1714,7 @@ const WEEK_TODAY_TEXT_STYLE = {
     ROW_W,
     ROW_OFFSET_X,
     COL_W,
+    WEEK_HEADER_SLOT_HEIGHT,
     WEEK_DATE_ROW_HEIGHT,
     WEEK_DATE_DAY_GAP,
     WEEK_DATE_FONT_SIZE,
@@ -1848,8 +1853,8 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
     <DashboardWidgetShell
       header={renderWeekHeader()}
       headerSlotStyle={{
-        height: DASHBOARD_WIDGET_HEADER_HEIGHT,
-        minHeight: DASHBOARD_WIDGET_HEADER_HEIGHT,
+        height: WEEK_HEADER_SLOT_HEIGHT,
+        minHeight: WEEK_HEADER_SLOT_HEIGHT,
         marginTop: DASHBOARD_WIDGET_HEADER_TOP_OFFSET,
       }}
     >

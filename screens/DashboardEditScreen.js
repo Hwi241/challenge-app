@@ -2269,7 +2269,7 @@ const canMoveCard =
          return { widgetId: '__placeholder__', x: tX, y: tY, w: safeW, h: safeH, isPlaceholder: true };
        });
        const hoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
-       const hoverY = originY + (event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
+       const hoverY = originY + ((event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + rowGap));
        const stableHoverX = Math.round(hoverX * 4) / 4;
        const stableHoverY = Math.round(hoverY * 4) / 4;
        lastDropTargetRef.current = {
@@ -2336,7 +2336,7 @@ const canMoveCard =
        const dropX = safeW >= GRID_COLUMNS ? 0 : tX;
        const dropY = tY;
        const fallbackHoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
-       const fallbackHoverY = originY + (event.translationY / (GRID_ROW_HEIGHT + GRID_ROW_GAP));
+       const fallbackHoverY = originY + ((event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + rowGap));
        const stableFallbackHoverX = Math.round(fallbackHoverX * 4) / 4;
        const stableFallbackHoverY = Math.round(fallbackHoverY * 4) / 4;
        moveGraph(widgetId, {
@@ -2374,7 +2374,7 @@ const cardGesture = activeResizeWidgetId
  : Gesture.Exclusive(testGesture, tapResizeGesture);
 
 const cardLeftPx = safeX * slotWidth + GRID_CELL_PADDING;
-const cardTopPx = safeY * (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+const cardTopPx = safeY * (GRID_ROW_HEIGHT + rowGap);
 const ghostVisualFrame = isResizeActive && resizeGhostFrame?.visualFramePx;
 const resizeOverlayDynamicStyle = ghostVisualFrame
  ? {

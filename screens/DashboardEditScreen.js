@@ -1927,6 +1927,11 @@ const getLayoutPreviewSignature = useCallback((items) => {
         }),
         source: returnRouteKey,
       });
+
+      setTimeout(() => {
+        navigation.goBack();
+      }, 50);
+      return;
     }
     navigation.goBack();
  } catch (error) {

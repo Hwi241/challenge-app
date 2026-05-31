@@ -2724,7 +2724,7 @@ export default function EntryListScreen({ route, navigation }) {
         ? 4 * t * t * t
         : 1 - Math.pow(-2 * t + 2, 3) / 2
     );
-    const DUR = 1800;
+    const DUR = 1500;
     const MIN_SETTER_INTERVAL = 22;
     const t0 = Date.now();
     let lastSetterAt = 0;
@@ -3106,9 +3106,11 @@ const runWeek = useCallback(() => {
     skipDashboardReturnIntroRef.current = true;
     skipDashboardReturnReloadRef.current = true;
 
-    setIntroK(1);
     if (normalizedMode === 'save') {
+      setIntroK(0);
       setGrassDashboardReturnTick((tick) => tick + 1);
+    } else {
+      setIntroK(1);
     }
   }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap]);
 
@@ -4109,6 +4111,3 @@ rewardBlockSpacing: {
   modalFieldValue: { fontSize: 13, color: '#111' },
   modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
 });
-
-
-

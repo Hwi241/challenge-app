@@ -1809,6 +1809,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  width,
  height,
  edgeOffset = RESIZE_CORNER_OUTSET,
+ showDiagonal = true,
  }) => {
  const safeWidth = Math.max(1, Number(width) || 1);
  const safeHeight = Math.max(1, Number(height) || 1);
@@ -1886,6 +1887,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  fill="#111"
  />
 
+ {showDiagonal && (
  <AnimatedSvgLine
  x1={bottomLeftJoint.x}
  y1={bottomLeftJoint.y}
@@ -1897,6 +1899,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  strokeDashoffset={resizeDashTranslateX}
  strokeLinecap="butt"
  />
+ )}
  </Svg>
  );
  };
@@ -2518,6 +2521,17 @@ isResizeActive && styles.graphCellResizeActive,
    const left = touchX ? touchX - touchOffsetX : 16;
    const top = touchY ? touchY - touchOffsetY : 120;
    const overlayInnerHeight = Math.max(0, overlayH - RESIZE_FRAME_INSET * 2);
+   const overlayCornerWidth = typeof overlayW === 'number' ? overlayW : 0;
+   const dragMoveCornerOverlay = overlayCornerWidth > 0 ? (
+     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+       {renderResizeCornerDiagonalSvg({
+         width: overlayCornerWidth,
+         height: overlayH,
+         edgeOffset: RESIZE_CORNER_OUTSET,
+         showDiagonal: false,
+       })}
+     </View>
+   ) : null;
 
    return (
      <View
@@ -2541,6 +2555,7 @@ isResizeActive && styles.graphCellResizeActive,
          isCompactCard: o.isCompactCard,
          isResizeActive: false,
          shouldDimOriginalCard: false,
+         actionOverlay: dragMoveCornerOverlay,
        })}
      </View>
    );

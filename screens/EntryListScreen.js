@@ -2718,14 +2718,26 @@ export default function EntryListScreen({ route, navigation }) {
     if (frameRef) {
       cancelKFrame(frameRef);
     }
-    const ease = (t) => 1 - Math.pow(1 - t, 5);
-    const DUR = 2400;
+
+    const ease = (t) => (
+      t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2
+    );
+    const DUR = 1800;
+    const MIN_SETTER_INTERVAL = 22;
     const t0 = Date.now();
+    let lastSetterAt = 0;
 
     const tick = () => {
-      const t = Math.min(1, (Date.now() - t0) / DUR);
+      const now = Date.now();
+      const t = Math.min(1, (now - t0) / DUR);
       const k = ease(t);
-      setter(k);
+
+      if (now - lastSetterAt >= MIN_SETTER_INTERVAL || t >= 1) {
+        setter(k);
+        lastSetterAt = now;
+      }
 
       if (t < 1) {
         const nextFrame = requestAnimationFrame(tick);

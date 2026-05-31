@@ -2538,7 +2538,7 @@ export default function EntryListScreen({ route, navigation }) {
         >
           <DashboardProgressWidget
             overallPct={overallPct}
-            progress={isShare ? undefined : donutK}
+            progress={isShare ? undefined : introK}
             onPress={isShare ? undefined : runDonut}
             disabled={isShare}
           />
@@ -2589,7 +2589,7 @@ export default function EntryListScreen({ route, navigation }) {
             weeksData={weeksData}
             currentIndex={weekIndex}
             onIndexChange={isShare ? undefined : setWeekIndex}
-            introProgress={isShare ? undefined : weekK}
+            introProgress={isShare ? undefined : (hasWeeklyDataReady && !hasWeeklyBarData ? 1 : introK)}
             onPressDay={isShare ? undefined : handlePressDay}
             onTapBar={isShare ? undefined : runWeek}
             challengeStartDate={meta.startDate}
@@ -2617,7 +2617,7 @@ export default function EntryListScreen({ route, navigation }) {
           entries={entries}
           metric="count"
           interactive={!isShare}
-          introProgress={isShare ? undefined : lineK}
+          introProgress={isShare ? undefined : introK}
         />
       );
     }
@@ -2629,7 +2629,7 @@ export default function EntryListScreen({ route, navigation }) {
           entries={entries}
           metric="minutes"
           interactive={!isShare}
-          introProgress={isShare ? undefined : lineK}
+          introProgress={isShare ? undefined : introK}
         />
       );
     }
@@ -2686,13 +2686,9 @@ export default function EntryListScreen({ route, navigation }) {
   const shareRef = useRef(null);
   const [offscreenRenderReady, setOffscreenRenderReady] = useState(false);
   const grassTapRef = useRef(null);
-  const isDonutAnimatingRef = useRef(false);
-  const isWeekAnimatingRef = useRef(false);
-  const isLineAnimatingRef = useRef(false);
+  const isIntroAnimatingRef = useRef(false);
   const isGrassAnimatingRef = useRef(false);
-  const donutAnimFrameRef = useRef(null);
-  const weekAnimFrameRef = useRef(null);
-  const lineAnimFrameRef = useRef(null);
+  const introAnimFrameRef = useRef(null);
   const skipDashboardReturnIntroRef = useRef(false);
   const skipDashboardReturnReloadRef = useRef(false);
   const dashboardReturnSuppressUntilRef = useRef(0);
@@ -2701,9 +2697,7 @@ export default function EntryListScreen({ route, navigation }) {
   const dashboardReturnIntroHandledRef = useRef(false);
 
   /* ── 인트로 애니메이션 ── */
-  const [donutK, setDonutK] = useState(0);
- const [weekK, setWeekK] = useState(0);
- const [lineK, setLineK] = useState(0);
+  const [introK, setIntroK] = useState(0);
   const [grassDashboardReturnTick, setGrassDashboardReturnTick] = useState(0);
  const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
@@ -2716,12 +2710,8 @@ export default function EntryListScreen({ route, navigation }) {
   }, []);
 
   const cancelIntroAnimations = useCallback(() => {
-    cancelKFrame(donutAnimFrameRef);
-    cancelKFrame(weekAnimFrameRef);
-    cancelKFrame(lineAnimFrameRef);
-    isDonutAnimatingRef.current = false;
-    isWeekAnimatingRef.current = false;
-    isLineAnimatingRef.current = false;
+    cancelKFrame(introAnimFrameRef);
+    isIntroAnimatingRef.current = false;
   }, [cancelKFrame]);
 
   const animateK = useCallback((setter, onDone, frameRef = null) => {
@@ -2759,10 +2749,10 @@ export default function EntryListScreen({ route, navigation }) {
   }, [cancelKFrame]);
 
   const runDonut = useCallback(() => {
-    if (isDonutAnimatingRef.current) return;
-    isDonutAnimatingRef.current = true;
-    setDonutK(0);
-    animateK(setDonutK, () => { isDonutAnimatingRef.current = false; }, donutAnimFrameRef);
+    if (isIntroAnimatingRef.current) return;
+    isIntroAnimatingRef.current = true;
+    setIntroK(0);
+    animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
   }, [animateK]);
   const hasWeeklyDataReady = Array.isArray(weeksData) && weeksData.length > 0;
 
@@ -2779,44 +2769,37 @@ const hasWeeklyBarData = useMemo(() => (
 
 const runWeek = useCallback(() => {
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
-      setWeekK(1);
+      setIntroK(1);
       return;
     }
-    if (isWeekAnimatingRef.current) return;
-    isWeekAnimatingRef.current = true;
-    setWeekK(0);
-    animateK(setWeekK, () => { isWeekAnimatingRef.current = false; }, weekAnimFrameRef);
+    if (isIntroAnimatingRef.current) return;
+    isIntroAnimatingRef.current = true;
+    setIntroK(0);
+    animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
   }, [animateK, hasWeeklyDataReady, hasWeeklyBarData]);
  const runLine = useCallback(() => {
-    if (isLineAnimatingRef.current) return;
-    isLineAnimatingRef.current = true;
-    setLineK(0);
-    animateK(setLineK, () => { isLineAnimatingRef.current = false; }, lineAnimFrameRef);
+    if (isIntroAnimatingRef.current) return;
+    isIntroAnimatingRef.current = true;
+    setIntroK(0);
+    animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
   }, [animateK]);
   useEffect(() => {
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
-      setWeekK(1);
+      setIntroK(1);
     }
   }, [hasWeeklyDataReady, hasWeeklyBarData]);
 
   const runAllIntro = useCallback(() => {
     cancelIntroAnimations();
 
-    isDonutAnimatingRef.current = true;
-    setDonutK(0);
-    animateK(setDonutK, () => { isDonutAnimatingRef.current = false; }, donutAnimFrameRef);
-
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
-      setWeekK(1);
-    } else {
-      isWeekAnimatingRef.current = true;
-      setWeekK(0);
-      animateK(setWeekK, () => { isWeekAnimatingRef.current = false; }, weekAnimFrameRef);
+      setIntroK(1);
+      return;
     }
 
-    isLineAnimatingRef.current = true;
-    setLineK(0);
-    animateK(setLineK, () => { isLineAnimatingRef.current = false; }, lineAnimFrameRef);
+    isIntroAnimatingRef.current = true;
+    setIntroK(0);
+    animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
   }, [animateK, cancelIntroAnimations, hasWeeklyDataReady, hasWeeklyBarData]);
 
   /* ── 디버그/리로드 ── */
@@ -3111,9 +3094,7 @@ const runWeek = useCallback(() => {
     skipDashboardReturnIntroRef.current = true;
     skipDashboardReturnReloadRef.current = true;
 
-    setDonutK(1);
-    setWeekK(1);
-    setLineK(1);
+    setIntroK(1);
     if (normalizedMode === 'save') {
       setGrassDashboardReturnTick((tick) => tick + 1);
     }
@@ -3156,16 +3137,12 @@ const runWeek = useCallback(() => {
           if (dashboardReturnMode === 'cancel') {
             if (!dashboardReturnIntroHandledRef.current) {
               dashboardReturnIntroHandledRef.current = true;
-              setDonutK(1);
-              setWeekK(1);
-              setLineK(1);
+              setIntroK(1);
             }
             return;
           }
 
-          setDonutK(1);
-          setWeekK(1);
-          setLineK(1);
+          setIntroK(1);
           return;
         }
         runAllIntro();
@@ -3410,7 +3387,7 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, donutK, weekK, lineK, entries, overallPct, highlightDate
+    weekIndex, introK, entries, overallPct, highlightDate
   , dashboardLayout, dashboardRowGap,
     displayTitle
   ]);

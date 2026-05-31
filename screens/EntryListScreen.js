@@ -2688,7 +2688,11 @@ export default function EntryListScreen({ route, navigation }) {
   const grassTapRef = useRef(null);
   const isDonutAnimatingRef = useRef(false);
   const isWeekAnimatingRef = useRef(false);
+  const isLineAnimatingRef = useRef(false);
   const isGrassAnimatingRef = useRef(false);
+  const donutAnimFrameRef = useRef(null);
+  const weekAnimFrameRef = useRef(null);
+  const lineAnimFrameRef = useRef(null);
   const skipDashboardReturnIntroRef = useRef(false);
   const skipDashboardReturnReloadRef = useRef(false);
   const dashboardReturnSuppressUntilRef = useRef(0);
@@ -2704,31 +2708,62 @@ export default function EntryListScreen({ route, navigation }) {
  const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const animateK = useCallback((setter, onDone) => {
+  const cancelKFrame = useCallback((frameRef) => {
+    if (frameRef?.current) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+  }, []);
+
+  const cancelIntroAnimations = useCallback(() => {
+    cancelKFrame(donutAnimFrameRef);
+    cancelKFrame(weekAnimFrameRef);
+    cancelKFrame(lineAnimFrameRef);
+    isDonutAnimatingRef.current = false;
+    isWeekAnimatingRef.current = false;
+    isLineAnimatingRef.current = false;
+  }, [cancelKFrame]);
+
+  const animateK = useCallback((setter, onDone, frameRef = null) => {
+    if (frameRef) {
+      cancelKFrame(frameRef);
+    }
     const ease = (t) => 1 - Math.pow(1 - t, 5);
     const DUR = 2400;
     const t0 = Date.now();
-    let raf;
+
     const tick = () => {
       const t = Math.min(1, (Date.now() - t0) / DUR);
       const k = ease(t);
       setter(k);
+
       if (t < 1) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        if (typeof onDone === 'function') onDone();
+        const nextFrame = requestAnimationFrame(tick);
+        if (frameRef) {
+          frameRef.current = nextFrame;
+        }
+        return;
       }
+
+      if (frameRef) {
+        frameRef.current = null;
+      }
+      if (typeof onDone === 'function') onDone();
     };
-    raf = requestAnimationFrame(tick);
-    return raf;
-  }, []);
+
+    const firstFrame = requestAnimationFrame(tick);
+    if (frameRef) {
+      frameRef.current = firstFrame;
+    }
+    return firstFrame;
+  }, [cancelKFrame]);
 
   const runDonut = useCallback(() => {
     if (isDonutAnimatingRef.current) return;
     isDonutAnimatingRef.current = true;
     setDonutK(0);
-    animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
-  }, [animateK, hasWeeklyDataReady, hasWeeklyBarData]);
+    animateK(setDonutK, () => { isDonutAnimatingRef.current = false; }, donutAnimFrameRef);
+  }, [animateK]);
   const hasWeeklyDataReady = Array.isArray(weeksData) && weeksData.length > 0;
 
 const hasWeeklyBarData = useMemo(() => (
@@ -2750,9 +2785,14 @@ const runWeek = useCallback(() => {
     if (isWeekAnimatingRef.current) return;
     isWeekAnimatingRef.current = true;
     setWeekK(0);
-    animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
+    animateK(setWeekK, () => { isWeekAnimatingRef.current = false; }, weekAnimFrameRef);
   }, [animateK, hasWeeklyDataReady, hasWeeklyBarData]);
- const runLine = useCallback(() => {  animateK(setLineK); }, [animateK]);
+ const runLine = useCallback(() => {
+    if (isLineAnimatingRef.current) return;
+    isLineAnimatingRef.current = true;
+    setLineK(0);
+    animateK(setLineK, () => { isLineAnimatingRef.current = false; }, lineAnimFrameRef);
+  }, [animateK]);
   useEffect(() => {
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
       setWeekK(1);
@@ -2760,23 +2800,24 @@ const runWeek = useCallback(() => {
   }, [hasWeeklyDataReady, hasWeeklyBarData]);
 
   const runAllIntro = useCallback(() => {
-    if (!isDonutAnimatingRef.current) {
-      isDonutAnimatingRef.current = true;
-      setDonutK(0);
-      animateK(setDonutK, () => { isDonutAnimatingRef.current = false; });
+    cancelIntroAnimations();
+
+    isDonutAnimatingRef.current = true;
+    setDonutK(0);
+    animateK(setDonutK, () => { isDonutAnimatingRef.current = false; }, donutAnimFrameRef);
+
+    if (hasWeeklyDataReady && !hasWeeklyBarData) {
+      setWeekK(1);
+    } else {
+      isWeekAnimatingRef.current = true;
+      setWeekK(0);
+      animateK(setWeekK, () => { isWeekAnimatingRef.current = false; }, weekAnimFrameRef);
     }
-    if (!isWeekAnimatingRef.current) {
-      if (hasWeeklyDataReady && !hasWeeklyBarData) {
-        setWeekK(1);
-      } else {
-        isWeekAnimatingRef.current = true;
-        setWeekK(0);
-        animateK(setWeekK, () => { isWeekAnimatingRef.current = false; });
-      }
-    }
+
+    isLineAnimatingRef.current = true;
     setLineK(0);
-    animateK(setLineK);
-  }, [animateK]);
+    animateK(setLineK, () => { isLineAnimatingRef.current = false; }, lineAnimFrameRef);
+  }, [animateK, cancelIntroAnimations, hasWeeklyDataReady, hasWeeklyBarData]);
 
   /* ── 디버그/리로드 ── */
   const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
@@ -3176,13 +3217,14 @@ const runWeek = useCallback(() => {
   useEffect(()=>()=>{
     aliveRef.current = false;
     loadingRef.current = false;
+    cancelIntroAnimations();
     if (dashboardReturnSuppressTimerRef.current) {
       clearTimeout(dashboardReturnSuppressTimerRef.current);
       dashboardReturnSuppressTimerRef.current = null;
     }
     dashboardReturnModeRef.current = null;
     dashboardReturnIntroHandledRef.current = false;
-  },[]);
+  },[cancelIntroAnimations]);
 
   const overallPct = useMemo(
     () => { if (!targetScore) return 0; const pct = Math.round((currentScore / targetScore) * 100); return isNaN(pct) ? 0 : Math.min(Math.max(0, pct), 100); },

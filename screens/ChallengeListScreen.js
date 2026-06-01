@@ -21,9 +21,10 @@ const CARD_BORDER = '#E5E7EB';
 const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
-const CARD_COLLAPSE_ANIM_MS = 260;
+const CARD_COLLAPSE_ANIM_MS = 320;
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
+const COLLAPSED_CARDS_KEY = 'ch_collapsed_cards';
 
 const CHALLENGE_CARD_VARIANTS = {
   LIST: 'list',
@@ -421,7 +422,7 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
             activeOpacity={0.85}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.cardCollapseToggleText}>−</Text>
+            <Text style={styles.cardCollapseToggleText}>˄</Text>
           </TouchableOpacity>
         )}
         {Indicator}
@@ -634,7 +635,7 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
         activeOpacity={0.85}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.compactExpandText}>＋</Text>
+        <Text style={styles.compactExpandText}>˅</Text>
       </TouchableOpacity>
 
       {item.type === 'habit' ? (
@@ -825,9 +826,32 @@ export default function ChallengeListScreen() {
   const collapsedIdsRef = useRef({});
   const restoreCollapsedAfterReorderRef = useRef(null);
 
+  const persistCollapsedIds = useCallback(async (nextMap) => {
+    try {
+      await AsyncStorage.setItem(COLLAPSED_CARDS_KEY, JSON.stringify(nextMap || {}));
+    } catch (e) {
+      console.warn('[ChallengeList][collapsed] save failed', e);
+    }
+  }, []);
+
   useEffect(() => {
     collapsedIdsRef.current = collapsedIds;
   }, [collapsedIds]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(COLLAPSED_CARDS_KEY);
+        const parsed = parseJson(raw);
+        const next = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        collapsedIdsRef.current = next;
+        setCollapsedIds(next);
+      } catch (e) {
+        console.warn('[ChallengeList][collapsed] load failed', e);
+      }
+    })();
+  }, [isFocused]);
 
   /* 플로팅 복제 */
   const floatLeft = useRef(new Animated.Value(0)).current;
@@ -930,13 +954,17 @@ export default function ChallengeListScreen() {
     const restoreId = restoreCollapsedAfterReorderRef.current;
     restoreCollapsedAfterReorderRef.current = null;
     if (restoreId) {
-      setCollapsedIds((prev) => ({ ...prev, [safeStringId(restoreId)]: true }));
+      setCollapsedIds((prev) => {
+        const next = { ...prev, [safeStringId(restoreId)]: true };
+        persistCollapsedIds(next);
+        return next;
+      });
     }
     setSelectedId(null);
     setReorderActive(false);
     setFloatWidth(0);
     animLockRef.current = false;
-  }, [persistChallenges]);
+  }, [persistChallenges, persistCollapsedIds]);
 
   const applySortMode = useCallback((mode) => {
     setShowSortModal(false);
@@ -1001,8 +1029,12 @@ export default function ChallengeListScreen() {
     const id = safeStringId(item?.id);
     if (!id) return;
     animateCardResize();
-    setCollapsedIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, [animateCardResize, reorderActive]);
+    setCollapsedIds((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      persistCollapsedIds(next);
+      return next;
+    });
+  }, [animateCardResize, persistCollapsedIds, reorderActive]);
 
   /* 좌표 측정 */
   const measureNow = useCallback((id) => {
@@ -1492,21 +1524,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardCollapseToggleBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    width: 22,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
+    marginRight: 10,
   },
   cardCollapseToggleText: {
-    fontSize: 16,
-    lineHeight: 16,
-    fontWeight: '900',
-    color: '#111',
+    fontSize: 15,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: colors.gray500,
     includeFontPadding: false,
   },
   compactCardRow: {
@@ -1532,45 +1560,41 @@ const styles = StyleSheet.create({
     minWidth: 12,
   },
   compactExpandBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
+    width: 20,
+    height: 30,
+    alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: 8,
+    marginLeft: 12,
   },
   compactExpandText: {
-    fontSize: 14,
-    lineHeight: 14,
-    fontWeight: '900',
-    color: '#111',
+    fontSize: 15,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: colors.gray500,
     includeFontPadding: false,
   },
   compactPctText: {
-    minWidth: 34,
+    width: 38,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '900',
     color: '#111',
-    marginLeft: 6,
+    marginLeft: 4,
   },
   compactHabitIndicator: {
-    marginLeft: 6,
-    width: 28,
+    marginLeft: 4,
+    width: 38,
     alignItems: 'center',
   },
   compactActionBtn: {
     height: 30,
-    minWidth: 46,
-    paddingHorizontal: 10,
+    width: 52,
+    paddingHorizontal: 0,
     borderRadius: 10,
     backgroundColor: '#111',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 6,
+    marginLeft: 4,
   },
   compactRewardBtn: {
     backgroundColor: '#FFFFFF',
@@ -1696,19 +1720,19 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   profileIconWrap: {
-    width: 24, height: 24,
+    width: 22, height: 22,
     alignItems: 'center', justifyContent: 'center',
   },
   profileIconHead: {
-    width: 9, height: 9,
-    borderRadius: 4.5,
+    width: 8, height: 8,
+    borderRadius: 4,
     backgroundColor: '#fff',
     marginBottom: 2,
   },
   profileIconBody: {
-    width: 19, height: 11,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    width: 17, height: 10,
+    borderTopLeftRadius: 9,
+    borderTopRightRadius: 9,
     borderBottomLeftRadius: 4,
     borderBottomRightRadius: 4,
     backgroundColor: '#fff',
@@ -1720,7 +1744,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
   },
-  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 20, lineHeight: 22, includeFontPadding: false },
+  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 25, lineHeight: 27, includeFontPadding: false },
 
   /* 정렬 스크림 */
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },

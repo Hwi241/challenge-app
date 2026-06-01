@@ -2841,7 +2841,7 @@ export default function EntryListScreen({ route, navigation }) {
         ? 4 * t * t * t
         : 1 - Math.pow(-2 * t + 2, 3) / 2
     );
-    const DUR = 1500;
+    const DUR = 900;
     const MIN_SETTER_INTERVAL = 22;
     const t0 = Date.now();
     let lastSetterAt = 0;

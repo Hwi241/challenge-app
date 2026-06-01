@@ -2655,7 +2655,7 @@ export default function EntryListScreen({ route, navigation }) {
         >
           <DashboardProgressWidget
             overallPct={overallPct}
-            progress={isShare ? undefined : introK}
+            progress={isShare ? undefined : donutProgressK}
             onPress={isShare ? undefined : runDonut}
             disabled={isShare}
           />
@@ -2706,7 +2706,7 @@ export default function EntryListScreen({ route, navigation }) {
             weeksData={weeksData}
             currentIndex={weekIndex}
             onIndexChange={isShare ? undefined : setWeekIndex}
-            introProgress={isShare ? undefined : (hasWeeklyDataReady && !hasWeeklyBarData ? 1 : introK)}
+            introProgress={isShare ? undefined : (hasWeeklyDataReady && !hasWeeklyBarData ? 1 : weekProgressK)}
             onPressDay={isShare ? undefined : handlePressDay}
             onTapBar={isShare ? undefined : runWeek}
             challengeStartDate={meta.startDate}
@@ -2804,8 +2804,12 @@ export default function EntryListScreen({ route, navigation }) {
   const [offscreenRenderReady, setOffscreenRenderReady] = useState(false);
   const grassTapRef = useRef(null);
   const isIntroAnimatingRef = useRef(false);
+  const isDonutTapAnimatingRef = useRef(false);
+  const isWeekTapAnimatingRef = useRef(false);
   const isGrassAnimatingRef = useRef(false);
   const introAnimFrameRef = useRef(null);
+  const donutTapAnimFrameRef = useRef(null);
+  const weekTapAnimFrameRef = useRef(null);
   const skipDashboardReturnIntroRef = useRef(false);
   const skipDashboardReturnReloadRef = useRef(false);
   const dashboardReturnSuppressUntilRef = useRef(0);
@@ -2815,6 +2819,8 @@ export default function EntryListScreen({ route, navigation }) {
 
   /* ── 인트로 애니메이션 ── */
   const [introK, setIntroK] = useState(0);
+  const [donutK, setDonutK] = useState(1);
+  const [weekK, setWeekK] = useState(1);
   const [grassDashboardReturnTick, setGrassDashboardReturnTick] = useState(0);
  const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
@@ -2830,6 +2836,18 @@ export default function EntryListScreen({ route, navigation }) {
     cancelKFrame(introAnimFrameRef);
     isIntroAnimatingRef.current = false;
   }, [cancelKFrame]);
+
+const cancelWidgetTapAnimations = useCallback(() => {
+    cancelKFrame(donutTapAnimFrameRef);
+    cancelKFrame(weekTapAnimFrameRef);
+    isDonutTapAnimatingRef.current = false;
+    isWeekTapAnimatingRef.current = false;
+  }, [cancelKFrame]);
+
+const setAllWidgetTapK = useCallback((nextValue) => {
+    setDonutK(nextValue);
+    setWeekK(nextValue);
+  }, []);
 
   const animateK = useCallback((setter, onDone, frameRef = null) => {
     if (frameRef) {
@@ -2877,12 +2895,20 @@ export default function EntryListScreen({ route, navigation }) {
     return firstFrame;
   }, [cancelKFrame]);
 
-  const runDonut = useCallback(() => {
-    if (isIntroAnimatingRef.current) return;
-    isIntroAnimatingRef.current = true;
-    setIntroK(0);
-    animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
+  const runTapAnimation = useCallback((setter, frameRef, busyRef) => {
+    if (isIntroAnimatingRef.current || busyRef.current) return;
+
+    busyRef.current = true;
+    setter(0);
+    animateK(setter, () => {
+      busyRef.current = false;
+    }, frameRef);
   }, [animateK]);
+
+  const runDonut = useCallback(() => {
+    runTapAnimation(setDonutK, donutTapAnimFrameRef, isDonutTapAnimatingRef);
+  }, [runTapAnimation]);
+
   const hasWeeklyDataReady = Array.isArray(weeksData) && weeksData.length > 0;
 
 const hasWeeklyBarData = useMemo(() => (
@@ -2898,28 +2924,27 @@ const hasWeeklyBarData = useMemo(() => (
 
 const runWeek = useCallback(() => {
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
-      setIntroK(1);
+      setWeekK(1);
       return;
     }
-    if (isIntroAnimatingRef.current) return;
-    isIntroAnimatingRef.current = true;
-    setIntroK(0);
-    animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
-  }, [animateK, hasWeeklyDataReady, hasWeeklyBarData]);
- const runLine = useCallback(() => {
-    if (isIntroAnimatingRef.current) return;
-    isIntroAnimatingRef.current = true;
-    setIntroK(0);
-    animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
-  }, [animateK]);
+
+    runTapAnimation(setWeekK, weekTapAnimFrameRef, isWeekTapAnimatingRef);
+  }, [hasWeeklyDataReady, hasWeeklyBarData, runTapAnimation]);
+
   useEffect(() => {
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
+      setWeekK(1);
       setIntroK(1);
     }
   }, [hasWeeklyDataReady, hasWeeklyBarData]);
 
+  const donutProgressK = introK * donutK;
+  const weekProgressK = introK * weekK;
+
   const runAllIntro = useCallback(() => {
     cancelIntroAnimations();
+    cancelWidgetTapAnimations();
+    setAllWidgetTapK(1);
 
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
       setIntroK(1);
@@ -2929,7 +2954,7 @@ const runWeek = useCallback(() => {
     isIntroAnimatingRef.current = true;
     setIntroK(0);
     animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
-  }, [animateK, cancelIntroAnimations, hasWeeklyDataReady, hasWeeklyBarData]);
+  }, [animateK, cancelIntroAnimations, cancelWidgetTapAnimations, setAllWidgetTapK, hasWeeklyDataReady, hasWeeklyBarData]);
 
   /* ── 디버그/리로드 ── */
   const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
@@ -3223,13 +3248,16 @@ const runWeek = useCallback(() => {
     skipDashboardReturnIntroRef.current = true;
     skipDashboardReturnReloadRef.current = true;
 
+    cancelWidgetTapAnimations();
+    setAllWidgetTapK(1);
+
     if (normalizedMode === 'save') {
       setIntroK(0);
       setGrassDashboardReturnTick((tick) => tick + 1);
     } else {
       setIntroK(1);
     }
-  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap]);
+  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap, cancelWidgetTapAnimations, setAllWidgetTapK]);
 
   // focus 해제 시 저장 복귀 skip ref 초기화
   useEffect(() => {
@@ -3326,13 +3354,14 @@ const runWeek = useCallback(() => {
     aliveRef.current = false;
     loadingRef.current = false;
     cancelIntroAnimations();
+    cancelWidgetTapAnimations();
     if (dashboardReturnSuppressTimerRef.current) {
       clearTimeout(dashboardReturnSuppressTimerRef.current);
       dashboardReturnSuppressTimerRef.current = null;
     }
     dashboardReturnModeRef.current = null;
     dashboardReturnIntroHandledRef.current = false;
-  },[cancelIntroAnimations]);
+  },[cancelIntroAnimations, cancelWidgetTapAnimations]);
 
   const overallPct = useMemo(
     () => { if (!targetScore) return 0; const pct = Math.round((currentScore / targetScore) * 100); return isNaN(pct) ? 0 : Math.min(Math.max(0, pct), 100); },
@@ -3518,7 +3547,7 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, introK, entries, overallPct, highlightDate
+    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate
   , dashboardLayout, dashboardRowGap,
     displayTitle
   ]);

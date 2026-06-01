@@ -610,3 +610,299 @@ previewLayout → 기존 layout → 최종 layout
 11. 중간 카드 너머로 지나가는 이동은 pass-through로 해석하는 것이 자연스럽다.
 12. 드래그 안정화는 기능 로직 변경보다 re-render 감소, cleanup 타이밍, preview 중복 업데이트 방지를 먼저 본다.
 13. 문서 기준 최신 안정화 커밋은 e40dfb6이다.
+
+## Current implementation status — gesture-drag-prototype / fd86358
+
+Last updated from project work through:
+
+- Branch: gesture-drag-prototype
+- Latest commit: fd86358 — Improve edit challenge keyboard handling
+- Working tree at last report: clean
+
+### 1. Dashboard drag / resize behavior
+
+Current dashboard editing behavior is based on screens/DashboardEditScreen.js.
+
+Confirmed implementation state:
+
+- Drag and resize are handled inside the dashboard edit screen.
+- Resize snapping uses a lighter threshold than the earlier prototype.
+- Current resize snap threshold:
+ - RESIZE_GRID_STEP_THRESHOLD = 0.45
+- Current drag movement threshold is preserved:
+ - GRID_DRAG_STEP_THRESHOLD = 0.62
+- The resize threshold was changed in:
+ - d9534ac — Tune dashboard resize snap threshold
+
+Design intent:
+
+- Resizing should not require dragging almost a full grid cell.
+- Around 45% of a cell is enough to snap to the next size.
+- This feels lighter on mobile touch while avoiding overly sensitive snapping.
+
+### 2. Latest layout save behavior
+
+The dashboard edit screen now saves the most recent layout even when the user taps save immediately after moving or resizing a card.
+
+Confirmed implementation state:
+
+- layoutRef is used to keep the latest dashboard layout outside React state timing.
+- setDashboardLayoutImmediate updates both:
+ - React layout state
+ - layoutRef.current
+- saveLayout uses layoutToSave from layoutRef.current first.
+- dashboardEditLayout route param also receives the latest layoutToSave.
+- This prevents stale layout saves after immediate drag/resize followed by save.
+
+Related commit:
+
+- a8856d9 — Ensure latest dashboard layout is saved
+
+Reason this matters:
+
+- React state updates can lag behind the final gesture frame.
+- Without layoutRef, saving immediately after a drag/resize can sometimes persist the previous layout.
+- The current approach keeps the gesture result and saved value aligned.
+
+### 3. Known fixed issue: moveGraph callback closure
+
+A syntax/closure issue was found around the moveGraph update path.
+
+Confirmed fix:
+
+- setDashboardLayoutImmediate((current) => { ... }) is now correctly closed with });
+- useCallback dependency array is separately closed with:
+ - }, [dashboardTarget, setDashboardLayoutImmediate]);
+
+Reason this matters:
+- The previous malformed closure could make the parser treat the following const styles = StyleSheet.create({ ... }) as if it were still inside an object/function context.
+- Metro then reported a misleading error near the styles block.
+
+This fix was included before the save timing commit was finalized.
+
+### 4. Dashboard edit return behavior
+
+Recent dashboard return animation work stabilized the transition from edit screen back to entry list.
+
+Relevant prior commits:
+
+- 743b243 — Stabilize dashboard return animations
+- 7c11ded — Prevent duplicate dashboard intro animation frames
+- 30d30aa — Unify dashboard intro animation progress
+- 7a482c8 — Smooth dashboard intro animation timing
+- b1889ea — Start dashboard save return animation from zero
+- a14da2b — Delay dashboard save return after params update
+
+Current behavior:
+
+- Save return passes updated dashboard layout through route params.
+- Return animation starts after params update delay.
+- Duplicate intro frames are prevented.
+- Dashboard return animation progress is unified through introK.
+
+### 5. Entry list intro animation speed
+
+Entry list dashboard intro animation duration was adjusted.
+
+Current value:
+
+- DUR = 900
+
+Relevant commit:
+
+- 992d18b — Speed up entry list intro animation
+
+Previous tested values:
+
+- 1500
+- 1200
+- 900
+
+Current decision:
+
+- 900ms is the active value.
+- It is intended to feel less slow when entering the entry list screen.
+
+### 6. Dashboard calendar compact badge adjustment
+
+The compact month calendar badge was adjusted for 2-row/two-cell-height dashboard layouts.
+
+Relevant commit:
+
+- 5b310dc — Center compact calendar certification badge
+
+Current behavior:
+
+- Compact calendar mode uses:
+ - isCompactCalendar = CALENDAR_SCALE <= 0.85
+- Certification badge height is fixed in compact mode.
+- Badge text uses matching lineHeight.
+- textAlignVertical: 'center' is applied for better Android centering.
+- Previous text-adjust style was removed:
+ - compactCertBadgeTextAdjustStyle should not exist.
+
+Design intent:
+
+- Only compact/two-row calendar cards are corrected.
+- Larger calendar layouts should remain visually unchanged.
+
+### 7. Goal black box widget behavior
+
+The dashboard goal/reward black box widget was updated.
+
+Relevant commit:
+
+- 6601e79 — Improve goal marquee and keyboard input handling
+
+Current behavior:
+
+- Goal text size is fixed:
+ - GOAL_FONT_SIZE = 18
+ - GOAL_LINE_HEIGHT = 22
+- Text no longer scales with card height.
+- Short text remains centered.
+- Long text scrolls horizontally as a marquee.
+- Marquee text uses full sentence rendering, not ellipsis.
+- Marquee text uses:
+ - ellipsizeMode="clip"
+ - marqueeGoalTextStyle
+ - Animated.loop
+
+Design intent:
+
+- The goal box should keep a strong, large-text identity regardless of card size.
+- If the text does not fit, the full sentence should move horizontally instead of becoming ....
+
+### 8. Keyboard handling related to dashboard-adjacent edit flows
+
+Keyboard avoidance has been applied to add/edit/upload flows, not directly to dashboard drag logic.
+
+Relevant commits:
+
+- 6601e79 — Improve goal marquee and keyboard input handling
+- fd86358 — Improve edit challenge keyboard handling
+
+Current screens using the shared keyboard handling pattern:
+
+- screens/AddChallengeScreen.js
+- screens/UploadScreen.js
+- screens/EditChallengeScreen.js
+
+Current pattern:
+
+- KeyboardAvoidingView
+- dynamic bottom padding using keyboard height
+- measureInWindow input position check
+- Keyboard.addListener('keyboardDidShow', ...)
+- Keyboard.addListener('keyboardDidChangeFrame', ...)
+- scroll correction uses:
+ - animated: false
+
+Avoided older approaches:
+
+- scrollToEnd
+- findNodeHandle
+- scrollResponderScrollNativeHandleToKeyboard
+- repeated multi-delay timers
+
+### 9. Files currently important for dashboard drag/drop work
+
+Primary files:
+
+- screens/DashboardEditScreen.js
+ - drag/resize/edit/save behavior
+- screens/EntryListScreen.js
+ - dashboard rendering, intro animation, compact widget rendering
+- constants/widgetCatalog.js
+ - widget definitions, grid sizing constraints
+- utils/dashboardLayout.js
+ - layout persistence and target resolution
+
+Related screens:
+
+- screens/AddChallengeScreen.js
+- screens/UploadScreen.js
+- screens/EditChallengeScreen.js
+
+### 10. Current recommended next checks before further drag/drop changes
+
+Before making new drag/drop logic changes, verify:
+
+1. screens/DashboardEditScreen.js
+ - current GRID_DRAG_STEP_THRESHOLD
+ - current RESIZE_GRID_STEP_THRESHOLD
+ - layoutRef
+ - setDashboardLayoutImmediate
+ - saveLayout
+ - moveGraph
+ - resize handler logic
+
+2. screens/EntryListScreen.js
+ - dashboard render slot height behavior
+ - widget rendering by kind
+ - introK
+ - compact widget-specific adjustments
+
+3. constants/widgetCatalog.js
+ - widget size constraints
+ - fixed size definitions
+ - grid column assumptions
+
+### 11. Current caution
+
+Do not rewrite the drag/drop system broadly.
+
+Preferred workflow:
+
+- Make one small behavior change at a time.
+- Keep existing dashboard widget UI stable.
+- Preserve working save behavior.
+- Preserve layoutRef-based latest layout persistence.
+- Do not remove dashboard return animation guards.
+- Do not change unrelated widget rendering unless explicitly requested.
+
+### 12. Graph tap animation behavior after step 415
+
+Step 415 corrected the graph tap behavior after the earlier introK unification.
+
+Current behavior:
+
+- introK remains the shared entry/return intro animation value.
+- Dashboard first entry still animates graph widgets together through introK.
+- The overall progress widget has an independent tap animation:
+ - donutK
+- The weekly bar widget has an independent tap animation:
+ - weekK
+- Line charts do not run tap replay animations.
+- Line charts use introK only for the first entry animation.
+- Tapping a line chart selects the nearest date/value point only:
+ - setSelectedIdx(best)
+ - selectedLabel
+ - selPoint
+
+Important correction:
+
+- lineCountK
+- lineMinutesK
+- runLineCount
+- runLineMinutes
+- onGraphTap
+
+These were intentionally removed after step 415 because line charts should not replay animation on tap. Their tap behavior is date/value inspection, not graph replay.
+
+Current intended interaction:
+
+- Entry list first load:
+ - all dashboard graphs animate smoothly together
+- Overall progress tap:
+ - only overall progress replays
+- Weekly bar tap:
+ - only weekly bar replays
+- Line count tap:
+ - graph does not replay
+ - selected date/value label appears
+- Line minutes tap:
+ - graph does not replay
+ - selected date/value label appears
+- Grass graph:
+ - existing wave behavior remains separate

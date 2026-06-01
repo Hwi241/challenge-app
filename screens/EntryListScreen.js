@@ -2570,6 +2570,31 @@ export default function EntryListScreen({ route, navigation }) {
 
   const isFocused = useIsFocused();
 
+  useEffect(() => {
+    const wasWideLayout = previousWideLayoutRef.current;
+    previousWideLayoutRef.current = isWideDashboardLayout;
+
+    wideReflowFadeAnim.stopAnimation();
+
+    if (!isFocused) {
+      wideReflowFadeAnim.setValue(1);
+      return;
+    }
+
+    if (wasWideLayout !== isWideDashboardLayout) {
+      wideReflowFadeAnim.setValue(0.62);
+      Animated.timing(wideReflowFadeAnim, {
+        toValue: 1,
+        duration: 320,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+
+    wideReflowFadeAnim.setValue(1);
+  }, [isFocused, isWideDashboardLayout, wideReflowFadeAnim]);
+
   // 뒤로가기 항상 ChallengeList로
   React.useEffect(() => {
     const sub = require('react-native').BackHandler.addEventListener(
@@ -2821,6 +2846,8 @@ export default function EntryListScreen({ route, navigation }) {
   const shareRef = useRef(null);
   const [offscreenRenderReady, setOffscreenRenderReady] = useState(false);
   const grassTapRef = useRef(null);
+  const wideReflowFadeAnim = useRef(new Animated.Value(1)).current;
+  const previousWideLayoutRef = useRef(isWideDashboardLayout);
   const isIntroAnimatingRef = useRef(false);
   const isDonutTapAnimatingRef = useRef(false);
   const isWeekTapAnimatingRef = useRef(false);
@@ -3593,9 +3620,14 @@ const runWeek = useCallback(() => {
         )}
 
         <View style={{ marginHorizontal: -DASHBOARD_BOARD_SIDE_BLEED }}>
-          <View style={{ position: 'relative', width: '100%', height: boardHeight }}>
+          <Animated.View
+            style={[
+              { position: 'relative', width: '100%', height: boardHeight },
+              !isShare && isWideDashboardLayout ? { opacity: wideReflowFadeAnim } : null,
+            ]}
+          >
             {safeLayout.map((item, index) => renderAbsoluteSlot(item, index))}
-          </View>
+          </Animated.View>
         </View>
       </View>
     );
@@ -3626,7 +3658,7 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, dashboardFrameWidth, handleDashboardFrameLayout
+    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, dashboardFrameWidth, handleDashboardFrameLayout, wideReflowFadeAnim
   , dashboardLayout, dashboardRowGap,
     displayTitle
   ]);

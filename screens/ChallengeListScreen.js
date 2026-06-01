@@ -566,6 +566,8 @@ export default function ChallengeListScreen() {
   const [sortMode, setSortMode] = useState('manual'); // manual|newest|oldest|habitFirst|challengeFirst
   const [selectedId, setSelectedId] = useState(null);
 
+
+
   /* 플로팅 복제 */
   const floatLeft = useRef(new Animated.Value(0)).current;
   const floatTop  = useRef(new Animated.Value(0)).current;

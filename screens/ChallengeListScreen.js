@@ -21,6 +21,7 @@ const CARD_BORDER = '#E5E7EB';
 const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
+const CARD_COLLAPSE_ANIM_MS = 260;
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
 
@@ -917,7 +918,12 @@ export default function ChallengeListScreen() {
 
   /* 뒤로가기 */
   const finalizeReorder = useCallback(async () => {
-    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
+    LayoutAnimation.configureNext({
+      duration: CARD_COLLAPSE_ANIM_MS,
+      update: { type: LayoutAnimation.Types.easeInEaseOut },
+      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+    });
     const snapshot = dataRef.current || [];
     console.log('[ChallengeList][finalizeReorder] snapshotIds=', snapshot.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
     try { await persistChallenges(snapshot, 'finalize'); } catch {}
@@ -981,13 +987,22 @@ export default function ChallengeListScreen() {
     });
   }, []);
 
+  const animateCardResize = useCallback(() => {
+    LayoutAnimation.configureNext({
+      duration: CARD_COLLAPSE_ANIM_MS,
+      update: { type: LayoutAnimation.Types.easeInEaseOut },
+      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+    });
+  }, []);
+
   const toggleCollapsed = useCallback((item) => {
     if (reorderActive) return;
     const id = safeStringId(item?.id);
     if (!id) return;
-    animateList();
+    animateCardResize();
     setCollapsedIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, [animateList, reorderActive]);
+  }, [animateCardResize, reorderActive]);
 
   /* 좌표 측정 */
   const measureNow = useCallback((id) => {
@@ -1239,8 +1254,9 @@ export default function ChallengeListScreen() {
   const renderRow = useCallback(
     ({ item }) => {
       const id = safeStringId(item.id);
-      const isSelected = reorderActive && id === safeStringId(selectedId);
-      const isCollapsed = !!collapsedIds[id] && !reorderActive;
+      const selectedKey = safeStringId(selectedId);
+      const isSelected = reorderActive && id === selectedKey;
+      const isCollapsed = !!collapsedIds[id] && !(reorderActive && id === selectedKey);
 
       return (
         <ItemCard
@@ -1254,9 +1270,9 @@ export default function ChallengeListScreen() {
           onLongPress={() => {
             if (collapsedIdsRef.current[id]) {
               restoreCollapsedAfterReorderRef.current = id;
-              animateList();
+              animateCardResize();
               setCollapsedIds((prev) => ({ ...prev, [id]: false }));
-              setTimeout(() => enterReorder(item), 210);
+              setTimeout(() => enterReorder(item), CARD_COLLAPSE_ANIM_MS + 30);
               return;
             }
             restoreCollapsedAfterReorderRef.current = null;
@@ -1278,7 +1294,7 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, collapsedIds, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateList]
+    [reorderActive, selectedId, collapsedIds, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize]
   );
 
   const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));

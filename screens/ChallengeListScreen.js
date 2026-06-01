@@ -24,6 +24,12 @@ const CONTROLS_H = 44;
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
 
+const CHALLENGE_CARD_VARIANTS = {
+  LIST: 'list',
+  FLOATING: 'floating',
+  COMPACT: 'compact',
+};
+
 const SORT_LABELS = {
   manual: '사용자 지정',
   newest: '최신순',
@@ -371,6 +377,8 @@ const EmptyState = memo(() => (
 const CardBody = React.forwardRef(function CardBody({
   item,
   habitGrassColor = HABIT_GRASS_EMPTY,
+  variant = CHALLENGE_CARD_VARIANTS.LIST,
+  collapsed = false,
   showControls,
   canReorder,
   onPressCard,
@@ -382,14 +390,19 @@ const CardBody = React.forwardRef(function CardBody({
 }, ref) {
   const isDone = !!item._isDone;
   const isExpired = !!item._isExpired;
+  const isFloatingVariant = variant === CHALLENGE_CARD_VARIANTS.FLOATING;
+  const isCompactVariant = variant === CHALLENGE_CARD_VARIANTS.COMPACT || !!collapsed;
   const pct = Math.min(100, Math.max(0,
     item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
   ));
 
   const Content = (
-    <View style={[styles.cardContent, isDone && styles.dimmedContent]}>
+    <View style={[styles.cardContent, isDone && styles.dimmedContent, isCompactVariant && styles.cardContentCompact]}>
       <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
-        <Text style={[styles.title, { flex:1, marginRight: 8 }]} numberOfLines={2}>
+        <Text
+    style={[styles.title, isCompactVariant && styles.titleCompact, { flex:1, marginRight: 8 }]}
+    numberOfLines={isCompactVariant ? 1 : 2}
+  >
           {item.title ?? '(제목 없음)'}
         </Text>
         {item.type === 'habit' ? (
@@ -411,7 +424,7 @@ const CardBody = React.forwardRef(function CardBody({
         )}
       </View>
 
-      <View style={styles.metaWrap}>
+      <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
         <Text style={styles.meta}>
                 기간 {item.startDate ?? '-'}{item.endDate ? ` ~ ${item.endDate}` : ''}
               </Text>
@@ -437,7 +450,7 @@ const CardBody = React.forwardRef(function CardBody({
         )}
       </View>
 
-      <View style={styles.controlsRow}>
+      <View style={[styles.controlsRow, isCompactVariant && styles.controlsRowCompact]}>
         <View style={[styles.arrowsInline, !showControls && { opacity: 0 }]}>
           <TouchableOpacity
             onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'up' }) : undefined}
@@ -482,6 +495,8 @@ const CardBody = React.forwardRef(function CardBody({
       delayLongPress={160}
       style={[
         styles.card,
+        isFloatingVariant && styles.cardFloating,
+        isCompactVariant && styles.cardCompact,
         showControls && styles.selectedCard
       ]}
     >
@@ -489,7 +504,7 @@ const CardBody = React.forwardRef(function CardBody({
 
       {item.type === 'habit' ? (
         <TouchableOpacity
-          style={[styles.uploadNowBtn, showControls && styles.disabledBig]}
+          style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
           disabled={!!showControls}
           onPress={() => onPressCard?.({ ...item, _upload: true })}
           activeOpacity={0.9}
@@ -498,7 +513,7 @@ const CardBody = React.forwardRef(function CardBody({
         </TouchableOpacity>
       ) : !isDone && !isExpired ? (
         <TouchableOpacity
-          style={[styles.uploadNowBtn, showControls && styles.disabledBig]}
+          style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
           disabled={!!showControls}
           onPress={() => onPressCard?.({ ...item, _upload: true })}
           activeOpacity={0.9}
@@ -507,7 +522,7 @@ const CardBody = React.forwardRef(function CardBody({
         </TouchableOpacity>
       ) : isDone ? (
         <TouchableOpacity
-          style={[styles.outlineBigBtn, showControls && styles.disabledBig]}
+          style={[styles.outlineBigBtn, isCompactVariant && styles.outlineBigBtnCompact, showControls && styles.disabledBig]}
           disabled={!!showControls}
           onPress={() => onPressClaim?.(item)}
           activeOpacity={1}
@@ -516,7 +531,7 @@ const CardBody = React.forwardRef(function CardBody({
         </TouchableOpacity>
       ) : isExpired ? (
         <TouchableOpacity
-          style={[styles.expiredBtn, showControls && styles.disabledBig]}
+          style={[styles.expiredBtn, isCompactVariant && styles.expiredBtnCompact, showControls && styles.disabledBig]}
           disabled
           activeOpacity={1}
         >
@@ -530,6 +545,8 @@ const CardBody = React.forwardRef(function CardBody({
 /* ---------- 리스트 셀 ---------- */
 const ItemCard = memo(React.forwardRef(function ItemCard({
   item, hidden, habitGrassColor = HABIT_GRASS_EMPTY,
+  variant = CHALLENGE_CARD_VARIANTS.LIST,
+  collapsed = false,
   onLongPress,
   onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
 }, ref) {
@@ -538,6 +555,8 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
       <CardBody ref={ref}
         item={item}
         habitGrassColor={habitGrassColor}
+        variant={variant}
+        collapsed={collapsed}
         showControls={false}
         canReorder={!asDoneFlags(item)._isDone}
         onPressCard={onPressCard}
@@ -973,6 +992,7 @@ export default function ChallengeListScreen() {
           ref={(el) => { if (el) itemRefs.current[id] = el; }}
           item={item}
           habitGrassColor={habitGrassColorMap[safeStringId(item.id)] || HABIT_GRASS_EMPTY}
+          variant={CHALLENGE_CARD_VARIANTS.LIST}
           hidden={isSelected && reorderActive}
           onLongPress={() => enterReorder(item)}
           onPressCard={(it) => {
@@ -1086,6 +1106,7 @@ export default function ChallengeListScreen() {
         >
           <CardBody
             item={selected}
+            variant={CHALLENGE_CARD_VARIANTS.FLOATING}
             showControls
             canReorder={!asDoneFlags(selected)._isDone}
             onPressCard={(it) => {
@@ -1173,6 +1194,33 @@ const styles = StyleSheet.create({
 
   /* 카드 */
   cardWrap: { marginTop: spacing.md },
+  cardFloating: {},
+  cardCompact: {
+    paddingVertical: spacing.sm,
+  },
+  cardContentCompact: {},
+  titleCompact: {
+    fontSize: 14,
+  },
+  metaWrapCompact: {
+    marginTop: 4,
+  },
+  controlsRowCompact: {
+    marginTop: spacing.xs,
+    minHeight: 0,
+  },
+  uploadNowBtnCompact: {
+    height: 40,
+    borderRadius: 12,
+  },
+  outlineBigBtnCompact: {
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  expiredBtnCompact: {
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
   card: {
     backgroundColor: colors.surface,
     borderWidth: 1, borderColor: CARD_BORDER,

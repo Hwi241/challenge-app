@@ -378,7 +378,32 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
   pct,
   habitGrassColor = HABIT_GRASS_EMPTY,
   isCompactVariant = false,
+  showCollapseToggle = false,
+  onPressToggleCollapsed,
 }) {
+  const Indicator = item.type === 'habit' ? (
+    <HabitTodayGrassBox color={habitGrassColor} />
+  ) : (
+    <View style={styles.pctCircleWrap}>
+      <Svg width={26} height={26}>
+        <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
+        <Circle
+          cx={13}
+          cy={13}
+          r={9}
+          stroke="#111"
+          strokeWidth={4.5}
+          fill="none"
+          strokeDasharray={`${(pct / 100) * (2 * Math.PI * 9)} ${2 * Math.PI * 9}`}
+          strokeLinecap="round"
+          rotation="-90"
+          origin="13,13"
+        />
+      </Svg>
+      <Text style={styles.pctCircleLabel}>{pct}%</Text>
+    </View>
+  );
+
   return (
     <View style={styles.cardHeaderRow}>
       <Text
@@ -387,28 +412,19 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
       >
         {item.title ?? '(제목 없음)'}
       </Text>
-      {item.type === 'habit' ? (
-        <HabitTodayGrassBox color={habitGrassColor} />
-      ) : (
-        <View style={styles.pctCircleWrap}>
-          <Svg width={26} height={26}>
-            <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
-            <Circle
-              cx={13}
-              cy={13}
-              r={9}
-              stroke="#111"
-              strokeWidth={4.5}
-              fill="none"
-              strokeDasharray={`${(pct / 100) * (2 * Math.PI * 9)} ${2 * Math.PI * 9}`}
-              strokeLinecap="round"
-              rotation="-90"
-              origin="13,13"
-            />
-          </Svg>
-          <Text style={styles.pctCircleLabel}>{pct}%</Text>
-        </View>
-      )}
+      <View style={styles.cardHeaderRight}>
+        {showCollapseToggle && (
+          <TouchableOpacity
+            style={styles.cardCollapseToggleBtn}
+            onPress={onPressToggleCollapsed}
+            activeOpacity={0.85}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.cardCollapseToggleText}>−</Text>
+          </TouchableOpacity>
+        )}
+        {Indicator}
+      </View>
     </View>
   );
 });
@@ -557,6 +573,100 @@ const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
   return null;
 });
 
+const getCompactProgressLabel = (item, isDone = false, isExpired = false) => {
+  if (isDone) return '완료';
+  if (isExpired) return '만료';
+  if (item?.type === 'habit') return `${Number(item?.currentScore ?? 0)}회`;
+  return `${Number(item?.currentScore ?? 0)}/${Number(item?.goalScore ?? 0)}`;
+};
+
+const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
+  item,
+  pct,
+  habitGrassColor = HABIT_GRASS_EMPTY,
+  isDone = false,
+  isExpired = false,
+  onPressToggleCollapsed,
+  onPressCard,
+  onPressClaim,
+}) {
+  const progressLabel = getCompactProgressLabel(item, isDone, isExpired);
+  const actionLabel = item.type === 'habit'
+    ? '기록'
+    : isDone
+    ? '보상'
+    : isExpired
+    ? '만료'
+    : '인증';
+
+  const actionDisabled = item.type !== 'habit' && isExpired;
+
+  const onPressAction = () => {
+    if (item.type === 'habit') {
+      onPressCard?.({ ...item, _upload: true });
+      return;
+    }
+    if (isDone) {
+      onPressClaim?.(item);
+      return;
+    }
+    if (!isExpired) {
+      onPressCard?.({ ...item, _upload: true });
+    }
+  };
+
+  return (
+    <View style={styles.compactCardRow}>
+      <Text style={styles.compactCardTitle} numberOfLines={1}>
+        {item.title ?? '(제목 없음)'}
+      </Text>
+
+      <Text style={styles.compactProgressText} numberOfLines={1}>
+        {progressLabel}
+      </Text>
+
+      <View style={styles.compactSpacer} />
+
+      <TouchableOpacity
+        style={styles.compactExpandBtn}
+        onPress={onPressToggleCollapsed}
+        activeOpacity={0.85}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={styles.compactExpandText}>＋</Text>
+      </TouchableOpacity>
+
+      {item.type === 'habit' ? (
+        <View style={styles.compactHabitIndicator}>
+          <HabitTodayGrassBox color={habitGrassColor} />
+        </View>
+      ) : (
+        <Text style={styles.compactPctText} numberOfLines={1}>
+          {pct}%
+        </Text>
+      )}
+
+      <TouchableOpacity
+        style={[
+          styles.compactActionBtn,
+          actionDisabled && styles.compactActionBtnDisabled,
+          isDone && styles.compactRewardBtn,
+        ]}
+        disabled={actionDisabled}
+        onPress={onPressAction}
+        activeOpacity={0.9}
+      >
+        <Text style={[
+          styles.compactActionText,
+          actionDisabled && styles.compactActionTextDisabled,
+        ]}>
+          {actionLabel}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
 /* ---------- 카드 UI ---------- */
 const CardBody = React.forwardRef(function CardBody({
   item,
@@ -571,11 +681,12 @@ const CardBody = React.forwardRef(function CardBody({
   onPressDelete,
   onPressClaim,
   onLongPress,
+  onPressToggleCollapsed,
 }, ref) {
   const isDone = !!item._isDone;
   const isExpired = !!item._isExpired;
   const isFloatingVariant = variant === CHALLENGE_CARD_VARIANTS.FLOATING;
-  const isCompactVariant = variant === CHALLENGE_CARD_VARIANTS.COMPACT || !!collapsed;
+  const isCompactVariant = (variant === CHALLENGE_CARD_VARIANTS.COMPACT || !!collapsed) && !isFloatingVariant && !showControls;
   const pct = Math.min(100, Math.max(0,
     item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
   ));
@@ -587,6 +698,8 @@ const CardBody = React.forwardRef(function CardBody({
         pct={pct}
         habitGrassColor={habitGrassColor}
         isCompactVariant={isCompactVariant}
+        showCollapseToggle={!showControls && variant === CHALLENGE_CARD_VARIANTS.LIST}
+        onPressToggleCollapsed={onPressToggleCollapsed}
       />
 
       <ChallengeCardMeta
@@ -608,6 +721,33 @@ const CardBody = React.forwardRef(function CardBody({
     </View>
   );
 
+  if (isCompactVariant) {
+    return (
+      <TouchableOpacity
+        ref={ref}
+        activeOpacity={0.85}
+        onPress={() => onPressCard?.(item)}
+        onLongPress={!isDone ? onLongPress : undefined}
+        delayLongPress={160}
+        style={[
+          styles.card,
+          styles.cardCompact,
+        ]}
+      >
+        <ChallengeCardCompactRow
+          item={item}
+          pct={pct}
+          habitGrassColor={habitGrassColor}
+          isDone={isDone}
+          isExpired={isExpired}
+          onPressToggleCollapsed={onPressToggleCollapsed}
+          onPressCard={onPressCard}
+          onPressClaim={onPressClaim}
+        />
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       ref={ref}
@@ -618,7 +758,6 @@ const CardBody = React.forwardRef(function CardBody({
       style={[
         styles.card,
         isFloatingVariant && styles.cardFloating,
-        isCompactVariant && styles.cardCompact,
         showControls && styles.selectedCard
       ]}
     >
@@ -643,6 +782,7 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
   variant = CHALLENGE_CARD_VARIANTS.LIST,
   collapsed = false,
   onLongPress,
+  onPressToggleCollapsed,
   onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
 }, ref) {
   return (
@@ -660,6 +800,7 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
         onPressDelete={onPressDelete}
         onPressClaim={onPressClaim}
         onLongPress={onLongPress}
+        onPressToggleCollapsed={onPressToggleCollapsed}
       />
     </View>
   );
@@ -679,8 +820,13 @@ export default function ChallengeListScreen() {
   const [showSortModal, setShowSortModal] = useState(false);
   const [sortMode, setSortMode] = useState('manual'); // manual|newest|oldest|habitFirst|challengeFirst
   const [selectedId, setSelectedId] = useState(null);
+  const [collapsedIds, setCollapsedIds] = useState({});
+  const collapsedIdsRef = useRef({});
+  const restoreCollapsedAfterReorderRef = useRef(null);
 
-
+  useEffect(() => {
+    collapsedIdsRef.current = collapsedIds;
+  }, [collapsedIds]);
 
   /* 플로팅 복제 */
   const floatLeft = useRef(new Animated.Value(0)).current;
@@ -775,6 +921,11 @@ export default function ChallengeListScreen() {
     const snapshot = dataRef.current || [];
     console.log('[ChallengeList][finalizeReorder] snapshotIds=', snapshot.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
     try { await persistChallenges(snapshot, 'finalize'); } catch {}
+    const restoreId = restoreCollapsedAfterReorderRef.current;
+    restoreCollapsedAfterReorderRef.current = null;
+    if (restoreId) {
+      setCollapsedIds((prev) => ({ ...prev, [safeStringId(restoreId)]: true }));
+    }
     setSelectedId(null);
     setReorderActive(false);
     setFloatWidth(0);
@@ -829,6 +980,14 @@ export default function ChallengeListScreen() {
       delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
     });
   }, []);
+
+  const toggleCollapsed = useCallback((item) => {
+    if (reorderActive) return;
+    const id = safeStringId(item?.id);
+    if (!id) return;
+    animateList();
+    setCollapsedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, [animateList, reorderActive]);
 
   /* 좌표 측정 */
   const measureNow = useCallback((id) => {
@@ -1081,6 +1240,7 @@ export default function ChallengeListScreen() {
     ({ item }) => {
       const id = safeStringId(item.id);
       const isSelected = reorderActive && id === safeStringId(selectedId);
+      const isCollapsed = !!collapsedIds[id] && !reorderActive;
 
       return (
         <ItemCard
@@ -1088,8 +1248,20 @@ export default function ChallengeListScreen() {
           item={item}
           habitGrassColor={habitGrassColorMap[safeStringId(item.id)] || HABIT_GRASS_EMPTY}
           variant={CHALLENGE_CARD_VARIANTS.LIST}
+          collapsed={isCollapsed}
           hidden={isSelected && reorderActive}
-          onLongPress={() => enterReorder(item)}
+          onPressToggleCollapsed={() => toggleCollapsed(item)}
+          onLongPress={() => {
+            if (collapsedIdsRef.current[id]) {
+              restoreCollapsedAfterReorderRef.current = id;
+              animateList();
+              setCollapsedIds((prev) => ({ ...prev, [id]: false }));
+              setTimeout(() => enterReorder(item), 210);
+              return;
+            }
+            restoreCollapsedAfterReorderRef.current = null;
+            enterReorder(item);
+          }}
           onPressCard={(it) => {
             if (reorderActive) return;
             if (it?._isExpired) {
@@ -1106,7 +1278,7 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, habitGrassColorMap, goEntryList, enterReorder, onClaimReward]
+    [reorderActive, selectedId, collapsedIds, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateList]
   );
 
   const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));
@@ -1291,13 +1463,117 @@ const styles = StyleSheet.create({
   cardWrap: { marginTop: spacing.md },
   cardFloating: {},
   cardCompact: {
-    paddingVertical: spacing.sm,
+    paddingVertical: 8,
   },
   cardContentCompact: {},
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardCollapseToggleBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  cardCollapseToggleText: {
+    fontSize: 16,
+    lineHeight: 16,
+    fontWeight: '900',
+    color: '#111',
+    includeFontPadding: false,
+  },
+  compactCardRow: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactCardTitle: {
+    maxWidth: '38%',
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.gray800,
+    marginRight: 8,
+  },
+  compactProgressText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.gray600,
+  },
+  compactSpacer: {
+    flex: 1,
+    minWidth: 12,
+  },
+  compactExpandBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  compactExpandText: {
+    fontSize: 14,
+    lineHeight: 14,
+    fontWeight: '900',
+    color: '#111',
+    includeFontPadding: false,
+  },
+  compactPctText: {
+    minWidth: 34,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#111',
+    marginLeft: 6,
+  },
+  compactHabitIndicator: {
+    marginLeft: 6,
+    width: 28,
+    alignItems: 'center',
+  },
+  compactActionBtn: {
+    height: 30,
+    minWidth: 46,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  compactRewardBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#111',
+  },
+  compactActionBtnDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  compactActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    includeFontPadding: false,
+  },
+  compactActionTextDisabled: {
+    color: '#9CA3AF',
   },
   titleCompact: {
     fontSize: 14,

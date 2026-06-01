@@ -2474,6 +2474,24 @@ export default function EntryListScreen({ route, navigation }) {
   const dashboardEditReturnMode = params.dashboardEditReturnMode;
   const dashboardEditReturnedAt = params.dashboardEditReturnedAt || params.dashboardEditSavedAt;
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const [dashboardFrameWidth, setDashboardFrameWidth] = useState(0);
+  const WIDE_LAYOUT_MIN_WIDTH = 600;
+  const WIDE_DASHBOARD_FRAME_MIN_WIDTH = 520;
+  const WIDE_GRID_COLUMNS = GRID_COLUMNS * 2;
+  const isWideDashboardLayout =
+    windowWidth >= WIDE_LAYOUT_MIN_WIDTH ||
+    dashboardFrameWidth >= WIDE_DASHBOARD_FRAME_MIN_WIDTH;
+
+  const handleDashboardFrameLayout = useCallback((event) => {
+    const nextWidth = Math.floor(event?.nativeEvent?.layout?.width || 0);
+    if (nextWidth <= 0) return;
+
+    setDashboardFrameWidth((prev) => (
+      Math.abs(prev - nextWidth) < 1 ? prev : nextWidth
+    ));
+  }, []);
+
   const {
     challengeId,
     title: titleFromRoute,
@@ -3425,7 +3443,12 @@ const runWeek = useCallback(() => {
     const GRID_CELL_PADDING_VIEW = 4;
     const DASHBOARD_BOARD_SIDE_BLEED = 4;
 
-    const safeLayout = baseLayout
+    const effectiveGridColumns = !isShare && isWideDashboardLayout
+      ? WIDE_GRID_COLUMNS
+      : GRID_COLUMNS;
+    const isDashboardEditDisabled = !isShare && isWideDashboardLayout;
+
+    const baseSafeLayout = baseLayout
       .map((item, index) => {
         const widgetId = item.widgetId || item.id || item.i || `dashboard_graph_${index}`;
 
@@ -3452,6 +3475,43 @@ const runWeek = useCallback(() => {
         return a.x - b.x;
       });
 
+    const reflowWideLayout = (items) => {
+      let cursorX = 0;
+      let cursorY = 0;
+      let rowH = 0;
+
+      return items.map((item, index) => {
+        const widgetId = item.widgetId || item.id || item.i || `dashboard_graph_${index}`;
+        const safeW = Math.max(1, Math.min(effectiveGridColumns, Number(item.w) || GRID_COLUMNS));
+        const safeH = Math.max(1, Number(item.h) || 1);
+
+        if (cursorX > 0 && cursorX + safeW > effectiveGridColumns) {
+          cursorX = 0;
+          cursorY += Math.max(1, rowH);
+          rowH = 0;
+        }
+
+        const nextItem = {
+          ...item,
+          id: widgetId,
+          widgetId,
+          x: cursorX,
+          y: cursorY,
+          w: safeW,
+          h: safeH,
+        };
+
+        cursorX += safeW;
+        rowH = Math.max(rowH, safeH);
+
+        return nextItem;
+      });
+    };
+
+    const safeLayout = isDashboardEditDisabled
+      ? reflowWideLayout(baseSafeLayout)
+      : baseSafeLayout;
+
     const maxRow = safeLayout.reduce((max, item) => {
       const y = Math.max(0, Number(item.y) || 0);
       const h = Math.max(1, Number(item.h) || 1);
@@ -3464,13 +3524,13 @@ const runWeek = useCallback(() => {
 
     const renderAbsoluteSlot = (item, index) => {
       const widgetId = item.widgetId || item.id || `graph_${index}`;
-      const safeX = Math.max(0, Math.min(GRID_COLUMNS - item.w, Number(item.x) || 0));
+      const safeW = Math.max(1, Math.min(effectiveGridColumns, Number(item.w) || GRID_COLUMNS));
+      const safeX = Math.max(0, Math.min(effectiveGridColumns - safeW, Number(item.x) || 0));
       const safeY = Math.max(0, Number(item.y) || 0);
-      const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || GRID_COLUMNS));
       const safeH = Math.max(1, Number(item.h) || 1);
 
-      const leftPct = `${(safeX / GRID_COLUMNS) * 100}%`;
-      const widthPct = `${(safeW / GRID_COLUMNS) * 100}%`;
+      const leftPct = `${(safeX / effectiveGridColumns) * 100}%`;
+      const widthPct = `${(safeW / effectiveGridColumns) * 100}%`;
       const top = safeY * (GRID_ROW_HEIGHT_VIEW + GRID_ROW_GAP_VIEW);
       const height = safeH * GRID_ROW_HEIGHT_VIEW;
 
@@ -3496,18 +3556,37 @@ const runWeek = useCallback(() => {
     };
 
     return (
-      <View style={{ marginTop: isShare ? 10 : 20 }}>
+      <View
+    onLayout={isShare ? undefined : handleDashboardFrameLayout}
+    style={{ marginTop: isShare ? 10 : 20 }}
+  >
         {!isShare && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#111' }}>대시보드</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity
+                disabled={isDashboardEditDisabled}
                 onPress={() => {
+                  if (isDashboardEditDisabled) return;
                   if (typeof enterDashboardEdit === 'function') enterDashboardEdit();
                 }}
-                style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: '#111' }}
+                activeOpacity={isDashboardEditDisabled ? 1 : 0.85}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 10,
+                  backgroundColor: isDashboardEditDisabled ? '#E5E7EB' : '#111',
+                }}
               >
-                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>대시보드 수정</Text>
+                <Text
+                  style={{
+                    color: isDashboardEditDisabled ? '#9CA3AF' : '#fff',
+                    fontWeight: '800',
+                    fontSize: 12,
+                  }}
+                >
+                  대시보드 수정
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -3547,7 +3626,7 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate
+    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, dashboardFrameWidth, handleDashboardFrameLayout
   , dashboardLayout, dashboardRowGap,
     displayTitle
   ]);
@@ -3742,6 +3821,26 @@ const runWeek = useCallback(() => {
 {/* 인증목록 */}
 {sortedEntries.length === 0 ? (
   <Text style={[styles.empty, styles.sectionPadNarrow]}>등록된 인증이 없습니다.</Text>
+) : isWideDashboardLayout ? (
+  <View style={styles.entryGridWide}>
+    {sortedEntries.map((item, index) => {
+      const indexFromEnd = sortedEntries.length - index;
+      const onPress = readOnly ? undefined : () =>
+        navigation.navigate('EntryDetail', { challengeId, entryId: item.id, title: displayTitle });
+
+      return (
+        <View
+          key={item?.id ?? `${item?.timestamp ?? 0}-${index}`}
+          style={[
+            styles.entryGridItemWide,
+            index % 2 === 0 ? styles.entryGridItemWideLeft : styles.entryGridItemWideRight,
+          ]}
+        >
+          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
+        </View>
+      );
+    })}
+  </View>
 ) : (
   sortedEntries.map((item, index) => {
     const indexFromEnd = sortedEntries.length - index;
@@ -4211,6 +4310,23 @@ rewardBlockSpacing: {
   empty: { fontSize: 12,textAlign: 'center', marginTop: 50, color: textGrey },
 
   separator: { height: 1, backgroundColor: '#F3F4F6' },
+
+  entryGridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: EDGE + NARROW_PLUS,
+  },
+  entryGridItemWide: {
+    width: '50%',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  entryGridItemWideLeft: {
+    paddingRight: 4,
+  },
+  entryGridItemWideRight: {
+    paddingLeft: 4,
+  },
 
   shareBtn: {
     position: 'absolute', right: 12,

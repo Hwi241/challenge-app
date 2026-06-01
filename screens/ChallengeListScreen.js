@@ -373,6 +373,190 @@ const EmptyState = memo(() => (
   </View>
 ));
 
+const ChallengeCardHeader = memo(function ChallengeCardHeader({
+  item,
+  pct,
+  habitGrassColor = HABIT_GRASS_EMPTY,
+  isCompactVariant = false,
+}) {
+  return (
+    <View style={styles.cardHeaderRow}>
+      <Text
+        style={[styles.title, isCompactVariant && styles.titleCompact, { flex: 1, marginRight: 8 }]}
+        numberOfLines={isCompactVariant ? 1 : 2}
+      >
+        {item.title ?? '(제목 없음)'}
+      </Text>
+      {item.type === 'habit' ? (
+        <HabitTodayGrassBox color={habitGrassColor} />
+      ) : (
+        <View style={styles.pctCircleWrap}>
+          <Svg width={26} height={26}>
+            <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
+            <Circle
+              cx={13}
+              cy={13}
+              r={9}
+              stroke="#111"
+              strokeWidth={4.5}
+              fill="none"
+              strokeDasharray={`${(pct / 100) * (2 * Math.PI * 9)} ${2 * Math.PI * 9}`}
+              strokeLinecap="round"
+              rotation="-90"
+              origin="13,13"
+            />
+          </Svg>
+          <Text style={styles.pctCircleLabel}>{pct}%</Text>
+        </View>
+      )}
+    </View>
+  );
+});
+
+const ChallengeCardMeta = memo(function ChallengeCardMeta({
+  item,
+  isCompactVariant = false,
+}) {
+  return (
+    <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
+      <Text style={styles.meta}>
+        기간 {item.startDate ?? '-'}{item.endDate ? ` ~ ${item.endDate}` : ''}
+      </Text>
+      {item.type === 'habit' ? (
+        <>
+          <Text style={styles.meta}>총 기록 {item.currentScore ?? 0}회</Text>
+          {item.habitCycle && (
+            <Text style={styles.meta}>
+              주기 {item.habitCycle.type === 'weekly'
+                ? (item.habitCycle.days || []).join(', ')
+                : '매월 ' + (item.habitCycle.dates || []).sort((a, b) => a - b).join(', ') + '일'
+              }
+            </Text>
+          )}
+        </>
+      ) : (
+        <>
+          <Text style={styles.meta}>진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
+          {!!(item.rewardTitle || item.reward) && (
+            <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
+          )}
+        </>
+      )}
+    </View>
+  );
+});
+
+const ChallengeCardReorderControls = memo(function ChallengeCardReorderControls({
+  item,
+  isExpired = false,
+  isCompactVariant = false,
+  showControls,
+  canReorder,
+  onPressCard,
+  onPressEdit,
+  onPressDuplicate,
+  onPressDelete,
+}) {
+  return (
+    <View style={[styles.controlsRow, isCompactVariant && styles.controlsRowCompact]}>
+      <View style={[styles.arrowsInline, !showControls && { opacity: 0 }]}>
+        <TouchableOpacity
+          onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'up' }) : undefined}
+          activeOpacity={0.9}
+          style={styles.circleArrowSmall}
+        >
+          <Text style={styles.circleArrowTxt}>↑</Text>
+        </TouchableOpacity>
+        <View style={{ width: ARROW_GAP }} />
+        <TouchableOpacity
+          onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'down' }) : undefined}
+          activeOpacity={0.9}
+          style={styles.circleArrowSmall}
+        >
+          <Text style={styles.circleArrowTxt}>↓</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.actionsRight, !showControls && { opacity: 0 }]}>
+        <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
+          <Text style={styles.actionDarkText}>수정</Text>
+        </TouchableOpacity>
+        {!isExpired && (
+          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
+            <Text style={styles.actionDarkText}>복제</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDelete?.(item) : undefined} activeOpacity={0.9}>
+          <Text style={styles.actionDarkText}>삭제</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
+const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
+  item,
+  isDone = false,
+  isExpired = false,
+  isCompactVariant = false,
+  showControls,
+  onPressCard,
+  onPressClaim,
+}) {
+  if (item.type === 'habit') {
+    return (
+      <TouchableOpacity
+        style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
+        disabled={!!showControls}
+        onPress={() => onPressCard?.({ ...item, _upload: true })}
+        activeOpacity={0.9}
+      >
+        <Text style={styles.uploadNowText}>기록하기</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  if (!isDone && !isExpired) {
+    return (
+      <TouchableOpacity
+        style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
+        disabled={!!showControls}
+        onPress={() => onPressCard?.({ ...item, _upload: true })}
+        activeOpacity={0.9}
+      >
+        <Text style={styles.uploadNowText}>인증하기</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  if (isDone) {
+    return (
+      <TouchableOpacity
+        style={[styles.outlineBigBtn, isCompactVariant && styles.outlineBigBtnCompact, showControls && styles.disabledBig]}
+        disabled={!!showControls}
+        onPress={() => onPressClaim?.(item)}
+        activeOpacity={1}
+      >
+        <Text style={styles.outlineBigText}>보상 받기</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  if (isExpired) {
+    return (
+      <TouchableOpacity
+        style={[styles.expiredBtn, isCompactVariant && styles.expiredBtnCompact, showControls && styles.disabledBig]}
+        disabled
+        activeOpacity={1}
+      >
+        <Text style={styles.expiredBtnText}>기간 만료</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return null;
+});
+
 /* ---------- 카드 UI ---------- */
 const CardBody = React.forwardRef(function CardBody({
   item,
@@ -398,91 +582,29 @@ const CardBody = React.forwardRef(function CardBody({
 
   const Content = (
     <View style={[styles.cardContent, isDone && styles.dimmedContent, isCompactVariant && styles.cardContentCompact]}>
-      <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
-        <Text
-    style={[styles.title, isCompactVariant && styles.titleCompact, { flex:1, marginRight: 8 }]}
-    numberOfLines={isCompactVariant ? 1 : 2}
-  >
-          {item.title ?? '(제목 없음)'}
-        </Text>
-        {item.type === 'habit' ? (
-          <HabitTodayGrassBox color={habitGrassColor} />
-        ) : (
-          <View style={styles.pctCircleWrap}>
-            <Svg width={26} height={26}>
-              <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
-              <Circle
-                cx={13} cy={13} r={9}
-                stroke="#111" strokeWidth={4.5} fill="none"
-                strokeDasharray={`${(pct/100)*(2*Math.PI*9)} ${2*Math.PI*9}`}
-                strokeLinecap="round"
-                rotation="-90" origin="13,13"
-              />
-            </Svg>
-            <Text style={styles.pctCircleLabel}>{pct}%</Text>
-          </View>
-        )}
-      </View>
+      <ChallengeCardHeader
+        item={item}
+        pct={pct}
+        habitGrassColor={habitGrassColor}
+        isCompactVariant={isCompactVariant}
+      />
 
-      <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
-        <Text style={styles.meta}>
-                기간 {item.startDate ?? '-'}{item.endDate ? ` ~ ${item.endDate}` : ''}
-              </Text>
-        {item.type === 'habit' ? (
-          <>
-            <Text style={styles.meta}>총 기록 {item.currentScore ?? 0}회</Text>
-            {item.habitCycle && (
-              <Text style={styles.meta}>
-                주기 {item.habitCycle.type === 'weekly'
-                  ? (item.habitCycle.days || []).join(', ')
-                  : '매월 ' + (item.habitCycle.dates || []).sort((a,b)=>a-b).join(', ') + '일'
-                }
-              </Text>
-            )}
-          </>
-        ) : (
-          <>
-            <Text style={styles.meta}>진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
-            {!!(item.rewardTitle || item.reward) && (
-              <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
-            )}
-          </>
-        )}
-      </View>
+      <ChallengeCardMeta
+        item={item}
+        isCompactVariant={isCompactVariant}
+      />
 
-      <View style={[styles.controlsRow, isCompactVariant && styles.controlsRowCompact]}>
-        <View style={[styles.arrowsInline, !showControls && { opacity: 0 }]}>
-          <TouchableOpacity
-            onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'up' }) : undefined}
-            activeOpacity={0.9}
-            style={styles.circleArrowSmall}
-          >
-            <Text style={styles.circleArrowTxt}>↑</Text>
-          </TouchableOpacity>
-          <View style={{ width: ARROW_GAP }} />
-          <TouchableOpacity
-            onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'down' }) : undefined}
-            activeOpacity={0.9}
-            style={styles.circleArrowSmall}
-          >
-            <Text style={styles.circleArrowTxt}>↓</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.actionsRight, !showControls && { opacity: 0 }]}>
-          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
-            <Text style={styles.actionDarkText}>수정</Text>
-          </TouchableOpacity>
-          {!isExpired && (
-            <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
-              <Text style={styles.actionDarkText}>복제</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDelete?.(item) : undefined} activeOpacity={0.9}>
-            <Text style={styles.actionDarkText}>삭제</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ChallengeCardReorderControls
+        item={item}
+        isExpired={isExpired}
+        isCompactVariant={isCompactVariant}
+        showControls={showControls}
+        canReorder={canReorder}
+        onPressCard={onPressCard}
+        onPressEdit={onPressEdit}
+        onPressDuplicate={onPressDuplicate}
+        onPressDelete={onPressDelete}
+      />
     </View>
   );
 
@@ -502,42 +624,15 @@ const CardBody = React.forwardRef(function CardBody({
     >
       {Content}
 
-      {item.type === 'habit' ? (
-        <TouchableOpacity
-          style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressCard?.({ ...item, _upload: true })}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.uploadNowText}>기록하기</Text>
-        </TouchableOpacity>
-      ) : !isDone && !isExpired ? (
-        <TouchableOpacity
-          style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressCard?.({ ...item, _upload: true })}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.uploadNowText}>인증하기</Text>
-        </TouchableOpacity>
-      ) : isDone ? (
-        <TouchableOpacity
-          style={[styles.outlineBigBtn, isCompactVariant && styles.outlineBigBtnCompact, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressClaim?.(item)}
-          activeOpacity={1}
-        >
-          <Text style={styles.outlineBigText}>보상 받기</Text>
-        </TouchableOpacity>
-      ) : isExpired ? (
-        <TouchableOpacity
-          style={[styles.expiredBtn, isCompactVariant && styles.expiredBtnCompact, showControls && styles.disabledBig]}
-          disabled
-          activeOpacity={1}
-        >
-          <Text style={styles.expiredBtnText}>기간 만료</Text>
-        </TouchableOpacity>
-      ) : null}
+      <ChallengeCardPrimaryAction
+        item={item}
+        isDone={isDone}
+        isExpired={isExpired}
+        isCompactVariant={isCompactVariant}
+        showControls={showControls}
+        onPressCard={onPressCard}
+        onPressClaim={onPressClaim}
+      />
     </TouchableOpacity>
   );
 });
@@ -1199,6 +1294,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   cardContentCompact: {},
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   titleCompact: {
     fontSize: 14,
   },

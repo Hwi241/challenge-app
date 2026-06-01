@@ -20,7 +20,7 @@ const PALETTE = {
 // - 나머지 로직/프리뷰/모달은 기존과 동일
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -245,6 +245,14 @@ export default function EditChallengeScreen(){
   const [cycleMonthScope, setCycleMonthScope] = useState('custom');
   const originalRef = useRef(null);
   const savedRef = useRef(false);
+  const formScrollRef = useRef(null);
+  const descriptionInputRef = useRef(null);
+  const rewardInputRef = useRef(null);
+  const focusedInputRef = useRef(null);
+  const keyboardFrameRef = useRef(null);
+  const keyboardVisibleRef = useRef(false);
+  const scrollYRef = useRef(0);
+  const [keyboardBottomInset, setKeyboardBottomInset] = useState(0);
 
   // 폼
   const [title,setTitle] = useState('');
@@ -275,6 +283,69 @@ export default function EditChallengeScreen(){
     if (n > LIMITS.maxGoal) n = LIMITS.maxGoal;
     setGoalScore(String(n));
   }, []);
+
+  const measureAndScrollToInput = useCallback((inputRef, extraOffset = 48) => {
+    const input = inputRef?.current;
+    const keyboardFrame = keyboardFrameRef.current;
+
+    if (!input?.measureInWindow || !keyboardFrame?.screenY) return;
+
+    requestAnimationFrame(() => {
+      input.measureInWindow((x, y, width, height) => {
+        const inputBottom = y + height;
+        const overlap = inputBottom + extraOffset - keyboardFrame.screenY;
+
+        if (overlap <= 0) return;
+
+        formScrollRef.current?.scrollTo({
+          y: Math.max(0, scrollYRef.current + overlap),
+          animated: false,
+        });
+      });
+    });
+  }, []);
+
+  const scrollToFocusedInput = useCallback((inputRef, extraOffset = 48) => {
+    focusedInputRef.current = inputRef;
+
+    if (!keyboardVisibleRef.current) return;
+
+    setTimeout(() => {
+      measureAndScrollToInput(inputRef, extraOffset);
+    }, 30);
+  }, [measureAndScrollToInput]);
+
+  useEffect(() => {
+    const handleKeyboardFrame = (event) => {
+      const nextFrame = event?.endCoordinates || null;
+      keyboardFrameRef.current = nextFrame;
+      keyboardVisibleRef.current = true;
+
+      const nextKeyboardHeight = Math.max(0, Number(nextFrame?.height) || 0);
+      setKeyboardBottomInset(nextKeyboardHeight);
+
+      if (focusedInputRef.current) {
+        setTimeout(() => {
+          measureAndScrollToInput(focusedInputRef.current, 48);
+        }, 30);
+      }
+    };
+
+    const showSub = Keyboard.addListener('keyboardDidShow', handleKeyboardFrame);
+    const changeSub = Keyboard.addListener('keyboardDidChangeFrame', handleKeyboardFrame);
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardFrameRef.current = null;
+      keyboardVisibleRef.current = false;
+      focusedInputRef.current = null;
+      setKeyboardBottomInset(0);
+    });
+
+    return () => {
+      showSub.remove();
+      changeSub.remove();
+      hideSub.remove();
+    };
+  }, [measureAndScrollToInput]);
 
   // 초기 로드
   useEffect(()=>{
@@ -470,8 +541,25 @@ export default function EditChallengeScreen(){
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
       <BackButton title={isHabit ? "습관 수정" : "도전 수정"} />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        ref={formScrollRef}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(spacing.xl * 3, keyboardBottomInset + spacing.xl * 2) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        onScroll={(event) => {
+          scrollYRef.current = event?.nativeEvent?.contentOffset?.y || 0;
+        }}
+        scrollEventThrottle={16}
+      >
       
 
       {/* 기본 정보 */}
@@ -500,6 +588,7 @@ export default function EditChallengeScreen(){
         {/* 도전 내용 */}
         <Text style={[styles.label, { marginTop: spacing.md }]}>도전 내용</Text>
         <TextInput
+          ref={descriptionInputRef}
           value={description}
           onChangeText={handleDescChange} // ← 500자 제한
           placeholder="도전의 구체적인 내용을 적어주세요"
@@ -507,6 +596,7 @@ export default function EditChallengeScreen(){
           placeholderTextColor={PALETTE.gray400}
           multiline
           textAlignVertical="top"
+          onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)}
         />
 
         <View style={styles.row}>
@@ -544,11 +634,13 @@ export default function EditChallengeScreen(){
         <Text style={styles.cardTitle}>보상</Text>
         <Text style={styles.label}>보상 내용</Text>
         <TextInput
+          ref={rewardInputRef}
           value={reward}
           onChangeText={handleRewardChange} // ← 50자 제한
           placeholder="원하는 보상을 입력하세요!"
           style={styles.input}
           placeholderTextColor={PALETTE.gray400}
+          onFocus={() => scrollToFocusedInput(rewardInputRef, 48)}
         />
               </View>
       )}
@@ -795,6 +887,7 @@ export default function EditChallengeScreen(){
         </View>
       </Modal>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

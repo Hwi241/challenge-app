@@ -1,6 +1,6 @@
 // screens/ChallengeListScreen.js
 import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, UIManager, LayoutAnimation, Animated, Easing, Modal, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, ScrollView, UIManager, LayoutAnimation, Animated, Easing, Modal, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
@@ -1223,14 +1223,22 @@ export default function ChallengeListScreen() {
     setTimeout(() => {
       const ref = itemRefs.current[safeStringId(selectedId)];
       if (ref && ref.measureInWindow) {
-        ref.measureInWindow((_x, y) => {
-          const nextTop = y;
-          Animated.timing(floatTop, {
-            toValue: nextTop,
-            duration: 180,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: false,
-          }).start(() => { animLockRef.current = false; });
+        ref.measureInWindow((x, y, width) => {
+          setFloatWidth(width);
+          Animated.parallel([
+            Animated.timing(floatLeft, {
+              toValue: x,
+              duration: 180,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }),
+            Animated.timing(floatTop, {
+              toValue: y,
+              duration: 180,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }),
+          ]).start(() => { animLockRef.current = false; });
         });
       } else {
         animLockRef.current = false;
@@ -1346,6 +1354,16 @@ export default function ChallengeListScreen() {
     [reorderActive, selectedId, collapsedIds, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize, isWideChallengeList]
   );
 
+  const renderMasonryItem = useCallback((item) => renderRow({ item }), [renderRow]);
+  const masonryLeftData = useMemo(
+    () => displayData.filter((_, index) => index % 2 === 0),
+    [displayData]
+  );
+  const masonryRightData = useMemo(
+    () => displayData.filter((_, index) => index % 2 === 1),
+    [displayData]
+  );
+
   const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));
 
   return (
@@ -1387,25 +1405,50 @@ export default function ChallengeListScreen() {
       </TouchableOpacity>
 
       {/* 리스트 */}
-      <FlatList
-        key={isWideChallengeList ? 'challenge-list-wide-2' : 'challenge-list-normal-1'}
-        data={displayData}
-        keyExtractor={keyExtractor}
-        renderItem={renderRow}
-        scrollEnabled={!reorderActive}
-        removeClippedSubviews={false}
-        style={{ flex: 1 }}
-        onLayout={handleChallengeListFrameLayout}
-        numColumns={isWideChallengeList ? 2 : 1}
-        columnWrapperStyle={isWideChallengeList ? styles.challengeListWideRow : undefined}
-        contentContainerStyle={[
-          { paddingBottom: listBottomPad },
-          isWideChallengeList ? styles.challengeListWideContent : styles.challengeListContent,
-        ]}
-        ListEmptyComponent={EmptyState}
-        initialNumToRender={12}
-        windowSize={15}
-      />
+      {isWideChallengeList ? (
+        <ScrollView
+          style={{ flex: 1 }}
+          onLayout={handleChallengeListFrameLayout}
+          scrollEnabled={!reorderActive}
+          contentContainerStyle={[styles.challengeListWideContent, { paddingBottom: listBottomPad }]}
+        >
+          {displayData.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <View style={styles.challengeListMasonryRow}>
+              <View style={styles.challengeListMasonryColumn}>
+                {masonryLeftData.map((item) => (
+                  <View key={keyExtractor(item)}>
+                    {renderMasonryItem(item)}
+                  </View>
+                ))}
+              </View>
+              <View style={styles.challengeListMasonryColumn}>
+                {masonryRightData.map((item) => (
+                  <View key={keyExtractor(item)}>
+                    {renderMasonryItem(item)}
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        <FlatList
+          key="challenge-list-normal-1"
+          data={displayData}
+          keyExtractor={keyExtractor}
+          renderItem={renderRow}
+          scrollEnabled={!reorderActive}
+          removeClippedSubviews={false}
+          style={{ flex: 1 }}
+          onLayout={handleChallengeListFrameLayout}
+          contentContainerStyle={[styles.challengeListContent, { paddingBottom: listBottomPad }]}
+          ListEmptyComponent={EmptyState}
+          initialNumToRender={12}
+          windowSize={15}
+        />
+      )}
 
       {/* 내 기록실 버튼 */}
       <TouchableOpacity
@@ -1534,7 +1577,6 @@ const styles = StyleSheet.create({
   /* 카드 */
   cardWrap: { marginTop: spacing.md },
   cardWrapWide: {
-    width: '50%',
     paddingHorizontal: 4,
   },
   challengeListContent: {
@@ -1545,8 +1587,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: 0,
   },
-  challengeListWideRow: {
+  challengeListMasonryRow: {
+    flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  challengeListMasonryColumn: {
+    flex: 1,
   },
   cardFloating: {},
   cardCompact: {

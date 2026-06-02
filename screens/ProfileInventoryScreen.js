@@ -504,24 +504,39 @@ const DashboardCard = ({ title, subtitle, children, dark = false }) => (
 );
 
 const KpiCard = ({ label, value, note, dark = false, icon }) => (
-  <DashboardCard title={label} dark={dark}>
+  <View style={[styles.dashboardCard, styles.kpiCard, dark && styles.dashboardCardDark]}>
+    <Text
+      style={[styles.kpiLabel, dark && styles.kpiLabelDark]}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.72}
+    >
+      {label}
+    </Text>
+
     <View style={styles.kpiValueRow}>
       {!!icon && <Text style={[styles.kpiIcon, dark && styles.kpiValueDark]}>{icon}</Text>}
       <Text
         style={[styles.kpiValue, dark && styles.kpiValueDark]}
         numberOfLines={1}
         adjustsFontSizeToFit
-        minimumFontScale={0.62}
+        minimumFontScale={0.5}
       >
         {value}
       </Text>
     </View>
+
     {!!note && (
-      <Text style={[styles.kpiNote, dark && styles.kpiNoteDark]} numberOfLines={1}>
+      <Text
+        style={[styles.kpiNote, dark && styles.kpiNoteDark]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.72}
+      >
         {note}
       </Text>
     )}
-  </DashboardCard>
+  </View>
 );
 
 const ProfileImageCard = ({ imageUri, onPress }) => (
@@ -1304,6 +1319,21 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
   },
+  kpiCard: {
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  kpiLabel: {
+    fontSize: 10.5,
+    color: colors.gray600,
+    fontWeight: '900',
+    lineHeight: 13,
+  },
+  kpiLabelDark: {
+    color: '#E5E7EB',
+  },
   kpiValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1317,19 +1347,20 @@ const styles = StyleSheet.create({
   },
   kpiValue: {
     flexShrink: 1,
-    fontSize: 23,
+    fontSize: 22,
     color: '#111',
     fontWeight: '900',
     letterSpacing: -0.8,
+    lineHeight: 25,
   },
   kpiValueDark: {
     color: '#fff',
   },
   kpiNote: {
-    marginTop: 4,
-    fontSize: 11,
+    fontSize: 9.5,
     color: colors.gray500,
     fontWeight: '700',
+    lineHeight: 12,
   },
   kpiNoteDark: {
     color: '#D1D5DB',

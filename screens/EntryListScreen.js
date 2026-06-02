@@ -2482,6 +2482,8 @@ export default function EntryListScreen({ route, navigation }) {
   const isWideDashboardLayout =
     windowWidth >= WIDE_LAYOUT_MIN_WIDTH ||
     dashboardFrameWidth >= WIDE_DASHBOARD_FRAME_MIN_WIDTH;
+  const shareCaptureWidth = Math.max(1, Math.floor(windowWidth || SCREEN_WIDTH));
+  const headerTitleContainerWidth = Math.max(160, shareCaptureWidth - 120);
 
   const handleDashboardFrameLayout = useCallback((event) => {
     const nextWidth = Math.floor(event?.nativeEvent?.layout?.width || 0);
@@ -3470,9 +3472,10 @@ const runWeek = useCallback(() => {
     const GRID_CELL_PADDING_VIEW = 4;
     const DASHBOARD_BOARD_SIDE_BLEED = 4;
 
-    const effectiveGridColumns = !isShare && isWideDashboardLayout
+    const effectiveGridColumns = isWideDashboardLayout
       ? WIDE_GRID_COLUMNS
       : GRID_COLUMNS;
+    const shouldUseWideReflow = isWideDashboardLayout;
     const isDashboardEditDisabled = !isShare && isWideDashboardLayout;
 
     const baseSafeLayout = baseLayout
@@ -3535,7 +3538,7 @@ const runWeek = useCallback(() => {
       });
     };
 
-    const safeLayout = isDashboardEditDisabled
+    const safeLayout = shouldUseWideReflow
       ? reflowWideLayout(baseSafeLayout)
       : baseSafeLayout;
 
@@ -3642,7 +3645,7 @@ const runWeek = useCallback(() => {
           <Text style={styles.headerBackArrow}>‹</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
-          <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
+          <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={headerTitleContainerWidth} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>
         <TouchableOpacity
@@ -3660,7 +3663,7 @@ const runWeek = useCallback(() => {
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, dashboardFrameWidth, handleDashboardFrameLayout, wideReflowFadeAnim
   , dashboardLayout, dashboardRowGap,
-    displayTitle
+    displayTitle, headerTitleContainerWidth
   ]);
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
@@ -3670,7 +3673,7 @@ const runWeek = useCallback(() => {
            <ShadowIcon forShare={true} />
         </View>
         <View style={styles.headerTitleWrap}>
-          <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={SCREEN_WIDTH - 120} />
+          <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={headerTitleContainerWidth} />
           <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
         </View>
         <View style={styles.headerInfoBtn} />
@@ -3680,9 +3683,9 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, entries, overallPct
-  , dashboardRowGap,
-    displayTitle
+    weekIndex, entries, overallPct,
+    isWideDashboardLayout, dashboardLayout, dashboardRowGap,
+    displayTitle, headerTitleContainerWidth
   ]);
 
   const cidForDebug = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
@@ -3748,27 +3751,7 @@ const runWeek = useCallback(() => {
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StickyDebugPeek visible={DEBUG_ON} count={debug?.count ?? 0} onPress={reload} />
 
-      {/* 공유 캡처용: 화면 밖 — 헤더 + 보상 + 요약 + 전체 목록 포함 */}
-{offscreenRenderReady && (
-<View pointerEvents="none" style={{ position:'absolute', left:-9999, top:-9999, width:SCREEN_WIDTH, opacity:0 }}>
-<ViewShot ref={shareRef} options={{ format: 'png', quality: 1 }}>
-  <View style={[styles.container, { backgroundColor: '#fff' }]} collapsable={false}>
-    {HeaderCardForShare}
-
-   <View style={[styles.sectionPadNarrow, styles.rewardBlockSpacing]}>
-
-</View>
-
-    <View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
-      <Text style={styles.accumText}>누적시간 : {hours}시간 {minutes}분</Text>
-      <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
-    </View>
-
-    <View style={{ height: EDGE }} />
-  </View>
-</ViewShot>
-</View>
-)}
+            {/* 공유 캡처는 실제 화면 상단 영역의 ViewShot을 직접 사용한다. */}
 
 
       <DebugPanel
@@ -3836,6 +3819,8 @@ const runWeek = useCallback(() => {
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
       >
+        <ViewShot ref={shareRef} style={{ width: '100%' }} options={{ format: 'png', quality: 1 }}>
+          <View collapsable={false} style={{ width: '100%', backgroundColor: '#fff' }}>
         <HeaderWithCountMemo HeaderCard={HeaderCard} />
 
         {/* 보상 박스 (위/아래 간격을 상수로 제어) */}
@@ -3849,6 +3834,9 @@ const runWeek = useCallback(() => {
   <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
 </View>
 
+          <View style={{ height: EDGE }} />
+          </View>
+        </ViewShot>
 
 {/* 인증목록 */}
 {sortedEntries.length === 0 ? (

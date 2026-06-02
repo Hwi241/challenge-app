@@ -1,6 +1,6 @@
 // screens/ChallengeListScreen.js
 import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, UIManager, LayoutAnimation, Animated, Easing, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, UIManager, LayoutAnimation, Animated, Easing, Modal, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
@@ -22,6 +22,8 @@ const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
 const CARD_COLLAPSE_ANIM_MS = 320;
+const WIDE_CHALLENGE_LIST_MIN_WIDTH = 600;
+const WIDE_CHALLENGE_LIST_FRAME_MIN_WIDTH = 520;
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
 const COLLAPSED_CARDS_KEY = 'ch_collapsed_cards';
@@ -783,12 +785,13 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
   item, hidden, habitGrassColor = HABIT_GRASS_EMPTY,
   variant = CHALLENGE_CARD_VARIANTS.LIST,
   collapsed = false,
+  isWide = false,
   onLongPress,
   onPressToggleCollapsed,
   onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
 }, ref) {
   return (
-    <View style={[styles.cardWrap, hidden && { opacity: 0 }]}>
+    <View style={[styles.cardWrap, isWide && styles.cardWrapWide, hidden && { opacity: 0 }]}>
       <CardBody ref={ref}
         item={item}
         habitGrassColor={habitGrassColor}
@@ -813,9 +816,11 @@ export default function ChallengeListScreen() {
   const isFocused = useIsFocused();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
 
   const [data, setData] = useState([]);
   const [habitGrassColorMap, setHabitGrassColorMap] = useState({});
+  const [challengeListFrameWidth, setChallengeListFrameWidth] = useState(0);
 
   /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
@@ -1282,6 +1287,17 @@ export default function ChallengeListScreen() {
 
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
   const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
+  const isWideChallengeList = (
+    windowWidth >= WIDE_CHALLENGE_LIST_MIN_WIDTH ||
+    challengeListFrameWidth >= WIDE_CHALLENGE_LIST_FRAME_MIN_WIDTH
+  );
+
+  const handleChallengeListFrameLayout = useCallback((event) => {
+    const nextWidth = Math.round(event?.nativeEvent?.layout?.width || 0);
+    if (nextWidth > 0 && nextWidth !== challengeListFrameWidth) {
+      setChallengeListFrameWidth(nextWidth);
+    }
+  }, [challengeListFrameWidth]);
 
   const renderRow = useCallback(
     ({ item }) => {
@@ -1297,6 +1313,7 @@ export default function ChallengeListScreen() {
           habitGrassColor={habitGrassColorMap[safeStringId(item.id)] || HABIT_GRASS_EMPTY}
           variant={CHALLENGE_CARD_VARIANTS.LIST}
           collapsed={isCollapsed}
+          isWide={isWideChallengeList}
           hidden={isSelected && reorderActive}
           onPressToggleCollapsed={() => toggleCollapsed(item)}
           onLongPress={() => {
@@ -1326,7 +1343,7 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, collapsedIds, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize]
+    [reorderActive, selectedId, collapsedIds, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize, isWideChallengeList]
   );
 
   const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));
@@ -1371,13 +1388,20 @@ export default function ChallengeListScreen() {
 
       {/* 리스트 */}
       <FlatList
+        key={isWideChallengeList ? 'challenge-list-wide-2' : 'challenge-list-normal-1'}
         data={displayData}
         keyExtractor={keyExtractor}
         renderItem={renderRow}
         scrollEnabled={!reorderActive}
         removeClippedSubviews={false}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: listBottomPad }}
+        onLayout={handleChallengeListFrameLayout}
+        numColumns={isWideChallengeList ? 2 : 1}
+        columnWrapperStyle={isWideChallengeList ? styles.challengeListWideRow : undefined}
+        contentContainerStyle={[
+          { paddingBottom: listBottomPad },
+          isWideChallengeList ? styles.challengeListWideContent : styles.challengeListContent,
+        ]}
         ListEmptyComponent={EmptyState}
         initialNumToRender={12}
         windowSize={15}
@@ -1509,6 +1533,21 @@ const styles = StyleSheet.create({
 
   /* 카드 */
   cardWrap: { marginTop: spacing.md },
+  cardWrapWide: {
+    width: '50%',
+    paddingHorizontal: 4,
+  },
+  challengeListContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 0,
+  },
+  challengeListWideContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: 0,
+  },
+  challengeListWideRow: {
+    alignItems: 'flex-start',
+  },
   cardFloating: {},
   cardCompact: {
     paddingVertical: 8,

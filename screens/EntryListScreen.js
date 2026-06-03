@@ -86,6 +86,26 @@ const AdBannerPlaceholder = () => (
   </View>
 );
 
+const DashboardEditIcon = () => (
+  <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
+    <Rect x={2} y={2} width={28} height={28} rx={8} fill="#111" />
+    <Path
+      d="M11.9 20.4L12.55 17.3L19.65 10.2C20.16 9.69 20.98 9.69 21.49 10.2L21.8 10.51C22.31 11.02 22.31 11.84 21.8 12.35L14.7 19.45L11.9 20.4Z"
+      stroke="#FFFFFF"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M18.7 11.3L20.7 13.3"
+      stroke="#FFFFFF"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const baseBlack = '#111111';
 const progressGrey = '#D1D5DB';
 const textGrey = '#666666';
@@ -3602,21 +3622,15 @@ const runWeek = useCallback(() => {
                 }}
                 activeOpacity={isDashboardEditDisabled ? 1 : 0.85}
                 style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  borderRadius: 10,
-                  backgroundColor: isDashboardEditDisabled ? '#E5E7EB' : '#111',
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Text
-                  style={{
-                    color: isDashboardEditDisabled ? '#9CA3AF' : '#fff',
-                    fontWeight: '800',
-                    fontSize: 12,
-                  }}
-                >
-                  대시보드 수정
-                </Text>
+                <DashboardEditIcon />
               </TouchableOpacity>
             </View>
           </View>

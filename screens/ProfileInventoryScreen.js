@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
   Image,
   Modal,
   ScrollView,
@@ -14,7 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 
 import { colors, radius, spacing } from '../styles/common';
@@ -894,6 +895,26 @@ const GridItem = ({ item, columns, children }) => {
   );
 };
 
+const RecordRoomEditIcon = () => (
+  <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
+    <Rect x={2} y={2} width={28} height={28} rx={8} fill="#111" />
+    <Path
+      d="M11.9 20.4L12.55 17.3L19.65 10.2C20.16 9.69 20.98 9.69 21.49 10.2L21.8 10.51C22.31 11.02 22.31 11.84 21.8 12.35L14.7 19.45L11.9 20.4Z"
+      stroke="#FFFFFF"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M18.7 11.3L20.7 13.3"
+      stroke="#FFFFFF"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 export default function ProfileInventoryScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -1040,6 +1061,13 @@ export default function ProfileInventoryScreen() {
     setHofGoalVisible(false);
   }, [hofGoalDraft]);
 
+  const openRecordRoomLayoutEdit = useCallback(() => {
+    Alert.alert(
+      '배치 수정',
+      '기록실 대시보드 수정 화면은 다음 단계에서 연결합니다.'
+    );
+  }, []);
+
   const dashboardItems = useMemo(() => ([
     { id: 'profile-image', w: columns >= 12 ? 3 : 2, h: 2, render: () => <ProfileImageCard imageUri={profileImageUri} onPress={pickProfileImage} /> },
     { id: 'profile-info', w: columns >= 12 ? 9 : 4, h: 2, render: () => <ProfileInfoCard profile={profileInfo} onPress={openProfile} /> },
@@ -1077,6 +1105,7 @@ export default function ProfileInventoryScreen() {
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
 
+        <Text style={styles.headerTitle}>MY</Text>
         <TouchableOpacity
           style={styles.shopBtn}
           onPress={() => navigation.navigate('WidgetShop')}
@@ -1094,10 +1123,28 @@ export default function ProfileInventoryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.titleBlock}>
-          <Text style={styles.screenTitle}>내 기록실</Text>
-          <Text style={styles.screenSubtitle}>쌓인 도전과 기록을 한눈에 보는 대시보드</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={styles.recordRoomInternalTitle}>내 기록실</Text>
+<TouchableOpacity
+              onPress={openRecordRoomLayoutEdit}
+              activeOpacity={0.85}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="기록실 배치 수정"
+            >
+              <RecordRoomEditIcon />
+            </TouchableOpacity>
+          </View>
         </View>
+
 
         <View style={styles.gridWrap}>
           {dashboardItems.map((item) => (
@@ -1248,26 +1295,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   shopBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  recordRoomInternalTitle: {
+    flex: 1,
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#111',
+    textAlign: 'center',
+  },
   scroll: { flex: 1 },
   scrollContent: {
     paddingHorizontal: spacing.md,
   },
-  titleBlock: {
-    paddingTop: 4,
-    paddingBottom: spacing.md,
-    alignItems: 'center',
-  },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.gray800,
-  },
-  screenSubtitle: {
-    marginTop: 5,
-    fontSize: 12,
-    color: colors.gray500,
-    fontWeight: '700',
-  },
+
+
+
   gridWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',

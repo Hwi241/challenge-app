@@ -1297,10 +1297,9 @@ const styles = StyleSheet.create({
   shopBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   recordRoomInternalTitle: {
     flex: 1,
-    color: '#111827',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: -0.2,
+    color: '#111',
+    fontSize: 20,
+    fontWeight: '800',
   },
   headerTitle: {
     flex: 1,

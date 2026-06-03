@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
   Image,
   Modal,
   ScrollView,
@@ -18,6 +17,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 
+import { DASHBOARD_TARGETS, getDefaultDashboardLayout } from '../constants/widgetCatalog';
+import {
+  DASHBOARD_ROW_GAP_DEFAULT,
+  getDashboardLayoutStateForChallenge,
+  getDashboardRowGapForChallenge,
+} from '../utils/dashboardLayout';
 import { colors, radius, spacing } from '../styles/common';
 import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 
@@ -26,6 +31,9 @@ const RECORD_ROOM_MEMO_KEY = 'record_room_memo';
 const RECORD_ROOM_HOF_GOAL_KEY = 'record_room_hof_goal';
 const RECORD_ROOM_PROFILE_KEY = 'record_room_profile';
 const RECORD_ROOM_IMAGE_KEY = 'record_room_image';
+
+const RECORD_ROOM_DASHBOARD_TARGET = DASHBOARD_TARGETS.RECORD_ROOM;
+const RECORD_ROOM_DASHBOARD_CHALLENGE_ID = 'recordRoom';
 
 const PHONE_GRID_COLUMNS = 6;
 const WIDE_GRID_COLUMNS = 12;
@@ -939,6 +947,10 @@ export default function ProfileInventoryScreen() {
   const [hofGoalVisible, setHofGoalVisible] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
+  const [recordRoomLayout, setRecordRoomLayout] = useState(() =>
+    getDefaultDashboardLayout(RECORD_ROOM_DASHBOARD_TARGET)
+  );
+  const [recordRoomRowGap, setRecordRoomRowGap] = useState(DASHBOARD_ROW_GAP_DEFAULT);
 
   const reload = useCallback(async () => {
     await ensureInitialStars();
@@ -987,10 +999,30 @@ export default function ProfileInventoryScreen() {
     setHofGoalDraft(String(safeGoal));
   }, []);
 
+  const loadRecordRoomDashboardLayout = useCallback(async () => {
+    try {
+      const [layoutState, storedRowGap] = await Promise.all([
+        getDashboardLayoutStateForChallenge(RECORD_ROOM_DASHBOARD_CHALLENGE_ID, RECORD_ROOM_DASHBOARD_TARGET),
+        getDashboardRowGapForChallenge(RECORD_ROOM_DASHBOARD_CHALLENGE_ID, RECORD_ROOM_DASHBOARD_TARGET),
+      ]);
+      const nextLayout =
+        Array.isArray(layoutState?.layout) && layoutState.layout.length > 0
+          ? layoutState.layout
+          : getDefaultDashboardLayout(RECORD_ROOM_DASHBOARD_TARGET);
+      setRecordRoomLayout(nextLayout);
+      setRecordRoomRowGap(storedRowGap);
+    } catch (error) {
+      console.warn('Failed to load record room dashboard layout', error);
+      setRecordRoomLayout(getDefaultDashboardLayout(RECORD_ROOM_DASHBOARD_TARGET));
+      setRecordRoomRowGap(DASHBOARD_ROW_GAP_DEFAULT);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       reload();
-    }, [reload])
+      loadRecordRoomDashboardLayout();
+    }, [reload, loadRecordRoomDashboardLayout])
   );
 
   const weekBaseDate = useMemo(() => addDays(new Date(), weekOffset * 7), [weekOffset]);
@@ -1062,36 +1094,56 @@ export default function ProfileInventoryScreen() {
   }, [hofGoalDraft]);
 
   const openRecordRoomLayoutEdit = useCallback(() => {
-    Alert.alert(
-      '배치 수정',
-      '기록실 대시보드 수정 화면은 다음 단계에서 연결합니다.'
-    );
-  }, []);
+    navigation.navigate('DashboardEdit', {
+      target: 'recordRoom',
+      dashboardTarget: 'recordRoom',
+      title: '내 기록실',
+    });
+  }, [navigation]);
 
-  const dashboardItems = useMemo(() => ([
-    { id: 'profile-image', w: columns >= 12 ? 3 : 2, h: 2, render: () => <ProfileImageCard imageUri={profileImageUri} onPress={pickProfileImage} /> },
-    { id: 'profile-info', w: columns >= 12 ? 9 : 4, h: 2, render: () => <ProfileInfoCard profile={profileInfo} onPress={openProfile} /> },
+  const recordRoomItemMap = useMemo(() => {
+    const sourceItems = [
+    { id: 'profile-image', render: () => <ProfileImageCard imageUri={profileImageUri} onPress={pickProfileImage} /> },
+    { id: 'profile-info', render: () => <ProfileInfoCard profile={profileInfo} onPress={openProfile} /> },
+    { id: 'total-cards', render: () => <KpiCard label="현재 도전/기록" value={stats.totalCards} note={`도전 ${stats.challengeCount} · 기록 ${stats.recordCount}`} dark /> },
+    { id: 'hall-count', render: () => <KpiCard label="명예의 전당" value={stats.completedCount} note="완료 카드" /> },
+    { id: 'stars', render: () => <KpiCard label="별 갯수" value={stats.stars} note="현재 보유" icon="★" /> },
+    { id: 'today-count', render: () => <KpiCard label="오늘 기록" value={stats.todayCount} note="오늘 인증/기록" /> },
+    { id: 'deleted-count', render: () => <KpiCard label="삭제 갯수" value={stats.deletedCount} note={stats.hasTrashSource ? '휴지통 기준' : '이력 없음'} /> },
+    { id: 'expired-fail', render: () => <KpiCard label="만료 실패" value={stats.expiredFailedCount} note="미완료 만료" /> },
+    { id: 'weekly-bars', render: () => <WeeklyBarCard data={stats.weekly} label={stats.weekLabel} onPrev={() => setWeekOffset((v) => v - 1)} onNext={() => setWeekOffset((v) => Math.min(0, v + 1))} /> },
+    { id: 'ratio-donut', render: () => <RatioDonutCard challengeCount={stats.challengeCount} recordCount={stats.recordCount} /> },
+    { id: 'token-line', render: () => <TokenTrendCard data={stats.starHistory} stars={stats.stars} /> },
+    { id: 'calendar', render: () => <CalendarCard days={stats.calendarDays} label={stats.calendarLabel} onPrev={() => setCalendarMonthOffset((v) => v - 1)} onNext={() => setCalendarMonthOffset((v) => Math.min(0, v + 1))} /> },
+    { id: 'heatmap', render: () => <HeatmapCard data={stats.heatmap} label={stats.weekLabel} onPrev={() => setWeekOffset((v) => v - 1)} onNext={() => setWeekOffset((v) => Math.min(0, v + 1))} /> },
+    { id: 'monthly-bars', render: () => <MonthlyBarCard data={stats.monthly} /> },
+    { id: 'hall-battery', render: () => <HallBatteryCard completedCount={stats.completedCount} goal={stats.hofGoal} progress={stats.hofProgress} onPress={openHofGoal} /> },
+    { id: 'connect-status', render: () => <ConnectStatusCard /> },
+    { id: 'memo', render: () => <MemoCard memo={memo} onPress={openMemo} /> },
+    { id: 'record-room-card-list', render: () => <CardListSection cards={cards} hallCards={hallCards} /> },
+    ];
+    return new Map(sourceItems.map((item) => [item.id, item]));
+  }, [cards, hallCards, stats, memo, openMemo, profileImageUri, pickProfileImage, profileInfo, openProfile, openHofGoal]);
 
-    { id: 'total-cards', w: columns >= 12 ? 2 : 3, h: 1, render: () => <KpiCard label="현재 도전/기록" value={stats.totalCards} note={`도전 ${stats.challengeCount} · 기록 ${stats.recordCount}`} dark /> },
-    { id: 'hall-count', w: columns >= 12 ? 2 : 3, h: 1, render: () => <KpiCard label="명예의 전당" value={stats.completedCount} note="완료 카드" /> },
-    { id: 'stars', w: columns >= 12 ? 2 : 3, h: 1, render: () => <KpiCard label="별 갯수" value={stats.stars} note="현재 보유" icon="★" /> },
-    { id: 'today-count', w: columns >= 12 ? 2 : 3, h: 1, render: () => <KpiCard label="오늘 기록" value={stats.todayCount} note="오늘 인증/기록" /> },
-    { id: 'deleted-count', w: columns >= 12 ? 2 : 3, h: 1, render: () => <KpiCard label="삭제 갯수" value={stats.deletedCount} note={stats.hasTrashSource ? '휴지통 기준' : '이력 없음'} /> },
-    { id: 'expired-fail', w: columns >= 12 ? 2 : 3, h: 1, render: () => <KpiCard label="만료 실패" value={stats.expiredFailedCount} note="미완료 만료" /> },
-
-    { id: 'weekly-bars', w: columns >= 12 ? 6 : 6, h: 3, render: () => <WeeklyBarCard data={stats.weekly} label={stats.weekLabel} onPrev={() => setWeekOffset((v) => v - 1)} onNext={() => setWeekOffset((v) => Math.min(0, v + 1))} /> },
-    { id: 'ratio-donut', w: columns >= 12 ? 3 : 3, h: 3, render: () => <RatioDonutCard challengeCount={stats.challengeCount} recordCount={stats.recordCount} /> },
-    { id: 'token-line', w: columns >= 12 ? 3 : 3, h: 3, render: () => <TokenTrendCard data={stats.starHistory} stars={stats.stars} /> },
-
-    { id: 'calendar', w: columns >= 12 ? 6 : 6, h: 4, render: () => <CalendarCard days={stats.calendarDays} label={stats.calendarLabel} onPrev={() => setCalendarMonthOffset((v) => v - 1)} onNext={() => setCalendarMonthOffset((v) => Math.min(0, v + 1))} /> },
-    { id: 'heatmap', w: columns >= 12 ? 6 : 6, h: 4, render: () => <HeatmapCard data={stats.heatmap} label={stats.weekLabel} onPrev={() => setWeekOffset((v) => v - 1)} onNext={() => setWeekOffset((v) => Math.min(0, v + 1))} /> },
-
-    { id: 'monthly-bars', w: columns >= 12 ? 6 : 6, h: 3, render: () => <MonthlyBarCard data={stats.monthly} /> },
-    { id: 'hall-battery', w: columns >= 12 ? 6 : 6, h: 2, render: () => <HallBatteryCard completedCount={stats.completedCount} goal={stats.hofGoal} progress={stats.hofProgress} onPress={openHofGoal} /> },
-
-    { id: 'connect-status', w: columns >= 12 ? 6 : 6, h: 2, render: () => <ConnectStatusCard /> },
-    { id: 'memo', w: columns >= 12 ? 6 : 6, h: 2, render: () => <MemoCard memo={memo} onPress={openMemo} /> },
-  ]), [columns, stats, memo, openMemo, profileImageUri, pickProfileImage, profileInfo, openProfile, openHofGoal]);
+  const dashboardItems = useMemo(() => {
+    const sourceLayout =
+      Array.isArray(recordRoomLayout) && recordRoomLayout.length > 0
+        ? recordRoomLayout
+        : getDefaultDashboardLayout(RECORD_ROOM_DASHBOARD_TARGET);
+    return sourceLayout
+      .map((layoutItem, index) => {
+        const widgetId = layoutItem?.widgetId || layoutItem?.id;
+        const sourceItem = recordRoomItemMap.get(widgetId);
+        if (!widgetId || !sourceItem) return null;
+        const safeW = Math.max(1, Math.min(PHONE_GRID_COLUMNS, Number(layoutItem?.w) || PHONE_GRID_COLUMNS));
+        const safeH = Math.max(1, Number(layoutItem?.h) || 1);
+        const safeX = Math.max(0, Math.min(PHONE_GRID_COLUMNS - safeW, Number(layoutItem?.x) || 0));
+        const safeY = Number.isFinite(Number(layoutItem?.y)) ? Math.max(0, Number(layoutItem.y)) : index;
+        return { ...sourceItem, id: widgetId, widgetId, x: safeX, y: safeY, w: safeW, h: safeH };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  }, [recordRoomLayout, recordRoomItemMap]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1146,15 +1198,15 @@ export default function ProfileInventoryScreen() {
         </View>
 
 
-        <View style={styles.gridWrap}>
+        <View style={[styles.gridWrap, { rowGap: recordRoomRowGap }]}>
           {dashboardItems.map((item) => (
-            <GridItem key={item.id} item={item} columns={columns}>
+            <GridItem key={item.id} item={item} columns={PHONE_GRID_COLUMNS}>
               {item.render()}
             </GridItem>
           ))}
         </View>
 
-        <CardListSection cards={cards} hallCards={hallCards} />
+
       </ScrollView>
 
       <Modal visible={memoVisible} transparent animationType="fade" onRequestClose={() => setMemoVisible(false)}>

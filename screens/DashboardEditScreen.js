@@ -19,7 +19,7 @@ import {
  GRID_COLUMNS,
  DEFAULT_WIDGET_IDS,
  getDefaultDashboardLayout,
- getShopWidgets,
+ getDashboardEditableWidgets,
  getWidgetById,
  supportsWidgetTarget,
 } from '../constants/widgetCatalog';
@@ -41,6 +41,11 @@ import {
 } from '../utils/dashboardLayout';
 
 function resolveTarget(params) {
+ const rawTarget = params?.target || params?.dashboardTarget;
+ if (rawTarget === DASHBOARD_TARGETS.RECORD_ROOM || rawTarget === 'recordRoom') {
+ return DASHBOARD_TARGETS.RECORD_ROOM;
+ }
+
  const rawType = params?.type || params?.challengeType || params?.item?.type || params?.challenge?.type;
  const isHabit = rawType === 'habit' || params?.isHabit === true || params?.habitId;
  return isHabit ? DASHBOARD_TARGETS.HABIT : DASHBOARD_TARGETS.CHALLENGE;
@@ -555,9 +560,11 @@ const AUTO_SCROLL_INTERVAL_MS = 16;
 export default function DashboardEditScreen({ route, navigation }) {
  const insets = useSafeAreaInsets();
  const params = route?.params || {};
- const challengeId = params.challengeId || params.id || params.challenge?.id || params.item?.id;
- const title = params.title || params.challengeTitle || params.item?.title || params.challenge?.title || '대시보드';
  const dashboardTarget = useMemo(() => resolveTarget(params), [params]);
+ const isRecordRoomDashboard = dashboardTarget === DASHBOARD_TARGETS.RECORD_ROOM;
+ const sourceChallengeId = params.challengeId || params.id || params.challenge?.id || params.item?.id;
+ const challengeId = isRecordRoomDashboard ? 'recordRoom' : sourceChallengeId;
+ const title = params.title || params.challengeTitle || params.item?.title || params.challenge?.title || (isRecordRoomDashboard ? '내 기록실' : '대시보드');
 
  const [layout, setLayout] = useState([]);
  const layoutRef = useRef([]);
@@ -621,7 +628,7 @@ const setDashboardLayoutImmediate = useCallback((updater) => {
  try {
  const [state, storedRowGap] = await Promise.all([
  getDashboardLayoutStateForChallenge(challengeId, dashboardTarget),
- getDashboardRowGapForChallenge(challengeId),
+ getDashboardRowGapForChallenge(challengeId, dashboardTarget),
  ]);
  setRowGap(storedRowGap);
 
@@ -1423,19 +1430,11 @@ const layoutRows = useMemo(() => {
 
 
  const pickerWidgets = useMemo(() => {
- const byId = new Map();
+ const sourceWidgets = typeof getDashboardEditableWidgets === 'function'
+ ? getDashboardEditableWidgets(dashboardTarget)
+ : [];
 
- DEFAULT_WIDGET_IDS.forEach((id) => {
- const widget = getWidgetById(id);
- if (widget) byId.set(id, widget);
- });
-
- getShopWidgets().forEach((widget) => {
- const id = widget?.id || widget?.widgetId;
- if (id) byId.set(id, widget);
- });
-
- return Array.from(byId.values()).filter((widget) => {
+ return sourceWidgets.filter((widget) => {
  const id = widget?.id || widget?.widgetId;
  if (!id || placedIds.has(id)) return false;
  if (typeof supportsWidgetTarget === 'function' && !supportsWidgetTarget(widget, dashboardTarget)) return false;
@@ -1770,6 +1769,11 @@ const getLayoutPreviewSignature = useCallback((items) => {
   const returnToEntryList = useCallback((mode = 'cancel') => {
  signalDashboardEditReturn(mode);
 
+ if (isRecordRoomDashboard) {
+ navigation.goBack();
+ return;
+ }
+
  if (!challengeId) {
  navigation.goBack();
  return;
@@ -1807,7 +1811,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  }
 
  navigation.navigate('EntryList', entryListParams);
- }, [challengeId, navigation, params, signalDashboardEditReturn, title]);
+ }, [challengeId, isRecordRoomDashboard, navigation, params, signalDashboardEditReturn, title]);
 
  useEffect(() => {
  const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -1931,7 +1935,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
    : layout;
 
  await saveDashboardLayoutForChallenge(challengeId, layoutToSave, dashboardTarget);
- await saveDashboardRowGapForChallenge(challengeId, rowGap);
+ await saveDashboardRowGapForChallenge(challengeId, rowGap, dashboardTarget);
 
  const returnRouteKey = route?.params?.returnRouteKey;
     const dashboardEditReturnedAt = Date.now();

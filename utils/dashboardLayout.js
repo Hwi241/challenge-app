@@ -23,9 +23,20 @@ const parseJson = (raw, fallback) => {
   }
 };
 
+export const RECORD_ROOM_DASHBOARD_ID = 'record_room_dashboard';
+
 export const resolveDashboardTarget = (value) => {
   const v = String(value || '').toLowerCase();
-  return v === DASHBOARD_TARGETS.HABIT ? DASHBOARD_TARGETS.HABIT : DASHBOARD_TARGETS.CHALLENGE;
+  if (v === DASHBOARD_TARGETS.RECORD_ROOM) return DASHBOARD_TARGETS.RECORD_ROOM;
+  if (v === DASHBOARD_TARGETS.HABIT) return DASHBOARD_TARGETS.HABIT;
+  return DASHBOARD_TARGETS.CHALLENGE;
+};
+
+const getDashboardStorageKey = (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
+  const normalizedTarget = resolveDashboardTarget(target);
+  if (normalizedTarget === DASHBOARD_TARGETS.RECORD_ROOM) return RECORD_ROOM_DASHBOARD_ID;
+  if (!challengeId) return '';
+  return String(challengeId);
 };
 
 const clampNumber = (value, min, max, fallback) => {
@@ -311,15 +322,16 @@ const sanitizeDashboardLayout = (layout, target) => {
   return compactDashboardLayoutVertical(sanitizedLayout);
 };
 
-export const getDashboardLayoutForChallenge = async (challengeId, target) => {
-  if (!challengeId) {
+export const getDashboardLayoutForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
+  const storageKey = getDashboardStorageKey(challengeId, target);
+  if (!storageKey) {
     return sanitizeDashboardLayout(getDefaultDashboardLayout(target), target);
   }
 
   try {
     const raw = await AsyncStorage.getItem(DASHBOARD_LAYOUTS_KEY);
     const allLayouts = raw ? JSON.parse(raw) : {};
-    const storedLayout = allLayouts[String(challengeId)];
+    const storedLayout = allLayouts[storageKey];
 
     if (Array.isArray(storedLayout)) {
       return sanitizeDashboardLayout(storedLayout, target);
@@ -332,8 +344,9 @@ export const getDashboardLayoutForChallenge = async (challengeId, target) => {
   }
 };
 
-export const saveDashboardLayoutForChallenge = async (challengeId, layout, target) => {
-  if (!challengeId) return false;
+export const saveDashboardLayoutForChallenge = async (challengeId, layout, target = DASHBOARD_TARGETS.CHALLENGE) => {
+  const storageKey = getDashboardStorageKey(challengeId, target);
+  if (!storageKey) return false;
 
   const nextLayout = sanitizeDashboardLayout(layout, target);
 
@@ -341,7 +354,7 @@ export const saveDashboardLayoutForChallenge = async (challengeId, layout, targe
     const raw = await AsyncStorage.getItem(DASHBOARD_LAYOUTS_KEY);
     const allLayouts = raw ? JSON.parse(raw) : {};
 
-    allLayouts[String(challengeId)] = nextLayout;
+    allLayouts[storageKey] = nextLayout;
 
     await AsyncStorage.setItem(DASHBOARD_LAYOUTS_KEY, JSON.stringify(allLayouts));
     return nextLayout;
@@ -352,20 +365,21 @@ export const saveDashboardLayoutForChallenge = async (challengeId, layout, targe
 };
 
 export const resetDashboardLayoutForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
-  const id = String(challengeId || '');
   const normalizedTarget = resolveDashboardTarget(target);
   const defaults = normalizeDashboardLayout(getDefaultDashboardLayout(normalizedTarget), normalizedTarget);
-  if (!id) return defaults;
+  const storageKey = getDashboardStorageKey(challengeId, normalizedTarget);
+  if (!storageKey) return defaults;
 
   const map = await readLayoutMap();
-  map[id] = defaults;
+  map[storageKey] = defaults;
   await writeLayoutMap(map);
   return defaults;
 };
 
 
-export const getDashboardLayoutStateForChallenge = async (challengeId, target) => {
-  if (!challengeId) {
+export const getDashboardLayoutStateForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
+  const storageKey = getDashboardStorageKey(challengeId, target);
+  if (!storageKey) {
     return {
       hasStoredLayout: false,
       layout: sanitizeDashboardLayout(getDefaultDashboardLayout(target), target),
@@ -375,9 +389,8 @@ export const getDashboardLayoutStateForChallenge = async (challengeId, target) =
   try {
     const raw = await AsyncStorage.getItem(DASHBOARD_LAYOUTS_KEY);
     const allLayouts = raw ? JSON.parse(raw) : {};
-    const key = String(challengeId);
-    const hasStoredLayout = Object.prototype.hasOwnProperty.call(allLayouts, key);
-    const storedLayout = allLayouts[key];
+    const hasStoredLayout = Object.prototype.hasOwnProperty.call(allLayouts, storageKey);
+    const storedLayout = allLayouts[storageKey];
 
     if (hasStoredLayout && Array.isArray(storedLayout)) {
       return {
@@ -399,12 +412,13 @@ export const getDashboardLayoutStateForChallenge = async (challengeId, target) =
   }
 };
 
-export const getDashboardRowGapForChallenge = async (challengeId) => {
-  if (!challengeId) return DASHBOARD_ROW_GAP_DEFAULT;
+export const getDashboardRowGapForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
+  const storageKey = getDashboardStorageKey(challengeId, target);
+  if (!storageKey) return DASHBOARD_ROW_GAP_DEFAULT;
 
   try {
     const map = await readRowGapMap();
-    const storedValue = map[String(challengeId)];
+    const storedValue = map[storageKey];
     return normalizeDashboardRowGap(storedValue);
   } catch (error) {
     console.warn('Failed to load dashboard row gap', error);
@@ -412,14 +426,15 @@ export const getDashboardRowGapForChallenge = async (challengeId) => {
   }
 };
 
-export const saveDashboardRowGapForChallenge = async (challengeId, rowGap) => {
-  if (!challengeId) return DASHBOARD_ROW_GAP_DEFAULT;
+export const saveDashboardRowGapForChallenge = async (challengeId, rowGap, target = DASHBOARD_TARGETS.CHALLENGE) => {
+  const storageKey = getDashboardStorageKey(challengeId, target);
+  if (!storageKey) return DASHBOARD_ROW_GAP_DEFAULT;
 
   const nextRowGap = normalizeDashboardRowGap(rowGap);
 
   try {
     const map = await readRowGapMap();
-    map[String(challengeId)] = nextRowGap;
+    map[storageKey] = nextRowGap;
     await writeRowGapMap(map);
     return nextRowGap;
   } catch (error) {

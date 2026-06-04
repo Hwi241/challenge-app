@@ -1324,13 +1324,7 @@ export default function ProfileInventoryScreen() {
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>MY</Text>
-        <TouchableOpacity
-          style={styles.shopBtn}
-          onPress={() => navigation.navigate('WidgetShop')}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.shopBtnText}>상점</Text>
-        </TouchableOpacity>
+        <View style={styles.headerSideBtn} />
       </View>
 
       <ScrollView
@@ -1384,6 +1378,16 @@ export default function ProfileInventoryScreen() {
 
 
       </ScrollView>
+
+      <TouchableOpacity
+        style={[styles.shopFloatingBtn, { bottom: Math.max(insets.bottom, 16) + CARD_GAP }]}
+        onPress={() => navigation.navigate('WidgetShop')}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel="상점 열기"
+      >
+        <Text style={styles.shopFloatingText}>상점</Text>
+      </TouchableOpacity>
 
       <Modal visible={memoVisible} transparent animationType="fade" onRequestClose={() => setMemoVisible(false)}>
         <TouchableWithoutFeedback onPress={() => setMemoVisible(false)}>
@@ -1513,16 +1517,23 @@ const styles = StyleSheet.create({
   },
   starIcon: { color: '#fff', fontSize: 15, fontWeight: '900' },
   starText: { color: '#fff', fontSize: 16, fontWeight: '900' },
-  shopBtn: {
-    minWidth: 58,
-    height: 34,
-    borderRadius: 12,
+  shopFloatingBtn: {
+    position: 'absolute',
+    right: 12,
     backgroundColor: '#111',
+    borderRadius: 14,
+    width: 52,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    elevation: 3,
   },
-  shopBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  shopFloatingText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '900',
+    includeFontPadding: false,
+  },
   recordRoomInternalTitle: {
     flex: 1,
     color: '#111',

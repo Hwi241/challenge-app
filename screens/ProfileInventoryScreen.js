@@ -38,7 +38,7 @@ const RECORD_ROOM_DASHBOARD_CHALLENGE_ID = 'recordRoom';
 const PHONE_GRID_COLUMNS = 6;
 const WIDE_GRID_COLUMNS = 12;
 const WIDE_MIN_WIDTH = 600;
-const CARD_ROW_HEIGHT = 96;
+const CARD_ROW_HEIGHT = 60;
 const CARD_GAP = 10;
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];

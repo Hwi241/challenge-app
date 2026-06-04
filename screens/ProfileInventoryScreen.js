@@ -27,6 +27,7 @@ import { colors, radius, spacing } from '../styles/common';
 import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 
 const CHALLENGES_KEY = 'challenges';
+const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
 const RECORD_ROOM_MEMO_KEY = 'record_room_memo';
 const RECORD_ROOM_HOF_GOAL_KEY = 'record_room_hof_goal';
 const RECORD_ROOM_PROFILE_KEY = 'record_room_profile';
@@ -139,6 +140,68 @@ const isExpiredCard = (item) => {
   endDate.setHours(23, 59, 59, 999);
   return endDate.getTime() < Date.now();
 };
+
+const isDeletedCard = (item) => {
+  if (!item || typeof item !== 'object') return false;
+
+  const rawStatus = String(item?.status ?? item?.state ?? item?.cardStatus ?? '').toLowerCase();
+  const rawType = String(item?.type ?? item?.cardType ?? item?.mode ?? '').toLowerCase();
+
+  return Boolean(
+    item?.deleted ||
+    item?.isDeleted ||
+    item?.removed ||
+    item?.isRemoved ||
+    item?.trashed ||
+    item?.isTrashed ||
+    item?.archived ||
+    item?.isArchived ||
+    item?.deletedAt ||
+    item?.removedAt ||
+    item?.trashedAt ||
+    rawStatus === 'deleted' ||
+    rawStatus === 'removed' ||
+    rawStatus === 'trashed' ||
+    rawStatus === 'trash' ||
+    rawStatus === 'archived' ||
+    rawType === 'deleted' ||
+    rawType === 'trash'
+  );
+};
+
+const isRewardClaimedCard = (item) => {
+  if (!item || typeof item !== 'object') return false;
+
+  const rawStatus = String(item?.status ?? item?.state ?? item?.cardStatus ?? '').toLowerCase();
+
+  return Boolean(
+    item?.rewardClaimed ||
+    item?.claimed ||
+    item?.isClaimed ||
+    item?.rewardReceived ||
+    item?.rewardClaimedAt ||
+    item?.claimedAt ||
+    rawStatus === 'claimed' ||
+    rawStatus === 'reward_claimed' ||
+    rawStatus === 'rewarded' ||
+    rawStatus === 'hof' ||
+    rawStatus === 'hall' ||
+    rawStatus === 'hall_of_fame'
+  );
+};
+
+const isRewardPendingCard = (item) => (
+  isCompletedCard(item) &&
+  !isRewardClaimedCard(item) &&
+  !isDeletedCard(item) &&
+  !isExpiredCard(item)
+);
+
+const isVisibleRecordRoomCard = (item) => (
+  !isDeletedCard(item) &&
+  !isExpiredCard(item) &&
+  !isRewardClaimedCard(item)
+);
 
 const getCreatedTime = (item) => {
   const raw = item?.createdAt ?? item?.createdDate ?? item?.updatedAt ?? item?.startDate;
@@ -386,25 +449,55 @@ const normalizeHallCard = (item, sourceKey, index) => ({
 });
 
 const loadHallCardsFromStorage = async () => {
-  const keys = await AsyncStorage.getAllKeys();
-  const hallKeys = keys.filter((key) => /hall|fame|completed|complete|reward|claim/i.test(key));
-  if (!hallKeys.length) return [];
-  const pairs = await AsyncStorage.multiGet(hallKeys);
+  const primaryKey = HOF_STORAGE_KEYS[0];
+  const legacyKeys = HOF_STORAGE_KEYS.slice(1);
+
+  const readArrayFromKey = async (key) => {
+    const raw = await AsyncStorage.getItem(key);
+    const parsed = parseJsonSafe(raw, null);
+    if (!parsed) return [];
+
+    if (Array.isArray(parsed)) return parsed;
+
+    const arrays = collectArraysDeep(parsed);
+    return arrays.find((arr) => Array.isArray(arr) && arr.length > 0) || [];
+  };
+
+  let sourceKey = primaryKey;
+  let sourceList = await readArrayFromKey(primaryKey);
+
+  if (sourceList.length === 0) {
+    for (const key of legacyKeys) {
+      const legacyList = await readArrayFromKey(key);
+      if (legacyList.length > 0) {
+        sourceKey = key;
+        sourceList = legacyList;
+
+        try {
+          await AsyncStorage.setItem(primaryKey, JSON.stringify(legacyList));
+        } catch (error) {
+          console.warn('Failed to migrate HOF storage for record room', error);
+        }
+
+        break;
+      }
+    }
+  }
+
   const found = [];
   const seen = new Set();
-  pairs.forEach(([key, raw]) => {
-    const parsed = parseJsonSafe(raw, null);
-    if (!parsed) return;
-    collectArraysDeep(parsed).forEach((arr) => {
-      arr.forEach((item, index) => {
-        if (!looksLikeHallCard(item)) return;
-        const n = normalizeHallCard(item, key, index);
-        if (seen.has(n.id)) return;
-        seen.add(n.id);
-        found.push(n);
-      });
-    });
+
+  sourceList.forEach((item, index) => {
+    if (!looksLikeHallCard(item)) return;
+    if (isDeletedCard(item)) return;
+
+    const n = normalizeHallCard(item, sourceKey, index);
+    if (seen.has(n.id)) return;
+
+    seen.add(n.id);
+    found.push(n);
   });
+
   return found;
 };
 
@@ -431,10 +524,15 @@ const createCurrentMonthDays = (entries, baseDate = new Date()) => {
 };
 
 const calcStats = ({ cards, entries, trashInfo, stars, starHistory, hofGoal, hallCards, weekBaseDate, calendarBaseDate }) => {
-  const challengeCards = cards.filter(isChallengeCard);
-  const recordCards = cards.filter(isRecordCard);
-  const completedCards = [...cards.filter(isCompletedCard), ...asArray(hallCards)];
-  const expiredFailedCards = cards.filter((item) => isExpiredCard(item) && !isCompletedCard(item));
+  const activeCards = cards.filter(isVisibleRecordRoomCard);
+  const visibleHallCards = asArray(hallCards).filter((item) => !isDeletedCard(item));
+  const rewardPendingCards = activeCards.filter(isRewardPendingCard);
+  const progressCards = activeCards.filter((item) => !isRewardPendingCard(item));
+  const challengeCards = progressCards.filter(isChallengeCard);
+  const recordCards = progressCards.filter(isRecordCard);
+  const completedCards = visibleHallCards;
+  const expiredFailedCards = cards.filter((item) => !isDeletedCard(item) && isExpiredCard(item) && !isCompletedCard(item));
+  const rewardPendingCount = rewardPendingCards.length;
 
   const todayKey = getDateKey(new Date());
   const todayEntries = entries.filter((entry) => getDateKey(entry.timestamp) === todayKey);
@@ -479,13 +577,14 @@ const calcStats = ({ cards, entries, trashInfo, stars, starHistory, hofGoal, hal
   });
 
   return {
-    totalCards: cards.length,
+    totalCards: activeCards.length,
     challengeCount: challengeCards.length,
     recordCount: recordCards.length,
     completedCount: completedCards.length,
     expiredFailedCount: expiredFailedCards.length,
     deletedCount: trashInfo.count,
     hasTrashSource: trashInfo.hasSource,
+    rewardPendingCount,
     stars,
     todayCount: todayEntries.length,
     weekly,
@@ -821,19 +920,30 @@ const CardListSection = ({ cards, hallCards }) => {
   const [tab, setTab] = useState('all');
 
   const mergedCards = useMemo(() => [
-    ...cards,
-    ...asArray(hallCards).map((item) => ({ ...item, completed: true, _recordRoomHall: true })),
+    ...cards.filter(isVisibleRecordRoomCard),
+    ...asArray(hallCards)
+      .filter((item) => !isDeletedCard(item))
+      .map((item) => ({ ...item, completed: true, _recordRoomHall: true })),
   ], [cards, hallCards]);
 
   const filtered = useMemo(() => {
-    if (tab === 'challenge') return mergedCards.filter(isChallengeCard);
-    if (tab === 'record') return mergedCards.filter(isRecordCard);
+    if (tab === 'challenge') {
+      return mergedCards.filter((item) => !item?._recordRoomHall && !isRewardPendingCard(item) && isChallengeCard(item));
+    }
+    if (tab === 'record') {
+      return mergedCards.filter((item) => !item?._recordRoomHall && !isRewardPendingCard(item) && isRecordCard(item));
+    }
+    if (tab === 'hall') {
+      return mergedCards.filter((item) => item?._recordRoomHall === true);
+    }
     return mergedCards;
   }, [mergedCards, tab]);
 
-  const sorted = useMemo(() => (
-    [...filtered].sort((a, b) => getCreatedTime(b) - getCreatedTime(a))
-  ), [filtered]);
+  const sorted = useMemo(() => {
+    const hallItems = [...filtered].filter((item) => item._recordRoomHall).sort((a, b) => getCreatedTime(b) - getCreatedTime(a));
+    const regularItems = [...filtered].filter((item) => !item._recordRoomHall).sort((a, b) => getCreatedTime(b) - getCreatedTime(a));
+    return [...regularItems, ...hallItems];
+  }, [filtered]);
 
   return (
     <View style={styles.listSection}>
@@ -844,6 +954,7 @@ const CardListSection = ({ cards, hallCards }) => {
           { id: 'all', label: '전체' },
           { id: 'challenge', label: '도전' },
           { id: 'record', label: '기록' },
+          { id: 'hall', label: '명예의 전당' },
         ].map((item) => (
           <TouchableOpacity
             key={item.id}
@@ -859,32 +970,41 @@ const CardListSection = ({ cards, hallCards }) => {
       {sorted.length === 0 ? (
         <Text style={styles.listEmpty}>표시할 카드가 없습니다.</Text>
       ) : (
-        sorted.map((item, index) => {
-          const completed = isCompletedCard(item);
-          const expired = isExpiredCard(item) && !completed;
+        <ScrollView
+          style={styles.listScroll}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
+        >
+        {sorted.map((item, index) => {
+          const isHallItem = item?._recordRoomHall === true;
+          const isRewardPending = !isHallItem && isRewardPendingCard(item);
           const typeLabel = isRecordCard(item) ? '기록' : '도전';
+          const categoryLabel = isHallItem ? '명예의 전당' : typeLabel;
+          const statusLabel = isHallItem ? '완료' : isRewardPending ? '보상대기' : '진행중';
+          const statusBadge = isHallItem ? '완료' : isRewardPending ? '보상대기' : '진행';
           const baseKey = String(item?.id ?? item?.uuid ?? getCardTitle(item));
-          const listKey = `${item?._recordRoomHall ? 'hall' : 'card'}-${baseKey}-${index}`;
+          const listKey = `${isHallItem ? 'hall' : 'card'}-${baseKey}-${index}`;
 
           return (
             <View key={listKey} style={styles.listItem}>
               <View style={styles.listItemMain}>
                 <Text
-                  style={[styles.listItemTitle, (completed || expired) && styles.listItemTitleMuted]}
+                  style={[styles.listItemTitle, isHallItem && styles.listItemTitleMuted]}
                   numberOfLines={1}
                 >
                   {getCardTitle(item)}
                 </Text>
                 <Text style={styles.listItemMeta}>
-                  {item?._recordRoomHall ? '명예의 전당' : typeLabel} · {completed ? '완료' : expired ? '만료' : '진행중'}
+                  {categoryLabel} · {statusLabel}
                 </Text>
               </View>
-              <Text style={[styles.listItemStatus, (completed || expired) && styles.listItemStatusMuted]}>
-                {completed ? '완료' : expired ? '만료' : '진행'}
+              <Text style={[styles.listItemStatus, isHallItem && styles.listItemStatusMuted]}>
+                {statusBadge}
               </Text>
             </View>
           );
-        })
+        })}
+        </ScrollView>
       )}
     </View>
   );
@@ -1844,13 +1964,18 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   listSection: {
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
+    flex: 1,
+    minHeight: 0,
     backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     padding: 14,
+    overflow: 'hidden',
+  },
+  listScroll: {
+    flex: 1,
+    minHeight: 0,
   },
   listTitle: {
     fontSize: 16,

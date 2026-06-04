@@ -488,8 +488,7 @@ const loadHallCardsFromStorage = async () => {
   const seen = new Set();
 
   sourceList.forEach((item, index) => {
-    if (!looksLikeHallCard(item)) return;
-    if (isDeletedCard(item)) return;
+    if (!item || typeof item !== 'object') return;
 
     const n = normalizeHallCard(item, sourceKey, index);
     if (seen.has(n.id)) return;
@@ -525,7 +524,7 @@ const createCurrentMonthDays = (entries, baseDate = new Date()) => {
 
 const calcStats = ({ cards, entries, trashInfo, stars, starHistory, hofGoal, hallCards, weekBaseDate, calendarBaseDate }) => {
   const activeCards = cards.filter(isVisibleRecordRoomCard);
-  const visibleHallCards = asArray(hallCards).filter((item) => !isDeletedCard(item));
+  const visibleHallCards = asArray(hallCards);
   const rewardPendingCards = activeCards.filter(isRewardPendingCard);
   const progressCards = activeCards.filter((item) => !isRewardPendingCard(item));
   const challengeCards = progressCards.filter(isChallengeCard);
@@ -922,7 +921,6 @@ const CardListSection = ({ cards, hallCards }) => {
   const mergedCards = useMemo(() => [
     ...cards.filter(isVisibleRecordRoomCard),
     ...asArray(hallCards)
-      .filter((item) => !isDeletedCard(item))
       .map((item) => ({ ...item, completed: true, _recordRoomHall: true })),
   ], [cards, hallCards]);
 

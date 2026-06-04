@@ -39,6 +39,7 @@ const RECORD_ROOM_DASHBOARD_CHALLENGE_ID = 'recordRoom';
 const PHONE_GRID_COLUMNS = 6;
 const WIDE_GRID_COLUMNS = 12;
 const WIDE_MIN_WIDTH = 600;
+const WIDE_GRID_FRAME_MIN_WIDTH = 520;
 const CARD_ROW_HEIGHT = 60;
 const CARD_GAP = 10;
 
@@ -1045,7 +1046,20 @@ export default function ProfileInventoryScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const columns = windowWidth >= WIDE_MIN_WIDTH ? WIDE_GRID_COLUMNS : PHONE_GRID_COLUMNS;
+  const [recordRoomFrameWidth, setRecordRoomFrameWidth] = useState(0);
+  const isWideRecordRoomLayout =
+    windowWidth >= WIDE_MIN_WIDTH ||
+    recordRoomFrameWidth >= WIDE_GRID_FRAME_MIN_WIDTH;
+  const columns = isWideRecordRoomLayout ? WIDE_GRID_COLUMNS : PHONE_GRID_COLUMNS;
+
+  const handleRecordRoomFrameLayout = useCallback((event) => {
+    const nextWidth = Math.floor(event?.nativeEvent?.layout?.width || 0);
+    if (nextWidth <= 0) return;
+
+    setRecordRoomFrameWidth((prev) => (
+      Math.abs(prev - nextWidth) < 1 ? prev : nextWidth
+    ));
+  }, []);
 
   const [stars, setStars] = useState(0);
   const [cards, setCards] = useState([]);
@@ -1261,7 +1275,41 @@ export default function ProfileInventoryScreen() {
       })
       .filter(Boolean)
       .sort((a, b) => (a.y - b.y) || (a.x - b.x));
-  }, [recordRoomLayout, recordRoomItemMap]);
+  }, [recordRoomLayout, recordRoomItemMap, columns]);
+
+  const dashboardRows = useMemo(() => {
+    if (!Array.isArray(dashboardItems) || dashboardItems.length === 0) {
+      return [];
+    }
+
+    if (columns <= PHONE_GRID_COLUMNS) {
+      return [];
+    }
+
+    const rows = [];
+    let currentRow = [];
+    let currentWidth = 0;
+
+    dashboardItems.forEach((item) => {
+      const itemW = Math.max(1, Math.min(PHONE_GRID_COLUMNS, Number(item?.w) || PHONE_GRID_COLUMNS));
+      const nextItem = { ...item, w: itemW };
+
+      if (currentRow.length > 0 && currentWidth + itemW > columns) {
+        rows.push(currentRow);
+        currentRow = [];
+        currentWidth = 0;
+      }
+
+      currentRow.push(nextItem);
+      currentWidth += itemW;
+    });
+
+    if (currentRow.length > 0) {
+      rows.push(currentRow);
+    }
+
+    return rows;
+  }, [dashboardItems, columns]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1316,12 +1364,22 @@ export default function ProfileInventoryScreen() {
         </View>
 
 
-        <View style={[styles.gridWrap, { rowGap: recordRoomRowGap }]}>
-          {dashboardItems.map((item) => (
-            <GridItem key={item.id} item={item} columns={PHONE_GRID_COLUMNS}>
-              {item.render()}
-            </GridItem>
-          ))}
+        <View style={[styles.gridWrap, { rowGap: recordRoomRowGap }]} onLayout={handleRecordRoomFrameLayout}>
+          {columns > PHONE_GRID_COLUMNS
+            ? dashboardRows.map((row, rowIndex) => (
+                <View key={`record-room-row-${rowIndex}`} style={styles.gridRow}>
+                  {row.map((item) => (
+                    <GridItem key={item.id} item={item} columns={columns}>
+                      {item.render()}
+                    </GridItem>
+                  ))}
+                </View>
+              ))
+            : dashboardItems.map((item) => (
+                <GridItem key={item.id} item={item} columns={PHONE_GRID_COLUMNS}>
+                  {item.render()}
+                </GridItem>
+              ))}
         </View>
 
 
@@ -1489,6 +1547,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -CARD_GAP / 2,
+  },
+  gridRow: {
+    width: '100%',
+    flexDirection: 'row',
   },
   gridItem: {
     paddingHorizontal: CARD_GAP / 2,

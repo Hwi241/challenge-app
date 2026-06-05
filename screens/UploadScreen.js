@@ -69,7 +69,7 @@ const toEntryTimestamp = (value) => {
 // - 🔧 폴리싱: 중복 탭 방지(busy), try/finally로 상태 복구
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -78,6 +78,7 @@ import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 /* 습관 연속 인증 레벨 계산 */
 function calcStreakLevel(entries) {
@@ -232,44 +233,6 @@ const MAX_MINUTES = 1440; // 24시간
     }, [challengeId])
   );
 
-  // 뒤로가기 시 경고
-  useEffect(() => {
-    const onBack = navigation.addListener('beforeRemove', (e) => {
-      const hasContent = text.trim() || imageUri || duration || isPastEntryDate;
-      if (!hasContent || submittedRef.current) return;
-      e.preventDefault();
-      Alert.alert(
-        '작성 중인 내용이 있어요',
-        '뒤로 가면 작성한 내용이 삭제됩니다.',
-        [
-          { text: '계속 작성', style: 'cancel' },
-          { text: '나가기', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
-        ]
-      );
-    });
-    return onBack;
-  }, [navigation, text, imageUri, duration, isPastEntryDate]);
-  // 안드로이드 하드웨어/제스처 뒤로가기
-  useEffect(() => {
-    const onHardwareBack = () => {
-      const hasContent = text.trim() || imageUri || duration || isPastEntryDate;
-      if (!hasContent || submittedRef.current) return false;
-      Alert.alert(
-        '작성 중인 내용이 있어요',
-        '뒤로 가면 작성한 내용이 삭제됩니다.',
-        [
-          { text: '계속 작성', style: 'cancel' },
-          { text: '나가기', style: 'destructive', onPress: () => navigation.goBack() },
-        ]
-      );
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
-    return () => sub.remove();
-  }, [navigation, text, imageUri, duration, isPastEntryDate]);
-
-
-
   // 사진 선택 (카메라/앨범 선택지)
   const onPickImage = useCallback(async () => {
     if (busy) return;
@@ -350,6 +313,22 @@ const MAX_MINUTES = 1440; // 24시간
   const selectedEntryDateKey = getLocalDateKey(safeSelectedEntryDate);
   const todayEntryDateKey = getLocalDateKey(todayDate);
   const isPastEntryDate = selectedEntryDateKey !== todayEntryDateKey;
+
+  const hasUnsavedChanges = useCallback(() => (
+    !!text.trim() ||
+    !!imageUri ||
+    !!duration ||
+    !!isPastEntryDate
+  ), [text, imageUri, duration, isPastEntryDate]);
+
+  const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '작성 중인 내용이 있어요',
+    message: '뒤로 가면 작성한 내용이 저장되지 않습니다.',
+    stayText: '계속 작성',
+    leaveText: '나가기',
+  });
 
   const openEntryDatePicker = useCallback(() => {
     if (busy) return;
@@ -476,6 +455,7 @@ const MAX_MINUTES = 1440; // 24시간
           text: '확인',
           onPress: () => {
             submittedRef.current = true;
+            markAsSaved();
             setText('');
             setImageUri(null);
             setDuration('');
@@ -509,6 +489,7 @@ const MAX_MINUTES = 1440; // 24시간
     safeSelectedEntryDate,
     selectedEntryDateKey,
     navigation,
+    markAsSaved,
   ]);
 
   const onSubmit = useCallback(() => {
@@ -542,7 +523,20 @@ const MAX_MINUTES = 1440; // 24시간
       return;
     }
 
-    saveEntry({ isPastEntry: false });
+    Alert.alert(
+      '저장하시겠습니까?',
+      '이 인증을 저장할까요?',
+      [
+        {
+          text: '취소',
+          style: 'cancel',
+        },
+        {
+          text: '저장',
+          onPress: () => saveEntry({ isPastEntry: false }),
+        },
+      ]
+    );
   }, [busy, challengeId, text, imageUri, isPastEntryDate, saveEntry]);
 
 
@@ -554,7 +548,7 @@ const MAX_MINUTES = 1440; // 24시간
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-      <BackButton title="인증/기록 하기" />
+      <BackButton title="인증/기록 하기" onPress={handleBackPress} />
       <ScrollView
         ref={formScrollRef}
         contentContainerStyle={[

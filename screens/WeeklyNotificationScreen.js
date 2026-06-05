@@ -1,16 +1,62 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
 import BackButton from '../components/BackButton';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 const WEEK = ['월','화','수','목','금','토','일'];
 const MAX_PER_DAY = 10;
 
 const pad2 = (n)=>String(n).padStart(2,'0');
 const fmtHHMM = (d)=>`${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+const createEmptyWeeklyMap = () => {
+  const m = new Map();
+  WEEK.forEach((day) => m.set(day, []));
+  return m;
+};
+
+const normalizeWeeklyMap = (source) => {
+  const m = createEmptyWeeklyMap();
+
+  if (source instanceof Map) {
+    WEEK.forEach((day) => {
+      const times = Array.isArray(source.get(day))
+        ? [...new Set(source.get(day).map(String).filter(Boolean))].sort()
+        : [];
+      m.set(day, times);
+    });
+    return m;
+  }
+
+  if (source && Array.isArray(source.byWeekDays)) {
+    for (const item of source.byWeekDays) {
+      const day = item?.day;
+      if (!WEEK.includes(day)) continue;
+
+      const times = Array.isArray(item?.times)
+        ? [...new Set(item.times.map(String).filter(Boolean))].sort()
+        : [];
+
+      m.set(day, times);
+    }
+  }
+
+  return m;
+};
+
+const stringifyWeeklyMap = (source) => {
+  const normalized = normalizeWeeklyMap(source);
+  return JSON.stringify(
+    WEEK.map((day) => ({
+      day,
+      times: normalized.get(day) || [],
+    }))
+  );
+};
 
 export default function WeeklyNotificationScreen(){
   const navigation = useNavigation();
@@ -20,32 +66,35 @@ export default function WeeklyNotificationScreen(){
   const returnTo = route.params?.returnTo || 'AddChallenge';
 
   // 요일 -> 시간목록
-  const [map,setMap] = useState(()=>{
-    const m = new Map();
-    WEEK.forEach(d=>m.set(d, []));
-    if (initial && Array.isArray(initial.byWeekDays)) {
-      for (const {day, times=[]} of initial.byWeekDays) {
-        if (WEEK.includes(day)) {
-          const unique = Array.from(new Set(times.map(String))).sort();
-          m.set(day, unique);
-        }
-      }
-    }
-    return m;
-  });
+  const [map,setMap] = useState(() => normalizeWeeklyMap(initial));
+
+  useFocusEffect(
+    useCallback(() => {
+      setMap(normalizeWeeklyMap(initial));
+      return undefined;
+    }, [initial])
+  );
 
   // 개별 추가용 피커
   const [pickerDay,setPickerDay] = useState(null);
-  useEffect(() => {
-    const onBack = () => {
-      navigation.goBack();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, [navigation]);
 
   const [pickerVisible,setPickerVisible] = useState(false);
+
+  const initialMapKey = useMemo(() => stringifyWeeklyMap(initial), [initial]);
+  const currentMapKey = useMemo(() => stringifyWeeklyMap(map), [map]);
+
+  const hasUnsavedChanges = useCallback(() => (
+    currentMapKey !== initialMapKey
+  ), [currentMapKey, initialMapKey]);
+
+  const { handleBackPress, markAsSaved, confirmSave } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '설정 중인 내용이 있어요',
+    message: '뒤로 가면 변경한 알림 설정이 저장되지 않습니다.',
+    stayText: '계속 설정',
+    leaveText: '나가기',
+  });
 
   // 일괄 적용 모달
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -175,28 +224,37 @@ export default function WeeklyNotificationScreen(){
   },[]);
 
   // 저장
-  const save = useCallback(()=>{
-    const byWeekDays = WEEK.map(day=>({ day, times: (map.get(day)||[]) }));
-    const result = { mode:'weekly', payload:{ byWeekDays } };
+  const save = useCallback(() => {
+    const byWeekDays = WEEK.map(day => ({ day, times: (map.get(day) || []) }));
 
-    const onDone = route.params?.onDone;
-    if (typeof onDone === 'function') {
-      onDone(result);
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate({
-      name: returnTo || 'AddChallenge',
-      params: { notificationResult: result, _nonce: Date.now() },
-      merge: true,
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '주간 알림 설정을 저장할까요?',
+      onConfirm: () => {
+        const result = { mode: 'weekly', payload: { byWeekDays } };
+        const onDone = route.params?.onDone;
+
+        markAsSaved();
+
+        if (typeof onDone === 'function') {
+          onDone(result);
+          navigation.goBack();
+          return;
+        }
+        navigation.navigate({
+          name: returnTo || 'AddChallenge',
+          params: { notificationResult: result, _nonce: Date.now() },
+          merge: true,
+        });
+      },
     });
-  },[map, navigation, returnTo, route.params?.onDone]);
+  }, [confirmSave, map, markAsSaved, navigation, returnTo, route.params?.onDone]);
 
   const scopeIsCustom = useMemo(()=>bulkScope==='custom', [bulkScope]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
-      <BackButton title="주간 알림 설정" />
+      <BackButton title="주간 알림 설정" onPress={handleBackPress} />
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
       <Text style={styles.desc}>각 요일 최대 10개</Text>

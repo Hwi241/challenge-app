@@ -26,6 +26,8 @@ import { syncWidgetChallengeList } from '../utils/widgetSync';
 import BackButton from '../components/BackButton';
 import { SettingSectionCard, GoalCyclePreview as SettingGoalCyclePreview, NotificationPreview as SettingNotificationPreview } from '../components/ChallengeSettingWidgets';
 
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+
 
 const DRAFT_KEY = 'draft_add_challenge';
 const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
@@ -108,6 +110,52 @@ export default function AddChallengeScreen() {
   const keyboardVisibleRef = useRef(false);
   const scrollYRef = useRef(0);
   const [keyboardBottomInset, setKeyboardBottomInset] = useState(0);
+
+  const hasUnsavedChanges = useMemo(() => {
+    const hasNotification = !!notification?.mode;
+    const hasChallengeDraft =
+      !!cTitle.trim() ||
+      !!cGoalScore ||
+      !!cReward.trim() ||
+      !!cDescription.trim() ||
+      !!cStartDate ||
+      !!cEndDate ||
+      !!challengeNotification?.mode;
+
+    const hasHabitDraft =
+      !!hTitle.trim() ||
+      !!hDescription.trim() ||
+      !!hStartDate ||
+      !!hEndDate ||
+      !!habitNotification?.mode ||
+      !!habitCycle;
+
+    return !!duplicateTemplate || hasNotification || hasChallengeDraft || hasHabitDraft;
+  }, [
+    duplicateTemplate,
+    notification,
+    cTitle,
+    cGoalScore,
+    cReward,
+    cDescription,
+    cStartDate,
+    cEndDate,
+    challengeNotification,
+    hTitle,
+    hDescription,
+    hStartDate,
+    hEndDate,
+    habitNotification,
+    habitCycle,
+  ]);
+
+  const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '작성 중인 내용이 있어요',
+    message: '뒤로 가면 작성한 내용이 저장되지 않습니다.',
+  });
+
 const handleGoalChange = useCallback((txt)=>{
     const digits = (txt || '').replace(/[^\d]/g, '');
     if (!digits) { setCGoalScore(''); return; }
@@ -253,50 +301,107 @@ const handleGoalChange = useCallback((txt)=>{
     }
   }, [startDate, endDate]);
 
-  const onSave = useCallback(async () => {
+  const onSave = useCallback(() => {
     if (busy) return;
-    setBusy(true);
-    try {
-      const t = title.trim();
-      const desc = description.trim();
-      const id = `ch_${Date.now()}`;
-      let item;
-      if (habitMode) {
-        if (!t) { Alert.alert('확인', '습관 제목을 입력해주세요.'); setBusy(false); return; }
-        if (!startDate) { Alert.alert('확인', '시작일을 선택해주세요.'); setBusy(false); return; }
-        item = { id, type: 'habit', title: t, description: desc, goalScore: 0, currentScore: 0,
-          startDate: startDate ? fmtDate(startDate) : null,
-          endDate: endDate ? fmtDate(endDate) : null,
-          habitCycle, notification, reward: '', status: 'active', createdAt: Date.now(), completedAt: 0 };
-      } else {
-        if (!t) { Alert.alert('확인', '도전 제목을 입력해주세요.'); setBusy(false); return; }
-        const goalNum = toNumberOrZero(goalScore);
-        if (goalNum <= 0) { Alert.alert('확인', '목표 점수를 입력해주세요.'); setBusy(false); return; }
-        item = { id, title: t, goalScore: goalNum, currentScore: 0,
-          startDate: fmtDate(startDate), endDate: fmtDate(endDate),
-          reward: reward.trim(), description: desc, notification, status: 'active',
-          createdAt: Date.now(), completedAt: 0 };
+
+    const t = title.trim();
+    const desc = description.trim();
+    const id = `ch_${Date.now()}`;
+    let item;
+
+    if (habitMode) {
+      if (!t) {
+        Alert.alert('확인', '습관 제목을 입력해주세요.');
+        return;
       }
-      await saveAndSchedule(item, { replaceSchedules: true });
-      await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
-      await syncWidgetChallengeList();
+      if (!startDate) {
+        Alert.alert('확인', '시작일을 선택해주세요.');
+        return;
+      }
+      item = {
+        id,
+        type: 'habit',
+        title: t,
+        description: desc,
+        goalScore: 0,
+        currentScore: 0,
+        startDate: startDate ? fmtDate(startDate) : null,
+        endDate: endDate ? fmtDate(endDate) : null,
+        habitCycle,
+        notification,
+        reward: '',
+        status: 'active',
+        createdAt: Date.now(),
+        completedAt: 0,
+      };
+    } else {
+      if (!t) {
+        Alert.alert('확인', '도전 제목을 입력해주세요.');
+        return;
+      }
+      const goalNum = toNumberOrZero(goalScore);
+      if (goalNum <= 0) {
+        Alert.alert('확인', '목표 점수를 입력해주세요.');
+        return;
+      }
+      item = {
+        id,
+        title: t,
+        goalScore: goalNum,
+        currentScore: 0,
+        startDate: fmtDate(startDate),
+        endDate: fmtDate(endDate),
+        reward: reward.trim(),
+        description: desc,
+        notification,
+        status: 'active',
+        createdAt: Date.now(),
+        completedAt: 0,
+      };
+    }
 
-      suppressDraftRef.current = false;
+    Alert.alert(
+      '저장하시겠습니까?',
+      habitMode ? '이 습관을 저장할까요?' : '이 도전을 저장할까요?',
+      [
+        {
+          text: '취소',
+          style: 'cancel',
+        },
+        {
+          text: '저장',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await saveAndSchedule(item, { replaceSchedules: true });
+              await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
+              await syncWidgetChallengeList();
 
-      // 폼 초기화
-      if (habitMode) {
-          setHTitle(''); setHDescription(''); setHStartDate(null); setHEndDate(null);
-          setHabitNotification({ mode: null, payload: null });
-          setHabitCycle(null); setCycleDays(new Set()); setCycleDates(new Set());
-        } else {
-          setCTitle(''); setCGoalScore(''); setCReward(''); setCDescription('');
-          setCStartDate(null); setCEndDate(null);
-          setChallengeNotification({ mode: null, payload: null });
-        }
-        
-        navigation.navigate('ChallengeList');
-    } catch (e) { Alert.alert('오류', '저장 실패'); } finally { setBusy(false); }
-  }, [busy, cTitle, cGoalScore, cReward, cDescription, cStartDate, cEndDate, challengeNotification, hTitle, hDescription, hStartDate, hEndDate, habitNotification, habitMode, habitCycle, navigation]);
+              suppressDraftRef.current = false;
+
+              // 폼 초기화
+              if (habitMode) {
+                setHTitle(''); setHDescription(''); setHStartDate(null); setHEndDate(null);
+                setHabitNotification({ mode: null, payload: null });
+                setHabitCycle(null); setCycleDays(new Set()); setCycleDates(new Set());
+              } else {
+                setCTitle(''); setCGoalScore(''); setCReward(''); setCDescription('');
+                setCStartDate(null); setCEndDate(null);
+                setChallengeNotification({ mode: null, payload: null });
+              }
+
+              markAsSaved();
+              navigation.navigate('ChallengeList');
+            } catch (e) {
+              Alert.alert('오류', '저장 실패');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [busy, title, description, habitMode, startDate, endDate, habitCycle, notification, goalScore, reward, saveAndSchedule, syncWidgetChallengeList, markAsSaved, navigation]);
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -305,7 +410,7 @@ const handleGoalChange = useCallback((txt)=>{
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-      <BackButton title="도전/습관 추가" />
+      <BackButton title="도전/습관 추가" onPress={handleBackPress} />
       <View style={styles.tabWrap}>
         <TouchableOpacity style={[styles.tabBtn, !habitMode && styles.tabBtnActive]} onPress={() => setHabitMode(false)}>
           <Text style={[styles.tabText, !habitMode && styles.tabTextActive]}>도전 기록</Text>

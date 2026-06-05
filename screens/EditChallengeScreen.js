@@ -20,7 +20,7 @@ const PALETTE = {
 // - 나머지 로직/프리뷰/모달은 기존과 동일
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, BackHandler, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -31,6 +31,7 @@ import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import BackButton from '../components/BackButton';
 import { SettingSectionCard, GoalCyclePreview as SettingGoalCyclePreview, NotificationPreview as SettingNotificationPreview } from '../components/ChallengeSettingWidgets';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
@@ -235,6 +236,7 @@ export default function EditChallengeScreen(){
   const baseChallenge = route.params?.challenge || route.params?.backParams?.challenge || null;
 
   const [loading,setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [isHabit, setIsHabit] = useState(false);
   const [habitCycle, setHabitCycle] = useState(null);
   const [showCycleModal, setShowCycleModal] = useState(false);
@@ -244,7 +246,6 @@ export default function EditChallengeScreen(){
   const [cycleWeekScope, setCycleWeekScope] = useState('custom');
   const [cycleMonthScope, setCycleMonthScope] = useState('custom');
   const originalRef = useRef(null);
-  const savedRef = useRef(false);
   const formScrollRef = useRef(null);
   const descriptionInputRef = useRef(null);
   const rewardInputRef = useRef(null);
@@ -405,57 +406,37 @@ export default function EditChallengeScreen(){
     }
   },[route.params?.notificationResult, route.params?._nonce, navigation]);
 
-  // 안드로이드 하드웨어/제스처 뒤로가기 + beforeRemove 경고
-  useEffect(() => {
-    const hasChanged = () => {
-      if (savedRef.current) return false;
-      const orig = originalRef.current;
-      if (!orig) return false;
-      const curTitle = title.trim();
-      const curGoal  = goalScore;
-      const curReward = reward.trim();
-      const curDesc  = description.trim();
-      const curStart = startDate ? fmtDate(startDate) : null;
-      const curEnd   = endDate ? fmtDate(endDate) : null;
-      const curNotif = notification?.mode ?? null;
+  const hasUnsavedChanges = useCallback(() => {
+    const orig = originalRef.current;
+    if (!orig) return false;
 
-      return (
-        curTitle !== orig.title ||
-        curGoal  !== orig.goalScore ||
-        curReward !== orig.reward ||
-        curDesc  !== orig.description ||
-        curStart !== orig.startDate ||
-        curEnd   !== orig.endDate ||
-        curNotif !== orig.notificationMode
-      );
-    };
+    const curTitle = title.trim();
+    const curGoal = goalScore;
+    const curReward = reward.trim();
+    const curDesc = description.trim();
+    const curStart = startDate ? fmtDate(startDate) : null;
+    const curEnd = endDate ? fmtDate(endDate) : null;
+    const curNotif = notification?.mode ?? null;
 
-    const confirmExit = (onConfirm) => {
-      if (!hasChanged()) { onConfirm(); return; }
-      Alert.alert(
-        '수정 중인 내용이 있어요',
-        '뒤로 가면 수정한 내용이 저장되지 않습니다.',
-        [
-          { text: '계속 수정', style: 'cancel' },
-          { text: '나가기', style: 'destructive', onPress: onConfirm },
-        ]
-      );
-    };
+    return (
+      curTitle !== orig.title ||
+      curGoal !== orig.goalScore ||
+      curReward !== orig.reward ||
+      curDesc !== orig.description ||
+      curStart !== orig.startDate ||
+      curEnd !== orig.endDate ||
+      curNotif !== orig.notificationMode
+    );
+  }, [title, goalScore, reward, description, startDate, endDate, notification]);
 
-    const onHardwareBack = () => {
-      confirmExit(() => navigation.goBack());
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
-
-    const remove = navigation.addListener('beforeRemove', (e) => {
-      if (!hasChanged()) return;
-      e.preventDefault();
-      confirmExit(() => navigation.dispatch(e.data.action));
-    });
-
-    return () => { sub.remove(); remove(); };
-  }, [navigation, title, goalScore, reward, description, startDate, endDate, notification]);
+  const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '수정 중인 내용이 있어요',
+    message: '뒤로 가면 수정한 내용이 저장되지 않습니다.',
+    stayText: '계속 수정',
+    leaveText: '나가기',
+  });
 
   // 날짜 역순 즉시 경고
   useEffect(()=>{ if (showStartPicker) lastChangedRef.current='start'; },[showStartPicker]);
@@ -468,8 +449,9 @@ export default function EditChallengeScreen(){
   },[startDate,endDate]);
 
   // 저장
-  const onSave = useCallback(async ()=>{
-    if(!baseChallenge?.id) return;
+  const onSave = useCallback(() => {
+    if (!baseChallenge?.id) return;
+    if (busy) return;
 
     const t = (title || '').trim();
     const r = (reward || '').trim();
@@ -481,55 +463,88 @@ export default function EditChallengeScreen(){
     if (r.length > LIMITS.reward) { Alert.alert('확인', `보상은 ${LIMITS.reward}자 이내로 입력해주세요.`); return; }
     if (desc.length > LIMITS.description) { Alert.alert('확인', `도전 내용은 ${LIMITS.description}자 이내로 입력해주세요.`); return; }
 
-    const effectiveGoal = (goalScore==='' ? Number(baseChallenge.goalScore||0) : toNumberOrZero(goalScore));
-    if (effectiveGoal <= 0) { Alert.alert('확인','목표 점수는 1 이상의 숫자여야 합니다.'); return; }
+    const effectiveGoal = (goalScore === '' ? Number(baseChallenge.goalScore || 0) : toNumberOrZero(goalScore));
+    if (effectiveGoal <= 0) { Alert.alert('확인', '목표 점수는 1 이상의 숫자여야 합니다.'); return; }
     if (effectiveGoal > LIMITS.maxGoal) { Alert.alert('확인', `목표 점수는 ${LIMITS.maxGoal}점 이하여야 합니다.`); return; }
 
     const v = validateInput({
       title: t,
-      goalScore: (goalScore==='' ? '' : effectiveGoal),
+      goalScore: (goalScore === '' ? '' : effectiveGoal),
       startDate: startDate ? fmtDate(startDate) : null,
       endDate: endDate ? fmtDate(endDate) : null,
       allowEmptyGoal: true,
-      prevGoalScore: Number(baseChallenge.goalScore||0),
+      prevGoalScore: Number(baseChallenge.goalScore || 0),
     });
-    if(!v.ok){
-      if (v.reason==='TITLE_EMPTY') { Alert.alert('확인','도전 제목을 입력해주세요.'); return; }
-      if (v.reason==='GOAL_INVALID'){ Alert.alert('확인','목표 점수는 1 이상의 숫자여야 합니다.'); return; }
-      if (v.reason==='DATES_REQUIRED'){ Alert.alert('확인','시작일과 종료일을 선택해주세요.'); return; }
-      if (v.reason==='DATE_ORDER'){ Alert.alert('확인','종료일이 시작일보다 빠를 수 없습니다.'); return; }
-      Alert.alert('확인','입력값을 확인하세요.'); return;
+    if (!v.ok) {
+      if (v.reason === 'TITLE_EMPTY') { Alert.alert('확인', '도전 제목을 입력해주세요.'); return; }
+      if (v.reason === 'GOAL_INVALID') { Alert.alert('확인', '목표 점수는 1 이상의 숫자여야 합니다.'); return; }
+      if (v.reason === 'DATES_REQUIRED') { Alert.alert('확인', '시작일과 종료일을 선택해주세요.'); return; }
+      if (v.reason === 'DATE_ORDER') { Alert.alert('확인', '종료일이 시작일보다 빠를 수 없습니다.'); return; }
+      Alert.alert('확인', '입력값을 확인하세요.');
+      return;
     }
 
     const updated = {
-        id: baseChallenge.id,
-        type: isHabit ? 'habit' : (baseChallenge.type || 'challenge'),
-        habitCycle: isHabit ? habitCycle : undefined,
+      id: baseChallenge.id,
+      type: isHabit ? 'habit' : (baseChallenge.type || 'challenge'),
+      habitCycle: isHabit ? habitCycle : undefined,
       title: t,
-      goalScore: (goalScore==='' ? Number(baseChallenge.goalScore||0) : effectiveGoal),
-      currentScore: Number(baseChallenge.currentScore||0),
+      goalScore: (goalScore === '' ? Number(baseChallenge.goalScore || 0) : effectiveGoal),
+      currentScore: Number(baseChallenge.currentScore || 0),
       startDate: fmtDate(startDate),
       endDate: fmtDate(endDate),
       reward: r,
       description: desc,
-      notification: notification?.mode ? notification : { mode:null, payload:null },
+      notification: notification?.mode ? notification : { mode: null, payload: null },
       status: baseChallenge.status || 'active',
       createdAt: baseChallenge.createdAt || Date.now(),
       completedAt: baseChallenge.completedAt || 0,
     };
 
-    try{
-      await saveAndSchedule(updated, { replaceSchedules:true });
-      await syncWidgetChallengeList();
-      savedRef.current = true;
-      Alert.alert('저장 완료','도전이 수정되었습니다.',[
-        { text:'확인', onPress:()=>navigation.goBack() }
-      ]);
-    }catch(e){
-      console.error('[EditChallenge] save error', e);
-      Alert.alert('오류','도전을 저장하지 못했습니다.');
-    }
-  },[baseChallenge, title, goalScore, reward, description, startDate, endDate, notification, navigation]);
+    Alert.alert(
+      '저장하시겠습니까?',
+      isHabit ? '이 습관 수정을 저장할까요?' : '이 도전 수정을 저장할까요?',
+      [
+        {
+          text: '취소',
+          style: 'cancel',
+        },
+        {
+          text: '저장',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await saveAndSchedule(updated, { replaceSchedules: true });
+              await syncWidgetChallengeList();
+              markAsSaved();
+              Alert.alert('저장 완료', '도전이 수정되었습니다.', [
+                { text: '확인', onPress: () => navigation.goBack() },
+              ]);
+            } catch (e) {
+              console.error('[EditChallenge] save error', e);
+              Alert.alert('오류', '도전을 저장하지 못했습니다.');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [
+    baseChallenge,
+    busy,
+    title,
+    goalScore,
+    reward,
+    description,
+    startDate,
+    endDate,
+    notification,
+    navigation,
+    isHabit,
+    habitCycle,
+    markAsSaved,
+  ]);
 
   if(loading){
     return (
@@ -546,7 +561,7 @@ export default function EditChallengeScreen(){
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-      <BackButton title={isHabit ? "습관 수정" : "도전 수정"} />
+      <BackButton title={isHabit ? "습관 수정" : "도전 수정"} onPress={handleBackPress} />
       <ScrollView
         ref={formScrollRef}
         contentContainerStyle={[

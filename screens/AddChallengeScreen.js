@@ -40,10 +40,18 @@ const fmtDate = (d) => {
   return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
 };
 
+const parseDateForClone = (value) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 // --- 프리뷰 컴포넌트들 ---
 export default function AddChallengeScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const duplicateTemplate = route.params?.duplicateTemplate || null;
+  const duplicateNonce = route.params?.duplicateNonce || null;
   const [busy, setBusy] = useState(false);
   const [habitMode, setHabitMode] = useState(false);
 
@@ -173,6 +181,72 @@ const handleGoalChange = useCallback((txt)=>{
   }, [measureAndScrollToInput]);
 
   useEffect(() => {
+    if (!duplicateTemplate) return;
+
+    const isDuplicateHabit = duplicateTemplate?.type === 'habit';
+    const nextStartDate = parseDateForClone(duplicateTemplate?.startDate);
+    const nextEndDate = parseDateForClone(duplicateTemplate?.endDate);
+    const nextNotification = duplicateTemplate?.notification?.mode
+      ? duplicateTemplate.notification
+      : { mode: null, payload: null };
+
+    suppressDraftRef.current = true;
+    setHabitMode(isDuplicateHabit);
+
+    if (isDuplicateHabit) {
+      setHTitle(String(duplicateTemplate?.title ?? '').slice(0, LIMITS.title));
+      setHDescription(String(duplicateTemplate?.description ?? '').slice(0, LIMITS.description));
+      setHStartDate(nextStartDate);
+      setHEndDate(nextEndDate);
+      setHabitNotification(nextNotification);
+      setHabitCycle(duplicateTemplate?.habitCycle || null);
+
+      if (duplicateTemplate?.habitCycle?.type === 'weekly') {
+        setCycleTab('weekly');
+        setCycleDays(new Set(duplicateTemplate.habitCycle.days || []));
+        setCycleDates(new Set());
+      } else if (duplicateTemplate?.habitCycle?.type === 'monthly') {
+        setCycleTab('monthly');
+        setCycleDates(new Set(duplicateTemplate.habitCycle.dates || []));
+        setCycleDays(new Set());
+      } else {
+        setCycleDays(new Set());
+        setCycleDates(new Set());
+      }
+
+      setCTitle('');
+      setCGoalScore('');
+      setCReward('');
+      setCDescription('');
+      setCStartDate(null);
+      setCEndDate(null);
+      setChallengeNotification({ mode: null, payload: null });
+      return;
+    }
+
+    setCTitle(String(duplicateTemplate?.title ?? '').slice(0, LIMITS.title));
+    setCGoalScore(
+      Number(duplicateTemplate?.goalScore) > 0
+        ? String(Math.min(LIMITS.maxGoal, Number(duplicateTemplate.goalScore)))
+        : ''
+    );
+    setCReward(String(duplicateTemplate?.reward ?? '').slice(0, LIMITS.reward));
+    setCDescription(String(duplicateTemplate?.description ?? '').slice(0, LIMITS.description));
+    setCStartDate(nextStartDate);
+    setCEndDate(nextEndDate);
+    setChallengeNotification(nextNotification);
+
+    setHTitle('');
+    setHDescription('');
+    setHStartDate(null);
+    setHEndDate(null);
+    setHabitNotification({ mode: null, payload: null });
+    setHabitCycle(null);
+    setCycleDays(new Set());
+    setCycleDates(new Set());
+  }, [duplicateTemplate, duplicateNonce]);
+
+  useEffect(() => {
     if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
       Alert.alert('확인', '종료일이 시작일보다 빠를 수 없습니다.');
       if (lastChangedRef.current === 'end') setEndDate(null); else setStartDate(null);
@@ -206,9 +280,11 @@ const handleGoalChange = useCallback((txt)=>{
       await saveAndSchedule(item, { replaceSchedules: true });
       await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
       await syncWidgetChallengeList();
-        
-        // 폼 초기화
-        if (habitMode) {
+
+      suppressDraftRef.current = false;
+
+      // 폼 초기화
+      if (habitMode) {
           setHTitle(''); setHDescription(''); setHStartDate(null); setHEndDate(null);
           setHabitNotification({ mode: null, payload: null });
           setHabitCycle(null); setCycleDays(new Set()); setCycleDates(new Set());

@@ -1084,41 +1084,46 @@ export default function ChallengeListScreen() {
     ]);
   }, [finalizeReorder, animateList, persistChallenges]);
 
-  const onDuplicate = useCallback(async (item) => {
+  const onDuplicate = useCallback((item) => {
     if (asDoneFlags(item)._isDone) return;
     animateList();
 
-    const prev = dataRef.current || [];
-    const copy = {
-      ...ensureItemId(item),
-      id: `ch_${Date.now()}`,
-      title: `${item.title} (복제)`,
+    const source = ensureItemId(item);
+    const duplicateTemplate = {
+      ...source,
+      id: undefined,
+      challengeId: undefined,
+      title: `${source?.title || '새 도전'} (복제)`,
       currentScore: 0,
       status: 'active',
-      createdAt: Date.now(),
-      completedAt: undefined,
+      createdAt: undefined,
+      completedAt: 0,
       sortIndex: 0,
       _isDone: false,
       _completedAt: 0,
+      _isExpired: false,
       archived: false,
+      rewardClaimed: false,
+      rewardClaimedAt: undefined,
     };
-    const nextArr = [copy, ...prev];
 
-    console.log('[ChallengeList][onDuplicate] nextArrIds=', nextArr.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
+    console.log('[ChallengeList][onDuplicateTemplate]', {
+      sourceId: safeStringId(source?.id),
+      title: duplicateTemplate.title,
+      type: duplicateTemplate.type || 'challenge',
+    });
 
-    setData(nextArr);
-    // 복제된 도전의 인증 목록을 빈 배열로 먼저 초기화 (전수스캔 폴백 방지)
-    try {
-            await AsyncStorage.removeItem(`entries_${copy.id}`);
-            await AsyncStorage.setItem(`entries_${copy.id}`, JSON.stringify([]));
-          } catch {}
-    try { await persistChallenges(nextArr, 'duplicate'); } catch {}
-    // finalizeReorder 대신 상태만 초기화 (이중 저장 방지)
     setSelectedId(null);
     setReorderActive(false);
     setFloatWidth(0);
     animLockRef.current = false;
-  }, [persistChallenges, finalizeReorder, animateList]);
+
+    navigationRef.current.navigate('AddChallenge', {
+      duplicateTemplate,
+      duplicateSourceId: safeStringId(source?.id),
+      duplicateNonce: Date.now(),
+    });
+  }, [animateList]);
 
   const goEntryList = useCallback((item) => {
     if (item?._upload) { navigationRef.current.navigate('Upload', { challengeId: item.id }); return; }

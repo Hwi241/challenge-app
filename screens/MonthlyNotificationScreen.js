@@ -1,15 +1,44 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { buttonStyles, spacing, radius, colors } from '../styles/common';
 import BackButton from '../components/BackButton';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtHHMM(date) { return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`; }
 
 const DAYS_IN_MONTHLY = 31;
+const MONTH_DATES = Array.from({ length: 31 }, (_, index) => index + 1);
+
+const normalizeMonthlyMap = (source) => {
+  const map = {};
+  for (let d = 1; d <= DAYS_IN_MONTHLY; d++) map[String(d)] = [];
+
+  if (!source) return map;
+
+  Object.keys(source).forEach((k) => {
+    const d = Number(k);
+    if (!Number.isFinite(d) || d < 1 || d > DAYS_IN_MONTHLY) return;
+    const arr = Array.isArray(source[k]) ? source[k] : [];
+    map[String(d)] = [...new Set(arr.map((x) => String(x?.time ?? x)).filter(Boolean))].sort();
+  });
+
+  return map;
+};
+
+const stringifyMonthlyMap = (source) => {
+  const normalized = normalizeMonthlyMap(source);
+  return JSON.stringify(
+    MONTH_DATES.map((date) => ({
+      date,
+      times: normalized[String(date)] || [],
+    }))
+  );
+};
+
 const MAX_PER_DATE = 10;
 // ── 일괄 시간 적용 모달용 고정 그리드 상수 ──
 const BULK_COLS = 7;
@@ -59,18 +88,33 @@ export default function MonthlyNotificationScreen() {
   const initial = route.params?.initial ?? null;
   const returnTo = route.params?.returnTo || 'AddChallenge';
 
-  const [map, setMap] = useState(() => normalizeInitial(initial));
-  useEffect(() => {
-    const onBack = () => {
-      navigation.goBack();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, [navigation]);
+  const [map, setMap] = useState(() => normalizeMonthlyMap(initial));
+
+  useFocusEffect(
+    useCallback(() => {
+      setMap(normalizeMonthlyMap(initial));
+      return undefined;
+    }, [initial])
+  );
 
   const [pickerDay, setPickerDay] = useState(null);
   const [pickerVisible, setPickerVisible] = useState(false);
+
+  const initialMapKey = useMemo(() => stringifyMonthlyMap(initial), [initial]);
+  const currentMapKey = useMemo(() => stringifyMonthlyMap(map), [map]);
+
+  const hasUnsavedChanges = useCallback(() => (
+    currentMapKey !== initialMapKey
+  ), [currentMapKey, initialMapKey]);
+
+  const { handleBackPress, markAsSaved, confirmSave } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '설정 중인 내용이 있어요',
+    message: '뒤로 가면 변경한 알림 설정이 저장되지 않습니다.',
+    stayText: '계속 설정',
+    leaveText: '나가기',
+  });
 
   // ===== 일괄 적용 모달 상태 =====
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -121,26 +165,34 @@ export default function MonthlyNotificationScreen() {
 
   // 저장
   const handleDone = useCallback(() => {
-    const byDates = [];
-    for (let d=1; d<=DAYS_IN_MONTHLY; d++) {
-      const key = String(d);
-      const arr = Array.isArray(map[key]) ? map[key] : [];
-      byDates.push({ date: d, times: arr.map(x => x.time) });
-    }
-    const result = { mode:'monthly', payload:{ byDates } };
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '월간 알림 설정을 저장할까요?',
+      onConfirm: () => {
+        const byDates = [];
+        for (let d = 1; d <= DAYS_IN_MONTHLY; d++) {
+          const key = String(d);
+          const arr = Array.isArray(map[key]) ? map[key] : [];
+          byDates.push({ date: d, times: arr.map((x) => String(x?.time ?? x)).sort() });
+        }
+        const result = { mode: 'monthly', payload: { byDates } };
+        const onDone = route.params?.onDone;
 
-    const onDone = route.params?.onDone;
-    if (typeof onDone === 'function') {
-      onDone(result);
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate({
-      name: returnTo || 'AddChallenge',
-      params: { notificationResult: result, _nonce: Date.now() },
-      merge: true,
+        markAsSaved();
+
+        if (typeof onDone === 'function') {
+          onDone(result);
+          navigation.goBack();
+          return;
+        }
+        navigation.navigate({
+          name: returnTo || 'AddChallenge',
+          params: { notificationResult: result, _nonce: Date.now() },
+          merge: true,
+        });
+      },
     });
-  }, [map, navigation, route.params?.onDone, returnTo]);
+  }, [confirmSave, map, markAsSaved, navigation, route.params?.onDone, returnTo]);
 
   // ===== 일괄 적용 모달 로직 =====
   const openBulkModal = useCallback(()=>{
@@ -239,7 +291,7 @@ const onChangeScope = useCallback((scope)=>{
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
-      <BackButton title="월간 알림 설정" />
+      <BackButton title="월간 알림 설정" onPress={handleBackPress} />
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
       <Text style={styles.desc}>각 날짜 최대 {MAX_PER_DATE}개</Text>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, colors, spacing, radius, card as cardStyles } from '../styles/common';
 import BackButton from '../components/BackButton';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 const CIRCLE = 40;
@@ -12,6 +13,36 @@ const MAX_TIMES = 10;
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const toHHmm = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+const normalizeSimpleConfig = (source) => {
+  const days = Array.isArray(source?.days)
+    ? source.days
+        .map(String)
+        .filter((d) => DAY_LABELS.includes(d))
+        .sort((a, b) => DAY_LABELS.indexOf(a) - DAY_LABELS.indexOf(b))
+    : [];
+
+  const rawTimes = Array.isArray(source?.times) && source.times.length
+    ? source.times
+    : (typeof source?.time === 'string' && source.time ? [source.time] : []);
+
+  const times = [...new Set(rawTimes.map(String).filter(Boolean))].sort();
+
+  const weeks = Array.isArray(source?.weeks) && source.weeks.length
+    ? source.weeks
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5)
+        .sort((a, b) => a - b)
+    : 'every';
+
+  return {
+    days,
+    times,
+    weeks: Array.isArray(weeks) && weeks.length ? weeks : 'every',
+  };
+};
+
+const stringifySimpleConfig = (source) => JSON.stringify(normalizeSimpleConfig(source));
 
 export default function SimpleNotificationScreen() {
   const navigation = useNavigation();
@@ -29,15 +60,6 @@ export default function SimpleNotificationScreen() {
 
   // 초기값 반영
   
-  useEffect(() => {
-    const onBack = () => {
-      navigation.goBack();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, [navigation]);
-
   useEffect(() => {
     if (!initial) return;
     try {
@@ -61,6 +83,29 @@ export default function SimpleNotificationScreen() {
       }
     } catch {}
   }, [initial]);
+
+  const initialConfigKey = useMemo(() => stringifySimpleConfig(initial), [initial]);
+
+  const currentConfig = useMemo(() => ({
+    days: selectedDays,
+    times,
+    weeks,
+  }), [selectedDays, times, weeks]);
+
+  const currentConfigKey = useMemo(() => stringifySimpleConfig(currentConfig), [currentConfig]);
+
+  const hasUnsavedChanges = useCallback(() => (
+    currentConfigKey !== initialConfigKey
+  ), [currentConfigKey, initialConfigKey]);
+
+  const { handleBackPress, markAsSaved, confirmSave } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '설정 중인 내용이 있어요',
+    message: '뒤로 가면 변경한 알림 설정이 저장되지 않습니다.',
+    stayText: '계속 설정',
+    leaveText: '나가기',
+  });
 
   const isDaily = useMemo(() => selectedDays.length === 7, [selectedDays]);
   const weekLabel = useMemo(() => {
@@ -130,32 +175,39 @@ export default function SimpleNotificationScreen() {
       Alert.alert('확인', '요일을 한 개 이상 선택해주세요.');
       return;
     }
-    const firstTime = times.slice().sort()[0];
-    const payload = {
-      days: selectedDays,
-      time: firstTime,
-      times: times.slice().sort(),
-      weeks: (Array.isArray(weeks) && weeks.length) ? weeks : 'every',
-    };
-    const result = { mode: 'simple', payload };
 
-    // onDone 콜백 우선 (편집 화면 등)
-    const onDone = route.params?.onDone;
-    if (typeof onDone === 'function') {
-      onDone(result);
-      navigation.goBack();
-      return;
-    }
-    // AddChallenge로 교체 navigate (뒤로가기 루프 방지)
-    navigation.navigate(returnTo || 'AddChallenge', {
-      notificationResult: result,
-      _nonce: Date.now(),
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '간단 알림 설정을 저장할까요?',
+      onConfirm: () => {
+        const firstTime = times.slice().sort()[0];
+        const payload = {
+          days: selectedDays,
+          time: firstTime,
+          times: times.slice().sort(),
+          weeks: (Array.isArray(weeks) && weeks.length) ? weeks : 'every',
+        };
+        const result = { mode: 'simple', payload };
+
+        markAsSaved();
+
+        const onDone = route.params?.onDone;
+        if (typeof onDone === 'function') {
+          onDone(result);
+          navigation.goBack();
+          return;
+        }
+        navigation.navigate(returnTo || 'AddChallenge', {
+          notificationResult: result,
+          _nonce: Date.now(),
+        });
+      },
     });
-  }, [navigation, returnTo, route.params?.onDone, selectedDays, times, weeks]);
+  }, [confirmSave, markAsSaved, navigation, returnTo, route.params?.onDone, selectedDays, times, weeks]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
-      <BackButton title="간단 알림 설정" />
+      <BackButton title="간단 알림 설정" onPress={handleBackPress} />
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
 

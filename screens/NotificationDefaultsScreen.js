@@ -1,9 +1,10 @@
 // screens/NotificationDefaultsScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Switch, Modal, TextInput, Alert, ScrollView, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../components/BackButton';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 const PALETTE = {
   white: "#FFFFFF",
@@ -25,6 +26,27 @@ const STORAGE_KEY = 'notification_defaults';
 // defaults shape: { sound: 'system'|'silent'|'vibrate', snooze: { enabled: boolean, minutes: number } }
 const PRESETS = [5, 10, 15, 30];
 
+const normalizeDefaults = (source) => {
+  const sound = ['system', 'silent', 'vibrate'].includes(source?.sound)
+    ? source.sound
+    : 'system';
+
+  const rawMinutes = Number(source?.snooze?.minutes);
+  const minutes = Number.isFinite(rawMinutes) && rawMinutes > 0
+    ? Math.min(240, Math.floor(rawMinutes))
+    : 10;
+
+  return {
+    sound,
+    snooze: {
+      enabled: !!source?.snooze?.enabled,
+      minutes,
+    },
+  };
+};
+
+const stringifyDefaults = (source) => JSON.stringify(normalizeDefaults(source));
+
 export default function NotificationDefaultsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -36,16 +58,19 @@ export default function NotificationDefaultsScreen() {
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customInput, setCustomInput] = useState(String(snoozeMinutes));
 
+  const originalDefaultsRef = useRef(normalizeDefaults(null));
+
   useEffect(()=>{
     (async()=>{
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const v = JSON.parse(raw);
-          if (v?.sound) setSound(v.sound);
-          if (v?.snooze?.enabled !== undefined) setSnoozeEnabled(!!v.snooze.enabled);
-          if (v?.snooze?.minutes) setSnoozeMinutes(Number(v.snooze.minutes) || 10);
-        }
+        const parsed = raw ? JSON.parse(raw) : null;
+        const normalized = normalizeDefaults(parsed);
+        originalDefaultsRef.current = normalized;
+
+        setSound(normalized.sound);
+        setSnoozeEnabled(normalized.snooze.enabled);
+        setSnoozeMinutes(normalized.snooze.minutes);
       } catch(e) {
         // ignore
       } finally {
@@ -67,17 +92,46 @@ export default function NotificationDefaultsScreen() {
     setShowCustomModal(false);
   };
 
-  const saveAndBack = async()=>{
-    try {
-      const toSave = { sound, snooze: { enabled: snoozeEnabled, minutes: snoozeMinutes } };
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-      Alert.alert('저장됨','알림 기본 설정이 저장되었습니다.',[
-        { text:'확인', onPress:()=>navigation.goBack() }
-      ]);
-    } catch(e) {
-      Alert.alert('오류','설정을 저장하지 못했습니다.');
-    }
-  };
+  const currentDefaults = useMemo(() => ({
+    sound,
+    snooze: { enabled: snoozeEnabled, minutes: snoozeMinutes },
+  }), [sound, snoozeEnabled, snoozeMinutes]);
+
+  const hasUnsavedChanges = useCallback(() => {
+    if (loading) return false;
+    return stringifyDefaults(currentDefaults) !== stringifyDefaults(originalDefaultsRef.current);
+  }, [currentDefaults, loading]);
+
+  const { handleBackPress, markAsSaved, confirmSave } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '설정 중인 내용이 있어요',
+    message: '뒤로 가면 변경한 알림 기본 설정이 저장되지 않습니다.',
+    stayText: '계속 설정',
+    leaveText: '나가기',
+  });
+
+  const saveAndBack = useCallback(() => {
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '알림 기본 설정을 저장할까요?',
+      onConfirm: async () => {
+        try {
+          const toSave = normalizeDefaults(currentDefaults);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+
+          originalDefaultsRef.current = toSave;
+          markAsSaved();
+
+          Alert.alert('저장됨', '알림 기본 설정이 저장되었습니다.', [
+            { text: '확인', onPress: () => navigation.goBack() },
+          ]);
+        } catch (e) {
+          Alert.alert('오류', '설정을 저장하지 못했습니다.');
+        }
+      },
+    });
+  }, [confirmSave, currentDefaults, markAsSaved, navigation]);
 
   const SoundOption = ({value, label})=>(
     <TouchableOpacity
@@ -96,7 +150,7 @@ export default function NotificationDefaultsScreen() {
 
     return (
     <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.gray50 }}>
-      <BackButton title="알림 기본 설정" />
+      <BackButton title="알림 기본 설정" onPress={handleBackPress} />
       <ScrollView contentContainerStyle={styles.container}>
       
 

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 저장/삭제 중 중복 탭 방지(busy)
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,6 +16,7 @@ import { buttonStyles, spacing, radius } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 const MAX_TEXT_LEN = 500;
 const MAX_MINUTES = 1440;
@@ -28,7 +29,6 @@ export default function EntryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const originalRef = useRef({ text: "", duration: "", imageUri: null });
-  const savedRef = useRef(false);
 
   const [text, setText] = useState('');
   const [textHeight, setTextHeight] = useState(120);
@@ -84,47 +84,25 @@ export default function EntryDetailScreen() {
     return () => { mounted = false; };
   }, [challengeId, entryId, navigation]);
 
-  // 안드로이드 하드웨어/제스처 뒤로가기 + beforeRemove 경고
-  useEffect(() => {
-    // 초기 로드시의 값과 비교하기 위해 별도의 ref를 쓰거나 
-    // 여기서는 단순히 현재 값들의 변화 여부만 체크하는 요청 로직을 따름
-    // (사용자 요청서에는 originalText 등을 useEffect 내부 변수로 정의함)
-    
-    const hasChanged = () => {
-      if (savedRef.current) return false;
-      const orig = originalRef.current;
-      const durChanged = (duration || '') !== (orig.duration || '');
-      const imgChanged = (imageUri || null) !== (orig.imageUri || null);
-      const textChanged = text.trim() !== orig.text.trim();
-      return textChanged || durChanged || imgChanged;
-    };
+  const hasUnsavedChanges = useCallback(() => {
+    const orig = originalRef.current;
+    if (!orig) return false;
 
-    const confirmExit = (onConfirm) => {
-      if (!hasChanged()) { onConfirm(); return; }
-      Alert.alert(
-        '수정 중인 내용이 있어요',
-        '뒤로 가면 수정한 내용이 저장되지 않습니다.',
-        [
-          { text: '계속 수정', style: 'cancel' },
-          { text: '나가기', style: 'destructive', onPress: onConfirm },
-        ]
-      );
-    };
+    const durChanged = (duration || '') !== (orig.duration || '');
+    const imgChanged = (imageUri || null) !== (orig.imageUri || null);
+    const textChanged = text.trim() !== orig.text.trim();
 
-    const onHardwareBack = () => {
-      confirmExit(() => navigation.goBack());
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return textChanged || durChanged || imgChanged;
+  }, [text, duration, imageUri]);
 
-    const remove = navigation.addListener('beforeRemove', (e) => {
-      if (!hasChanged()) return;
-      e.preventDefault();
-      confirmExit(() => navigation.dispatch(e.data.action));
-    });
-
-    return () => { sub.remove(); if(remove) remove(); };
-  }, [navigation, text, duration, imageUri]);
+  const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '수정 중인 내용이 있어요',
+    message: '뒤로 가면 수정한 내용이 저장되지 않습니다.',
+    stayText: '계속 수정',
+    leaveText: '나가기',
+  });
 
   // 사진 선택(추가/교체)
   const onPickImage = useCallback(async () => {
@@ -166,45 +144,61 @@ export default function EntryDetailScreen() {
     setDuration(String(n));
   }, []);
 
-  const onSave = useCallback(async () => {
+  const onSave = useCallback(() => {
     if (busy) return;
-    setBusy(true);
-    try {
-      if (!challengeId || !entryId) return;
 
-      // duration 최종 클램프(빈 문자열이면 0)
-      const rawDur = toNumberOrZero(duration);
-      const finalDur = duration ? Math.min(Math.max(rawDur, 1), MAX_MINUTES) : 0;
+    Alert.alert(
+      '저장하시겠습니까?',
+      '이 인증 수정을 저장할까요?',
+      [
+        {
+          text: '취소',
+          style: 'cancel',
+        },
+        {
+          text: '저장',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              if (!challengeId || !entryId) return;
 
-      const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
-      const list = raw ? JSON.parse(raw) : [];
-      const idx = list.findIndex(e => e.id === entryId);
-      if (idx < 0) {
-        Alert.alert('오류', '인증 항목이 존재하지 않습니다.');
-        return;
-      }
+              // duration 최종 클램프(빈 문자열이면 0)
+              const rawDur = toNumberOrZero(duration);
+              const finalDur = duration ? Math.min(Math.max(rawDur, 1), MAX_MINUTES) : 0;
 
-      const updated = {
-        ...list[idx],
-        text: (text || '').trim(),
-        imageUri: imageUri || null,
-        duration: finalDur,
-        timestamp: timestamp || list[idx].timestamp || Date.now(),
-      };
-      list[idx] = updated;
+              const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+              const list = raw ? JSON.parse(raw) : [];
+              const idx = list.findIndex(e => e.id === entryId);
+              if (idx < 0) {
+                Alert.alert('오류', '인증 항목이 존재하지 않습니다.');
+                return;
+              }
 
-      await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
-      savedRef.current = true;
-      Alert.alert('완료', '인증이 수정되었습니다.', [
-        { text: '확인', onPress: () => navigation.goBack() },
-      ]);
-    } catch (e) {
-      console.error(e);
-      Alert.alert('오류', '인증을 저장하지 못했습니다.');
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, challengeId, entryId, duration, imageUri, navigation, text, timestamp]);
+              const updated = {
+                ...list[idx],
+                text: (text || '').trim(),
+                imageUri: imageUri || null,
+                duration: finalDur,
+                timestamp: timestamp || list[idx].timestamp || Date.now(),
+              };
+              list[idx] = updated;
+
+              await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
+              markAsSaved();
+              Alert.alert('완료', '인증이 수정되었습니다.', [
+                { text: '확인', onPress: () => navigation.goBack() },
+              ]);
+            } catch (e) {
+              console.error(e);
+              Alert.alert('오류', '인증을 저장하지 못했습니다.');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [busy, challengeId, entryId, duration, imageUri, navigation, text, timestamp, markAsSaved]);
 
   const onDelete = useCallback(() => {
     if (busy) return;
@@ -231,7 +225,7 @@ export default function EntryDetailScreen() {
       await syncWidgetChallengeList();
             }
 
-            savedRef.current = true;
+            markAsSaved();
             Alert.alert('삭제됨', '인증이 삭제되었습니다.', [
               { text: '확인', onPress: () => navigation.goBack() },
             ]);
@@ -244,12 +238,12 @@ export default function EntryDetailScreen() {
         }
       }
     ]);
-  }, [busy, challengeId, entryId, navigation]);
+  }, [busy, challengeId, entryId, navigation, markAsSaved]);
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-      <BackButton title="인증 수정" />
+      <BackButton title="인증 수정" onPress={handleBackPress} />
         <Text style={{ color: '#666' }}>불러오는 중…</Text>
       </SafeAreaView>
     );
@@ -257,7 +251,7 @@ export default function EntryDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackButton title="기록 수정" />
+      <BackButton title="기록 수정" onPress={handleBackPress} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
         {!!challengeTitle && (
           <View style={styles.titleBox}>

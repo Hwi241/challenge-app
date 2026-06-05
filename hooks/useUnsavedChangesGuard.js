@@ -13,6 +13,7 @@ export default function useUnsavedChangesGuard({
   const savedRef = useRef(false);
   const confirmedLeaveRef = useRef(false);
   const alertOpenRef = useRef(false);
+  const saveAlertOpenRef = useRef(false);
 
   const getHasUnsavedChanges = useCallback(() => {
     if (typeof hasUnsavedChanges === 'function') {
@@ -21,12 +22,18 @@ export default function useUnsavedChangesGuard({
     return !!hasUnsavedChanges;
   }, [hasUnsavedChanges]);
 
+  const isScreenFocused = useCallback(() => {
+    if (!navigation || typeof navigation.isFocused !== 'function') return true;
+    return navigation.isFocused();
+  }, [navigation]);
+
   const shouldBlockLeave = useCallback(() => {
+    if (!isScreenFocused()) return false;
     if (!enabled) return false;
     if (savedRef.current) return false;
     if (confirmedLeaveRef.current) return false;
     return getHasUnsavedChanges();
-  }, [enabled, getHasUnsavedChanges]);
+  }, [enabled, getHasUnsavedChanges, isScreenFocused]);
 
   const confirmLeave = useCallback((onConfirm) => {
     if (!shouldBlockLeave()) {
@@ -66,32 +73,72 @@ export default function useUnsavedChangesGuard({
   }, [leaveText, message, shouldBlockLeave, stayText, title]);
 
   const handleBackPress = useCallback(() => {
+    if (!isScreenFocused()) return;
+
     confirmLeave(() => {
       navigation?.goBack?.();
     });
-  }, [confirmLeave, navigation]);
+  }, [confirmLeave, isScreenFocused, navigation]);
 
   const markAsSaved = useCallback(() => {
     savedRef.current = true;
     confirmedLeaveRef.current = true;
     alertOpenRef.current = false;
+    saveAlertOpenRef.current = false;
+  }, []);
+
+  const confirmSave = useCallback(({
+    title: saveTitle = '저장하시겠습니까?',
+    message: saveMessage = '변경한 내용을 저장할까요?',
+    cancelText = '취소',
+    confirmText = '저장',
+    onConfirm,
+  } = {}) => {
+    if (saveAlertOpenRef.current) return;
+    saveAlertOpenRef.current = true;
+
+    Alert.alert(
+      saveTitle,
+      saveMessage,
+      [
+        {
+          text: cancelText,
+          style: 'cancel',
+          onPress: () => {
+            saveAlertOpenRef.current = false;
+          },
+        },
+        {
+          text: confirmText,
+          onPress: () => {
+            saveAlertOpenRef.current = false;
+            if (typeof onConfirm === 'function') {
+              onConfirm();
+            }
+          },
+        },
+      ]
+    );
   }, []);
 
   const allowNextLeave = useCallback(() => {
     confirmedLeaveRef.current = true;
     alertOpenRef.current = false;
+    saveAlertOpenRef.current = false;
   }, []);
 
   const resetGuard = useCallback(() => {
     savedRef.current = false;
     confirmedLeaveRef.current = false;
     alertOpenRef.current = false;
+    saveAlertOpenRef.current = false;
   }, []);
 
   useEffect(() => {
     if (!enabled || !navigation?.addListener) return undefined;
 
     const remove = navigation.addListener('beforeRemove', (event) => {
+      if (!isScreenFocused()) return;
       if (!shouldBlockLeave()) return;
 
       event.preventDefault();
@@ -102,12 +149,13 @@ export default function useUnsavedChangesGuard({
     });
 
     return remove;
-  }, [confirmLeave, enabled, navigation, shouldBlockLeave]);
+  }, [confirmLeave, enabled, isScreenFocused, navigation, shouldBlockLeave]);
 
   useEffect(() => {
     if (!enabled || Platform.OS !== 'android') return undefined;
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!isScreenFocused()) return false;
       if (!shouldBlockLeave()) return false;
 
       confirmLeave(() => {
@@ -119,11 +167,12 @@ export default function useUnsavedChangesGuard({
     return () => {
       subscription.remove();
     };
-  }, [confirmLeave, enabled, navigation, shouldBlockLeave]);
+  }, [confirmLeave, enabled, isScreenFocused, navigation, shouldBlockLeave]);
 
   return {
     handleBackPress,
     confirmLeave,
+    confirmSave,
     markAsSaved,
     allowNextLeave,
     resetGuard,

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, BackHandler, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import BackButton from '../components/BackButton';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 // screens/FullRangeNotificationScreen.js
 
@@ -22,6 +23,27 @@ function parseDateStr(s){
   const dt=new Date(y,(m||1)-1,d||1); return isNaN(dt.getTime())?null:dt;
 }
 
+function normalizeByDateMap(source){
+  const normalized = {};
+  if (!source || typeof source !== 'object') return normalized;
+
+  Object.keys(source).sort().forEach((key) => {
+    const times = Array.isArray(source[key])
+      ? [...new Set(source[key].map(String).filter(Boolean))].sort()
+      : [];
+
+    if (times.length > 0) {
+      normalized[key] = times;
+    }
+  });
+
+  return normalized;
+}
+
+function stringifyByDateMap(source){
+  return JSON.stringify(normalizeByDateMap(source));
+}
+
 export default function FullRangeNotificationScreen(){
   const navigation = useNavigation();
   const route = useRoute();
@@ -37,15 +59,6 @@ export default function FullRangeNotificationScreen(){
   // 시작 > 종료 보호
   
   useEffect(() => {
-    const onBack = () => {
-      navigation.goBack();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, [navigation]);
-
-  useEffect(() => {
     if (start && end && start > end) {
       Alert.alert('확인', '시작일이 종료일보다 늦습니다. 날짜를 다시 선택해주세요.', [
         { text: '확인', onPress: () => navigation.goBack() },
@@ -53,14 +66,29 @@ export default function FullRangeNotificationScreen(){
     }
   }, [startStr, endStr, start, end, navigation]);
 
-  const [map,setMap] = useState(()=>{
-    const m = {};
-    if (initial && initial.byDate && typeof initial.byDate==='object') {
-      for (const k of Object.keys(initial.byDate)) {
-        m[k] = Array.isArray(initial.byDate[k]) ? [...new Set(initial.byDate[k].map(String))].sort() : [];
-      }
-    }
-    return m;
+  const [map,setMap] = useState(() => normalizeByDateMap(initial?.byDate));
+
+  useFocusEffect(
+    useCallback(() => {
+      setMap(normalizeByDateMap(initial?.byDate));
+      return undefined;
+    }, [initial])
+  );
+
+  const initialMapKey = useMemo(() => stringifyByDateMap(initial?.byDate), [initial]);
+  const currentMapKey = useMemo(() => stringifyByDateMap(map), [map]);
+
+  const hasUnsavedChanges = useCallback(() => (
+    currentMapKey !== initialMapKey
+  ), [currentMapKey, initialMapKey]);
+
+  const { handleBackPress, markAsSaved, confirmSave } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges,
+    title: '설정 중인 내용이 있어요',
+    message: '뒤로 가면 변경한 알림 설정이 저장되지 않습니다.',
+    stayText: '계속 설정',
+    leaveText: '나가기',
   });
 
   // 단일 날짜 추가용
@@ -261,16 +289,30 @@ export default function FullRangeNotificationScreen(){
     ]);
   },[]);
 
-  const save = useCallback(()=>{
-    const result = { mode:'fullrange', payload:{ start: startStr, end: endStr, byDate: map } };
-    const onDone = route.params?.onDone;
-    if (typeof onDone === 'function') { onDone(result); navigation.goBack(); return; }
-    navigation.navigate({
-      name: returnTo || 'AddChallenge',
-      params: { notificationResult: result, _nonce: Date.now() },
-      merge: true,
+  const save = useCallback(() => {
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '전체 일정 알림 설정을 저장할까요?',
+      onConfirm: () => {
+        const result = { mode: 'fullrange', payload: { start: startStr, end: endStr, byDate: map } };
+        const onDone = route.params?.onDone;
+
+        markAsSaved();
+
+        if (typeof onDone === 'function') {
+          onDone(result);
+          navigation.goBack();
+          return;
+        }
+
+        navigation.navigate({
+          name: returnTo || 'AddChallenge',
+          params: { notificationResult: result, _nonce: Date.now() },
+          merge: true,
+        });
+      },
     });
-  },[map, navigation, returnTo, startStr, endStr, route.params?.onDone]);
+  }, [confirmSave, map, navigation, returnTo, startStr, endStr, route.params?.onDone, markAsSaved]);
 
   if(!start || !end){
     return (
@@ -287,7 +329,7 @@ export default function FullRangeNotificationScreen(){
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 160 /* 고정 바 높이만큼 여백 */ }}
       >
         
-        <BackButton title="전체 일정 알림 설정" />
+        <BackButton title="전체 일정 알림 설정" onPress={handleBackPress} />
       <Text style={styles.desc}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
 
         {months.map(({y,mi})=>{

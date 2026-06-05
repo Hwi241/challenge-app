@@ -618,7 +618,25 @@ const handleGoalChange = useCallback((txt)=>{
             <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { setShowNotifPicker(false); navigation.navigate('MonthlyNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>월간 알림</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { if (!startDate || !endDate) return Alert.alert('확인', '날짜를 먼저 선택하세요.'); setShowNotifPicker(false); navigation.navigate('FullRangeNotification', { startDate: fmtDate(startDate), endDate: fmtDate(endDate), onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
+            <TouchableOpacity
+              style={[buttonStyles.primary.container, { marginTop: spacing.sm }]}
+              onPress={() => {
+                if (!startDate || !endDate) return Alert.alert('확인', '날짜를 먼저 선택하세요.');
+                const initial = notification?.mode === 'fullrange' ? (notification.payload ?? null) : null;
+                setShowNotifPicker(false);
+                navigation.navigate('FullRangeNotification', {
+                  initial,
+                  startDate: fmtDate(startDate),
+                  endDate: fmtDate(endDate),
+                  onDone: (res) => {
+                    if (habitMode) setHabitNotification(res);
+                    else setChallengeNotification(res);
+                  },
+                  returnTo: 'AddChallenge',
+                });
+              }}
+              activeOpacity={0.9}
+            >
               <Text style={buttonStyles.primary.label}>전체 일정 세부 알림</Text>
             </TouchableOpacity>
 

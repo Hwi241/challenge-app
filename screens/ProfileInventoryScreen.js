@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
   Image,
   Modal,
   ScrollView,
@@ -25,6 +26,7 @@ import {
 } from '../utils/dashboardLayout';
 import { colors, radius, spacing } from '../styles/common';
 import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
+import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 const CHALLENGES_KEY = 'challenges';
 const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
@@ -75,6 +77,18 @@ const parseJsonSafe = (raw, fallback) => {
 const asArray = (value) => (Array.isArray(value) ? value : []);
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const normalizeProfileDraft = (value) => ({
+ name: normalizeText(value?.name),
+ headline: normalizeText(value?.headline),
+ bio: normalizeText(value?.bio),
+});
+
+const stringifyProfileDraft = (value) => JSON.stringify(normalizeProfileDraft(value));
+
+const normalizeHofGoalValue = (value) => (
+ Math.max(1, Math.floor(Number(value) || 1))
+);
 
 const getDateKey = (dateLike) => {
   const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
@@ -1172,27 +1186,128 @@ export default function ProfileInventoryScreen() {
     calendarBaseDate,
   }), [cards, entries, trashInfo, stars, starHistory, hofGoal, hallCards, weekBaseDate, calendarBaseDate]);
 
+  const hasModalUnsavedChanges = useCallback(() => {
+    if (memoVisible) {
+      return memoDraft !== memo;
+    }
+
+    if (profileVisible) {
+      return stringifyProfileDraft(profileDraft) !== stringifyProfileDraft(profileInfo);
+    }
+
+    if (hofGoalVisible) {
+      return normalizeHofGoalValue(hofGoalDraft) !== normalizeHofGoalValue(hofGoal);
+    }
+
+    return false;
+  }, [
+    hofGoal,
+    hofGoalDraft,
+    hofGoalVisible,
+    memo,
+    memoDraft,
+    memoVisible,
+    profileDraft,
+    profileInfo,
+    profileVisible,
+  ]);
+
+  const { confirmSave, markAsSaved, resetGuard } = useUnsavedChangesGuard({
+    navigation,
+    hasUnsavedChanges: false,
+    title: '수정 중인 내용이 있어요',
+    message: '닫으면 변경한 내용이 저장되지 않습니다.',
+    stayText: '계속 수정',
+    leaveText: '닫기',
+  });
+
+  const confirmCloseModal = useCallback((onClose) => {
+    if (typeof onClose !== 'function') return;
+
+    Alert.alert(
+      '수정 중인 내용이 있어요',
+      '닫으면 변경한 내용이 저장되지 않습니다.',
+      [
+        {
+          text: '계속 수정',
+          style: 'cancel',
+        },
+        {
+          text: '닫기',
+          style: 'destructive',
+          onPress: onClose,
+        },
+      ]
+    );
+  }, []);
+
   const openMemo = useCallback(() => {
+    resetGuard();
     setMemoDraft(memo);
     setMemoVisible(true);
-  }, [memo]);
+  }, [memo, resetGuard]);
 
-  const saveMemo = useCallback(async () => {
-    await AsyncStorage.setItem(RECORD_ROOM_MEMO_KEY, memoDraft);
-    setMemo(memoDraft);
-    setMemoVisible(false);
-  }, [memoDraft]);
+  const closeMemoModal = useCallback(() => {
+    const close = () => {
+      setMemoDraft(memo);
+      setMemoVisible(false);
+    };
+
+    if (!hasModalUnsavedChanges()) {
+      close();
+      return;
+    }
+
+    confirmCloseModal(close);
+  }, [confirmCloseModal, hasModalUnsavedChanges, memo]);
+
+  const saveMemo = useCallback(() => {
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '메모를 저장할까요?',
+      onConfirm: async () => {
+        await AsyncStorage.setItem(RECORD_ROOM_MEMO_KEY, memoDraft);
+        setMemo(memoDraft);
+        markAsSaved();
+        setMemoVisible(false);
+      },
+    });
+  }, [confirmSave, markAsSaved, memoDraft]);
 
   const openProfile = useCallback(() => {
+    resetGuard();
     setProfileDraft(profileInfo);
     setProfileVisible(true);
-  }, [profileInfo]);
+  }, [profileInfo, resetGuard]);
 
-  const saveProfile = useCallback(async () => {
-    await AsyncStorage.setItem(RECORD_ROOM_PROFILE_KEY, JSON.stringify(profileDraft));
-    setProfileInfo(profileDraft);
-    setProfileVisible(false);
-  }, [profileDraft]);
+  const closeProfileModal = useCallback(() => {
+    const close = () => {
+      setProfileDraft(profileInfo);
+      setProfileVisible(false);
+    };
+
+    if (!hasModalUnsavedChanges()) {
+      close();
+      return;
+    }
+
+    confirmCloseModal(close);
+  }, [confirmCloseModal, hasModalUnsavedChanges, profileInfo]);
+
+  const saveProfile = useCallback(() => {
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '내 정보를 저장할까요?',
+      onConfirm: async () => {
+        const nextProfile = normalizeProfileDraft(profileDraft);
+        await AsyncStorage.setItem(RECORD_ROOM_PROFILE_KEY, JSON.stringify(nextProfile));
+        setProfileInfo(nextProfile);
+        setProfileDraft(nextProfile);
+        markAsSaved();
+        setProfileVisible(false);
+      },
+    });
+  }, [confirmSave, markAsSaved, profileDraft]);
 
   const pickProfileImage = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -1213,17 +1328,39 @@ export default function ProfileInventoryScreen() {
   }, []);
 
   const openHofGoal = useCallback(() => {
+    resetGuard();
     setHofGoalDraft(String(hofGoal));
     setHofGoalVisible(true);
-  }, [hofGoal]);
+  }, [hofGoal, resetGuard]);
 
-  const saveHofGoal = useCallback(async () => {
-    const nextGoal = Math.max(1, Math.floor(Number(hofGoalDraft) || 1));
-    await AsyncStorage.setItem(RECORD_ROOM_HOF_GOAL_KEY, String(nextGoal));
-    setHofGoal(nextGoal);
-    setHofGoalDraft(String(nextGoal));
-    setHofGoalVisible(false);
-  }, [hofGoalDraft]);
+  const closeHofGoalModal = useCallback(() => {
+    const close = () => {
+      setHofGoalDraft(String(hofGoal));
+      setHofGoalVisible(false);
+    };
+
+    if (!hasModalUnsavedChanges()) {
+      close();
+      return;
+    }
+
+    confirmCloseModal(close);
+  }, [confirmCloseModal, hasModalUnsavedChanges, hofGoal]);
+
+  const saveHofGoal = useCallback(() => {
+    confirmSave({
+      title: '저장하시겠습니까?',
+      message: '명예의 전당 목표를 저장할까요?',
+      onConfirm: async () => {
+        const nextGoal = normalizeHofGoalValue(hofGoalDraft);
+        await AsyncStorage.setItem(RECORD_ROOM_HOF_GOAL_KEY, String(nextGoal));
+        setHofGoal(nextGoal);
+        setHofGoalDraft(String(nextGoal));
+        markAsSaved();
+        setHofGoalVisible(false);
+      },
+    });
+  }, [confirmSave, hofGoalDraft, markAsSaved]);
 
   const openRecordRoomLayoutEdit = useCallback(() => {
     navigation.navigate('DashboardEdit', {
@@ -1389,8 +1526,8 @@ export default function ProfileInventoryScreen() {
         <Text style={styles.shopFloatingText}>상점</Text>
       </TouchableOpacity>
 
-      <Modal visible={memoVisible} transparent animationType="fade" onRequestClose={() => setMemoVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => setMemoVisible(false)}>
+      <Modal visible={memoVisible} transparent animationType="fade" onRequestClose={closeMemoModal}>
+        <TouchableWithoutFeedback onPress={closeMemoModal}>
           <View style={styles.modalBackdrop} />
         </TouchableWithoutFeedback>
         <View style={styles.memoModalCard}>
@@ -1405,7 +1542,7 @@ export default function ProfileInventoryScreen() {
             style={styles.memoInput}
           />
           <View style={styles.memoModalActions}>
-            <TouchableOpacity style={styles.memoCancelBtn} onPress={() => setMemoVisible(false)} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.memoCancelBtn} onPress={closeMemoModal} activeOpacity={0.85}>
               <Text style={styles.memoCancelText}>취소</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.memoSaveBtn} onPress={saveMemo} activeOpacity={0.9}>
@@ -1415,8 +1552,8 @@ export default function ProfileInventoryScreen() {
         </View>
       </Modal>
 
-      <Modal visible={profileVisible} transparent animationType="fade" onRequestClose={() => setProfileVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => setProfileVisible(false)}>
+      <Modal visible={profileVisible} transparent animationType="fade" onRequestClose={closeProfileModal}>
+        <TouchableWithoutFeedback onPress={closeProfileModal}>
           <View style={styles.modalBackdrop} />
         </TouchableWithoutFeedback>
         <View style={styles.memoModalCard}>
@@ -1445,7 +1582,7 @@ export default function ProfileInventoryScreen() {
             style={[styles.memoInput, { minHeight: 120 }]}
           />
           <View style={styles.memoModalActions}>
-            <TouchableOpacity style={styles.memoCancelBtn} onPress={() => setProfileVisible(false)} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.memoCancelBtn} onPress={closeProfileModal} activeOpacity={0.85}>
               <Text style={styles.memoCancelText}>취소</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.memoSaveBtn} onPress={saveProfile} activeOpacity={0.9}>
@@ -1455,8 +1592,8 @@ export default function ProfileInventoryScreen() {
         </View>
       </Modal>
 
-      <Modal visible={hofGoalVisible} transparent animationType="fade" onRequestClose={() => setHofGoalVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => setHofGoalVisible(false)}>
+      <Modal visible={hofGoalVisible} transparent animationType="fade" onRequestClose={closeHofGoalModal}>
+        <TouchableWithoutFeedback onPress={closeHofGoalModal}>
           <View style={styles.modalBackdrop} />
         </TouchableWithoutFeedback>
         <View style={styles.memoModalCard}>
@@ -1470,7 +1607,7 @@ export default function ProfileInventoryScreen() {
             style={styles.profileInput}
           />
           <View style={styles.memoModalActions}>
-            <TouchableOpacity style={styles.memoCancelBtn} onPress={() => setHofGoalVisible(false)} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.memoCancelBtn} onPress={closeHofGoalModal} activeOpacity={0.85}>
               <Text style={styles.memoCancelText}>취소</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.memoSaveBtn} onPress={saveHofGoal} activeOpacity={0.9}>

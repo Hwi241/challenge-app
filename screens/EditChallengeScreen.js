@@ -463,17 +463,27 @@ export default function EditChallengeScreen(){
     if (r.length > LIMITS.reward) { Alert.alert('확인', `보상은 ${LIMITS.reward}자 이내로 입력해주세요.`); return; }
     if (desc.length > LIMITS.description) { Alert.alert('확인', `도전 내용은 ${LIMITS.description}자 이내로 입력해주세요.`); return; }
 
-    const effectiveGoal = (goalScore === '' ? Number(baseChallenge.goalScore || 0) : toNumberOrZero(goalScore));
-    if (effectiveGoal <= 0) { Alert.alert('확인', '목표 점수는 1 이상의 숫자여야 합니다.'); return; }
-    if (effectiveGoal > LIMITS.maxGoal) { Alert.alert('확인', `목표 점수는 ${LIMITS.maxGoal}점 이하여야 합니다.`); return; }
+    const effectiveGoal = isHabit
+      ? 0
+      : (goalScore === '' ? Number(baseChallenge.goalScore || 0) : toNumberOrZero(goalScore));
+
+    if (!isHabit && effectiveGoal <= 0) {
+      Alert.alert('확인', '목표 점수는 1 이상의 숫자여야 합니다.');
+      return;
+    }
+
+    if (!isHabit && effectiveGoal > LIMITS.maxGoal) {
+      Alert.alert('확인', `목표 점수는 ${LIMITS.maxGoal}점 이하여야 합니다.`);
+      return;
+    }
 
     const v = validateInput({
       title: t,
-      goalScore: (goalScore === '' ? '' : effectiveGoal),
+      goalScore: isHabit ? 1 : (goalScore === '' ? '' : effectiveGoal),
       startDate: startDate ? fmtDate(startDate) : null,
       endDate: endDate ? fmtDate(endDate) : null,
       allowEmptyGoal: true,
-      prevGoalScore: Number(baseChallenge.goalScore || 0),
+      prevGoalScore: isHabit ? 1 : Number(baseChallenge.goalScore || 0),
     });
     if (!v.ok) {
       if (v.reason === 'TITLE_EMPTY') { Alert.alert('확인', '도전 제목을 입력해주세요.'); return; }
@@ -489,7 +499,7 @@ export default function EditChallengeScreen(){
       type: isHabit ? 'habit' : (baseChallenge.type || 'challenge'),
       habitCycle: isHabit ? habitCycle : undefined,
       title: t,
-      goalScore: (goalScore === '' ? Number(baseChallenge.goalScore || 0) : effectiveGoal),
+      goalScore: isHabit ? 0 : (goalScore === '' ? Number(baseChallenge.goalScore || 0) : effectiveGoal),
       currentScore: Number(baseChallenge.currentScore || 0),
       startDate: fmtDate(startDate),
       endDate: fmtDate(endDate),

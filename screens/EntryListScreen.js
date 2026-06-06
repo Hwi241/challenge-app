@@ -2618,16 +2618,22 @@ export default function EntryListScreen({ route, navigation }) {
   }, [isFocused, isWideDashboardLayout, wideReflowFadeAnim]);
 
   // 뒤로가기 항상 ChallengeList로
-  React.useEffect(() => {
-    const sub = require('react-native').BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        navigation.navigate('ChallengeList');
-        return true;
-      }
-    );
-    return () => sub.remove();
-  }, [navigation]);
+  // 단, EntryListScreen이 현재 focus 상태일 때만 등록한다.
+  // EntryDetailScreen이 위에 떠 있을 때 이 핸들러가 반응하면,
+  // 인증 수정 화면에서 뒤로가기 시 인증 목록을 건너뛰고 ChallengeList로 나가는 문제가 생긴다.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = require('react-native').BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          navigation.navigate('ChallengeList');
+          return true;
+        }
+      );
+
+      return () => sub.remove();
+    }, [navigation])
+  );
 
   const [entries, setEntries] = useState([]);
   const [weeksData, setWeeksData] = useState([]);

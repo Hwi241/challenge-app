@@ -10,6 +10,7 @@ import { buttonStyles, colors, spacing, radius } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import { moveToTrash } from '../utils/trash';
+import { useFoldableLayoutState } from '../utils/foldableLayout';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -22,8 +23,7 @@ const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
 const CARD_COLLAPSE_ANIM_MS = 320;
-const WIDE_CHALLENGE_LIST_MIN_WIDTH = 600;
-const WIDE_CHALLENGE_LIST_FRAME_MIN_WIDTH = 520;
+
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
 const COLLAPSED_CARDS_KEY = 'ch_collapsed_cards';
@@ -816,11 +816,10 @@ export default function ChallengeListScreen() {
   const isFocused = useIsFocused();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [data, setData] = useState([]);
   const [habitGrassColorMap, setHabitGrassColorMap] = useState({});
-  const [challengeListFrameWidth, setChallengeListFrameWidth] = useState(0);
 
   /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
@@ -1300,17 +1299,9 @@ export default function ChallengeListScreen() {
 
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
   const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
-  const isWideChallengeList = (
-    windowWidth >= WIDE_CHALLENGE_LIST_MIN_WIDTH ||
-    challengeListFrameWidth >= WIDE_CHALLENGE_LIST_FRAME_MIN_WIDTH
-  );
-
-  const handleChallengeListFrameLayout = useCallback((event) => {
-    const nextWidth = Math.round(event?.nativeEvent?.layout?.width || 0);
-    if (nextWidth > 0 && nextWidth !== challengeListFrameWidth) {
-      setChallengeListFrameWidth(nextWidth);
-    }
-  }, [challengeListFrameWidth]);
+  const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
+  const { isFoldExpanded } = useFoldableLayoutState(foldableLayoutRefreshKey);
+  const isWideChallengeList = isFoldExpanded;
 
   const renderRow = useCallback(
     ({ item }) => {
@@ -1413,7 +1404,6 @@ export default function ChallengeListScreen() {
       {isWideChallengeList ? (
         <ScrollView
           style={{ flex: 1 }}
-          onLayout={handleChallengeListFrameLayout}
           scrollEnabled={!reorderActive}
           contentContainerStyle={[styles.challengeListWideContent, { paddingBottom: listBottomPad }]}
         >
@@ -1447,7 +1437,6 @@ export default function ChallengeListScreen() {
           scrollEnabled={!reorderActive}
           removeClippedSubviews={false}
           style={{ flex: 1 }}
-          onLayout={handleChallengeListFrameLayout}
           contentContainerStyle={[styles.challengeListContent, { paddingBottom: listBottomPad }]}
           ListEmptyComponent={EmptyState}
           initialNumToRender={12}

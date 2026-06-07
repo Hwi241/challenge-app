@@ -14,6 +14,7 @@ import com.facebook.soloader.SoLoader
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 import com.hwiject.thepush.widgets.bridge.WidgetBridgePackage
+import com.hwiject.thepush.foldable.FoldableLayoutPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -25,6 +26,7 @@ class MainApplication : Application(), ReactApplication {
         // 자동 링크된 패키지들
         val packages = PackageList(this).packages.toMutableList()
       packages.add(WidgetBridgePackage())
+      packages.add(FoldableLayoutPackage())
       return packages
         // 수동으로 추가할 패키지가 있으면 여기에 add() 호출 (지금은 불필요)
       }

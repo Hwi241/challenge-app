@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules, Platform, useWindowDimensions } from 'react-native';
+import * as Device from 'expo-device';
 
 const DEFAULT_FOLDABLE_LAYOUT_STATE = Object.freeze({
  isAvailable: false,
@@ -22,6 +23,47 @@ const DEFAULT_FOLDABLE_LAYOUT_STATE = Object.freeze({
  screenHeightDp: 0,
  smallestScreenWidthDp: 0,
 });
+
+const FOLD_UNFOLDED_MIN_WINDOW_WIDTH = 600;
+
+const getDeviceSearchText = () => [
+ Device.brand,
+ Device.manufacturer,
+ Device.modelName,
+ Device.deviceName,
+ Device.modelId,
+ Device.designName,
+ Device.productName,
+]
+ .filter(Boolean)
+ .map((value) => String(value).toLowerCase())
+ .join(' ');
+
+const isLikelySamsungFoldDevice = () => {
+ if (Platform.OS !== 'android') return false;
+
+ const text = getDeviceSearchText();
+ const isSamsung = text.includes('samsung') || text.includes('galaxy');
+
+ // Galaxy Z Fold models are commonly exposed as names containing "fold"
+ // or Samsung model codes such as SM-F9xx.
+ const looksLikeFold = (
+ text.includes('fold') ||
+ /\bsm-f9\d{2}/.test(text) ||
+ /\bf9\d{2}/.test(text)
+ );
+
+ return isSamsung && looksLikeFold;
+};
+
+const isFoldExpandedByWindowFallback = ({ windowWidth } = {}) => {
+ const width = Number(windowWidth || 0);
+
+ return (
+ isLikelySamsungFoldDevice() &&
+ width >= FOLD_UNFOLDED_MIN_WINDOW_WIDTH
+ );
+};
 
 const normalizeBounds = (value) => ({
  left: Number(value?.left || 0),
@@ -81,9 +123,13 @@ export const getFoldableLayoutState = async () => {
  }
 };
 
-export const isFoldExpandedLayoutState = (state) => Boolean(state?.isFoldExpanded);
+export const isFoldExpandedLayoutState = (state, metrics = {}) => (
+ Boolean(state?.isFoldExpanded) ||
+ isFoldExpandedByWindowFallback(metrics)
+);
 
 export const useFoldableLayoutState = (refreshKey = '') => {
+ const { width: windowWidth, height: windowHeight } = useWindowDimensions();
  const [state, setState] = useState(() => getDefaultFoldableLayoutState());
  const [loading, setLoading] = useState(false);
 
@@ -121,12 +167,22 @@ export const useFoldableLayoutState = (refreshKey = '') => {
  };
  }, [refreshKey]);
 
- const isFoldExpanded = useMemo(() => isFoldExpandedLayoutState(state), [state]);
+ const isFoldExpanded = useMemo(() => (
+  isFoldExpandedLayoutState(state, { windowWidth, windowHeight })
+ ), [state, windowWidth, windowHeight]);
 
  return {
  state,
  loading,
  refresh,
  isFoldExpanded,
+ foldableLayoutMetrics: {
+ windowWidth,
+ windowHeight,
+ isLikelySamsungFoldDevice: isLikelySamsungFoldDevice(),
+ fallbackMinWindowWidth: FOLD_UNFOLDED_MIN_WINDOW_WIDTH,
+ fallbackMatched: isFoldExpandedByWindowFallback({ windowWidth, windowHeight }),
+ nativeIsFoldExpanded: Boolean(state?.isFoldExpanded),
+ },
  };
 };

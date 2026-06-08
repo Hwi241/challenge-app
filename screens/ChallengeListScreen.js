@@ -1,8 +1,8 @@
 // screens/ChallengeListScreen.js
 import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, ScrollView, UIManager, LayoutAnimation, Animated, Easing, Modal, useWindowDimensions } from 'react-native';
+import { AppState, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, ScrollView, UIManager, LayoutAnimation, Animated, Easing, Modal, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -1300,8 +1300,53 @@ export default function ChallengeListScreen() {
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
   const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
   const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
-  const { isFoldExpanded } = useFoldableLayoutState(foldableLayoutRefreshKey);
+  const { isFoldExpanded, refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
   const isWideChallengeList = isFoldExpanded;
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+
+      const refreshNow = async () => {
+        try {
+          await refreshFoldableLayoutState();
+        } catch (error) {
+          console.warn('[ChallengeList][foldableRefresh][focus] failed:', error);
+        }
+      };
+
+      refreshNow();
+
+      const delayedRefreshTimer = setTimeout(() => {
+        if (alive) {
+          refreshNow();
+        }
+      }, 350);
+
+      return () => {
+        alive = false;
+        clearTimeout(delayedRefreshTimer);
+      };
+    }, [refreshFoldableLayoutState])
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+
+      refreshFoldableLayoutState().catch((error) => {
+        console.warn('[ChallengeList][foldableRefresh][active] failed:', error);
+      });
+
+      setTimeout(() => {
+        refreshFoldableLayoutState().catch((error) => {
+          console.warn('[ChallengeList][foldableRefresh][activeDelayed] failed:', error);
+        });
+      }, 350);
+    });
+
+    return () => subscription.remove();
+  }, [refreshFoldableLayoutState]);
 
   const renderRow = useCallback(
     ({ item }) => {

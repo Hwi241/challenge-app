@@ -6,6 +6,7 @@ import React, {
   useState, useEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
 import {
+  AppState,
   View,
   Text,
   Image,
@@ -63,6 +64,7 @@ import {
   getShopWidgets
 } from '../constants/widgetCatalog';
 import { getOwnedWidgets } from '../utils/widgetOwnership';
+import { useFoldableLayoutState } from '../utils/foldableLayout';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -2494,27 +2496,62 @@ export default function EntryListScreen({ route, navigation }) {
   const dashboardEditReturnMode = params.dashboardEditReturnMode;
   const dashboardEditReturnedAt = params.dashboardEditReturnedAt || params.dashboardEditSavedAt;
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const [dashboardFrameWidth, setDashboardFrameWidth] = useState(0);
-  const WIDE_LAYOUT_MIN_WIDTH = 600;
-  const WIDE_DASHBOARD_FRAME_MIN_WIDTH = 520;
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const WIDE_GRID_COLUMNS = GRID_COLUMNS * 2;
-  const isWideDashboardLayout =
-    windowWidth >= WIDE_LAYOUT_MIN_WIDTH ||
-    dashboardFrameWidth >= WIDE_DASHBOARD_FRAME_MIN_WIDTH;
+  const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
+  const { isFoldExpanded, refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
+  const isWideDashboardLayout = isFoldExpanded;
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+
+      const refreshNow = async () => {
+        try {
+          await refreshFoldableLayoutState();
+        } catch (error) {
+          console.warn('[EntryList][foldableRefresh][focus] failed:', error);
+        }
+      };
+
+      refreshNow();
+
+      const delayedRefreshTimer = setTimeout(() => {
+        if (alive) {
+          refreshNow();
+        }
+      }, 350);
+
+      return () => {
+        alive = false;
+        clearTimeout(delayedRefreshTimer);
+      };
+    }, [refreshFoldableLayoutState])
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+
+      refreshFoldableLayoutState().catch((error) => {
+        console.warn('[EntryList][foldableRefresh][active] failed:', error);
+      });
+
+      setTimeout(() => {
+        refreshFoldableLayoutState().catch((error) => {
+          console.warn('[EntryList][foldableRefresh][activeDelayed] failed:', error);
+        });
+      }, 350);
+    });
+
+    return () => subscription.remove();
+  }, [refreshFoldableLayoutState]);
+
   const shareCaptureWidth = Math.max(1, Math.floor(windowWidth || SCREEN_WIDTH));
   const headerTitleContainerWidth = Math.max(160, shareCaptureWidth - 120);
 
-  const handleDashboardFrameLayout = useCallback((event) => {
-    const nextWidth = Math.floor(event?.nativeEvent?.layout?.width || 0);
-    if (nextWidth <= 0) return;
-
-    setDashboardFrameWidth((prev) => (
-      Math.abs(prev - nextWidth) < 1 ? prev : nextWidth
-    ));
-  }, []);
-
   const {
+
     challengeId,
     title: titleFromRoute,
     startDate: startDateFromRoute,
@@ -3613,7 +3650,6 @@ const runWeek = useCallback(() => {
 
     return (
       <View
-    onLayout={isShare ? undefined : handleDashboardFrameLayout}
     style={{ marginTop: isShare ? 10 : 20 }}
   >
         {!isShare && (
@@ -3681,7 +3717,7 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, dashboardFrameWidth, handleDashboardFrameLayout, wideReflowFadeAnim
+    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, wideReflowFadeAnim
   , dashboardLayout, dashboardRowGap,
     displayTitle, headerTitleContainerWidth
   ]);

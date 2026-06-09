@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  AppState,
   Image,
   Modal,
   ScrollView,
@@ -27,6 +28,7 @@ import {
 import { colors, radius, spacing } from '../styles/common';
 import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import { useFoldableLayoutState } from '../utils/foldableLayout';
 
 const CHALLENGES_KEY = 'challenges';
 const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
@@ -40,8 +42,6 @@ const RECORD_ROOM_DASHBOARD_CHALLENGE_ID = 'recordRoom';
 
 const PHONE_GRID_COLUMNS = 6;
 const WIDE_GRID_COLUMNS = 12;
-const WIDE_MIN_WIDTH = 600;
-const WIDE_GRID_FRAME_MIN_WIDTH = 520;
 const CARD_ROW_HEIGHT = 60;
 const CARD_GAP = 10;
 
@@ -1059,21 +1059,56 @@ const RecordRoomEditIcon = () => (
 export default function ProfileInventoryScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const [recordRoomFrameWidth, setRecordRoomFrameWidth] = useState(0);
-  const isWideRecordRoomLayout =
-    windowWidth >= WIDE_MIN_WIDTH ||
-    recordRoomFrameWidth >= WIDE_GRID_FRAME_MIN_WIDTH;
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
+  const { isFoldExpanded, refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
+  const isWideRecordRoomLayout = isFoldExpanded;
   const columns = isWideRecordRoomLayout ? WIDE_GRID_COLUMNS : PHONE_GRID_COLUMNS;
 
-  const handleRecordRoomFrameLayout = useCallback((event) => {
-    const nextWidth = Math.floor(event?.nativeEvent?.layout?.width || 0);
-    if (nextWidth <= 0) return;
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
 
-    setRecordRoomFrameWidth((prev) => (
-      Math.abs(prev - nextWidth) < 1 ? prev : nextWidth
-    ));
-  }, []);
+      const refreshNow = async () => {
+        try {
+          await refreshFoldableLayoutState();
+        } catch (error) {
+          console.warn('[ProfileInventory][foldableRefresh][focus] failed:', error);
+        }
+      };
+
+      refreshNow();
+
+      const delayedRefreshTimer = setTimeout(() => {
+        if (alive) {
+          refreshNow();
+        }
+      }, 350);
+
+      return () => {
+        alive = false;
+        clearTimeout(delayedRefreshTimer);
+      };
+    }, [refreshFoldableLayoutState])
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+
+      refreshFoldableLayoutState().catch((error) => {
+        console.warn('[ProfileInventory][foldableRefresh][active] failed:', error);
+      });
+
+      setTimeout(() => {
+        refreshFoldableLayoutState().catch((error) => {
+          console.warn('[ProfileInventory][foldableRefresh][activeDelayed] failed:', error);
+        });
+      }, 350);
+    });
+
+    return () => subscription.remove();
+  }, [refreshFoldableLayoutState]);
 
   const [stars, setStars] = useState(0);
   const [cards, setCards] = useState([]);
@@ -1495,7 +1530,7 @@ export default function ProfileInventoryScreen() {
         </View>
 
 
-        <View style={[styles.gridWrap, { rowGap: recordRoomRowGap }]} onLayout={handleRecordRoomFrameLayout}>
+        <View style={[styles.gridWrap, { rowGap: recordRoomRowGap }]}>
           {columns > PHONE_GRID_COLUMNS
             ? dashboardRows.map((row, rowIndex) => (
                 <View key={`record-room-row-${rowIndex}`} style={styles.gridRow}>

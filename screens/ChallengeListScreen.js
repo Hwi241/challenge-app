@@ -23,6 +23,7 @@ const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
 const CARD_COLLAPSE_ANIM_MS = 320;
+const CARD_REORDER_EXPAND_ANIM_MS = 700;
 
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
@@ -1019,9 +1020,9 @@ export default function ChallengeListScreen() {
     });
   }, []);
 
-  const animateCardResize = useCallback(() => {
+  const animateCardResize = useCallback((duration = CARD_COLLAPSE_ANIM_MS) => {
     LayoutAnimation.configureNext({
-      duration: CARD_COLLAPSE_ANIM_MS,
+      duration,
       update: { type: LayoutAnimation.Types.easeInEaseOut },
       create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
       delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
@@ -1368,9 +1369,9 @@ export default function ChallengeListScreen() {
           onLongPress={() => {
             if (collapsedIdsRef.current[id]) {
               restoreCollapsedAfterReorderRef.current = id;
-              animateCardResize();
+              animateCardResize(CARD_REORDER_EXPAND_ANIM_MS);
               setCollapsedIds((prev) => ({ ...prev, [id]: false }));
-              setTimeout(() => enterReorder(item), CARD_COLLAPSE_ANIM_MS + 30);
+              setTimeout(() => enterReorder(item), CARD_REORDER_EXPAND_ANIM_MS + 30);
               return;
             }
             restoreCollapsedAfterReorderRef.current = null;

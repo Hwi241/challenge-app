@@ -23,7 +23,7 @@ const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
 const CARD_COLLAPSE_ANIM_MS = 320;
-const CARD_REORDER_EXPAND_ANIM_MS = 700;
+const CARD_REORDER_EXPAND_ANIM_MS = 540;
 
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';

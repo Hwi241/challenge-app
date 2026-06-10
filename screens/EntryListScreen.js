@@ -2499,8 +2499,8 @@ export default function EntryListScreen({ route, navigation }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const WIDE_GRID_COLUMNS = GRID_COLUMNS * 2;
   const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
-  const { isFoldExpanded, refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
-  const isWideDashboardLayout = isFoldExpanded;
+  const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
+  const isWideDashboardLayout = windowWidth >= 600;
 
   useFocusEffect(
     useCallback(() => {

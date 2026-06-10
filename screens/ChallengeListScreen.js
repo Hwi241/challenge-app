@@ -23,7 +23,7 @@ const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
 const CARD_COLLAPSE_ANIM_MS = 320;
-const CARD_REORDER_EXPAND_ANIM_MS = 540;
+const CARD_REORDER_EXPAND_ANIM_MS = 240;
 
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
@@ -827,6 +827,7 @@ export default function ChallengeListScreen() {
   const [showSortModal, setShowSortModal] = useState(false);
   const [sortMode, setSortMode] = useState('manual'); // manual|newest|oldest|habitFirst|challengeFirst
   const [selectedId, setSelectedId] = useState(null);
+  const [reorderPrepared, setReorderPrepared] = useState(false);
   const [collapsedIds, setCollapsedIds] = useState({});
   const collapsedIdsRef = useRef({});
   const restoreCollapsedAfterReorderRef = useRef(null);
@@ -967,6 +968,7 @@ export default function ChallengeListScreen() {
     }
     setSelectedId(null);
     setReorderActive(false);
+    setReorderPrepared(false);
     setFloatWidth(0);
     animLockRef.current = false;
   }, [persistChallenges, persistCollapsedIds]);
@@ -1301,8 +1303,8 @@ export default function ChallengeListScreen() {
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
   const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
   const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
-  const { isFoldExpanded, refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
-  const isWideChallengeList = isFoldExpanded;
+  const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
+  const isWideChallengeList = windowWidth >= 600;
 
   useFocusEffect(
     useCallback(() => {
@@ -1369,12 +1371,34 @@ export default function ChallengeListScreen() {
           onLongPress={() => {
             if (collapsedIdsRef.current[id]) {
               restoreCollapsedAfterReorderRef.current = id;
+
+              const ref = itemRefs.current[id];
+              if (ref && ref.measureInWindow) {
+                ref.measureInWindow((x, y, width) => {
+                  floatLeft.setValue(x);
+                  floatTop.setValue(y);
+                  setFloatWidth(width);
+                  setSelectedId(item.id);
+                  setReorderPrepared(true);
+                });
+              } else {
+                setSelectedId(item.id);
+                setReorderPrepared(true);
+              }
+
               animateCardResize(CARD_REORDER_EXPAND_ANIM_MS);
               setCollapsedIds((prev) => ({ ...prev, [id]: false }));
-              setTimeout(() => enterReorder(item), CARD_REORDER_EXPAND_ANIM_MS + 30);
+
+              setTimeout(() => {
+                setReorderPrepared(false);
+                setReorderActive(true);
+                rafMeasureSelected(item.id);
+              }, CARD_REORDER_EXPAND_ANIM_MS + 30);
+
               return;
             }
             restoreCollapsedAfterReorderRef.current = null;
+            setReorderPrepared(false);
             enterReorder(item);
           }}
           onPressCard={(it) => {
@@ -1393,7 +1417,7 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, collapsedIds, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize, isWideChallengeList]
+    [reorderActive, selectedId, collapsedIds, reorderPrepared, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
   );
 
   const renderMasonryItem = useCallback((item) => renderRow({ item }), [renderRow]);
@@ -1514,16 +1538,19 @@ export default function ChallengeListScreen() {
       </TouchableOpacity>
 
       {/* 정렬 중 선택 카드 복제본 */}
-      {reorderActive && selected && floatWidth > 0 && (
+      {(reorderPrepared || reorderActive) && selected && floatWidth > 0 && (
         <Modal visible transparent animationType="none">
-          <TouchableWithoutFeedback onPress={onOverlayPress}>
-            <View style={styles.fullOverlay} />
-          </TouchableWithoutFeedback>
+          {reorderActive && (
+            <TouchableWithoutFeedback onPress={onOverlayPress}>
+              <View style={styles.fullOverlay} />
+            </TouchableWithoutFeedback>
+          )}
         <Animated.View
-          pointerEvents="box-none"
+          pointerEvents={reorderPrepared && !reorderActive ? "none" : "box-none"}
           style={[
               styles.floatingCardWrap,
               { left: floatLeft, top: floatTop, width: floatWidth },
+              reorderPrepared && !reorderActive && { opacity: 0 },
             ]}
         >
           <CardBody

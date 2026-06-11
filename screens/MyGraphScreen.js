@@ -1,0 +1,570 @@
+// screens/MyGraphScreen.js
+// Owned graph inventory screen. Shows only purchased graphs with no purchase UI.
+
+import React, { useCallback, useMemo, useState } from 'react';
+import { FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import GraphPreviewIcon from '../components/GraphPreviewIcon';
+import BackButton from '../components/BackButton';
+import { colors, radius, spacing } from '../styles/common';
+import {
+  GRAPH_CATALOG,
+  GRAPH_CATEGORIES,
+  GRAPH_FILTER_OPTIONS,
+  GRAPH_SORT_OPTIONS,
+  getGraphInputSummary,
+  getGraphSearchText,
+  getGraphSizeSummary,
+  getGraphTierLabel,
+  getGraphsByCategory,
+  searchGraphs,
+  sortGraphs,
+} from '../constants/graphCatalog';
+import {
+  getPurchasedGraphIds,
+} from '../utils/graphOwnership';
+
+const GRAPH_SHOP_TWO_COLUMN_WIDTH = 600;
+const DEFAULT_CATEGORY = 'all';
+const DEFAULT_FILTER = 'all';
+const DEFAULT_SORT = 'default';
+
+const MY_GRAPH_FILTER_OPTIONS = GRAPH_FILTER_OPTIONS.filter((option) => (
+  option.key === 'all' || /^tier[1-5]$/.test(option.key)
+));
+
+function formatSize(size) {
+  if (!size) return '-';
+  return `${size.w}x${size.h}`;
+}
+
+function findOptionLabel(options, key, fallback) {
+  return options.find((option) => option.key === key)?.label || fallback;
+}
+
+function buildInputLines(graph) {
+  return (graph?.inputs || []).map((input) => {
+    const unit = input.unit ? `· ${input.unit}` : '';
+    const description = input.description ? `— ${input.description}` : '';
+    return `${input.label}${unit}${description}`;
+  });
+}
+
+function MyGraphScreen() {
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+
+  const [purchasedGraphIds, setPurchasedGraphIds] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY);
+  const [filterKey, setFilterKey] = useState(DEFAULT_FILTER);
+  const [sortKey, setSortKey] = useState(DEFAULT_SORT);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const isWide = windowWidth >= GRAPH_SHOP_TWO_COLUMN_WIDTH;
+  const numColumns = isWide ? 2 : 1;
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      const load = async () => {
+        try {
+          const ownedIds = await getPurchasedGraphIds();
+          if (!alive) return;
+          setPurchasedGraphIds(Array.isArray(ownedIds) ? ownedIds : []);
+        } catch (error) {
+          console.warn('[MyGraph] load failed', error);
+        }
+      };
+      load();
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
+
+  const ownedGraphIdSet = useMemo(() => new Set(purchasedGraphIds), [purchasedGraphIds]);
+
+  const filteredGraphs = useMemo(() => {
+    const ownedByCategory = getGraphsByCategory(selectedCategory).filter((graph) => (
+      ownedGraphIdSet.has(graph.id)
+    ));
+
+    const bySearch = searchGraphs(ownedByCategory, searchQuery);
+
+    let byFilter = bySearch;
+    if (/^tier[1-5]$/.test(filterKey)) {
+      const tier = Number(filterKey.replace('tier', ''));
+      byFilter = bySearch.filter((graph) => Number(graph.tier) === tier);
+    }
+
+    return sortGraphs(byFilter, sortKey);
+  }, [selectedCategory, searchQuery, filterKey, sortKey, ownedGraphIdSet]);
+
+  const showFilterMenu = useCallback(() => {
+    setOpenDropdown((current) => (current === 'filter' ? null : 'filter'));
+  }, []);
+
+  const showSortMenu = useCallback(() => {
+    setOpenDropdown((current) => (current === 'sort' ? null : 'sort'));
+  }, []);
+
+  const renderCategoryTab = useCallback((category) => {
+    const active = selectedCategory === category.key;
+
+    return (
+      <TouchableOpacity
+        key={category.key}
+        style={[styles.categoryTab, active && styles.categoryTabActive]}
+        activeOpacity={0.85}
+        onPress={() => {
+          setSelectedCategory(category.key);
+          setOpenDropdown(null);
+        }}
+      >
+        <Text style={[styles.categoryTabText, active && styles.categoryTabTextActive]}>
+          {category.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  }, [selectedCategory]);
+
+  const renderGraphCard = useCallback(({ item, index }) => {
+    const inputLines = buildInputLines(item);
+
+    return (
+      <View
+        style={[
+          styles.graphCardOuter,
+          isWide && styles.graphCardOuterWide,
+          isWide && index % 2 === 0 && styles.graphCardOuterWideLeft,
+          isWide && index % 2 === 1 && styles.graphCardOuterWideRight,
+        ]}
+      >
+        <View style={styles.graphCard}>
+          <View style={styles.cardTopRow}>
+            <View style={styles.priceBadge}>
+              <Text style={styles.priceBadgeText}>★ {item.price}</Text>
+            </View>
+            <View style={styles.tierBadge}>
+              <Text style={styles.tierBadgeText}>{getGraphTierLabel(item.tier)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.previewWrap}>
+            <GraphPreviewIcon
+              graph={item}
+              size={isWide ? 132 : 148}
+            />
+          </View>
+
+          <Text style={styles.graphTitle}>{item.title}</Text>
+          <Text style={styles.graphDescription}>{item.description}</Text>
+
+          <View style={styles.infoBlock}>
+            <Text style={styles.infoLabel}>입력값</Text>
+            {inputLines.length ? (
+              inputLines.map((line) => (
+                <Text key={line} style={styles.infoText}>• {line}</Text>
+              ))
+            ) : (
+              <Text style={styles.infoText}>{getGraphInputSummary(item)}</Text>
+            )}
+          </View>
+
+          <View style={styles.infoBlock}>
+            <Text style={styles.infoLabel}>권장 크기</Text>
+            <Text style={styles.infoText}>
+              최소 {formatSize(item.minSize)} · 권장 {formatSize(item.recommendedSize)}
+            </Text>
+            <Text style={styles.infoText}>{getGraphSizeSummary(item)}</Text>
+          </View>
+
+          <View style={styles.infoBlock}>
+            <Text style={styles.infoLabel}>지원 방식</Text>
+            <Text style={styles.infoText}>{(item.supports || []).join(', ')}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }, [isWide]);
+
+  const renderInlineDropdown = useCallback((type, options, selectedKey, onSelect, align = 'left') => {
+    if (openDropdown !== type) return null;
+
+    return (
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.dropdownOverlay,
+          align === 'right' ? styles.dropdownOverlayRight : styles.dropdownOverlayLeft,
+        ]}
+      >
+        {options.map((option, index) => {
+          const active = selectedKey === option.key;
+          const isLast = index === options.length - 1;
+
+          return (
+            <TouchableOpacity
+              key={`${type}-${option.key}`}
+              style={[
+                styles.dropdownOverlayOption,
+                active && styles.dropdownOverlayOptionOn,
+                isLast && styles.dropdownOverlayOptionLast,
+              ]}
+              activeOpacity={0.85}
+              onPress={() => {
+                onSelect(option.key);
+                setOpenDropdown(null);
+              }}
+            >
+              <Text style={[styles.dropdownOverlayText, active && styles.dropdownOverlayTextOn]}>
+                {option.label}
+              </Text>
+              {active && <Text style={styles.dropdownOverlayCheck}>✓</Text>}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  }, [openDropdown]);
+
+  const listHeader = (
+    <View style={styles.listHeader}>
+      {/* 검색창 */}
+      <View style={styles.searchBox}>
+        <Text style={styles.searchIcon}>⌕</Text>
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="보유 그래프 이름, 설명, 입력값, Tier 검색"
+          placeholderTextColor="#9CA3AF"
+          style={styles.searchInput}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+      </View>
+
+      {/* 가로 스크롤 카테고리 탭 */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryScroll}
+      >
+        {GRAPH_CATEGORIES.map(renderCategoryTab)}
+      </ScrollView>
+
+      {/* 필터 / 정렬 */}
+      <View style={styles.filterSortWrap}>
+        <View style={styles.filterSortRow}>
+          <TouchableOpacity
+            style={styles.filterSortLineLeft}
+            activeOpacity={0.8}
+            onPress={showFilterMenu}
+          >
+            <Text style={styles.filterSortText}>필터: {findOptionLabel(MY_GRAPH_FILTER_OPTIONS, filterKey, '전체')}</Text>
+            <Text style={styles.filterSortArrow}>▾</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.filterSortLineRight}
+            activeOpacity={0.8}
+            onPress={showSortMenu}
+          >
+            <Text style={styles.filterSortText}>정렬: {findOptionLabel(GRAPH_SORT_OPTIONS, sortKey, '기본순')}</Text>
+            <Text style={styles.filterSortArrow}>▾</Text>
+          </TouchableOpacity>
+        </View>
+
+        {renderInlineDropdown('filter', MY_GRAPH_FILTER_OPTIONS, filterKey, setFilterKey, 'left')}
+
+        {renderInlineDropdown('sort', GRAPH_SORT_OPTIONS, sortKey, setSortKey, 'right')}
+      </View>
+
+      <Text style={styles.resultCount}>
+        보유 그래프 {filteredGraphs.length}개
+      </Text>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <BackButton title="내 그래프" />
+
+      <FlatList
+        key={numColumns === 2 ? 'my-graph-two' : 'my-graph-one'}
+        data={filteredGraphs}
+        renderItem={renderGraphCard}
+        keyExtractor={(item) => item.id}
+        numColumns={numColumns}
+        ListHeaderComponent={listHeader}
+        ListHeaderComponentStyle={styles.listHeaderOverlayLayer}
+        removeClippedSubviews={false}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyText}>보유한 그래프가 없어요.</Text>
+          </View>
+        }
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: Math.max(insets.bottom, 12) + spacing.xxl },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      />
+    </SafeAreaView>
+  );
+}
+
+export default MyGraphScreen;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  listContent: {
+    paddingHorizontal: spacing.lg,
+  },
+  listHeader: {
+    paddingTop: spacing.sm,
+  },
+  searchBox: {
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  searchIcon: {
+    fontSize: 20,
+    color: '#9CA3AF',
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1F2937',
+    paddingVertical: 0,
+  },
+  categoryScroll: {
+    paddingRight: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  categoryTab: {
+    paddingHorizontal: 7,
+    paddingVertical: 8,
+    marginRight: 6,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  categoryTabActive: {
+    borderBottomColor: colors.black,
+  },
+  categoryTabText: {
+    color: colors.gray500,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  categoryTabTextActive: {
+    color: colors.gray900,
+  },
+  resultCount: {
+    marginTop: 2,
+    marginBottom: spacing.sm,
+    fontSize: 15,
+    color: '#6B7280',
+  },
+  filterSortWrap: {
+    position: 'relative',
+    zIndex: 9999,
+    elevation: 999,
+    marginLeft: 0,
+    marginRight: 0,
+    marginBottom: 6,
+    overflow: 'visible',
+  },
+  filterSortRow: {
+    flexDirection: 'row',
+  },
+  filterSortLineLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 0,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    paddingRight: 6,
+    justifyContent: 'flex-start',
+  },
+  filterSortLineRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 0,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    paddingLeft: 6,
+    justifyContent: 'flex-end',
+    marginLeft: 'auto',
+  },
+  filterSortText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  filterSortArrow: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginLeft: 4,
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 40,
+    zIndex: 10000,
+    elevation: 1000,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: spacing.xs,
+    minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+  },
+  dropdownOverlayLeft: {
+    left: 0,
+  },
+  dropdownOverlayRight: {
+    right: 0,
+  },
+  dropdownOverlayOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  dropdownOverlayOptionOn: {
+    backgroundColor: '#F3F4F6',
+  },
+  dropdownOverlayText: {
+    fontSize: 15,
+    color: '#374151',
+    flex: 1,
+  },
+  dropdownOverlayTextOn: {
+    fontWeight: '700',
+    color: colors.black,
+  },
+  dropdownOverlayCheck: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.black,
+    marginLeft: 8,
+  },
+  dropdownOverlayOptionLast: {
+    borderBottomWidth: 0,
+  },
+  listHeaderOverlayLayer: {
+    zIndex: 1,
+  },
+  graphCardOuter: {
+    flex: 1,
+    paddingHorizontal: 4,
+    paddingBottom: spacing.md,
+  },
+  graphCardOuterWide: {
+    maxWidth: '50%',
+  },
+  graphCardOuterWideLeft: {
+    paddingRight: 6,
+  },
+  graphCardOuterWideRight: {
+    paddingLeft: 6,
+  },
+  graphCard: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: spacing.md,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  priceBadge: {
+    backgroundColor: colors.black,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  priceBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  tierBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  tierBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  previewWrap: {
+    alignItems: 'center',
+    marginVertical: spacing.sm,
+  },
+  graphTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 4,
+    marginTop: spacing.sm,
+    color: '#1F2937',
+  },
+  graphDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: spacing.sm,
+  },
+  infoBlock: {
+    marginBottom: spacing.sm,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#D1D5DB',
+    textAlign: 'center',
+  },
+});

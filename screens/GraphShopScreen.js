@@ -3,12 +3,11 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View,  } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import GraphPreviewIcon from '../components/GraphPreviewIcon';
-import BackButton from '../components/BackButton';
-import { colors, radius, spacing } from '../styles/common';
+import { buttonStyles, colors, radius, spacing } from '../styles/common';
 import {
   GRAPH_CATALOG,
   GRAPH_CATEGORIES,
@@ -61,6 +60,7 @@ function buildFeatureText(graph) {
 }
 
 function GraphShopScreen() {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
 
@@ -430,7 +430,29 @@ function GraphShopScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackButton title="그래프 상점" />
+      <View style={styles.graphShopHeader}>
+        <TouchableOpacity
+          style={styles.graphShopBackButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.graphShopBackIcon}>‹</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.graphShopHeaderTitle}>그래프 상점</Text>
+
+        <TouchableOpacity
+          style={[buttonStyles.compactRight, styles.ownedGraphHeaderButton]}
+          onPress={() => navigation.navigate('MyGraphs')}
+          activeOpacity={0.9}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Text style={[buttonStyles.compactRightText, styles.ownedGraphHeaderButtonText]}>
+            보유 그래프
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         key={numColumns === 2 ? 'graph-shop-two' : 'graph-shop-one'}
@@ -780,5 +802,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.gray900,
     fontWeight: '900',
+  },
+  graphShopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    zIndex: 30,
+    elevation: 30,
+  },
+  graphShopHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.gray800,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    zIndex: -1,
+  },
+  graphShopBackButton: {
+    padding: 4,
+    marginRight: 4,
+  },
+  graphShopBackIcon: {
+    fontSize: 32,
+    fontWeight: '300',
+    lineHeight: 32,
+    includeFontPadding: false,
+    marginTop: -8,
+    color: colors.gray800,
+  },
+  ownedGraphHeaderButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  ownedGraphHeaderButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

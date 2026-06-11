@@ -25,6 +25,7 @@ import TrashScreen from './screens/TrashScreen';
 import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
 import WidgetShopScreen from './screens/WidgetShopScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
+import MyGraphScreen from './screens/MyGraphScreen';
 
 import { colors } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -59,6 +60,7 @@ const linking = {
       HallOfFameScreen: 'hall-of-fame',
       ProfileInventory: 'profile-inventory',
       WidgetShop: 'widget-shop',
+      MyGraphs: 'my-graphs',
       Settings: 'settings',
       Backup: 'backup',
       FullRangeNotification: 'full-range',
@@ -139,6 +141,7 @@ export default function App() {
             <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
         <Stack.Screen name="ProfileInventory" component={ProfileInventoryScreen} />
         <Stack.Screen name="WidgetShop" component={GraphShopScreen} />
+        <Stack.Screen name="MyGraphs" component={MyGraphScreen} />
 
             {/* 알림 설정들 */}
             <Stack.Screen name="SimpleNotification" component={SimpleNotificationScreen} />

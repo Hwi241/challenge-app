@@ -23,7 +23,8 @@ const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
 const CARD_COLLAPSE_ANIM_MS = 320;
-const CARD_REORDER_EXPAND_ANIM_MS = 240;
+const CARD_REORDER_EXPAND_ANIM_MS = 180;
+const CARD_REORDER_CONTROLS_DELAY_MS = 0;
 
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
@@ -831,6 +832,12 @@ export default function ChallengeListScreen() {
   const [collapsedIds, setCollapsedIds] = useState({});
   const collapsedIdsRef = useRef({});
   const restoreCollapsedAfterReorderRef = useRef(null);
+  const [reorderExpandVisualId, setReorderExpandVisualId] = useState(null);
+  const [reorderExpandVisualHeights, setReorderExpandVisualHeights] = useState({});
+  const [reorderFloatingControlsVisible, setReorderFloatingControlsVisible] = useState(false);
+  const reorderFloatingHeight = useRef(new Animated.Value(0)).current;
+  const reorderFloatingStartedRef = useRef(false);
+  const pendingReorderItemRef = useRef(null);
 
   const persistCollapsedIds = useCallback(async (nextMap) => {
     try {
@@ -969,6 +976,13 @@ export default function ChallengeListScreen() {
     setSelectedId(null);
     setReorderActive(false);
     setReorderPrepared(false);
+    setReorderExpandVisualId(null);
+    setReorderExpandVisualHeights({});
+    setReorderFloatingControlsVisible(false);
+    pendingReorderItemRef.current = null;
+    reorderFloatingStartedRef.current = false;
+    reorderFloatingHeight.stopAnimation();
+    reorderFloatingHeight.setValue(0);
     setFloatWidth(0);
     animLockRef.current = false;
   }, [persistChallenges, persistCollapsedIds]);
@@ -1060,6 +1074,60 @@ export default function ChallengeListScreen() {
   const rafMeasureSelected = useCallback((id) => {
     requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => measureNow(id))));
   }, [measureNow]);
+
+  const updateReorderExpandVisualHeight = useCallback((id, key, height) => {
+    const safeId = safeStringId(id);
+    const nextHeight = Math.ceil(Number(height || 0));
+    if (!safeId || nextHeight <= 0) return;
+
+    setReorderExpandVisualHeights((prev) => {
+      const current = prev[safeId] || {};
+      if (current[key] === nextHeight) return prev;
+      return {
+        ...prev,
+        [safeId]: {
+          ...current,
+          [key]: nextHeight,
+        },
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    const safeId = safeStringId(reorderExpandVisualId);
+    if (!safeId || reorderFloatingStartedRef.current) return;
+
+    const heights = reorderExpandVisualHeights[safeId] || {};
+    const collapsedHeight = Number(heights.collapsed || 0);
+    const expandedHeight = Number(heights.expanded || 0);
+
+    if (collapsedHeight <= 0 || expandedHeight <= 0) return;
+
+    reorderFloatingStartedRef.current = true;
+    reorderFloatingHeight.stopAnimation();
+    reorderFloatingHeight.setValue(collapsedHeight);
+
+    Animated.timing(reorderFloatingHeight, {
+      toValue: expandedHeight,
+      duration: CARD_REORDER_EXPAND_ANIM_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (!finished) return;
+
+      const pendingItem = pendingReorderItemRef.current;
+      if (!pendingItem) return;
+
+      setTimeout(() => {
+        setReorderFloatingControlsVisible(true);
+        setReorderPrepared(false);
+        setReorderActive(true);
+        rafMeasureSelected(pendingItem.id);
+        pendingReorderItemRef.current = null;
+        reorderFloatingStartedRef.current = false;
+      }, CARD_REORDER_CONTROLS_DELAY_MS);
+    });
+  }, [reorderExpandVisualId, reorderExpandVisualHeights, reorderFloatingHeight, rafMeasureSelected]);
 
   /* CRUD/네비 */
   const navigationRef = useRef(navigation);
@@ -1258,6 +1326,7 @@ export default function ChallengeListScreen() {
       Alert.alert('안내', '완료된 도전은 순서를 변경할 수 없어요.');
       return;
     }
+    setReorderFloatingControlsVisible(true);
     // 수정모드 진입만으로는 현재 정렬을 풀지 않는다.
     // 실제 순서 변경 시점에만 현재 표시 순서를 저장 순서로 확정한다.
     // 만료 도전은 수정/삭제만 가능 (복제 버튼은 플로팅 카드에서 숨김)
@@ -1356,6 +1425,7 @@ export default function ChallengeListScreen() {
       const id = safeStringId(item.id);
       const selectedKey = safeStringId(selectedId);
       const isSelected = reorderActive && id === selectedKey;
+      const isFloatingExpanding = reorderExpandVisualId === id;
       const isCollapsed = !!collapsedIds[id] && !(reorderActive && id === selectedKey);
 
       return (
@@ -1366,38 +1436,41 @@ export default function ChallengeListScreen() {
           variant={CHALLENGE_CARD_VARIANTS.LIST}
           collapsed={isCollapsed}
           isWide={isWideChallengeList}
-          hidden={isSelected && reorderActive}
+          hidden={(isSelected && reorderActive) || isFloatingExpanding}
           onPressToggleCollapsed={() => toggleCollapsed(item)}
           onLongPress={() => {
             if (collapsedIdsRef.current[id]) {
               restoreCollapsedAfterReorderRef.current = id;
+              pendingReorderItemRef.current = item;
+              reorderFloatingStartedRef.current = false;
+              reorderFloatingHeight.stopAnimation();
+              reorderFloatingHeight.setValue(0);
+              setReorderFloatingControlsVisible(false);
+              setSelectedId(item.id);
+              setReorderPrepared(true);
+              setReorderExpandVisualId(id);
+              setReorderExpandVisualHeights({});
 
               const ref = itemRefs.current[id];
               if (ref && ref.measureInWindow) {
-                ref.measureInWindow((x, y, width) => {
+                ref.measureInWindow((x, y, width, height) => {
                   floatLeft.setValue(x);
                   floatTop.setValue(y);
                   setFloatWidth(width);
-                  setSelectedId(item.id);
-                  setReorderPrepared(true);
+                  updateReorderExpandVisualHeight(id, 'collapsed', height);
                 });
-              } else {
-                setSelectedId(item.id);
-                setReorderPrepared(true);
               }
-
-              animateCardResize(CARD_REORDER_EXPAND_ANIM_MS);
-              setCollapsedIds((prev) => ({ ...prev, [id]: false }));
-
-              setTimeout(() => {
-                setReorderPrepared(false);
-                setReorderActive(true);
-                rafMeasureSelected(item.id);
-              }, CARD_REORDER_EXPAND_ANIM_MS + 30);
 
               return;
             }
             restoreCollapsedAfterReorderRef.current = null;
+            setReorderExpandVisualId(null);
+            setReorderExpandVisualHeights({});
+            setReorderFloatingControlsVisible(false);
+            pendingReorderItemRef.current = null;
+            reorderFloatingStartedRef.current = false;
+            reorderFloatingHeight.stopAnimation();
+            reorderFloatingHeight.setValue(0);
             setReorderPrepared(false);
             enterReorder(item);
           }}
@@ -1417,7 +1490,7 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, collapsedIds, reorderPrepared, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
+    [reorderActive, selectedId, collapsedIds, reorderPrepared, reorderExpandVisualId, reorderFloatingHeight, updateReorderExpandVisualHeight, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
   );
 
   const renderMasonryItem = useCallback((item) => renderRow({ item }), [renderRow]);
@@ -1539,24 +1612,49 @@ export default function ChallengeListScreen() {
 
       {/* 정렬 중 선택 카드 복제본 */}
       {(reorderPrepared || reorderActive) && selected && floatWidth > 0 && (
-        <Modal visible transparent animationType="none">
+        <Modal visible transparent animationType="none" onRequestClose={finalizeReorder}>
           {reorderActive && (
             <TouchableWithoutFeedback onPress={onOverlayPress}>
               <View style={styles.fullOverlay} />
             </TouchableWithoutFeedback>
           )}
         <Animated.View
-          pointerEvents={reorderPrepared && !reorderActive ? "none" : "box-none"}
+          pointerEvents={reorderActive ? "box-none" : "none"}
           style={[
               styles.floatingCardWrap,
               { left: floatLeft, top: floatTop, width: floatWidth },
-              reorderPrepared && !reorderActive && { opacity: 0 },
+              reorderPrepared && !reorderActive && { height: reorderFloatingHeight, overflow: 'hidden' },
             ]}
         >
+          {reorderPrepared && !reorderActive && selected && !reorderExpandVisualHeights[safeStringId(selected.id)]?.expanded && (
+            <View pointerEvents="none" style={styles.reorderFloatingMeasureProbe}>
+              <View
+                style={{ width: floatWidth }}
+                onLayout={(event) => {
+                  updateReorderExpandVisualHeight(selected.id, 'expanded', event?.nativeEvent?.layout?.height);
+                }}
+              >
+                <CardBody
+                  item={selected}
+                  habitGrassColor={habitGrassColorMap[safeStringId(selected.id)] || HABIT_GRASS_EMPTY}
+                  variant={CHALLENGE_CARD_VARIANTS.FLOATING}
+                  collapsed={false}
+                  showControls={false}
+                  canReorder={!asDoneFlags(selected)._isDone}
+                  onPressCard={() => {}}
+                  onPressEdit={() => {}}
+                  onPressDuplicate={() => {}}
+                  onPressDelete={() => {}}
+                  onPressClaim={onClaimReward}
+                />
+              </View>
+            </View>
+          )}
+
           <CardBody
             item={selected}
             variant={CHALLENGE_CARD_VARIANTS.FLOATING}
-            showControls
+            showControls={reorderActive && reorderFloatingControlsVisible}
             canReorder={!asDoneFlags(selected)._isDone}
             onPressCard={(it) => {
               if (it?.__move === 'up') { moveSelected('up'); return; }
@@ -1903,4 +2001,11 @@ const styles = StyleSheet.create({
 
   /* 선택 카드 복제본 */
   floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
+  reorderFloatingMeasureProbe: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    opacity: 0,
+  },
 });

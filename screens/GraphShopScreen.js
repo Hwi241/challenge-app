@@ -2,7 +2,7 @@
 // Graph-only shop screen. App.js navigation will be connected in a later step.
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View,} from 'react-native';
+import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View,  } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -326,39 +326,44 @@ function GraphShopScreen() {
 
 
 
-  const renderInlineDropdown = useCallback((type, options, selectedKey, onSelect) => {
+  const renderInlineDropdown = useCallback((type, options, selectedKey, onSelect, align = 'left') => {
     if (openDropdown !== type) return null;
 
     return (
-      <View style={styles.inlineDropdownWrap}>
-        {options.map((option, index) => {
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.dropdownOverlay,
+          align === 'right' ? styles.dropdownOverlayRight : styles.dropdownOverlayLeft,
+        ]}
+      >
+        {options.map((option) => {
           const active = selectedKey === option.key;
-          const isLast = index === options.length - 1;
-
           return (
             <TouchableOpacity
               key={`${type}-${option.key}`}
               style={[
-                styles.inlineDropdownOption,
-                active && styles.inlineDropdownOptionOn,
-                isLast && styles.inlineDropdownOptionLast,
+                styles.dropdownOverlayOption,
+                active && styles.dropdownOverlayOptionOn,
               ]}
-              activeOpacity={0.9}
+              activeOpacity={0.85}
               onPress={() => {
                 onSelect(option.key);
                 setOpenDropdown(null);
               }}
             >
-              <Text style={[styles.inlineDropdownText, active && styles.inlineDropdownTextOn]}>
+              <Text style={[styles.dropdownOverlayText, active && styles.dropdownOverlayTextOn]}>
                 {option.label}
               </Text>
-              {active && <Text style={styles.inlineDropdownCheck}>✓</Text>}
+              {active && <Text style={styles.dropdownOverlayCheck}>✓</Text>}
             </TouchableOpacity>
           );
         })}
       </View>
     );
   }, [openDropdown]);
+
+
 
   const listHeader = (
     <View style={styles.listHeader}>
@@ -391,33 +396,31 @@ function GraphShopScreen() {
       </ScrollView>
 
       {/* 필터 / 가격순 */}
-      <View style={styles.filterSortRow}>
-        <TouchableOpacity
-          style={styles.filterSortButton}
-          activeOpacity={0.85}
-          onPress={showFilterMenu}
-        >
-          <Text style={styles.filterSortLabel}>필터</Text>
-          <Text style={styles.filterSortValue}>
-            {findOptionLabel(GRAPH_FILTER_OPTIONS, filterKey, '전체')}
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.filterSortWrap}>
+        <View style={styles.filterSortRow}>
+          <TouchableOpacity
+            style={styles.filterSortLineLeft}
+            activeOpacity={0.8}
+            onPress={showFilterMenu}
+          >
+            <Text style={styles.filterSortText}>필터: {findOptionLabel(GRAPH_FILTER_OPTIONS, filterKey, '전체')}</Text>
+            <Text style={styles.filterSortArrow}>▾</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.filterSortButton}
-          activeOpacity={0.85}
-          onPress={showSortMenu}
-        >
-          <Text style={styles.filterSortLabel}>가격순</Text>
-          <Text style={styles.filterSortValue}>
-            {findOptionLabel(GRAPH_SORT_OPTIONS, sortKey, '기본순')}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.filterSortLineRight}
+            activeOpacity={0.8}
+            onPress={showSortMenu}
+          >
+            <Text style={styles.filterSortText}>정렬: {findOptionLabel(GRAPH_SORT_OPTIONS, sortKey, '기본순')}</Text>
+            <Text style={styles.filterSortArrow}>▾</Text>
+          </TouchableOpacity>
+        </View>
+
+        {renderInlineDropdown('filter', GRAPH_FILTER_OPTIONS, filterKey, setFilterKey, 'left')}
+
+        {renderInlineDropdown('sort', GRAPH_SORT_OPTIONS, sortKey, setSortKey, 'right')}
       </View>
-
-          {renderInlineDropdown('filter', GRAPH_FILTER_OPTIONS, filterKey, setFilterKey)}
-
-          {renderInlineDropdown('sort', GRAPH_SORT_OPTIONS, sortKey, setSortKey)}
 
       <Text style={styles.resultCount}>
         그래프 {filteredGraphs.length}개
@@ -436,6 +439,8 @@ function GraphShopScreen() {
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         ListHeaderComponent={listHeader}
+        ListHeaderComponentStyle={styles.listHeaderOverlayLayer}
+        removeClippedSubviews={false}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyText}>조건에 맞는 그래프가 없어요.</Text>
@@ -457,46 +462,7 @@ export default GraphShopScreen;
 
 const styles = StyleSheet.create({
 
-  inlineDropdownWrap: {
-    marginHorizontal: spacing.lg,
-    marginTop: -2,
-    marginBottom: spacing.sm,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  inlineDropdownOption: {
-    minHeight: 42,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  inlineDropdownOptionOn: {
-    backgroundColor: '#F3F4F6',
-  },
-  inlineDropdownOptionLast: {
-    borderBottomWidth: 0,
-  },
-  inlineDropdownText: {
-    fontSize: 13,
-    color: colors.gray800,
-    fontWeight: '700',
-  },
-  inlineDropdownTextOn: {
-    color: colors.gray900,
-    fontWeight: '900',
-  },
-  inlineDropdownCheck: {
-    fontSize: 13,
-    color: colors.gray900,
-    fontWeight: '900',
-  },
+
 
   container: {
     flex: 1,
@@ -554,7 +520,7 @@ const styles = StyleSheet.create({
   categoryTab: {
     paddingHorizontal: 2,
     paddingVertical: 8,
-    marginRight: spacing.lg,
+    marginRight: 0,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
@@ -568,36 +534,6 @@ const styles = StyleSheet.create({
   },
   categoryTabTextActive: {
     color: colors.gray900,
-  },
-  filterSortRow: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    columnGap: spacing.sm,
-  },
-  filterSortButton: {
-    flex: 1,
-    borderRadius: 16,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  filterSortButtonActive: {
-    borderColor: colors.gray900,
-  },
-  filterSortLabel: {
-    color: colors.gray400,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  filterSortValue: {
-    marginTop: 2,
-    color: colors.gray800,
-    fontSize: 13,
-    fontWeight: '900',
   },
   resultCount: {
     marginTop: 2,
@@ -620,6 +556,8 @@ const styles = StyleSheet.create({
     paddingLeft: 6,
   },
   graphCard: {
+    zIndex: 0,
+    elevation: 0,
     borderRadius: 22,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -740,5 +678,107 @@ const styles = StyleSheet.create({
     color: colors.gray400,
     fontSize: 14,
     fontWeight: '700',
+  },
+  listHeaderOverlayLayer: {
+    zIndex: 9000,
+    elevation: 900,
+  },
+  filterSortWrap: {
+    position: 'relative',
+    zIndex: 9999,
+    elevation: 999,
+    marginLeft: 0,
+    marginRight: spacing.lg,
+    marginBottom: 6,
+    overflow: 'visible',
+  },
+  filterSortRow: {
+    width: '100%',
+    height: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    overflow: 'visible',
+  },
+  filterSortLineLeft: {
+    flex: 1,
+    minHeight: 28,
+    paddingVertical: 4,
+    paddingLeft: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  filterSortLineRight: {
+    flex: 1,
+    minHeight: 28,
+    paddingVertical: 4,
+    paddingRight: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  filterSortText: {
+    fontSize: 12,
+    color: colors.gray600,
+    fontWeight: '700',
+  },
+  filterSortArrow: {
+    fontSize: 10,
+    color: colors.gray400,
+    marginLeft: 4,
+    fontWeight: '700',
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 32,
+    width: 188,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    overflow: 'hidden',
+    zIndex: 20000,
+    elevation: 2000,
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 5 },
+  },
+  dropdownOverlayLeft: {
+    left: 0,
+  },
+  dropdownOverlayRight: {
+    right: 0,
+  },
+  dropdownOverlayOption: {
+    minHeight: 38,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownOverlayOptionOn: {
+    backgroundColor: '#F3F4F6',
+  },
+  dropdownOverlayOptionLast: {
+    borderBottomWidth: 0,
+  },
+  dropdownOverlayText: {
+    fontSize: 12,
+    color: colors.gray700,
+    fontWeight: '700',
+  },
+  dropdownOverlayTextOn: {
+    color: colors.gray900,
+    fontWeight: '900',
+  },
+  dropdownOverlayCheck: {
+    fontSize: 12,
+    color: colors.gray900,
+    fontWeight: '900',
   },
 });

@@ -24,6 +24,7 @@ import BackupScreen from './screens/BackupScreen';
 import TrashScreen from './screens/TrashScreen';
 import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
 import WidgetShopScreen from './screens/WidgetShopScreen';
+import GraphShopScreen from './screens/GraphShopScreen';
 
 import { colors } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -137,7 +138,7 @@ export default function App() {
             {/* 메인 */}
             <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
         <Stack.Screen name="ProfileInventory" component={ProfileInventoryScreen} />
-        <Stack.Screen name="WidgetShop" component={WidgetShopScreen} />
+        <Stack.Screen name="WidgetShop" component={GraphShopScreen} />
 
             {/* 알림 설정들 */}
             <Stack.Screen name="SimpleNotification" component={SimpleNotificationScreen} />

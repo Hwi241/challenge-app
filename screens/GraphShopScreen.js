@@ -449,7 +449,7 @@ function GraphShopScreen() {
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
           <Text style={[buttonStyles.compactRightText, styles.ownedGraphHeaderButtonText]}>
-            보유 그래프
+            내 그래프
           </Text>
         </TouchableOpacity>
       </View>

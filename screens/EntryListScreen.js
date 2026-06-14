@@ -2497,10 +2497,13 @@ export default function EntryListScreen({ route, navigation }) {
   const dashboardEditReturnedAt = params.dashboardEditReturnedAt || params.dashboardEditSavedAt;
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [entryListFrameWidth, setEntryListFrameWidth] = useState(0);
+  const entryListLayoutWidth = entryListFrameWidth || windowWidth;
+  const entryListLayoutKey = Math.round(Number(entryListLayoutWidth || 0));
   const WIDE_GRID_COLUMNS = GRID_COLUMNS * 2;
-  const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
+  const foldableLayoutRefreshKey = `${entryListLayoutKey}:${Math.round(windowHeight || 0)}`;
   const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
-  const isWideDashboardLayout = windowWidth >= 600;
+  const isWideDashboardLayout = entryListLayoutWidth >= 600;
 
   useFocusEffect(
     useCallback(() => {
@@ -3870,10 +3873,12 @@ const runWeek = useCallback(() => {
 
       {/* 스크롤 콘텐츠 */}
       <ScrollView
+        key={`entry-list-scroll-${entryListLayoutKey}-${isWideDashboardLayout ? 'wide' : 'normal'}`}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
+        onLayout={(event) => setEntryListFrameWidth(event.nativeEvent.layout.width || 0)}
       >
         <ViewShot ref={shareRef} style={{ width: '100%' }} options={{ format: 'png', quality: 1 }}>
           <View collapsable={false} style={{ width: '100%', backgroundColor: '#fff' }}>
@@ -3898,7 +3903,7 @@ const runWeek = useCallback(() => {
 {sortedEntries.length === 0 ? (
   <Text style={[styles.empty, styles.sectionPadNarrow]}>등록된 인증이 없습니다.</Text>
 ) : isWideDashboardLayout ? (
-  <View style={styles.entryGridWide}>
+  <View key={`entry-grid-wide-${entryListLayoutKey}`} style={styles.entryGridWide}>
     {sortedEntries.map((item, index) => {
       const indexFromEnd = sortedEntries.length - index;
       const onPress = readOnly ? undefined : () =>

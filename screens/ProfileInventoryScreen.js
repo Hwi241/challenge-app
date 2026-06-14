@@ -1060,9 +1060,12 @@ export default function ProfileInventoryScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
+  const [recordRoomFrameWidth, setRecordRoomFrameWidth] = useState(0);
+  const recordRoomLayoutWidth = recordRoomFrameWidth || windowWidth;
+  const recordRoomLayoutKey = Math.round(Number(recordRoomLayoutWidth || 0));
+  const foldableLayoutRefreshKey = `${recordRoomLayoutKey}:${Math.round(windowHeight || 0)}`;
   const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
-  const isWideRecordRoomLayout = windowWidth >= 600;
+  const isWideRecordRoomLayout = recordRoomLayoutWidth >= 600;
   const columns = isWideRecordRoomLayout ? WIDE_GRID_COLUMNS : PHONE_GRID_COLUMNS;
 
   useFocusEffect(
@@ -1530,7 +1533,11 @@ export default function ProfileInventoryScreen() {
         </View>
 
 
-        <View style={[styles.gridWrap, { rowGap: recordRoomRowGap }]}>
+        <View
+          key={`record-room-grid-${recordRoomLayoutKey}-${columns}`}
+          style={[styles.gridWrap, { rowGap: recordRoomRowGap }]}
+          onLayout={(event) => setRecordRoomFrameWidth(event.nativeEvent.layout.width || 0)}
+        >
           {columns > PHONE_GRID_COLUMNS
             ? dashboardRows.map((row, rowIndex) => (
                 <View key={`record-room-row-${rowIndex}`} style={styles.gridRow}>

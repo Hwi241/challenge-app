@@ -1,10 +1,11 @@
 // screens/GraphShopScreen.js
 // Graph-only shop screen. App.js navigation will be connected in a later step.
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View,  } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GraphPreviewIcon from '../components/GraphPreviewIcon';
 import { buttonStyles, colors, radius, spacing } from '../styles/common';
@@ -36,6 +37,17 @@ const GRAPH_SHOP_TWO_COLUMN_WIDTH = 600;
 const DEFAULT_CATEGORY = 'all';
 const DEFAULT_FILTER = 'all';
 const DEFAULT_SORT = 'default';
+const GRAPH_VIEW_MODE_STORAGE_KEY = 'graph_shop_view_mode';
+const GRAPH_VIEW_MODE_FULL = 'full';
+const GRAPH_VIEW_MODE_MEDIUM = 'medium';
+const GRAPH_VIEW_MODE_SMALL = 'small';
+
+const GRAPH_VIEW_OPTIONS = [
+ { key: GRAPH_VIEW_MODE_FULL, label: '전체카드' },
+ { key: GRAPH_VIEW_MODE_MEDIUM, label: '중간카드' },
+ { key: GRAPH_VIEW_MODE_SMALL, label: '작은카드' },
+];
+
 
 function formatSize(size) {
   if (!size) return '-';
@@ -69,12 +81,20 @@ function GraphShopScreen() {
   const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY);
   const [filterKey, setFilterKey] = useState(DEFAULT_FILTER);
   const [sortKey, setSortKey] = useState(DEFAULT_SORT);
+ const [viewMode, setViewMode] = useState(GRAPH_VIEW_MODE_FULL);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [submittingGraphId, setSubmittingGraphId] = useState(null);
+ const [listFrameWidth, setListFrameWidth] = useState(0);
 
-  const isWide = windowWidth >= GRAPH_SHOP_TWO_COLUMN_WIDTH;
-  const numColumns = isWide ? 2 : 1;
+  const layoutWidth = listFrameWidth || windowWidth;
+  const layoutWidthKey = Math.round(Number(layoutWidth || 0));
+  const isWide = layoutWidth >= GRAPH_SHOP_TWO_COLUMN_WIDTH;
+  const numColumns = viewMode === GRAPH_VIEW_MODE_SMALL
+ ? (isWide ? 2 : 1)
+ : isWide
+ ? 2
+ : 1;
 
   const reloadShopState = useCallback(async () => {
     const [balance, ownedIds] = await Promise.all([
@@ -85,7 +105,29 @@ function GraphShopScreen() {
     setPurchasedGraphIds(Array.isArray(ownedIds) ? ownedIds : []);
   }, []);
 
-  useFocusEffect(
+  useEffect(() => {
+ let alive = true;
+
+ const loadGraphViewMode = async () => {
+ try {
+ const saved = await AsyncStorage.getItem(GRAPH_VIEW_MODE_STORAGE_KEY);
+ if (!alive) return;
+ if (GRAPH_VIEW_OPTIONS.some((option) => option.key === saved)) {
+ setViewMode(saved);
+ }
+ } catch (error) {
+ console.warn('[GraphShop] load graph view mode failed', error);
+ }
+ };
+
+ loadGraphViewMode();
+
+ return () => {
+ alive = false;
+ };
+ }, []);
+
+ useFocusEffect(
     useCallback(() => {
       let alive = true;
       const load = async () => {
@@ -116,7 +158,18 @@ function GraphShopScreen() {
     return sortGraphs(byFilter, sortKey);
   }, [selectedCategory, searchQuery, filterKey, sortKey, starBalance, purchasedGraphIds]);
 
-  const showFilterMenu = useCallback(() => {
+  const selectViewMode = useCallback((nextViewMode) => {
+ setViewMode(nextViewMode);
+ setOpenDropdown(null);
+
+ AsyncStorage.setItem(GRAPH_VIEW_MODE_STORAGE_KEY, nextViewMode).catch((error) => {
+ console.warn('[GraphShop] save graph view mode failed', error);
+ });
+ }, []);
+
+ const ownedGraphIdSet = useMemo(() => new Set(purchasedGraphIds), [purchasedGraphIds]);
+
+const showFilterMenu = useCallback(() => {
     setOpenDropdown((current) => (current === 'filter' ? null : 'filter'));
   }, []);
 
@@ -216,7 +269,54 @@ function GraphShopScreen() {
     );
   }, [selectedCategory]);
 
-  const renderGraphCard = useCallback(({ item, index }) => {
+  const renderSmallGraphCard = useCallback(({ item, index }) => {
+ const owned = ownedGraphIdSet.has(item.id);
+ const inputCount = Array.isArray(item.inputs) ? item.inputs.length : 0;
+ const sizeText = item.recommendedSize ? item.recommendedSize.w + 'x' + item.recommendedSize.h : '-';
+
+ return (
+ <View
+ style={[
+ styles.smallGraphCardOuter,
+ isWide && styles.smallGraphCardOuterWide,
+ isWide && index % 2 === 0 && styles.smallGraphCardOuterWideLeft,
+ isWide && index % 2 === 1 && styles.smallGraphCardOuterWideRight,
+ ]}
+ >
+ <View style={styles.smallGraphCard}>
+ <View style={styles.smallGraphPreviewWrap}>
+ <GraphPreviewIcon graph={item} size={46} />
+ </View>
+
+ <View style={styles.smallGraphInfo}>
+ <Text style={styles.smallGraphTitle} numberOfLines={1}>{item.title}</Text>
+ <Text style={styles.smallGraphMeta} numberOfLines={1}>
+ {getGraphTierLabel(item.tier)} · 입력값 {inputCount}개 · 권장 {sizeText}
+ </Text>
+ </View>
+
+ <View style={styles.smallGraphRight}>
+ <Text style={styles.smallGraphPrice}>★ {item.price}</Text>
+ {owned ? (
+ <View style={styles.smallOwnedBadge}>
+ <Text style={styles.smallOwnedBadgeText}>보유</Text>
+ </View>
+ ) : (
+ <TouchableOpacity
+ style={styles.smallBuyButton}
+ activeOpacity={0.86}
+ onPress={() => handlePurchasePress(item)}
+ >
+ <Text style={styles.smallBuyButtonText}>구매</Text>
+ </TouchableOpacity>
+ )}
+ </View>
+ </View>
+ </View>
+ );
+ }, [handlePurchasePress, isWide, ownedGraphIdSet]);
+
+ const renderGraphCard = useCallback(({ item, index }) => {
     const purchaseState = getGraphPurchaseState({
       graph: item,
       starBalance,
@@ -334,7 +434,11 @@ function GraphShopScreen() {
         pointerEvents="box-none"
         style={[
           styles.dropdownOverlay,
-          align === 'right' ? styles.dropdownOverlayRight : styles.dropdownOverlayLeft,
+          align === 'right'
+ ? styles.dropdownOverlayRight
+ : align === 'center'
+ ? styles.dropdownOverlayCenter
+ : styles.dropdownOverlayLeft,
         ]}
       >
         {options.map((option) => {
@@ -401,6 +505,15 @@ function GraphShopScreen() {
           <TouchableOpacity
             style={styles.filterSortLineLeft}
             activeOpacity={0.8}
+            onPress={() => setOpenDropdown((current) => (current === 'view' ? null : 'view'))}
+          >
+            <Text style={styles.filterSortText}>보기: {findOptionLabel(GRAPH_VIEW_OPTIONS, viewMode, '전체카드')}</Text>
+            <Text style={styles.filterSortArrow}>▾</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.filterSortLineCenter}
+            activeOpacity={0.8}
             onPress={showFilterMenu}
           >
             <Text style={styles.filterSortText}>필터: {findOptionLabel(GRAPH_FILTER_OPTIONS, filterKey, '전체')}</Text>
@@ -417,7 +530,9 @@ function GraphShopScreen() {
           </TouchableOpacity>
         </View>
 
-        {renderInlineDropdown('filter', GRAPH_FILTER_OPTIONS, filterKey, setFilterKey, 'left')}
+        {renderInlineDropdown('view', GRAPH_VIEW_OPTIONS, viewMode, selectViewMode, 'left')}
+
+        {renderInlineDropdown('filter', GRAPH_FILTER_OPTIONS, filterKey, setFilterKey, 'center')}
 
         {renderInlineDropdown('sort', GRAPH_SORT_OPTIONS, sortKey, setSortKey, 'right')}
       </View>
@@ -455,9 +570,10 @@ function GraphShopScreen() {
       </View>
 
       <FlatList
-        key={numColumns === 2 ? 'graph-shop-two' : 'graph-shop-one'}
+        key={`graph-shop-${layoutWidthKey}-${numColumns === 2 ? 'two' : 'one'}`}
         data={filteredGraphs}
-        renderItem={renderGraphCard}
+        onLayout={(event) => setListFrameWidth(event.nativeEvent.layout.width || 0)}
+        renderItem={viewMode === GRAPH_VIEW_MODE_SMALL ? renderSmallGraphCard : renderGraphCard}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         ListHeaderComponent={listHeader}
@@ -731,7 +847,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
-  filterSortLineRight: {
+  filterSortLineCenter: {
+ flex: 1,
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'center',
+ paddingHorizontal: 4,
+ },
+ filterSortLineRight: {
     flex: 1,
     minHeight: 28,
     paddingVertical: 4,
@@ -770,7 +893,11 @@ const styles = StyleSheet.create({
   dropdownOverlayLeft: {
     left: 0,
   },
-  dropdownOverlayRight: {
+  dropdownOverlayCenter: {
+ left: '50%',
+ transform: [{ translateX: -94 }],
+ },
+ dropdownOverlayRight: {
     right: 0,
   },
   dropdownOverlayOption: {
@@ -843,4 +970,97 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  smallGraphCardOuter: {
+    width: '100%',
+    marginBottom: spacing.md,
+    zIndex: 0,
+    elevation: 0,
+  },
+  smallGraphCardOuterWide: {
+    width: '50%',
+    paddingHorizontal: 4,
+  },
+  smallGraphCardOuterWideLeft: {
+    paddingLeft: 0,
+  },
+  smallGraphCardOuterWideRight: {
+    paddingRight: 0,
+  },
+  smallGraphCard: {
+    minHeight: 72,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallGraphPreviewWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  smallGraphInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  smallGraphTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.gray800,
+    marginBottom: 4,
+  },
+  smallGraphMeta: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.gray600,
+  },
+  smallGraphRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
+  },
+  smallGraphPrice: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.gray800,
+    marginBottom: 5,
+  },
+  smallBuyButton: {
+    minHeight: 28,
+    borderRadius: radius.sm,
+    backgroundColor: colors.black,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallBuyButtonText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.background,
+  },
+  smallOwnedBadge: {
+    minHeight: 28,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray50,
+  },
+  smallOwnedBadgeText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.gray600,
+  },
+
 });

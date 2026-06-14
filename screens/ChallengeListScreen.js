@@ -822,6 +822,7 @@ export default function ChallengeListScreen() {
 
   const [data, setData] = useState([]);
   const [habitGrassColorMap, setHabitGrassColorMap] = useState({});
+  const [listFrameWidth, setListFrameWidth] = useState(0);
 
   /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
@@ -1373,7 +1374,9 @@ export default function ChallengeListScreen() {
   const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
   const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
   const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
-  const isWideChallengeList = windowWidth >= 600;
+  const layoutWidth = listFrameWidth || windowWidth;
+  const layoutWidthKey = Math.round(Number(layoutWidth || 0));
+  const isWideChallengeList = layoutWidth >= 600;
 
   useFocusEffect(
     useCallback(() => {
@@ -1544,8 +1547,13 @@ export default function ChallengeListScreen() {
       </TouchableOpacity>
 
       {/* 리스트 */}
+      <View
+        style={{ flex: 1 }}
+        onLayout={(event) => setListFrameWidth(event.nativeEvent.layout.width || 0)}
+      >
       {isWideChallengeList ? (
         <ScrollView
+          key={`challenge-list-wide-${layoutWidthKey}`}
           style={{ flex: 1 }}
           scrollEnabled={!reorderActive}
           contentContainerStyle={[styles.challengeListWideContent, { paddingBottom: listBottomPad }]}
@@ -1573,7 +1581,7 @@ export default function ChallengeListScreen() {
         </ScrollView>
       ) : (
         <FlatList
-          key="challenge-list-normal-1"
+          key={`challenge-list-normal-${layoutWidthKey}`}
           data={displayData}
           keyExtractor={keyExtractor}
           renderItem={renderRow}
@@ -1586,6 +1594,7 @@ export default function ChallengeListScreen() {
           windowSize={15}
         />
       )}
+      </View>
 
       {/* 내 기록실 버튼 */}
       <TouchableOpacity

@@ -1,10 +1,11 @@
 // screens/MyGraphScreen.js
 // Owned graph inventory screen. Shows only purchased graphs with no purchase UI.
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GraphPreviewIcon from '../components/GraphPreviewIcon';
 import BackButton from '../components/BackButton';
@@ -30,6 +31,17 @@ const GRAPH_SHOP_TWO_COLUMN_WIDTH = 600;
 const DEFAULT_CATEGORY = 'all';
 const DEFAULT_FILTER = 'all';
 const DEFAULT_SORT = 'default';
+const GRAPH_VIEW_MODE_STORAGE_KEY = 'graph_shop_view_mode';
+const GRAPH_VIEW_MODE_FULL = 'full';
+const GRAPH_VIEW_MODE_MEDIUM = 'medium';
+const GRAPH_VIEW_MODE_SMALL = 'small';
+
+const GRAPH_VIEW_OPTIONS = [
+ { key: GRAPH_VIEW_MODE_FULL, label: '전체카드' },
+ { key: GRAPH_VIEW_MODE_MEDIUM, label: '중간카드' },
+ { key: GRAPH_VIEW_MODE_SMALL, label: '작은카드' },
+];
+
 
 const MY_GRAPH_FILTER_OPTIONS = GRAPH_FILTER_OPTIONS.filter((option) => (
   option.key === 'all' || /^tier[1-5]$/.test(option.key)
@@ -60,13 +72,43 @@ function MyGraphScreen() {
   const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY);
   const [filterKey, setFilterKey] = useState(DEFAULT_FILTER);
   const [sortKey, setSortKey] = useState(DEFAULT_SORT);
+ const [viewMode, setViewMode] = useState(GRAPH_VIEW_MODE_FULL);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+ const [listFrameWidth, setListFrameWidth] = useState(0);
 
-  const isWide = windowWidth >= GRAPH_SHOP_TWO_COLUMN_WIDTH;
-  const numColumns = isWide ? 2 : 1;
+  const layoutWidth = listFrameWidth || windowWidth;
+  const layoutWidthKey = Math.round(Number(layoutWidth || 0));
+  const isWide = layoutWidth >= GRAPH_SHOP_TWO_COLUMN_WIDTH;
+  const numColumns = viewMode === GRAPH_VIEW_MODE_SMALL
+ ? (isWide ? 2 : 1)
+ : isWide
+ ? 2
+ : 1;
 
-  useFocusEffect(
+  useEffect(() => {
+ let alive = true;
+
+ const loadGraphViewMode = async () => {
+ try {
+ const saved = await AsyncStorage.getItem(GRAPH_VIEW_MODE_STORAGE_KEY);
+ if (!alive) return;
+ if (GRAPH_VIEW_OPTIONS.some((option) => option.key === saved)) {
+ setViewMode(saved);
+ }
+ } catch (error) {
+ console.warn('[MyGraph] load graph view mode failed', error);
+ }
+ };
+
+ loadGraphViewMode();
+
+ return () => {
+ alive = false;
+ };
+ }, []);
+
+ useFocusEffect(
     useCallback(() => {
       let alive = true;
       const load = async () => {
@@ -103,7 +145,16 @@ function MyGraphScreen() {
     return sortGraphs(byFilter, sortKey);
   }, [selectedCategory, searchQuery, filterKey, sortKey, ownedGraphIdSet]);
 
-  const showFilterMenu = useCallback(() => {
+  const selectViewMode = useCallback((nextViewMode) => {
+ setViewMode(nextViewMode);
+ setOpenDropdown(null);
+
+ AsyncStorage.setItem(GRAPH_VIEW_MODE_STORAGE_KEY, nextViewMode).catch((error) => {
+ console.warn('[MyGraph] save graph view mode failed', error);
+ });
+ }, []);
+
+ const showFilterMenu = useCallback(() => {
     setOpenDropdown((current) => (current === 'filter' ? null : 'filter'));
   }, []);
 
@@ -131,7 +182,36 @@ function MyGraphScreen() {
     );
   }, [selectedCategory]);
 
-  const renderGraphCard = useCallback(({ item, index }) => {
+  const renderSmallGraphCard = useCallback(({ item, index }) => {
+ const inputCount = Array.isArray(item.inputs) ? item.inputs.length : 0;
+ const sizeText = item.recommendedSize ? item.recommendedSize.w + 'x' + item.recommendedSize.h : '-';
+
+ return (
+ <View
+ style={[
+ styles.smallGraphCardOuter,
+ isWide && styles.smallGraphCardOuterWide,
+ isWide && index % 2 === 0 && styles.smallGraphCardOuterWideLeft,
+ isWide && index % 2 === 1 && styles.smallGraphCardOuterWideRight,
+ ]}
+ >
+ <View style={styles.smallGraphCard}>
+ <View style={styles.smallGraphPreviewWrap}>
+ <GraphPreviewIcon graph={item} size={46} />
+ </View>
+
+ <View style={styles.smallGraphInfo}>
+ <Text style={styles.smallGraphTitle} numberOfLines={1}>{item.title}</Text>
+ <Text style={styles.smallGraphMeta} numberOfLines={1}>
+ {getGraphTierLabel(item.tier)} · 입력값 {inputCount}개 · 권장 {sizeText}
+ </Text>
+ </View>
+ </View>
+ </View>
+ );
+ }, [isWide]);
+
+ const renderGraphCard = useCallback(({ item, index }) => {
     const inputLines = buildInputLines(item);
 
     return (
@@ -199,7 +279,11 @@ function MyGraphScreen() {
         pointerEvents="box-none"
         style={[
           styles.dropdownOverlay,
-          align === 'right' ? styles.dropdownOverlayRight : styles.dropdownOverlayLeft,
+          align === 'right'
+ ? styles.dropdownOverlayRight
+ : align === 'center'
+ ? styles.dropdownOverlayCenter
+ : styles.dropdownOverlayLeft,
         ]}
       >
         {options.map((option, index) => {
@@ -262,6 +346,15 @@ function MyGraphScreen() {
           <TouchableOpacity
             style={styles.filterSortLineLeft}
             activeOpacity={0.8}
+            onPress={() => setOpenDropdown((current) => (current === 'view' ? null : 'view'))}
+          >
+            <Text style={styles.filterSortText}>보기: {findOptionLabel(GRAPH_VIEW_OPTIONS, viewMode, '전체카드')}</Text>
+            <Text style={styles.filterSortArrow}>▾</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.filterSortLineCenter}
+            activeOpacity={0.8}
             onPress={showFilterMenu}
           >
             <Text style={styles.filterSortText}>필터: {findOptionLabel(MY_GRAPH_FILTER_OPTIONS, filterKey, '전체')}</Text>
@@ -278,7 +371,9 @@ function MyGraphScreen() {
           </TouchableOpacity>
         </View>
 
-        {renderInlineDropdown('filter', MY_GRAPH_FILTER_OPTIONS, filterKey, setFilterKey, 'left')}
+        {renderInlineDropdown('view', GRAPH_VIEW_OPTIONS, viewMode, selectViewMode, 'left')}
+
+        {renderInlineDropdown('filter', MY_GRAPH_FILTER_OPTIONS, filterKey, setFilterKey, 'center')}
 
         {renderInlineDropdown('sort', GRAPH_SORT_OPTIONS, sortKey, setSortKey, 'right')}
       </View>
@@ -294,9 +389,10 @@ function MyGraphScreen() {
       <BackButton title="내 그래프" />
 
       <FlatList
-        key={numColumns === 2 ? 'my-graph-two' : 'my-graph-one'}
+        key={`my-graph-${layoutWidthKey}-${numColumns === 2 ? 'two' : 'one'}`}
         data={filteredGraphs}
-        renderItem={renderGraphCard}
+        onLayout={(event) => setListFrameWidth(event.nativeEvent.layout.width || 0)}
+        renderItem={viewMode === GRAPH_VIEW_MODE_SMALL ? renderSmallGraphCard : renderGraphCard}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         ListHeaderComponent={listHeader}
@@ -400,7 +496,14 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     justifyContent: 'flex-start',
   },
-  filterSortLineRight: {
+  filterSortLineCenter: {
+ flex: 1,
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'center',
+ paddingHorizontal: 4,
+ },
+ filterSortLineRight: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 0,
@@ -438,7 +541,11 @@ const styles = StyleSheet.create({
   dropdownOverlayLeft: {
     left: 0,
   },
-  dropdownOverlayRight: {
+  dropdownOverlayCenter: {
+ left: '50%',
+ transform: [{ translateX: -94 }],
+ },
+ dropdownOverlayRight: {
     right: 0,
   },
   dropdownOverlayOption: {
@@ -567,4 +674,58 @@ const styles = StyleSheet.create({
     color: '#D1D5DB',
     textAlign: 'center',
   },
+  smallGraphCardOuter: {
+    width: '100%',
+    marginBottom: spacing.md,
+    zIndex: 0,
+    elevation: 0,
+  },
+  smallGraphCardOuterWide: {
+    width: '50%',
+    paddingHorizontal: 4,
+  },
+  smallGraphCardOuterWideLeft: {
+    paddingLeft: 0,
+  },
+  smallGraphCardOuterWideRight: {
+    paddingRight: 0,
+  },
+  smallGraphCard: {
+    minHeight: 72,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallGraphPreviewWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  smallGraphInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  smallGraphTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.gray800,
+    marginBottom: 4,
+  },
+  smallGraphMeta: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.gray600,
+  },
+
 });

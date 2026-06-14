@@ -80,7 +80,9 @@ function MyGraphScreen() {
   const layoutWidth = listFrameWidth || windowWidth;
   const layoutWidthKey = Math.round(Number(layoutWidth || 0));
   const isWide = layoutWidth >= GRAPH_SHOP_TWO_COLUMN_WIDTH;
-  const numColumns = viewMode === GRAPH_VIEW_MODE_SMALL
+  const numColumns = viewMode === GRAPH_VIEW_MODE_MEDIUM
+ ? (isWide ? 4 : 2)
+ : viewMode === GRAPH_VIEW_MODE_SMALL
  ? (isWide ? 2 : 1)
  : isWide
  ? 2
@@ -182,7 +184,49 @@ function MyGraphScreen() {
     );
   }, [selectedCategory]);
 
-  const renderSmallGraphCard = useCallback(({ item, index }) => {
+  const renderMediumGraphCard = useCallback(({ item, index }) => {
+ const inputCount = Array.isArray(item.inputs) ? item.inputs.length : 0;
+ const sizeText = item.recommendedSize ? item.recommendedSize.w + 'x' + item.recommendedSize.h : '-';
+ const columnIndex = numColumns > 1 ? index % numColumns : 0;
+
+ return (
+ <View
+ style={[
+ styles.mediumGraphCardOuter,
+ numColumns > 1 && styles.mediumGraphCardOuterGrid,
+ numColumns === 4 && styles.mediumGraphCardOuterFour,
+ numColumns > 1 && columnIndex === 0 && styles.mediumGraphCardOuterFirst,
+ numColumns > 1 && columnIndex === numColumns - 1 && styles.mediumGraphCardOuterLast,
+ ]}
+ >
+ <View style={styles.mediumGraphCard}>
+ <View style={styles.mediumGraphTopRow}>
+ <View style={styles.mediumTierBadge}>
+ <Text style={styles.mediumTierBadgeText}>{getGraphTierLabel(item.tier)}</Text>
+ </View>
+ </View>
+
+ <View style={styles.mediumGraphPreviewWrap}>
+ <GraphPreviewIcon graph={item} size={isWide ? 58 : 68} />
+ </View>
+
+ <Text style={styles.mediumGraphTitle} numberOfLines={1}>
+ {item.title}
+ </Text>
+
+ <Text style={styles.mediumGraphDescription} numberOfLines={2}>
+ {item.description}
+ </Text>
+
+ <Text style={styles.mediumGraphMeta} numberOfLines={1}>
+ 입력값 {inputCount}개 · 권장 {sizeText}
+ </Text>
+ </View>
+ </View>
+ );
+ }, [isWide, numColumns]);
+
+ const renderSmallGraphCard = useCallback(({ item, index }) => {
  const inputCount = Array.isArray(item.inputs) ? item.inputs.length : 0;
  const sizeText = item.recommendedSize ? item.recommendedSize.w + 'x' + item.recommendedSize.h : '-';
 
@@ -389,10 +433,16 @@ function MyGraphScreen() {
       <BackButton title="내 그래프" />
 
       <FlatList
-        key={`my-graph-${layoutWidthKey}-${numColumns === 2 ? 'two' : 'one'}`}
+        key={`my-graph-${layoutWidthKey}-${viewMode}-${numColumns}`}
         data={filteredGraphs}
         onLayout={(event) => setListFrameWidth(event.nativeEvent.layout.width || 0)}
-        renderItem={viewMode === GRAPH_VIEW_MODE_SMALL ? renderSmallGraphCard : renderGraphCard}
+        renderItem={
+ viewMode === GRAPH_VIEW_MODE_SMALL
+ ? renderSmallGraphCard
+ : viewMode === GRAPH_VIEW_MODE_MEDIUM
+ ? renderMediumGraphCard
+ : renderGraphCard
+ }
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         ListHeaderComponent={listHeader}
@@ -674,6 +724,87 @@ const styles = StyleSheet.create({
     color: '#D1D5DB',
     textAlign: 'center',
   },
+  mediumGraphCardOuter: {
+    width: '100%',
+    marginBottom: spacing.md,
+    zIndex: 0,
+    elevation: 0,
+  },
+  mediumGraphCardOuterGrid: {
+    width: '50%',
+    paddingHorizontal: 4,
+  },
+  mediumGraphCardOuterFour: {
+    width: '25%',
+  },
+  mediumGraphCardOuterFirst: {
+    paddingLeft: 0,
+  },
+  mediumGraphCardOuterLast: {
+    paddingRight: 0,
+  },
+  mediumGraphCard: {
+    minHeight: 184,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  mediumGraphTopRow: {
+    minHeight: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: spacing.xs,
+  },
+  mediumTierBadge: {
+    minHeight: 24,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.gray50,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediumTierBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: colors.gray700,
+  },
+  mediumGraphPreviewWrap: {
+    height: 76,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  mediumGraphTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: colors.gray900,
+    marginBottom: 4,
+  },
+  mediumGraphDescription: {
+    minHeight: 34,
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: colors.gray600,
+    marginBottom: spacing.xs,
+  },
+  mediumGraphMeta: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.gray600,
+    marginBottom: spacing.sm,
+  },
+
   smallGraphCardOuter: {
     width: '100%',
     marginBottom: spacing.md,

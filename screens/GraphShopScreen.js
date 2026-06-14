@@ -90,7 +90,9 @@ function GraphShopScreen() {
   const layoutWidth = listFrameWidth || windowWidth;
   const layoutWidthKey = Math.round(Number(layoutWidth || 0));
   const isWide = layoutWidth >= GRAPH_SHOP_TWO_COLUMN_WIDTH;
-  const numColumns = viewMode === GRAPH_VIEW_MODE_SMALL
+  const numColumns = viewMode === GRAPH_VIEW_MODE_MEDIUM
+ ? (isWide ? 4 : 2)
+ : viewMode === GRAPH_VIEW_MODE_SMALL
  ? (isWide ? 2 : 1)
  : isWide
  ? 2
@@ -269,7 +271,92 @@ const showFilterMenu = useCallback(() => {
     );
   }, [selectedCategory]);
 
-  const renderSmallGraphCard = useCallback(({ item, index }) => {
+  const renderMediumGraphCard = useCallback(({ item, index }) => {
+ const purchaseState = getGraphPurchaseState({
+ graph: item,
+ starBalance,
+ purchasedGraphIds,
+ });
+ const owned = purchaseState.state === 'owned';
+ const disabledButton = purchaseState.state !== 'available';
+ const insufficient = purchaseState.state === 'insufficient';
+ const tierLocked = purchaseState.state === 'locked';
+ const inputCount = Array.isArray(item.inputs) ? item.inputs.length : 0;
+ const sizeText = item.recommendedSize ? item.recommendedSize.w + 'x' + item.recommendedSize.h : '-';
+ const columnIndex = numColumns > 1 ? index % numColumns : 0;
+
+ return (
+ <View
+ style={[
+ styles.mediumGraphCardOuter,
+ numColumns > 1 && styles.mediumGraphCardOuterGrid,
+ numColumns === 4 && styles.mediumGraphCardOuterFour,
+ numColumns > 1 && columnIndex === 0 && styles.mediumGraphCardOuterFirst,
+ numColumns > 1 && columnIndex === numColumns - 1 && styles.mediumGraphCardOuterLast,
+ ]}
+ >
+ <View style={[styles.mediumGraphCard, owned && styles.mediumGraphCardOwned]}>
+ <View style={styles.mediumGraphTopRow}>
+ <View style={styles.mediumPriceBadge}>
+ <Text style={styles.mediumPriceBadgeText}>★ {item.price}</Text>
+ </View>
+ <View style={styles.mediumTierBadge}>
+ <Text style={styles.mediumTierBadgeText}>{getGraphTierLabel(item.tier)}</Text>
+ </View>
+ </View>
+
+ <View style={styles.mediumGraphPreviewWrap}>
+ <GraphPreviewIcon graph={item} size={isWide ? 58 : 68} muted={owned} />
+ </View>
+
+ <Text style={[styles.mediumGraphTitle, owned && styles.mutedText]} numberOfLines={1}>
+ {item.title}
+ </Text>
+
+ <Text style={[styles.mediumGraphDescription, owned && styles.mutedText]} numberOfLines={2}>
+ {item.description}
+ </Text>
+
+ <Text style={[styles.mediumGraphMeta, owned && styles.mutedText]} numberOfLines={1}>
+ 입력값 {inputCount}개 · 권장 {sizeText}
+ </Text>
+
+ {tierLocked && (
+ <Text style={styles.lockHintSmall}>
+ {purchaseState?.tierState?.message || purchaseState.reasonMessage}
+ </Text>
+ )}
+
+ {owned ? (
+ <View style={styles.mediumOwnedBadge}>
+ <Text style={styles.mediumOwnedBadgeText}>보유</Text>
+ </View>
+ ) : (
+ <TouchableOpacity
+ style={[
+ styles.mediumBuyButton,
+ disabledButton && styles.mediumBuyButtonDisabled,
+ insufficient && styles.mediumBuyButtonDisabled,
+ tierLocked && styles.mediumBuyButtonDisabled,
+ ]}
+ activeOpacity={0.86}
+ disabled={submittingGraphId === item.id}
+ onPress={() => handlePurchasePress(item)}
+ >
+ <Text style={[
+ styles.mediumBuyButtonText,
+ disabledButton && styles.mediumBuyButtonTextDisabled,
+ ]}>
+ {submittingGraphId === item.id ? '처리중' : purchaseState.buttonLabel}
+ </Text>
+ </TouchableOpacity>
+ )}
+ </View>
+ </View>
+ );
+ }, [handlePurchasePress, isWide, numColumns, purchasedGraphIds, starBalance, submittingGraphId]);
+
+ const renderSmallGraphCard = useCallback(({ item, index }) => {
  const owned = ownedGraphIdSet.has(item.id);
  const inputCount = Array.isArray(item.inputs) ? item.inputs.length : 0;
  const sizeText = item.recommendedSize ? item.recommendedSize.w + 'x' + item.recommendedSize.h : '-';
@@ -570,10 +657,16 @@ const showFilterMenu = useCallback(() => {
       </View>
 
       <FlatList
-        key={`graph-shop-${layoutWidthKey}-${numColumns === 2 ? 'two' : 'one'}`}
+        key={`graph-shop-${layoutWidthKey}-${viewMode}-${numColumns}`}
         data={filteredGraphs}
         onLayout={(event) => setListFrameWidth(event.nativeEvent.layout.width || 0)}
-        renderItem={viewMode === GRAPH_VIEW_MODE_SMALL ? renderSmallGraphCard : renderGraphCard}
+        renderItem={
+ viewMode === GRAPH_VIEW_MODE_SMALL
+ ? renderSmallGraphCard
+ : viewMode === GRAPH_VIEW_MODE_MEDIUM
+ ? renderMediumGraphCard
+ : renderGraphCard
+ }
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         ListHeaderComponent={listHeader}
@@ -970,6 +1063,139 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  mediumGraphCardOuter: {
+    width: '100%',
+    marginBottom: spacing.md,
+    zIndex: 0,
+    elevation: 0,
+  },
+  mediumGraphCardOuterGrid: {
+    width: '50%',
+    paddingHorizontal: 4,
+  },
+  mediumGraphCardOuterFour: {
+    width: '25%',
+  },
+  mediumGraphCardOuterFirst: {
+    paddingLeft: 0,
+  },
+  mediumGraphCardOuterLast: {
+    paddingRight: 0,
+  },
+  mediumGraphCard: {
+    minHeight: 218,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  mediumGraphCardOwned: {
+    backgroundColor: '#F3F4F6',
+    opacity: 0.72,
+  },
+  mediumGraphTopRow: {
+    minHeight: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+    gap: 6,
+  },
+  mediumPriceBadge: {
+    minHeight: 24,
+    borderRadius: radius.pill,
+    backgroundColor: colors.black,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediumPriceBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: colors.background,
+  },
+  mediumTierBadge: {
+    minHeight: 24,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.gray50,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediumTierBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: colors.gray700,
+  },
+  mediumGraphPreviewWrap: {
+    height: 76,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  mediumGraphTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: colors.gray900,
+    marginBottom: 4,
+  },
+  mediumGraphDescription: {
+    minHeight: 34,
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: colors.gray600,
+    marginBottom: spacing.xs,
+  },
+  mediumGraphMeta: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.gray600,
+    marginBottom: spacing.sm,
+  },
+  mediumBuyButton: {
+    minHeight: 32,
+    borderRadius: radius.sm,
+    backgroundColor: colors.black,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  mediumBuyButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+  },
+  mediumBuyButtonText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.background,
+  },
+  mediumBuyButtonTextDisabled: {
+    color: '#6B7280',
+  },
+  mediumOwnedBadge: {
+    minHeight: 32,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  mediumOwnedBadgeText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.gray600,
+  },
+
   smallGraphCardOuter: {
     width: '100%',
     marginBottom: spacing.md,

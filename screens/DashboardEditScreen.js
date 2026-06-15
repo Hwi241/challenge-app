@@ -348,6 +348,37 @@ const getAnchoredResizeFrame = (widgetId, origin, corner, deltaCols, deltaRows) 
  };
  }
 
+ if (corner === 'topLeft') {
+ const fixedRight = safeOrigin.x + safeOrigin.w;
+ const fixedBottom = safeOrigin.y + safeOrigin.h;
+ const rawW = safeOrigin.w - deltaCols;
+ const rawH = safeOrigin.h - deltaRows;
+ const maxW = Math.max(1, fixedRight);
+ const maxH = Math.max(1, fixedBottom);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW, maxH });
+ return {
+ x: Math.max(0, fixedRight - clamped.w),
+ y: Math.max(0, fixedBottom - clamped.h),
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
+ if (corner === 'bottomRight') {
+ const fixedLeft = safeOrigin.x;
+ const fixedTop = safeOrigin.y;
+ const rawW = safeOrigin.w + deltaCols;
+ const rawH = safeOrigin.h + deltaRows;
+ const maxW = Math.max(1, GRID_COLUMNS - fixedLeft);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW });
+ return {
+ x: fixedLeft,
+ y: fixedTop,
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
  const fallback = clampDashboardResizeSize(widgetId, safeOrigin.w, safeOrigin.h);
  return {
  x: safeOrigin.x,
@@ -438,11 +469,14 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
  const originW = Math.max(1, Number(origin?.w) || 1);
  const originH = Math.max(1, Number(origin?.h) || 1);
 
+ const isLeftCorner = corner === 'topLeft' || corner === 'bottomLeft';
+ const isTopCorner = corner === 'topLeft' || corner === 'topRight';
+
  const minWidthPx = Math.max(0, bounds.minW * slotWidth - GRID_CELL_PADDING * 2);
- const maxWidthCells = corner === 'bottomLeft'
+ const maxWidthCells = isLeftCorner
  ? Math.min(bounds.maxW, originX + originW)
  : Math.min(bounds.maxW, GRID_COLUMNS - originX);
- const maxHeightCells = corner === 'topRight'
+ const maxHeightCells = isTopCorner
  ? Math.min(bounds.maxH, originY + originH)
  : bounds.maxH;
 
@@ -458,24 +492,23 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
  const rawX = Number(translationX) || 0;
  const rawY = Number(translationY) || 0;
 
- if (corner === 'topRight') {
- const rawWidth = originFrame.width + rawX;
- const rawHeight = originFrame.height - rawY;
+ const rawWidth = originFrame.width + (isLeftCorner ? -rawX : rawX);
+ const rawHeight = originFrame.height + (isTopCorner ? -rawY : rawY);
  const boundedWidth = Math.max(minWidthPx, Math.min(maxWidthPx, rawWidth));
  const boundedHeight = Math.max(minHeightPx, Math.min(maxHeightPx, rawHeight));
  const visualWidth = applyResizeResistancePx(rawWidth, minWidthPx, maxWidthPx);
  const visualHeight = applyResizeResistancePx(rawHeight, minHeightPx, maxHeightPx);
 
  const boundedFramePx = {
- left: originLeft,
- top: originBottom - boundedHeight,
+ left: isLeftCorner ? originRight - boundedWidth : originLeft,
+ top: isTopCorner ? originBottom - boundedHeight : originTop,
  width: boundedWidth,
  height: boundedHeight,
  };
 
  const visualFramePx = {
- left: originLeft,
- top: originBottom - visualHeight,
+ left: isLeftCorner ? originRight - visualWidth : originLeft,
+ top: isTopCorner ? originBottom - visualHeight : originTop,
  width: visualWidth,
  height: visualHeight,
  };
@@ -488,53 +521,6 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
  Math.abs(visualFramePx.top - boundedFramePx.top) > 0.5 ||
  Math.abs(visualFramePx.width - boundedFramePx.width) > 0.5 ||
  Math.abs(visualFramePx.height - boundedFramePx.height) > 0.5,
- };
- }
-
- if (corner === 'bottomLeft') {
- const rawWidth = originFrame.width - rawX;
- const rawHeight = originFrame.height + rawY;
- const boundedWidth = Math.max(minWidthPx, Math.min(maxWidthPx, rawWidth));
- const boundedHeight = Math.max(minHeightPx, Math.min(maxHeightPx, rawHeight));
- const visualWidth = applyResizeResistancePx(rawWidth, minWidthPx, maxWidthPx);
- const visualHeight = applyResizeResistancePx(rawHeight, minHeightPx, maxHeightPx);
-
- const boundedFramePx = {
- left: originRight - boundedWidth,
- top: originTop,
- width: boundedWidth,
- height: boundedHeight,
- };
-
- const visualFramePx = {
- left: originRight - visualWidth,
- top: originTop,
- width: visualWidth,
- height: visualHeight,
- };
-
- return {
- visualFramePx,
- boundedFramePx,
- isBeyondLimit:
- Math.abs(visualFramePx.left - boundedFramePx.left) > 0.5 ||
- Math.abs(visualFramePx.top - boundedFramePx.top) > 0.5 ||
- Math.abs(visualFramePx.width - boundedFramePx.width) > 0.5 ||
- Math.abs(visualFramePx.height - boundedFramePx.height) > 0.5,
- };
- }
-
- const fallbackFrame = {
- left: originFrame.left,
- top: originFrame.top,
- width: originFrame.width,
- height: originFrame.height,
- };
-
- return {
- visualFramePx: fallbackFrame,
- boundedFramePx: fallbackFrame,
- isBeyondLimit: false,
  };
 };
 
@@ -582,6 +568,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [previewLayout, setPreviewLayout] = useState(null);
 const [resizeGhostFrame, setResizeGhostFrame] = useState(null);
 const [activeResizeWidgetId, setActiveResizeWidgetId] = useState(null);
+const [activeResizeCorner, setActiveResizeCorner] = useState(null);
 const [resizeDraggingWidgetId, setResizeDraggingWidgetId] = useState(null);
 const [resizeDimWidgetId, setResizeDimWidgetId] = useState(null);
  const lastDropTargetRef = useRef(null);
@@ -756,6 +743,7 @@ const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
  clearResizeGhostBounceTimer();
  stopDashboardAutoScroll();
  setGestureDraggingWidgetId(null);
+ setActiveResizeCorner(null);
  setDraggingOriginalWidgetId(null);
  setResizeDimWidgetId(null);
  setResizeDraggingWidgetId(null);
@@ -778,6 +766,7 @@ const resetResizeInteractionState = useCallback(() => {
  clearResizeGhostBounceTimer();
  stopDashboardAutoScroll();
  setActiveResizeWidgetId(null);
+ setActiveResizeCorner(null);
  setResizeDraggingWidgetId(null);
  setResizeDimWidgetId(null);
  setResizeGhostFrame(null);
@@ -1824,105 +1813,208 @@ const getLayoutPreviewSignature = useCallback((items) => {
  };
  }, [returnToEntryList]);
 
-  const renderResizeCornerDiagonalSvg = ({
- width,
- height,
- edgeOffset = RESIZE_CORNER_OUTSET,
- showDiagonal = true,
- }) => {
- const safeWidth = Math.max(1, Number(width) || 1);
- const safeHeight = Math.max(1, Number(height) || 1);
- const safeOffset = Math.max(0, Number(edgeOffset) || 0);
+    const renderResizeCornerDiagonalSvg = ({
+  width,
+  height,
+  edgeOffset = RESIZE_CORNER_OUTSET,
+  showDiagonal = true,
+  showGrid = true,
+  activeCorner = null,
+  gridColumns = 1,
+  gridRows = 1,
+  }) => {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const safeOffset = Math.max(0, Number(edgeOffset) || 0);
 
- const cornerSize = RESIZE_ACTIVE_CORNER_SIZE;
- const cornerStroke = 3;
- const diagonalStroke = 1.2;
- const bottomLeftCornerLift = 2;
+  const cornerSize = RESIZE_ACTIVE_CORNER_SIZE;
+  const cornerStroke = 3;
+  const diagonalStroke = 1.2;
+  const bottomCornerLift = 2;
 
- const svgWidth = safeWidth + safeOffset * 2;
- const svgHeight = safeHeight + safeOffset * 2;
+  const svgWidth = safeWidth + safeOffset * 2;
+  const svgHeight = safeHeight + safeOffset * 2;
 
- const topRightOuter = {
- x: svgWidth - cornerSize,
- y: 0,
+  const topLeftOuter = {
+   x: 0,
+   y: 0,
+  };
+  const topLeftJoint = {
+   x: 0,
+   y: 0,
+  };
+
+  const topRightOuter = {
+   x: svgWidth - cornerSize,
+   y: 0,
+  };
+  const topRightJoint = {
+   x: svgWidth,
+   y: 0,
+  };
+
+  const bottomLeftOuter = {
+   x: 0,
+   y: svgHeight - cornerSize - bottomCornerLift,
+  };
+  const bottomLeftJoint = {
+   x: 0,
+   y: svgHeight - bottomCornerLift,
+  };
+
+  const bottomRightOuter = {
+   x: svgWidth - cornerSize,
+   y: svgHeight - cornerSize - bottomCornerLift,
+  };
+  const bottomRightJoint = {
+   x: svgWidth,
+   y: svgHeight - bottomCornerLift,
+  };
+
+  const diagonalPair = (() => {
+   if (activeCorner === 'topLeft') {
+    return { start: topLeftJoint, end: bottomRightJoint };
+   }
+   if (activeCorner === 'topRight') {
+    return { start: topRightJoint, end: bottomLeftJoint };
+   }
+   if (activeCorner === 'bottomLeft') {
+    return { start: bottomLeftJoint, end: topRightJoint };
+   }
+   if (activeCorner === 'bottomRight') {
+    return { start: bottomRightJoint, end: topLeftJoint };
+   }
+   return null;
+  })();
+
+  const safeGridColumns = Math.max(1, Math.min(GRID_COLUMNS, Math.round(Number(gridColumns) || 1)));
+  const safeGridRows = Math.max(1, Math.min(12, Math.round(Number(gridRows) || 1)));
+
+  return (
+   <Svg
+    pointerEvents="none"
+    width={svgWidth}
+    height={svgHeight}
+    overflow="visible"
+    style={[
+     StyleSheet.absoluteFill,
+     {
+      left: -safeOffset,
+      top: -safeOffset,
+      width: svgWidth,
+      height: svgHeight,
+      overflow: 'visible',
+     },
+    ]}
+   >
+    {showGrid && Array.from({ length: Math.max(0, safeGridColumns - 1) }).map((_, index) => {
+     const x = safeOffset + (safeWidth / safeGridColumns) * (index + 1);
+     return (
+      <Line
+       key={"resize-grid-v-" + index}
+       x1={x}
+       y1={safeOffset}
+       x2={x}
+       y2={safeOffset + safeHeight}
+       stroke="#111"
+       strokeWidth={0.6}
+       opacity={0.16}
+      />
+     );
+    })}
+
+    {showGrid && Array.from({ length: Math.max(0, safeGridRows - 1) }).map((_, index) => {
+     const y = safeOffset + (safeHeight / safeGridRows) * (index + 1);
+     return (
+      <Line
+       key={"resize-grid-h-" + index}
+       x1={safeOffset}
+       y1={y}
+       x2={safeOffset + safeWidth}
+       y2={y}
+       stroke="#111"
+       strokeWidth={0.6}
+       opacity={0.16}
+      />
+     );
+    })}
+
+    <Rect
+     x={topLeftOuter.x}
+     y={topLeftOuter.y}
+     width={cornerSize}
+     height={cornerStroke}
+     fill="#111"
+    />
+    <Rect
+     x={topLeftOuter.x}
+     y={topLeftOuter.y}
+     width={cornerStroke}
+     height={cornerSize}
+     fill="#111"
+    />
+
+    <Rect
+     x={topRightOuter.x}
+     y={topRightOuter.y}
+     width={cornerSize}
+     height={cornerStroke}
+     fill="#111"
+    />
+    <Rect
+     x={svgWidth - cornerStroke - 1}
+     y={topRightOuter.y}
+     width={cornerStroke + 1}
+     height={cornerSize}
+     fill="#111"
+    />
+
+    <Rect
+     x={bottomLeftOuter.x}
+     y={bottomLeftJoint.y - cornerStroke}
+     width={cornerSize}
+     height={cornerStroke}
+     fill="#111"
+    />
+    <Rect
+     x={bottomLeftOuter.x}
+     y={bottomLeftOuter.y}
+     width={cornerStroke}
+     height={cornerSize}
+     fill="#111"
+    />
+
+    <Rect
+     x={bottomRightOuter.x}
+     y={bottomRightJoint.y - cornerStroke}
+     width={cornerSize}
+     height={cornerStroke}
+     fill="#111"
+    />
+    <Rect
+     x={svgWidth - cornerStroke - 1}
+     y={bottomRightOuter.y}
+     width={cornerStroke + 1}
+     height={cornerSize}
+     fill="#111"
+    />
+
+    {showDiagonal && diagonalPair && (
+     <AnimatedSvgLine
+      x1={diagonalPair.start.x}
+      y1={diagonalPair.start.y}
+      x2={diagonalPair.end.x}
+      y2={diagonalPair.end.y}
+      stroke="#111"
+      strokeWidth={diagonalStroke}
+      strokeDasharray="6 5"
+      strokeDashoffset={resizeDashTranslateX}
+      strokeLinecap="butt"
+     />
+    )}
+   </Svg>
+  );
  };
- const topRightJoint = {
- x: svgWidth,
- y: 0,
- };
- const bottomLeftOuter = {
- x: 0,
- y: svgHeight - cornerSize - bottomLeftCornerLift,
- };
- const bottomLeftJoint = {
- x: 0,
- y: svgHeight - bottomLeftCornerLift,
- };
-
- return (
- <Svg
- pointerEvents="none"
- width={svgWidth}
- height={svgHeight}
- overflow="visible"
- style={[
- StyleSheet.absoluteFill,
- {
- left: -safeOffset,
- top: -safeOffset,
- width: svgWidth,
- height: svgHeight,
- overflow: 'visible',
- },
- ]}
- >
- <Rect
- x={topRightOuter.x}
- y={topRightOuter.y}
- width={cornerSize}
- height={cornerStroke}
- fill="#111"
- />
- <Rect
- x={svgWidth - cornerStroke - 1}
- y={topRightOuter.y}
- width={cornerStroke + 1}
- height={cornerSize}
- fill="#111"
- />
-
- <Rect
- x={bottomLeftOuter.x}
- y={bottomLeftJoint.y - cornerStroke}
- width={cornerSize}
- height={cornerStroke}
- fill="#111"
- />
- <Rect
- x={bottomLeftOuter.x}
- y={bottomLeftOuter.y}
- width={cornerStroke}
- height={cornerSize}
- fill="#111"
- />
-
- {showDiagonal && (
- <AnimatedSvgLine
- x1={bottomLeftJoint.x}
- y1={bottomLeftJoint.y}
- x2={topRightJoint.x}
- y2={topRightJoint.y}
- stroke="#111"
- strokeWidth={diagonalStroke}
- strokeDasharray="6 5"
- strokeDashoffset={resizeDashTranslateX}
- strokeLinecap="butt"
- />
- )}
- </Svg>
- );
- };
-
  const saveLayout = useCallback(async () => {
  if (!challengeId) {
  Alert.alert('오류', '대시보드 대상을 찾지 못했습니다.');
@@ -2140,6 +2232,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  resizeTouchOpacityRef.current.setValue(1);
 })
  .onBegin(() => {
+ setActiveResizeCorner(corner);
  setResizeDraggingWidgetId(widgetId);
  resizeTouchOpacityRef.current.setValue(0.16);
  resizeOriginRef.current = {
@@ -2169,6 +2262,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  h: safeH,
  visualFramePx: initialGhostState.visualFramePx,
  boundedFramePx: initialGhostState.boundedFramePx,
+ corner,
  });
  })
  .onUpdate((event) => {
@@ -2224,6 +2318,7 @@ const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, de
  h: nextFrame.h,
  visualFramePx: visualFrame,
  boundedFramePx: boundedFrame,
+ corner,
  });
 
  if (ghostState.isBeyondLimit) {
@@ -2268,6 +2363,7 @@ const origin = resizeOriginRef.current || {
  })
  .onFinalize(() => {
 clearResizeGhostBounceTimer();
+ setActiveResizeCorner(null);
  setResizeDraggingWidgetId(null);
  resizeTouchOpacityRef.current.setValue(1);
  resizeOriginRef.current = null;
@@ -2277,8 +2373,10 @@ clearResizeGhostBounceTimer();
  setResizeGhostFrame(null);
  });
 
+const topLeftResizeGesture = buildResizeGesture('topLeft');
 const topRightResizeGesture = buildResizeGesture('topRight');
 const bottomLeftResizeGesture = buildResizeGesture('bottomLeft');
+const bottomRightResizeGesture = buildResizeGesture('bottomRight');
 
 const canMoveCard =
  !resizeDraggingWidgetId &&
@@ -2478,12 +2576,20 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
 
  const resizeCornerOverlay = isResizeActive ? (
  <View pointerEvents="box-none" style={resizeOverlayDynamicStyle}>
+ <GestureDetector gesture={topLeftResizeGesture}>
+ <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxTopLeft]} />
+ </GestureDetector>
+
  <GestureDetector gesture={topRightResizeGesture}>
  <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxTopRight]} />
  </GestureDetector>
 
  <GestureDetector gesture={bottomLeftResizeGesture}>
  <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxBottomLeft]} />
+ </GestureDetector>
+
+ <GestureDetector gesture={bottomRightResizeGesture}>
+ <View style={[styles.resizeActiveCornerHitbox, styles.resizeActiveCornerHitboxBottomRight]} />
  </GestureDetector>
  </View>
  ) : null;
@@ -2559,6 +2665,7 @@ isResizeActive && styles.graphCellResizeActive,
          height: overlayH,
          edgeOffset: RESIZE_CORNER_OUTSET,
          showDiagonal: false,
+         showGrid: false,
        })}
      </View>
    ) : null;
@@ -2754,6 +2861,10 @@ const renderResizeGuideOverlay = () => {
  const baseFrame = getResizeGridItemFrame(activeItem, gridWidth, rowGap);
  const dragFrame = resizeGhostFrame?.visualFramePx;
  const guideFrame = dragFrame || baseFrame;
+ const guideW = Math.max(1, Number(resizeGhostFrame?.w ?? activeItem?.w) || 1);
+ const guideH = Math.max(1, Number(resizeGhostFrame?.h ?? activeItem?.h) || 1);
+ const activeDiagonalCorner = resizeGhostFrame?.corner || activeResizeCorner;
+ const isDraggingResizeCorner = Boolean(activeDiagonalCorner);
 
  return (
  <View
@@ -2771,7 +2882,12 @@ const renderResizeGuideOverlay = () => {
  {renderResizeCornerDiagonalSvg({
  width: Math.max(1, Number(guideFrame.width) || 1),
  height: Math.max(1, Number(guideFrame.height) || 1),
- edgeOffset: RESIZE_CORNER_OUTSET,
+ edgeOffset: RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET + 2,
+ activeCorner: activeDiagonalCorner,
+ showDiagonal: isDraggingResizeCorner || !!resizeGhostFrame?.corner,
+ showGrid: true,
+ gridColumns: guideW,
+ gridRows: guideH,
  })}
  </View>
  );
@@ -3188,6 +3304,18 @@ resizeActiveCornerHitboxBottomLeft: {
  left: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
  bottom: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
  alignItems: 'flex-start',
+ justifyContent: 'flex-end',
+},
+resizeActiveCornerHitboxTopLeft: {
+ left: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ top: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ alignItems: 'flex-start',
+ justifyContent: 'flex-start',
+},
+resizeActiveCornerHitboxBottomRight: {
+ right: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ bottom: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
+ alignItems: 'flex-end',
  justifyContent: 'flex-end',
 },
 resizeActiveCorner: {

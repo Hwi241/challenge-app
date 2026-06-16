@@ -1,3 +1,7 @@
+// OFFICIAL_GRAPH_PREVIEW_RULE: docs/GRAPH_PREVIEW_RULE.md
+// Graph preview icons must be generated from graphCatalog.preview metadata.
+// Do not add manual PNG/JPG/WebP preview images for individual graphs.
+
 // components/GraphPreviewIcon.js
 // Auto-generated graph preview icon for the graph shop.
 // The visual is derived from graph.preview metadata, not from hand-drawn images.

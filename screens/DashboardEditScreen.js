@@ -26,6 +26,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
+import DashboardWidgetPreview from '../components/dashboard/DashboardWidgetPreview';
 
 const AnimatedSvgLine = Animated.createAnimatedComponent(Line);
 
@@ -2076,6 +2077,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  resizeTouchOpacity = null,
  resizeOverlay = null,
  actionOverlay = null,
+ previewNode = null,
  }) => (
  <View style={[
  styles.resizeFrame,
@@ -2106,17 +2108,23 @@ const getLayoutPreviewSignature = useCallback((items) => {
  <View style={styles.graphTitleGroup}>
  <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
  </View>
+ <View style={styles.graphSizeBadge}>
+ <Text style={styles.graphSizeBadgeText}>{displaySizeText}</Text>
  </View>
+ </View>
+ {previewNode}
  </View>
 
  {actionOverlay}
 
+ {isResizeActive && (
  <View
  pointerEvents="none"
  style={styles.graphMetaCenterLayer}
  >
  <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
  </View>
+ )}
  </View>
  );
 
@@ -2426,6 +2434,7 @@ const canMoveCard =
      });
      setDragOverlayItem({
        widgetId: item.widgetId,
+       kind: item.kind,
        w: safeW, h: safeH, cardHeight, isCompactCard, safeW, safeH,
        titleText,
      });
@@ -2621,6 +2630,18 @@ isResizeActive && styles.graphCellResizeActive,
  resizeTouchOpacity,
  resizeOverlay: resizeCornerOverlay,
  actionOverlay: removeActionOverlay,
+ previewNode: (
+ <DashboardWidgetPreview
+ widgetId={widgetId}
+ kind={item.kind}
+ previewFamily={item.previewFamily}
+ placeholder={item.placeholder}
+ title={titleText}
+ w={safeW}
+ h={safeH}
+ isResizeActive={isResizeActive || isThisResizeDragging || isThisGestureDragging}
+ />
+ ),
  })}
  </View>
  );
@@ -2692,6 +2713,16 @@ isResizeActive && styles.graphCellResizeActive,
          isResizeActive: false,
          shouldDimOriginalCard: false,
          actionOverlay: dragMoveCornerOverlay,
+       previewNode: (
+         <DashboardWidgetPreview
+           widgetId={o.widgetId}
+           kind={o.kind}
+           title={o.titleText}
+           w={o.safeW}
+           h={o.safeH}
+           isResizeActive={false}
+         />
+       ),
        })}
      </View>
    );
@@ -3180,23 +3211,43 @@ graphCardVisualSurface: {
  graphHeader: {
  flexDirection: 'row',
  alignItems: 'center',
- justifyContent: 'flex-start',
+ justifyContent: 'space-between',
  position: 'relative',
  zIndex: 2,
  elevation: 1,
+ columnGap: 8,
  },
  
  graphTitleGroup: {
  flexDirection: 'row',
  alignItems: 'center',
  gap: 8,
- maxWidth: '100%',
+ flex: 1,
+ minWidth: 0,
  },
  graphTitle: {
  flexShrink: 1,
  fontSize: 15,
  fontWeight: '800',
  color: '#111',
+ },
+ graphSizeBadge: {
+ minWidth: 38,
+ height: 22,
+ paddingHorizontal: 7,
+ borderRadius: 11,
+ backgroundColor: '#F3F4F6',
+ borderWidth: 1,
+ borderColor: '#E5E7EB',
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ graphSizeBadgeText: {
+ fontSize: 11,
+ lineHeight: 13,
+ fontWeight: '900',
+ color: '#111',
+ includeFontPadding: false,
  },
  removeBtnBottomRight: {
  position: 'absolute',

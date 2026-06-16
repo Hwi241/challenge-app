@@ -2224,6 +2224,18 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  .runOnJS(true)
  .onTouchesDown(() => {
  resizeTouchOpacityRef.current.setValue(0.16);
+
+ const initialGhostState = getResizeGhostVisualFramePx(
+   widgetId,
+   { x: safeX, y: safeY, w: safeW, h: safeH },
+   corner, 0, 0, gridWidth, rowGap,
+ );
+ setResizeGhostFrame({
+   widgetId, corner,
+   x: safeX, y: safeY, w: safeW, h: safeH,
+   visualFramePx: initialGhostState.visualFramePx,
+   boundedFramePx: initialGhostState.boundedFramePx,
+ });
 })
 .onTouchesUp(() => {
  resizeTouchOpacityRef.current.setValue(1);
@@ -2861,6 +2873,8 @@ const renderResizeGuideOverlay = () => {
  const baseFrame = getResizeGridItemFrame(activeItem, gridWidth, rowGap);
  const dragFrame = resizeGhostFrame?.visualFramePx;
  const guideFrame = dragFrame || baseFrame;
+ const guideWidth = Math.max(1, Number(guideFrame.width) || 1);
+ const guideHeight = Math.max(1, Number(guideFrame.height) || 1);
  const guideW = Math.max(1, Number(resizeGhostFrame?.w ?? activeItem?.w) || 1);
  const guideH = Math.max(1, Number(resizeGhostFrame?.h ?? activeItem?.h) || 1);
  const activeDiagonalCorner = resizeGhostFrame?.corner || activeResizeCorner;
@@ -2874,22 +2888,67 @@ const renderResizeGuideOverlay = () => {
  {
  left: guideFrame.left,
  top: guideFrame.top,
- width: Math.max(1, Number(guideFrame.width) || 1),
- height: Math.max(1, Number(guideFrame.height) || 1),
+ width: guideWidth,
+ height: guideHeight,
  },
  ]}
  >
  {renderResizeCornerDiagonalSvg({
- width: Math.max(1, Number(guideFrame.width) || 1),
- height: Math.max(1, Number(guideFrame.height) || 1),
- edgeOffset: RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET + 2,
+ width: guideWidth,
+ height: guideHeight,
+ edgeOffset: RESIZE_CORNER_OUTSET,
  activeCorner: activeDiagonalCorner,
- showDiagonal: isDraggingResizeCorner || !!resizeGhostFrame?.corner,
+ showDiagonal: false,
  showGrid: true,
  gridColumns: guideW,
  gridRows: guideH,
  })}
+ {renderAnimatedResizeDiagonal({ guideWidth, guideHeight, activeDiagonalCorner })}
  </View>
+ );
+ };
+
+ const renderAnimatedResizeDiagonal = ({
+ guideWidth,
+ guideHeight,
+ activeDiagonalCorner,
+}) => {
+ if (!Boolean(activeDiagonalCorner)) return null;
+
+ const diagonalEdgeOffset = RESIZE_CORNER_OUTSET;
+ const diagonalBottomLift = 2;
+
+ const getDiagonalPair = () => {
+   if (activeDiagonalCorner === 'topLeft') {
+     return { start: { x: -diagonalEdgeOffset, y: -diagonalEdgeOffset }, end: { x: guideWidth + diagonalEdgeOffset, y: guideHeight + diagonalEdgeOffset - diagonalBottomLift } };
+   }
+   if (activeDiagonalCorner === 'topRight') {
+     return { start: { x: guideWidth + diagonalEdgeOffset, y: -diagonalEdgeOffset }, end: { x: -diagonalEdgeOffset, y: guideHeight + diagonalEdgeOffset - diagonalBottomLift } };
+   }
+   if (activeDiagonalCorner === 'bottomLeft') {
+     return { start: { x: -diagonalEdgeOffset, y: guideHeight + diagonalEdgeOffset - diagonalBottomLift }, end: { x: guideWidth + diagonalEdgeOffset, y: -diagonalEdgeOffset } };
+   }
+   if (activeDiagonalCorner === 'bottomRight') {
+     return { start: { x: guideWidth + diagonalEdgeOffset, y: guideHeight + diagonalEdgeOffset - diagonalBottomLift }, end: { x: -diagonalEdgeOffset, y: -diagonalEdgeOffset } };
+   }
+   return null;
+ };
+
+ const pair = getDiagonalPair();
+ if (!pair) return null;
+
+ const dx = pair.end.x - pair.start.x;
+ const dy = pair.end.y - pair.start.y;
+ const diagonalLength = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+ const diagonalAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+ const diagonalMidX = (pair.start.x + pair.end.x) / 2;
+ const diagonalMidY = (pair.start.y + pair.end.y) / 2;
+ const dashMotionPad = 36;
+
+ return (
+   <View pointerEvents="none" style={[styles.resizeActiveDiagonalTrack, { left: diagonalMidX - diagonalLength / 2, top: diagonalMidY - 5, width: diagonalLength, transform: [{ rotate: diagonalAngle + 'deg' }] }]}>
+     <Animated.View style={[styles.resizeActiveDiagonalDash, { width: diagonalLength + dashMotionPad * 2, marginLeft: -dashMotionPad, transform: [{ translateX: resizeDashTranslateX }] }]} />
+   </View>
  );
  };
 

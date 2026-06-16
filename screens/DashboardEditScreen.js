@@ -536,6 +536,7 @@ const RESIZE_GHOST_MAX_OVERSHOOT = 42;
 const RESIZE_GHOST_MAX_EXPAND_RESISTANCE = 0.72;
 const RESIZE_GHOST_MAX_EXPAND_OVERSHOOT = 64;
 const RESIZE_GHOST_BOUNCE_BACK_MS = 260;
+const RESIZE_DIAGONAL_TOUCH_DELAY_MS = 120;
 const RESIZE_DISMISS_SAFE_PADDING = 20;
 const GRID_DRAG_STEP_THRESHOLD = 0.62;
 const RESIZE_GRID_STEP_THRESHOLD = 0.45;
@@ -581,6 +582,7 @@ const resizePreviewSizeRef = useRef('');
  const dragCleanupTimerRef = useRef(null);
  const resizeDashAnimRef = useRef(new Animated.Value(0));
  const resizeTouchOpacityRef = useRef(new Animated.Value(1));
+const resizeDiagonalDelayTimerRef = useRef(null);
  const resizeGhostBounceTimerRef = useRef(null);
  const resizeGhostBounceSignatureRef = useRef('');
  const scrollRef = useRef(null);
@@ -692,6 +694,13 @@ const resizeDashTranslateX = resizeDashAnimRef.current.interpolate({
  }
  resizeGhostBounceSignatureRef.current = '';
  }, []);
+const clearResizeDiagonalDelayTimer = useCallback(() => {
+ if (resizeDiagonalDelayTimerRef.current) {
+  clearTimeout(resizeDiagonalDelayTimerRef.current);
+  resizeDiagonalDelayTimerRef.current = null;
+ }
+}, []);
+
 
  const stopDashboardAutoScroll = useCallback(() => {
  if (autoScrollTimerRef.current) {
@@ -2224,16 +2233,23 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  .runOnJS(true)
  .onTouchesDown(() => {
  resizeTouchOpacityRef.current.setValue(0.16);
+ clearResizeDiagonalDelayTimer();
+ resizeDiagonalDelayTimerRef.current = setTimeout(() => {
+  setActiveResizeCorner(corner);
+  resizeDiagonalDelayTimerRef.current = null;
+ }, RESIZE_DIAGONAL_TOUCH_DELAY_MS);
  })
 .onTouchesUp(() => {
+ clearResizeDiagonalDelayTimer();
  resizeTouchOpacityRef.current.setValue(1);
-})
+ setActiveResizeCorner(null);
+ })
 .onTouchesCancelled(() => {
+ clearResizeDiagonalDelayTimer();
  resizeTouchOpacityRef.current.setValue(1);
-})
- .onBegin(() => {
- setActiveResizeCorner(corner);
- setResizeDraggingWidgetId(widgetId);
+ setActiveResizeCorner(null);
+ }) .onBegin(() => {
+  setResizeDraggingWidgetId(widgetId);
  resizeTouchOpacityRef.current.setValue(0.16);
  resizeOriginRef.current = {
  x: safeX,
@@ -2245,25 +2261,6 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  resizePreviewSizeRef.current = `${safeX}:${safeY}:${safeW}:${safeH}`;
  clearResizeGhostBounceTimer();
  setPreviewLayout(null);
- const initialGhostState = getResizeGhostVisualFramePx(
- widgetId,
- { x: safeX, y: safeY, w: safeW, h: safeH },
- corner,
- 0,
- 0,
- gridWidth,
- rowGap,
- );
- setResizeGhostFrame({
- widgetId,
- x: safeX,
- y: safeY,
- w: safeW,
- h: safeH,
- visualFramePx: initialGhostState.visualFramePx,
- boundedFramePx: initialGhostState.boundedFramePx,
- corner,
- });
  })
  .onUpdate((event) => {
  const origin = resizeOriginRef.current || {
@@ -2328,6 +2325,7 @@ const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, de
  }
  })
  .onEnd((event) => {
+ clearResizeDiagonalDelayTimer();
 const origin = resizeOriginRef.current || {
  x: safeX,
  y: safeY,
@@ -2362,6 +2360,7 @@ const origin = resizeOriginRef.current || {
  resizePreviewSizeRef.current = '';
  })
  .onFinalize(() => {
+ clearResizeDiagonalDelayTimer();
 clearResizeGhostBounceTimer();
  setActiveResizeCorner(null);
  setResizeDraggingWidgetId(null);

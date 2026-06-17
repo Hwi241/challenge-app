@@ -21,9 +21,12 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 import {
+ GRAPH_PREVIEW_COLORS,
  GRAPH_PREVIEW_DEFAULT_SIZE,
- GRAPH_PREVIEW_METRIC_LABELS,
+ GRAPH_PREVIEW_FRAME,
+ GRAPH_PREVIEW_METRIC_TAG,
  GRAPH_PREVIEW_VIEW_BOX,
+ getGraphPreviewMetricLabel,
 } from '../constants/graphPreviewRules';
 
 const VIEW_BOX = GRAPH_PREVIEW_VIEW_BOX;
@@ -37,7 +40,6 @@ const FAMILY = {
   NETWORK: 'network',
 };
 
-const METRIC_LABELS = GRAPH_PREVIEW_METRIC_LABELS;
 
 function hashSeed(seed) {
   const raw = String(seed ?? 'graph');
@@ -107,44 +109,80 @@ function normalizePreview(preview) {
 }
 
 function getMetricLabel(metricType) {
-  return METRIC_LABELS[metricType] ?? (String(metricType ?? '').slice(0, 5) || '값');
+  return getGraphPreviewMetricLabel(metricType);
 }
 
 function PreviewFrame({ children, muted = false }) {
-  return (
-    <View style={[styles.frame, muted && styles.frameMuted]}>
-      <Svg width="100%" height="100%" viewBox={`0 0 ${VIEW_BOX} ${VIEW_BOX}`}>
-        <Defs>
-          <LinearGradient id="previewSoftFill" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#F9FAFB" />
-            <Stop offset="1" stopColor="#EEF2F7" />
-          </LinearGradient>
-        </Defs>
-        <Rect x="1" y="1" width="118" height="118" rx="22" fill="url(#previewSoftFill)" />
-        <Rect x="1" y="1" width="118" height="118" rx="22" fill="none" stroke="#E5E7EB" strokeWidth="1.5" />
-        {children}
-      </Svg>
-    </View>
-  );
+ const frame = GRAPH_PREVIEW_FRAME;
+ const colors = GRAPH_PREVIEW_COLORS;
+
+ return (
+ <View style={[styles.frame, muted && styles.frameMuted]}>
+ <Svg width="100%" height="100%" viewBox={`0 0 ${frame.viewBox} ${frame.viewBox}`}>
+ <Defs>
+ <LinearGradient id="previewSoftFill" x1="0" y1="0" x2="1" y2="1">
+ <Stop offset="0" stopColor={frame.gradientStartColor || colors.backgroundStart} />
+ <Stop offset="1" stopColor={frame.gradientEndColor || colors.backgroundEnd} />
+ </LinearGradient>
+ </Defs>
+ <Rect
+ x={frame.inset}
+ y={frame.inset}
+ width={frame.width}
+ height={frame.height}
+ rx={frame.radius}
+ fill="url(#previewSoftFill)"
+ />
+ <Rect
+ x={frame.inset}
+ y={frame.inset}
+ width={frame.width}
+ height={frame.height}
+ rx={frame.radius}
+ fill="none"
+ stroke={frame.borderColor || colors.border}
+ strokeWidth={frame.borderWidth}
+ />
+ {children}
+ </Svg>
+ </View>
+ );
 }
 
-function MetricTag({ metricType, x = 78, y = 92 }) {
-  const label = getMetricLabel(metricType);
-  return (
-    <G>
-      <Rect x={x - 8} y={y - 13} width="34" height="18" rx="9" fill="#111827" opacity="0.92" />
-      <SvgText
-        x={x + 9}
-        y={y}
-        fontSize="7"
-        fontWeight="800"
-        fill="#FFFFFF"
-        textAnchor="middle"
-      >
-        {label}
-      </SvgText>
-    </G>
-  );
+function MetricTag({
+ metricType,
+ x = GRAPH_PREVIEW_METRIC_TAG.defaultX,
+ y = GRAPH_PREVIEW_METRIC_TAG.defaultY,
+}) {
+ const label = getMetricLabel(metricType);
+ const tag = GRAPH_PREVIEW_METRIC_TAG;
+ const colors = GRAPH_PREVIEW_COLORS;
+
+ if (tag.enabled === false) return null;
+
+ return (
+ <G>
+ <Rect
+ x={x + tag.xOffset}
+ y={y + tag.yOffset}
+ width={tag.width}
+ height={tag.height}
+ rx={tag.radius}
+ fill={tag.fillColor || colors.primary}
+ opacity={tag.opacity}
+ />
+ <SvgText
+ x={x + tag.textOffsetX}
+ y={y}
+ fontSize={tag.fontSize}
+ fontWeight={tag.fontWeight}
+ fill={tag.textColor || colors.white}
+ textAnchor="middle"
+ >
+ {label}
+ </SvgText>
+ </G>
+ );
 }
 
 function LinePreview({ preview }) {

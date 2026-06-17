@@ -21,6 +21,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 import {
+ GRAPH_PREVIEW_BAR,
  GRAPH_PREVIEW_COLORS,
  GRAPH_PREVIEW_DEFAULT_SIZE,
  GRAPH_PREVIEW_FRAME,
@@ -282,53 +283,98 @@ function LinePreview({ preview }) {
 }
 
 function BarPreview({ preview }) {
-  const values = makeSeries(preview.seed, 5, 28, 84);
-  const isStacked = preview.variant === 'stackedBars';
-  const isCompare = preview.variant === 'compareBars';
+ const barRule = GRAPH_PREVIEW_BAR;
+ const colors = GRAPH_PREVIEW_COLORS;
+ const values = makeSeries(
+ preview.seed,
+ barRule.barCount,
+ barRule.minValue,
+ barRule.maxValue,
+ );
+ const isStacked = preview.variant === 'stackedBars';
+ const isCompare = preview.variant === 'compareBars';
 
-  return (
-    <PreviewFrame>
-      <Line x1="16" y1="92" x2="104" y2="92" stroke="#D1D5DB" strokeWidth="2" />
-      {values.map((value, index) => {
-        const x = 20 + index * 17;
-        const height = value * 0.62;
-        const y = 92 - height;
+ return (
+ <PreviewFrame>
+ <Line
+ x1={barRule.axisStartX}
+ y1={barRule.baselineY}
+ x2={barRule.axisEndX}
+ y2={barRule.baselineY}
+ stroke={colors.axis}
+ strokeWidth={barRule.axisStrokeWidth}
+ />
+ {values.map((value, index) => {
+ const x = barRule.startX + index * barRule.stepX;
+ const height = value * barRule.yScale;
+ const y = barRule.baselineY - height;
 
-        if (isCompare) {
-          const secondHeight = Math.max(10, height - 13 + (index % 2) * 10);
-          return (
-            <G key={`bar-${index}`}>
-              <Rect x={x - 3} y={y} width="6" height={height} rx="3" fill="#111827" />
-              <Rect x={x + 5} y={92 - secondHeight} width="6" height={secondHeight} rx="3" fill="#9CA3AF" />
-            </G>
-          );
-        }
+ if (isCompare) {
+ const secondHeight = Math.max(
+ barRule.compareSecondMinHeight,
+ height + barRule.compareSecondBaseDelta + (index % 2) * barRule.compareSecondOddOffset,
+ );
+ return (
+ <G key={`bar-${index}`}>
+ <Rect
+ x={x + barRule.comparePrimaryXOffset}
+ y={y}
+ width={barRule.compareBarWidth}
+ height={height}
+ rx={barRule.compareRadius}
+ fill={colors.primary}
+ />
+ <Rect
+ x={x + barRule.compareSecondaryXOffset}
+ y={barRule.baselineY - secondHeight}
+ width={barRule.compareBarWidth}
+ height={secondHeight}
+ rx={barRule.compareRadius}
+ fill={colors.tertiary}
+ />
+ </G>
+ );
+ }
 
-        if (isStacked) {
-          const topHeight = height * 0.38;
-          return (
-            <G key={`bar-${index}`}>
-              <Rect x={x - 5} y={y} width="11" height={height} rx="5" fill="#111827" />
-              <Rect x={x - 5} y={y} width="11" height={topHeight} rx="5" fill="#6B7280" />
-            </G>
-          );
-        }
+ if (isStacked) {
+ const topHeight = height * barRule.stackedTopRatio;
+ return (
+ <G key={`bar-${index}`}>
+ <Rect
+ x={x + barRule.stackedXOffset}
+ y={y}
+ width={barRule.barWidth}
+ height={height}
+ rx={barRule.radius}
+ fill={colors.primary}
+ />
+ <Rect
+ x={x + barRule.stackedXOffset}
+ y={y}
+ width={barRule.barWidth}
+ height={topHeight}
+ rx={barRule.radius}
+ fill={colors.secondary}
+ />
+ </G>
+ );
+ }
 
-        return (
-          <Rect
-            key={`bar-${index}`}
-            x={x - 5}
-            y={y}
-            width="11"
-            height={height}
-            rx="5"
-            fill="#111827"
-          />
-        );
-      })}
-      <MetricTag metricType={preview.metricType} />
-    </PreviewFrame>
-  );
+ return (
+ <Rect
+ key={`bar-${index}`}
+ x={x + barRule.barXOffset}
+ y={y}
+ width={barRule.barWidth}
+ height={height}
+ rx={barRule.radius}
+ fill={colors.primary}
+ />
+ );
+ })}
+ <MetricTag metricType={preview.metricType} />
+ </PreviewFrame>
+ );
 }
 
 function PiePreview({ preview }) {

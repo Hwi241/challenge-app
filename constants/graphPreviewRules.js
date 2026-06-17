@@ -144,11 +144,56 @@ export const GRAPH_PREVIEW_PIE = Object.freeze({
 // ---- DISTRIBUTION family ----
 export const GRAPH_PREVIEW_DISTRIBUTION = Object.freeze({
   dotCount: 13,
+  minValue: 18,
+  maxValue: 86,
+
+  baselineX1: 18,
+  baselineX2: 104,
+  baselineY: 92,
+  baselineStrokeWidth: 2,
+
+  averageLineY: 62,
+  averageStrokeWidth: 2,
+  averageDasharray: '4 4',
+
+  dotStartX: 20,
+  dotColumns: 7,
+  dotStepX: 13,
+  dotBaseY: 94,
+  dotYScale: 0.7,
+  dotRowOffset: 7,
+  dotRadius: 3.5,
+  dotOpacityBase: 0.55,
+  dotOpacityStep: 0.15,
+  dotOpacityCycle: 3,
+
   heatCellCount: 20,
   heatCols: 5,
-  dotRadius: 3.5,
-  averageLineY: 62,
-  baselineY: 92,
+  heatStartX: 24,
+  heatStartY: 28,
+  heatStepX: 14,
+  heatStepY: 14,
+  heatCellSize: 10,
+  heatRadius: 3,
+  heatOpacityBase: 0.25,
+  heatOpacityStep: 17,
+  heatOpacityMod: 60,
+  heatOpacityDivisor: 100,
+
+  boxCenterLine: Object.freeze({ x1: 20, y1: 62, x2: 100, y2: 62 }),
+  boxWhiskers: Object.freeze([
+    Object.freeze({ x: 28, y1: 54, y2: 70 }),
+    Object.freeze({ x: 94, y1: 54, y2: 70 }),
+  ]),
+  boxRect: Object.freeze({ x: 42, y: 44, width: 38, height: 36, radius: 8 }),
+  boxMedianLine: Object.freeze({ x: 61, y1: 44, y2: 80 }),
+  boxOutliers: Object.freeze([
+    Object.freeze({ cx: 96, cy: 36, r: 4 }),
+    Object.freeze({ cx: 25, cy: 83, r: 3.5 }),
+  ]),
+  boxLineStrokeWidth: 2,
+  boxWhiskerStrokeWidth: 3,
+  boxMedianStrokeWidth: 2,
 });
 
 // ---- NETWORK family ----

@@ -24,6 +24,7 @@ import {
  GRAPH_PREVIEW_BAR,
  GRAPH_PREVIEW_COLORS,
  GRAPH_PREVIEW_DEFAULT_SIZE,
+ GRAPH_PREVIEW_DISTRIBUTION,
  GRAPH_PREVIEW_FRAME,
  GRAPH_PREVIEW_LINE,
  GRAPH_PREVIEW_METRIC_TAG,
@@ -434,67 +435,135 @@ function PiePreview({ preview }) {
 }
 
 function DistributionPreview({ preview }) {
-  const values = makeSeries(preview.seed, 13, 18, 86);
-  const isHeat = preview.variant === 'heatGrid';
-  const isBox = preview.variant === 'boxPlot';
+ const distributionRule = GRAPH_PREVIEW_DISTRIBUTION;
+ const colors = GRAPH_PREVIEW_COLORS;
+ const values = makeSeries(
+ preview.seed,
+ distributionRule.dotCount,
+ distributionRule.minValue,
+ distributionRule.maxValue,
+ );
+ const isHeat = preview.variant === 'heatGrid';
+ const isBox = preview.variant === 'boxPlot';
 
-  if (isHeat) {
-    return (
-      <PreviewFrame>
-        {Array.from({ length: 20 }, (_, index) => {
-          const col = index % 5;
-          const row = Math.floor(index / 5);
-          const opacity = 0.25 + ((index * 17 + hashSeed(preview.seed)) % 60) / 100;
-          return (
-            <Rect
-              key={`heat-${index}`}
-              x={24 + col * 14}
-              y={28 + row * 14}
-              width="10"
-              height="10"
-              rx="3"
-              fill="#111827"
-              opacity={opacity}
-            />
-          );
-        })}
-        <MetricTag metricType={preview.metricType} />
-      </PreviewFrame>
-    );
-  }
+ if (isHeat) {
+ return (
+ <PreviewFrame>
+ {Array.from({ length: distributionRule.heatCellCount }, (_, index) => {
+ const col = index % distributionRule.heatCols;
+ const row = Math.floor(index / distributionRule.heatCols);
+ const opacity = distributionRule.heatOpacityBase
+ + ((index * distributionRule.heatOpacityStep + hashSeed(preview.seed))
+ % distributionRule.heatOpacityMod) / distributionRule.heatOpacityDivisor;
+ return (
+ <Rect
+ key={`heat-${index}`}
+ x={distributionRule.heatStartX + col * distributionRule.heatStepX}
+ y={distributionRule.heatStartY + row * distributionRule.heatStepY}
+ width={distributionRule.heatCellSize}
+ height={distributionRule.heatCellSize}
+ rx={distributionRule.heatRadius}
+ fill={colors.primary}
+ opacity={opacity}
+ />
+ );
+ })}
+ <MetricTag metricType={preview.metricType} />
+ </PreviewFrame>
+ );
+ }
 
-  if (isBox) {
-    return (
-      <PreviewFrame>
-        <Line x1="20" y1="62" x2="100" y2="62" stroke="#9CA3AF" strokeWidth="2" />
-        <Line x1="28" y1="54" x2="28" y2="70" stroke="#111827" strokeWidth="3" />
-        <Line x1="94" y1="54" x2="94" y2="70" stroke="#111827" strokeWidth="3" />
-        <Rect x="42" y="44" width="38" height="36" rx="8" fill="#111827" />
-        <Line x1="61" y1="44" x2="61" y2="80" stroke="#FFFFFF" strokeWidth="2" />
-        <Circle cx="96" cy="36" r="4" fill="#111827" />
-        <Circle cx="25" cy="83" r="3.5" fill="#111827" />
-        <MetricTag metricType={preview.metricType} />
-      </PreviewFrame>
-    );
-  }
+ if (isBox) {
+ return (
+ <PreviewFrame>
+ <Line
+ x1={distributionRule.boxCenterLine.x1}
+ y1={distributionRule.boxCenterLine.y1}
+ x2={distributionRule.boxCenterLine.x2}
+ y2={distributionRule.boxCenterLine.y2}
+ stroke={colors.tertiary}
+ strokeWidth={distributionRule.boxLineStrokeWidth}
+ />
+ {distributionRule.boxWhiskers.map((whisker, index) => (
+ <Line
+ key={`whisker-${index}`}
+ x1={whisker.x}
+ y1={whisker.y1}
+ x2={whisker.x}
+ y2={whisker.y2}
+ stroke={colors.primary}
+ strokeWidth={distributionRule.boxWhiskerStrokeWidth}
+ />
+ ))}
+ <Rect
+ x={distributionRule.boxRect.x}
+ y={distributionRule.boxRect.y}
+ width={distributionRule.boxRect.width}
+ height={distributionRule.boxRect.height}
+ rx={distributionRule.boxRect.radius}
+ fill={colors.primary}
+ />
+ <Line
+ x1={distributionRule.boxMedianLine.x}
+ y1={distributionRule.boxMedianLine.y1}
+ x2={distributionRule.boxMedianLine.x}
+ y2={distributionRule.boxMedianLine.y2}
+ stroke={colors.white}
+ strokeWidth={distributionRule.boxMedianStrokeWidth}
+ />
+ {distributionRule.boxOutliers.map((outlier, index) => (
+ <Circle
+ key={`outlier-${index}`}
+ cx={outlier.cx}
+ cy={outlier.cy}
+ r={outlier.r}
+ fill={colors.primary}
+ />
+ ))}
+ <MetricTag metricType={preview.metricType} />
+ </PreviewFrame>
+ );
+ }
 
-  return (
-    <PreviewFrame>
-      <Line x1="18" y1="92" x2="104" y2="92" stroke="#D1D5DB" strokeWidth="2" />
-      <Line x1="18" y1="62" x2="104" y2="62" stroke="#9CA3AF" strokeWidth="2" strokeDasharray="4 4" />
-      {values.map((value, index) => (
-        <Circle
-          key={`dot-${index}`}
-          cx={20 + (index % 7) * 13}
-          cy={94 - value * 0.7 + Math.floor(index / 7) * 7}
-          r={3.5}
-          fill="#111827"
-          opacity={0.55 + (index % 3) * 0.15}
-        />
-      ))}
-      <MetricTag metricType={preview.metricType} />
-    </PreviewFrame>
-  );
+ return (
+ <PreviewFrame>
+ <Line
+ x1={distributionRule.baselineX1}
+ y1={distributionRule.baselineY}
+ x2={distributionRule.baselineX2}
+ y2={distributionRule.baselineY}
+ stroke={colors.axis}
+ strokeWidth={distributionRule.baselineStrokeWidth}
+ />
+ <Line
+ x1={distributionRule.baselineX1}
+ y1={distributionRule.averageLineY}
+ x2={distributionRule.baselineX2}
+ y2={distributionRule.averageLineY}
+ stroke={colors.tertiary}
+ strokeWidth={distributionRule.averageStrokeWidth}
+ strokeDasharray={distributionRule.averageDasharray}
+ />
+ {values.map((value, index) => (
+ <Circle
+ key={`dot-${index}`}
+ cx={distributionRule.dotStartX + (index % distributionRule.dotColumns) * distributionRule.dotStepX}
+ cy={
+ distributionRule.dotBaseY
+ - value * distributionRule.dotYScale
+ + Math.floor(index / distributionRule.dotColumns) * distributionRule.dotRowOffset
+ }
+ r={distributionRule.dotRadius}
+ fill={colors.primary}
+ opacity={
+ distributionRule.dotOpacityBase
+ + (index % distributionRule.dotOpacityCycle) * distributionRule.dotOpacityStep
+ }
+ />
+ ))}
+ <MetricTag metricType={preview.metricType} />
+ </PreviewFrame>
+ );
 }
 
 function NetworkPreview({ preview }) {

@@ -21,9 +21,19 @@ constants/graphCatalog.js
  └─ preview.seed
  └─ preview.features
 
+constants/graphPreviewRules.js
+ └─ frame / color / stroke / metricTag / family / size 실행 규칙
+ └─ GraphPreviewIcon이 참조할 코드 기준
+
 components/GraphPreviewIcon.js
- └─ preview 메타데이터를 받아 react-native-svg로 자동 미리보기 렌더링
+ └─ preview 메타데이터와 graphPreviewRules 실행 규칙을 받아 react-native-svg로 자동 미리보기 렌더링
 ```
+
+**정책 문서:** docs/GRAPH_PREVIEW_RULE.md (이 파일)
+**실행 규칙:** constants/graphPreviewRules.js
+
+GraphPreviewIcon이 참조하는 시각적 상수(색상, 크기, 간격, 좌표 등)는
+graphPreviewRules.js에서 관리한다.
 
 ---
 
@@ -98,6 +108,8 @@ features는 그래프의 세부 특징을 보조로 전달한다.
 4. 그래프가 늘어나도 family, variant, metricType, seed 조합으로 같은 결을 유지한다.
 5. DashboardWidgetPreview 자체 규칙은 공식 기준이 아니다.
 6. DashboardWidgetPreview는 최종적으로 GraphPreviewIcon을 감싸는 wrapper가 되어야 한다.
+7. 이 문서는 설명 기준이며, 코드에서 직접 사용하는 실행 기준은 constants/graphPreviewRules.js에 둔다.
+8. 전체 미리보기의 색상/선두께/프레임/태그/크기 규칙은 graphPreviewRules.js를 우선 기준으로 한다.
 
 ---
 
@@ -109,10 +121,12 @@ features는 그래프의 세부 특징을 보조로 전달한다.
 GraphShopScreen / MyGraphScreen
  → graphCatalog.preview
  → GraphPreviewIcon
+ → graphPreviewRules.js 실행 규칙
 
 DashboardEditScreen
  → widgetCatalog.previewFamily
  → DashboardWidgetPreview
+ → GraphPreviewIcon 위임 대상은 graphPreviewRules.js 실행 규칙
 ```
 
 최종 목표:
@@ -134,6 +148,7 @@ DashboardEditScreen
 - DashboardWidgetPreview 자체 규칙만으로 미리보기 생성
 - widgetCatalog.previewFamily만으로 최종 그래프 미리보기 확정
 - 상점/대시보드/보유그래프가 서로 다른 미리보기 생성 규칙 사용
+- GraphPreviewIcon 내부에 새 룩앤필 값을 계속 하드코딩해서 graphPreviewRules.js와 분리되는 구조
 - 개별 이미지 파일을 수동으로 추가
 
 ---
@@ -143,10 +158,11 @@ DashboardEditScreen
 다른 AI 또는 다른 작업자가 이어받을 때는 아래 순서로 읽는다.
 
 1. docs/GRAPH_PREVIEW_RULE.md
-2. constants/graphCatalog.js
-3. components/GraphPreviewIcon.js
-4. components/dashboard/DashboardWidgetPreview.js
-5. screens/DashboardEditScreen.js
+2. constants/graphPreviewRules.js
+3. constants/graphCatalog.js
+4. components/GraphPreviewIcon.js
+5. components/dashboard/DashboardWidgetPreview.js
+6. screens/DashboardEditScreen.js
 
 ---
 
@@ -154,6 +170,7 @@ DashboardEditScreen
 
 아래 파일 상단에 공식 기준 경로 주석을 둔다.
 
+- constants/graphPreviewRules.js: GraphPreviewIcon이 참조할 실행 규칙 파일
 - components/GraphPreviewIcon.js: OFFICIAL_GRAPH_PREVIEW_RULE: docs/GRAPH_PREVIEW_RULE.md
 - components/dashboard/DashboardWidgetPreview.js: OFFICIAL_GRAPH_PREVIEW_RULE: docs/GRAPH_PREVIEW_RULE.md
 

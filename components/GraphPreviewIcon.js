@@ -20,9 +20,14 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from 'react-native-svg';
+import {
+ GRAPH_PREVIEW_DEFAULT_SIZE,
+ GRAPH_PREVIEW_METRIC_LABELS,
+ GRAPH_PREVIEW_VIEW_BOX,
+} from '../constants/graphPreviewRules';
 
-const VIEW_BOX = 120;
-const DEFAULT_SIZE = 150;
+const VIEW_BOX = GRAPH_PREVIEW_VIEW_BOX;
+const DEFAULT_SIZE = GRAPH_PREVIEW_DEFAULT_SIZE;
 
 const FAMILY = {
   PIE: 'pie',
@@ -32,18 +37,7 @@ const FAMILY = {
   NETWORK: 'network',
 };
 
-const METRIC_LABELS = {
-  count: '횟수',
-  minute: '분',
-  duration: 'D',
-  date: 'D',
-  score: '점',
-  percent: '%',
-  relation: '관계',
-  countMinute: '횟수/분',
-  targetActual: '목표',
-  prediction: '예상',
-};
+const METRIC_LABELS = GRAPH_PREVIEW_METRIC_LABELS;
 
 function hashSeed(seed) {
   const raw = String(seed ?? 'graph');

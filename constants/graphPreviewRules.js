@@ -72,12 +72,20 @@ export const GRAPH_PREVIEW_LINE = Object.freeze({
   maxValue: 85,
   startX: 18,
   stepX: 17,
+  axisStartX: 16,
+  axisEndX: 104,
+  axisTopY: 24,
   baselineY: 92,
   yScale: 0.72,
+  axisStrokeWidth: 2,
   strokeWidth: 4,
   secondaryStrokeWidth: 3,
   dotRadius: 3.2,
   countDotRadius: 4.5,
+  secondLineEvenOffset: 12,
+  secondLineOddOffset: -8,
+  dualDasharray: '5 4',
+  forecastDasharray: '4 4',
 });
 
 // ---- BAR family ----

@@ -24,6 +24,7 @@ import {
  GRAPH_PREVIEW_COLORS,
  GRAPH_PREVIEW_DEFAULT_SIZE,
  GRAPH_PREVIEW_FRAME,
+ GRAPH_PREVIEW_LINE,
  GRAPH_PREVIEW_METRIC_TAG,
  GRAPH_PREVIEW_VIEW_BOX,
  getGraphPreviewMetricLabel,
@@ -186,64 +187,98 @@ function MetricTag({
 }
 
 function LinePreview({ preview }) {
-  const values = makeSeries(preview.seed, 6, 20, 85);
-  const points = values.map((value, index) => ({
-    x: 18 + index * 17,
-    y: 92 - value * 0.72,
-  }));
-  const isSmooth = ['smoothLine', 'curveWithBreak', 'forecastLine'].includes(preview.variant);
-  const isDual = preview.variant === 'dualLine';
-  const isForecast = preview.variant === 'forecastLine';
-  const thePath = isSmooth ? smoothPath(points) : pointPath(points);
-  const secondPoints = points.map((point, index) => ({
-    x: point.x,
-    y: Math.min(92, Math.max(24, point.y + (index % 2 === 0 ? 12 : -8))),
-  }));
+ const lineRule = GRAPH_PREVIEW_LINE;
+ const colors = GRAPH_PREVIEW_COLORS;
+ const values = makeSeries(
+ preview.seed,
+ lineRule.pointCount,
+ lineRule.minValue,
+ lineRule.maxValue,
+ );
+ const points = values.map((value, index) => ({
+ x: lineRule.startX + index * lineRule.stepX,
+ y: lineRule.baselineY - value * lineRule.yScale,
+ }));
+ const isSmooth = ['smoothLine', 'curveWithBreak', 'forecastLine'].includes(preview.variant);
+ const isDual = preview.variant === 'dualLine';
+ const isForecast = preview.variant === 'forecastLine';
+ const thePath = isSmooth ? smoothPath(points) : pointPath(points);
+ const secondPoints = points.map((point, index) => ({
+ x: point.x,
+ y: Math.min(
+ lineRule.baselineY,
+ Math.max(
+ lineRule.axisTopY,
+ point.y + (index % 2 === 0 ? lineRule.secondLineEvenOffset : lineRule.secondLineOddOffset),
+ ),
+ ),
+ }));
 
-  return (
-    <PreviewFrame>
-      <Line x1="16" y1="92" x2="104" y2="92" stroke="#D1D5DB" strokeWidth="2" />
-      <Line x1="16" y1="24" x2="16" y2="92" stroke="#D1D5DB" strokeWidth="2" />
-      <Path d={thePath} fill="none" stroke="#111827" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      {isDual && (
-        <Path
-          d={smoothPath(secondPoints)}
-          fill="none"
-          stroke="#6B7280"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="5 4"
-        />
-      )}
-      {isForecast && (
-        <Path
-          d={`M ${points[3].x} ${points[3].y} L ${points[4].x} ${points[4].y} L ${points[5].x} ${points[5].y}`}
-          fill="none"
-          stroke="#6B7280"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray="4 4"
-        />
-      )}
-      {preview.variant === 'curveWithBreak' && (
-        <G>
-          <Line x1="67" y1="34" x2="76" y2="47" stroke="#111827" strokeWidth="3" strokeLinecap="round" />
-          <Line x1="76" y1="34" x2="67" y2="47" stroke="#111827" strokeWidth="3" strokeLinecap="round" />
-        </G>
-      )}
-      {points.map((point, index) => (
-        <Circle
-          key={`point-${index}`}
-          cx={point.x}
-          cy={point.y}
-          r={preview.metricType === 'count' ? 4.5 : 3.2}
-          fill="#111827"
-        />
-      ))}
-      <MetricTag metricType={preview.metricType} />
-    </PreviewFrame>
-  );
+ return (
+ <PreviewFrame>
+ <Line
+ x1={lineRule.axisStartX}
+ y1={lineRule.baselineY}
+ x2={lineRule.axisEndX}
+ y2={lineRule.baselineY}
+ stroke={colors.axis}
+ strokeWidth={lineRule.axisStrokeWidth}
+ />
+ <Line
+ x1={lineRule.axisStartX}
+ y1={lineRule.axisTopY}
+ x2={lineRule.axisStartX}
+ y2={lineRule.baselineY}
+ stroke={colors.axis}
+ strokeWidth={lineRule.axisStrokeWidth}
+ />
+ <Path
+ d={thePath}
+ fill="none"
+ stroke={colors.primary}
+ strokeWidth={lineRule.strokeWidth}
+ strokeLinecap="round"
+ strokeLinejoin="round"
+ />
+ {isDual && (
+ <Path
+ d={smoothPath(secondPoints)}
+ fill="none"
+ stroke={colors.secondary}
+ strokeWidth={lineRule.secondaryStrokeWidth}
+ strokeLinecap="round"
+ strokeLinejoin="round"
+ strokeDasharray={lineRule.dualDasharray}
+ />
+ )}
+ {isForecast && (
+ <Path
+ d={`M ${points[3].x} ${points[3].y} L ${points[4].x} ${points[4].y} L ${points[5].x} ${points[5].y}`}
+ fill="none"
+ stroke={colors.secondary}
+ strokeWidth={lineRule.secondaryStrokeWidth}
+ strokeLinecap="round"
+ strokeDasharray={lineRule.forecastDasharray}
+ />
+ )}
+ {preview.variant === 'curveWithBreak' && (
+ <G>
+ <Line x1="67" y1="34" x2="76" y2="47" stroke={colors.primary} strokeWidth="3" strokeLinecap="round" />
+ <Line x1="76" y1="34" x2="67" y2="47" stroke={colors.primary} strokeWidth="3" strokeLinecap="round" />
+ </G>
+ )}
+ {points.map((point, index) => (
+ <Circle
+ key={`point-${index}`}
+ cx={point.x}
+ cy={point.y}
+ r={preview.metricType === 'count' ? lineRule.countDotRadius : lineRule.dotRadius}
+ fill={colors.primary}
+ />
+ ))}
+ <MetricTag metricType={preview.metricType} />
+ </PreviewFrame>
+ );
 }
 
 function BarPreview({ preview }) {

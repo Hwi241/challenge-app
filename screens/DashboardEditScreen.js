@@ -2066,12 +2066,118 @@ const getLayoutPreviewSignature = useCallback((items) => {
  }
  }, [challengeId, dashboardTarget, layout, navigation, route?.params, rowGap]);
 
+/**
+ * 작은 카드에서 제목을 좌우로 천천히 움직이는 Marquee.
+ * narrow (w<=3) 카드에서만 활성화.
+ */
+const MARQUEE_START_DELAY_MS = 700;
+const MARQUEE_RESET_DELAY_MS = 420;
+const MARQUEE_PX_PER_SECOND = 26;
+const MARQUEE_MIN_DISTANCE = 18;
+
+function estimateMarqueeTextWidth(content) {
+ const source = String(content ?? '');
+ if (!source) return 0;
+
+ let width = 0;
+ Array.from(source).forEach((char) => {
+ if (/\s/.test(char)) {
+ width += 4;
+ } else if (/[A-Z0-9]/.test(char)) {
+ width += 9.5;
+ } else if (/[a-z]/.test(char)) {
+ width += 8;
+ } else if (/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(char)) {
+ width += 15.5;
+ } else {
+ width += 10;
+ }
+ });
+
+ return Math.ceil(width);
+}
+
+function MarqueeText({ text, style, enabled = true }) {
+ const translateX = useRef(new Animated.Value(0)).current;
+ const [containerWidth, setContainerWidth] = useState(0);
+ const [measuredTextWidth, setMeasuredTextWidth] = useState(0);
+ const content = String(text ?? '');
+ const estimatedTextWidth = useMemo(() => estimateMarqueeTextWidth(content), [content]);
+ const textWidth = Math.max(measuredTextWidth, estimatedTextWidth);
+ const shouldAnimate = enabled && containerWidth > 0 && textWidth > containerWidth + 6;
+
+ useEffect(() => {
+ translateX.stopAnimation();
+ translateX.setValue(0);
+
+ if (!shouldAnimate) {
+ return undefined;
+ }
+
+ const distance = Math.max(MARQUEE_MIN_DISTANCE, textWidth - containerWidth + 30);
+ const duration = Math.max(2200, Math.round((distance / MARQUEE_PX_PER_SECOND) * 1000));
+
+ const loop = Animated.loop(
+ Animated.sequence([
+ Animated.delay(MARQUEE_START_DELAY_MS),
+ Animated.timing(translateX, {
+ toValue: -distance,
+ duration,
+ easing: Easing.linear,
+ useNativeDriver: true,
+ }),
+ Animated.delay(MARQUEE_RESET_DELAY_MS),
+ Animated.timing(translateX, {
+ toValue: 0,
+ duration: 420,
+ easing: Easing.out(Easing.quad),
+ useNativeDriver: true,
+ }),
+ ]),
+ );
+
+ loop.start();
+
+ return () => {
+ loop.stop();
+ translateX.stopAnimation();
+ };
+ }, [content, containerWidth, shouldAnimate, textWidth, translateX]);
+
+ return (
+ <View
+ style={styles.marqueeClip}
+ onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+ >
+ <Animated.Text
+ style={[
+ style,
+ styles.marqueeText,
+ { minWidth: shouldAnimate ? textWidth : undefined },
+ { transform: [{ translateX }] },
+ ]}
+ numberOfLines={1}
+ ellipsizeMode="clip"
+ onTextLayout={(event) => {
+ const measuredWidth = event?.nativeEvent?.lines?.[0]?.width;
+ if (Number.isFinite(Number(measuredWidth)) && Number(measuredWidth) > 0) {
+ setMeasuredTextWidth(Number(measuredWidth));
+ }
+ }}
+ >
+ {content}
+ </Animated.Text>
+ </View>
+ );
+}
+
  const renderGraphCardVisualContent = ({
  titleText,
  displaySizeText,
  cardHeight,
  innerCardHeight,
  isCompactCard,
+ isNarrowTitleCard,
  isResizeActive = false,
  shouldDimOriginalCard = false,
  resizeTouchOpacity = null,
@@ -2106,7 +2212,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
 
  <View style={styles.graphHeader}>
  <View style={styles.graphTitleGroup}>
- <Text style={styles.graphTitle} numberOfLines={1}>{titleText}</Text>
+ <MarqueeText text={titleText} style={styles.graphTitle} enabled={isCompactCard || isNarrowTitleCard} />
  </View>
  <View style={styles.graphSizeBadge}>
  <Text style={styles.graphSizeBadgeText}>{displaySizeText}</Text>
@@ -2116,15 +2222,6 @@ const getLayoutPreviewSignature = useCallback((items) => {
  </View>
 
  {actionOverlay}
-
- {isResizeActive && (
- <View
- pointerEvents="none"
- style={styles.graphMetaCenterLayer}
- >
- <Text style={styles.graphMetaCenter}>{displaySizeText}</Text>
- </View>
- )}
  </View>
  );
 
@@ -2148,20 +2245,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  const safeH = Math.max(1, Number(item.h || 1));
  const isCompactCard = safeH === 1;
  const isNarrowTitleCard = safeW <= 3;
- const compactTitleByWidgetId = {
- overall_progress: '진행률',
- goal_black_box: '목표',
-};
- const compactTitleByText = (() => {
- const text = String(baseTitleText || '');
- if (text.includes('전체') && text.includes('진행')) return '진행률';
- if (text.includes('도전') && text.includes('목표')) return '목표';
- return null;
-})();
-
- const titleText = isNarrowTitleCard
- ? (compactTitleByWidgetId[widgetId] || compactTitleByText || baseTitleText)
- : baseTitleText;
+ const titleText = baseTitleText;
  const cardHeight = getGridItemHeight(safeH);
  const innerCardHeight = Math.max(0, cardHeight - RESIZE_FRAME_INSET * 2);
  const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
@@ -2625,6 +2709,7 @@ isResizeActive && styles.graphCellResizeActive,
  cardHeight,
  innerCardHeight,
  isCompactCard,
+ isNarrowTitleCard,
  isResizeActive,
  shouldDimOriginalCard,
  resizeTouchOpacity,
@@ -2710,6 +2795,7 @@ isResizeActive && styles.graphCellResizeActive,
          cardHeight: overlayH,
          innerCardHeight: overlayInnerHeight,
          isCompactCard: o.isCompactCard,
+         isNarrowTitleCard: o.safeW <= 3,
          isResizeActive: false,
          shouldDimOriginalCard: false,
          actionOverlay: dragMoveCornerOverlay,
@@ -3224,12 +3310,23 @@ graphCardVisualSurface: {
  gap: 8,
  flex: 1,
  minWidth: 0,
+ overflow: 'hidden',
+ },
+ marqueeClip: {
+ flex: 1,
+ minWidth: 0,
+ overflow: 'hidden',
+ },
+ marqueeText: {
+ alignSelf: 'flex-start',
+ flexShrink: 0,
  },
  graphTitle: {
- flexShrink: 1,
  fontSize: 15,
+ lineHeight: 18,
  fontWeight: '800',
  color: '#111',
+ includeFontPadding: false,
  },
  graphSizeBadge: {
  minWidth: 38,
@@ -3270,21 +3367,6 @@ graphCardVisualSurface: {
  fontWeight: '800',
  color: '#444',
  lineHeight: 13,
- includeFontPadding: false,
- },
- graphMetaCenterLayer: {
- ...StyleSheet.absoluteFillObject,
- alignItems: 'center',
- justifyContent: 'center',
- pointerEvents: 'none',
- zIndex: 30,
- elevation: 9,
- },
- graphMetaCenter: {
- fontSize: 15,
- fontWeight: '900',
- color: '#111',
- textAlign: 'center',
  includeFontPadding: false,
  },
  graphCardResizeActive: {

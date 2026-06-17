@@ -463,6 +463,7 @@ export default function DashboardWidgetPreview({
   const family = resolveWidgetPreviewFamily({ previewFamily, widgetId, kind, title, placeholder });
   const rule = PREVIEW_FAMILY_RULES[family] || PREVIEW_FAMILY_RULES.placeholder;
   const compact = safeW <= 2 || safeH <= 2;
+  const tiny = safeH <= 1;
   const graphPreview = buildGraphPreviewFromDashboardPreview({
     family,
     widgetId,
@@ -470,7 +471,7 @@ export default function DashboardWidgetPreview({
     title,
     previewFamily,
   });
-  const graphPreviewSize = compact ? 58 : Math.min(132, Math.max(86, rule.maxHeight || 104));
+  const graphPreviewSize = tiny ? 30 : compact ? 50 : Math.min(96, Math.max(72, rule.maxHeight || 88));
   const isDelegated = !!graphPreview;
   const visual = graphPreview ? (
     <GraphPreviewIcon
@@ -488,15 +489,18 @@ export default function DashboardWidgetPreview({
       style={[
         styles.root,
         compact && styles.rootCompact,
+        tiny && styles.rootTiny,
         isResizeActive && styles.rootResizeActive,
       ]}
     >
       <View
         style={[
           styles.cap,
+          isDelegated && styles.delegatedCap,
+          isDelegated && tiny && styles.delegatedCapTiny,
           !isDelegated && {
             maxWidth: rule.maxWidth,
-            maxHeight: compact ? Math.min(rule.maxHeight, 58) : rule.maxHeight,
+            maxHeight: tiny ? rule.maxHeight : compact ? Math.min(rule.maxHeight, 58) : rule.maxHeight,
           },
         ]}
       >
@@ -523,6 +527,10 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     paddingHorizontal: 2,
   },
+  rootTiny: {
+    paddingTop: 0,
+    paddingHorizontal: 0,
+  },
   rootResizeActive: {
     opacity: 0.62,
   },
@@ -531,6 +539,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  delegatedCap: {
+    maxWidth: '100%',
+    maxHeight: '100%',
+    overflow: 'visible',
+  },
+  delegatedCapTiny: {
+    transform: [{ scale: 0.92 }],
   },
   center: {
     alignItems: 'center',

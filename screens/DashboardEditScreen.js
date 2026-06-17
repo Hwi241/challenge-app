@@ -2198,7 +2198,7 @@ function MarqueeText({ text, style, enabled = true }) {
  height: innerCardHeight,
  margin: RESIZE_FRAME_INSET,
  },
- isCompactCard && { paddingVertical: 8, paddingHorizontal: 12 },
+ isCompactCard && styles.graphCardCompact,
  ]}>
  <Animated.View
  pointerEvents="none"
@@ -2210,12 +2210,12 @@ function MarqueeText({ text, style, enabled = true }) {
  ]}
  />
 
- <View style={styles.graphHeader}>
+ <View style={[styles.graphHeader, isCompactCard && styles.graphHeaderCompact]}>
  <View style={styles.graphTitleGroup}>
  <MarqueeText text={titleText} style={styles.graphTitle} enabled={isCompactCard || isNarrowTitleCard} />
  </View>
- <View style={styles.graphSizeBadge}>
- <Text style={styles.graphSizeBadgeText}>{displaySizeText}</Text>
+ <View style={[styles.graphSizeBadge, isCompactCard && styles.graphSizeBadgeCompact]}>
+ <Text style={[styles.graphSizeBadgeText, isCompactCard && styles.graphSizeBadgeTextCompact]}>{displaySizeText}</Text>
  </View>
  </View>
  {previewNode}
@@ -3283,6 +3283,12 @@ graphCard: {
  borderRadius: 8,
  padding: 12,
  },
+graphCardCompact: {
+ paddingTop: 4,
+ paddingBottom: 2,
+ paddingHorizontal: 8,
+ overflow: 'hidden',
+ },
 graphCardVisualSurface: {
  ...StyleSheet.absoluteFillObject,
  borderRadius: 8,
@@ -3302,6 +3308,10 @@ graphCardVisualSurface: {
  zIndex: 2,
  elevation: 1,
  columnGap: 8,
+ },
+ graphHeaderCompact: {
+ minHeight: 18,
+ marginBottom: 0,
  },
  
  graphTitleGroup: {
@@ -3339,12 +3349,22 @@ graphCardVisualSurface: {
  alignItems: 'center',
  justifyContent: 'center',
  },
+ graphSizeBadgeCompact: {
+ minWidth: 32,
+ height: 18,
+ paddingHorizontal: 5,
+ borderRadius: 9,
+ },
  graphSizeBadgeText: {
  fontSize: 11,
  lineHeight: 13,
  fontWeight: '900',
  color: '#111',
  includeFontPadding: false,
+ },
+ graphSizeBadgeTextCompact: {
+ fontSize: 9,
+ lineHeight: 10,
  },
  removeBtnBottomRight: {
  position: 'absolute',

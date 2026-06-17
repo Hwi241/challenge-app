@@ -471,7 +471,7 @@ export default function DashboardWidgetPreview({
     title,
     previewFamily,
   });
-  const graphPreviewSize = tiny ? 30 : compact ? 50 : Math.min(96, Math.max(72, rule.maxHeight || 88));
+  const graphPreviewSize = tiny ? 24 : compact ? 42 : Math.min(88, Math.max(68, rule.maxHeight || 82));
   const isDelegated = !!graphPreview;
   const visual = graphPreview ? (
     <GraphPreviewIcon
@@ -500,7 +500,7 @@ export default function DashboardWidgetPreview({
           isDelegated && tiny && styles.delegatedCapTiny,
           !isDelegated && {
             maxWidth: rule.maxWidth,
-            maxHeight: tiny ? rule.maxHeight : compact ? Math.min(rule.maxHeight, 58) : rule.maxHeight,
+            maxHeight: tiny ? Math.min(rule.maxHeight, 30) : compact ? Math.min(rule.maxHeight, 58) : rule.maxHeight,
           },
         ]}
       >
@@ -530,6 +530,7 @@ const styles = StyleSheet.create({
   rootTiny: {
     paddingTop: 0,
     paddingHorizontal: 0,
+    transform: [{ scale: 0.86 }],
   },
   rootResizeActive: {
     opacity: 0.62,
@@ -539,14 +540,21 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   delegatedCap: {
     maxWidth: '100%',
     maxHeight: '100%',
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   delegatedCapTiny: {
-    transform: [{ scale: 0.92 }],
+    width: 30,
+    height: 28,
+    maxWidth: 30,
+    maxHeight: 28,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   center: {
     alignItems: 'center',

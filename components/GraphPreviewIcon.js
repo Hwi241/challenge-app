@@ -27,6 +27,7 @@ import {
  GRAPH_PREVIEW_FRAME,
  GRAPH_PREVIEW_LINE,
  GRAPH_PREVIEW_METRIC_TAG,
+ GRAPH_PREVIEW_PIE,
  GRAPH_PREVIEW_VIEW_BOX,
  getGraphPreviewMetricLabel,
 } from '../constants/graphPreviewRules';
@@ -378,39 +379,58 @@ function BarPreview({ preview }) {
 }
 
 function PiePreview({ preview }) {
-  const isDonut = preview.variant === 'donut';
-  const isSegmented = preview.variant === 'segmentedPie';
-  const slices = isSegmented
-    ? [
-        [0, 118, '#111827'],
-        [118, 220, '#6B7280'],
-        [220, 360, '#D1D5DB'],
-      ]
-    : [
-        [0, 246, '#111827'],
-        [246, 360, '#D1D5DB'],
-      ];
+ const pieRule = GRAPH_PREVIEW_PIE;
+ const colors = GRAPH_PREVIEW_COLORS;
+ const isDonut = preview.variant === 'donut';
+ const isSegmented = preview.variant === 'segmentedPie';
+ const slices = isSegmented ? pieRule.segmentedSlices : pieRule.defaultSlices;
+ const sliceStrokeColor = colors[pieRule.sliceStrokeColorKey] || colors.surface;
+ const labelFill = isDonut ? colors.primary : colors.white;
 
-  return (
-    <PreviewFrame>
-      <G>
-        {slices.map(([start, end, fill], index) => (
-          <Path
-            key={`slice-${index}`}
-            d={arcPath(60, 58, 34, start - 90, end - 90)}
-            fill={fill}
-            stroke="#F9FAFB"
-            strokeWidth="2"
-          />
-        ))}
-        {isDonut && <Circle cx="60" cy="58" r="16" fill="#F9FAFB" />}
-      </G>
-      <SvgText x="60" y={isDonut ? 62 : 64} fontSize="12" fontWeight="900" fill={isDonut ? '#111827' : '#FFFFFF'} textAnchor="middle">
-        %
-      </SvgText>
-      <MetricTag metricType={preview.metricType} x={75} y={99} />
-    </PreviewFrame>
-  );
+ return (
+ <PreviewFrame>
+ <G>
+ {slices.map(({ start, end, colorKey }, index) => (
+ <Path
+ key={`slice-${index}`}
+ d={arcPath(
+ pieRule.centerX,
+ pieRule.centerY,
+ pieRule.radius,
+ start + pieRule.startAngleOffset,
+ end + pieRule.startAngleOffset,
+ )}
+ fill={colors[colorKey] || colors.primary}
+ stroke={sliceStrokeColor}
+ strokeWidth={pieRule.sliceStrokeWidth}
+ />
+ ))}
+ {isDonut && (
+ <Circle
+ cx={pieRule.centerX}
+ cy={pieRule.centerY}
+ r={pieRule.donutHoleRadius}
+ fill={sliceStrokeColor}
+ />
+ )}
+ </G>
+ <SvgText
+ x={pieRule.centerX}
+ y={isDonut ? pieRule.donutLabelY : pieRule.labelY}
+ fontSize={pieRule.labelFontSize}
+ fontWeight={pieRule.labelFontWeight}
+ fill={labelFill}
+ textAnchor="middle"
+ >
+ {pieRule.labelText}
+ </SvgText>
+ <MetricTag
+ metricType={preview.metricType}
+ x={pieRule.metricTagX}
+ y={pieRule.metricTagY}
+ />
+ </PreviewFrame>
+ );
 }
 
 function DistributionPreview({ preview }) {

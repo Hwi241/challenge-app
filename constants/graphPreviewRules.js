@@ -120,7 +120,25 @@ export const GRAPH_PREVIEW_PIE = Object.freeze({
   centerY: 58,
   radius: 34,
   donutHoleRadius: 16,
+  startAngleOffset: -90,
+  sliceStrokeWidth: 2,
+  sliceStrokeColorKey: 'surface',
+  defaultSlices: Object.freeze([
+    Object.freeze({ start: 0, end: 246, colorKey: 'primary' }),
+    Object.freeze({ start: 246, end: 360, colorKey: 'axis' }),
+  ]),
+  segmentedSlices: Object.freeze([
+    Object.freeze({ start: 0, end: 118, colorKey: 'primary' }),
+    Object.freeze({ start: 118, end: 220, colorKey: 'secondary' }),
+    Object.freeze({ start: 220, end: 360, colorKey: 'axis' }),
+  ]),
+  labelText: '%',
   labelFontSize: 12,
+  labelFontWeight: '900',
+  labelY: 64,
+  donutLabelY: 62,
+  metricTagX: 75,
+  metricTagY: 99,
 });
 
 // ---- DISTRIBUTION family ----

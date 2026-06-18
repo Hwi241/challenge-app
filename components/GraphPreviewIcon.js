@@ -25,6 +25,7 @@ import {
  GRAPH_PREVIEW_COLORS,
  GRAPH_PREVIEW_DEFAULT_SIZE,
  GRAPH_PREVIEW_DISTRIBUTION,
+ GRAPH_PREVIEW_FALLBACK,
  GRAPH_PREVIEW_FRAME,
  GRAPH_PREVIEW_LINE,
  GRAPH_PREVIEW_METRIC_TAG,
@@ -604,9 +605,12 @@ function NetworkPreview({ preview }) {
 }
 
 function FallbackPreview({ preview }) {
+  const fallbackRule = GRAPH_PREVIEW_FALLBACK;
+  const colors = GRAPH_PREVIEW_COLORS;
+  const strokeColor = colors[fallbackRule.strokeColorKey] || colors.primary;
   return (
     <PreviewFrame>
-      <Polygon points="28,88 48,44 68,70 92,28 102,88" fill="none" stroke="#111827" strokeWidth="5" strokeLinejoin="round" />
+      <Polygon points={fallbackRule.polygonPoints} fill={fallbackRule.polygonFill} stroke={strokeColor} strokeWidth={fallbackRule.strokeWidth} strokeLinejoin={fallbackRule.strokeLinejoin} />
       <MetricTag metricType={preview.metricType} />
     </PreviewFrame>
   );

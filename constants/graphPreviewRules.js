@@ -241,6 +241,15 @@ export const GRAPH_PREVIEW_NETWORK = Object.freeze({
   ]),
 });
 
+// ---- Fallback preview (for unknown families) ----
+export const GRAPH_PREVIEW_FALLBACK = Object.freeze({
+  polygonPoints: '28,88 48,44 68,70 92,28 102,88',
+  polygonFill: 'none',
+  strokeColorKey: 'primary',
+  strokeWidth: 5,
+  strokeLinejoin: 'round',
+});
+
 // ---- Size presets ----
 export const GRAPH_PREVIEW_SIZE = Object.freeze({
   default: GRAPH_PREVIEW_DEFAULT_SIZE,

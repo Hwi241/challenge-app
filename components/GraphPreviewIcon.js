@@ -28,6 +28,7 @@ import {
  GRAPH_PREVIEW_FRAME,
  GRAPH_PREVIEW_LINE,
  GRAPH_PREVIEW_METRIC_TAG,
+ GRAPH_PREVIEW_NETWORK,
  GRAPH_PREVIEW_PIE,
  GRAPH_PREVIEW_VIEW_BOX,
  getGraphPreviewMetricLabel,
@@ -567,45 +568,37 @@ function DistributionPreview({ preview }) {
 }
 
 function NetworkPreview({ preview }) {
+  const networkRule = GRAPH_PREVIEW_NETWORK;
+  const colors = GRAPH_PREVIEW_COLORS;
   const isCluster = preview.variant === 'clusterNetwork';
-  const nodes = isCluster
-    ? [
-        [33, 35, 7], [58, 31, 9], [82, 42, 7],
-        [40, 72, 8], [67, 76, 7], [91, 71, 6],
-      ]
-    : [
-        [36, 38, 8], [68, 31, 9], [86, 62, 7], [47, 78, 8], [74, 85, 6],
-      ];
-
-  const links = isCluster
-    ? [[0, 1], [1, 2], [1, 3], [3, 4], [4, 5], [2, 5], [0, 3]]
-    : [[0, 1], [1, 2], [1, 3], [3, 4], [2, 4]];
+  const nodes = isCluster ? networkRule.clusterNodes : networkRule.defaultNodes;
+  const links = isCluster ? networkRule.clusterLinks : networkRule.defaultLinks;
 
   return (
     <PreviewFrame>
       {links.map(([from, to], index) => (
         <Line
           key={`link-${index}`}
-          x1={nodes[from][0]}
-          y1={nodes[from][1]}
-          x2={nodes[to][0]}
-          y2={nodes[to][1]}
-          stroke="#9CA3AF"
-          strokeWidth={isCluster ? 2.8 : 2.2}
+          x1={nodes[from].x}
+          y1={nodes[from].y}
+          x2={nodes[to].x}
+          y2={nodes[to].y}
+          stroke={colors[networkRule.linkColorKey]}
+          strokeWidth={isCluster ? networkRule.clusterLinkWidth : networkRule.linkWidth}
         />
       ))}
-      {nodes.map(([x, y, r], index) => (
+      {nodes.map((node, index) => (
         <Circle
           key={`node-${index}`}
-          cx={x}
-          cy={y}
-          r={r}
-          fill={index === 1 ? '#111827' : '#F9FAFB'}
-          stroke="#111827"
-          strokeWidth="3"
+          cx={node.x}
+          cy={node.y}
+          r={node.r}
+          fill={index === networkRule.primaryNodeIndex ? colors[networkRule.primaryNodeFillColorKey] : colors[networkRule.secondaryNodeFillColorKey]}
+          stroke={colors[networkRule.nodeStrokeColorKey]}
+          strokeWidth={networkRule.nodeStrokeWidth}
         />
       ))}
-      <MetricTag metricType={preview.metricType} x={72} y={101} />
+      <MetricTag metricType={preview.metricType} x={networkRule.metricTagX} y={networkRule.metricTagY} />
     </PreviewFrame>
   );
 }

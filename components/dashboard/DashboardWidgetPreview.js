@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import GraphPreviewIcon from '../GraphPreviewIcon';
 import { GRAPH_PREVIEW_FAMILIES, GRAPH_METRIC_TYPES } from '../../constants/graphCatalog';
 
@@ -164,49 +164,6 @@ export const resolveWidgetPreviewFamily = ({ previewFamily, widgetId, kind, titl
 
 const isMonthlyBar = (widgetId) => String(widgetId || '').toLowerCase().includes('monthly');
 
-const BarVisual = ({ compact, monthly }) => {
-  const values = monthly
-    ? [0.38, 0.58, 0.46, 0.78, 0.52, 0.68]
-    : [0.32, 0.72, 0.48, 0.88, 0.58, 0.76, 0.42];
-
-  return (
-    <View style={[styles.barWrap, compact && styles.barWrapCompact]}>
-      {values.map((value, index) => (
-        <View key={`bar-${index}`} style={styles.barItem}>
-          <View style={[styles.barTrack, compact && styles.barTrackCompact]}>
-            <View style={[styles.barFill, { height: `${Math.max(14, value * 100)}%` }]} />
-          </View>
-          {!compact && <View style={styles.barDot} />}
-        </View>
-      ))}
-    </View>
-  );
-};
-
-const LineVisual = ({ compact }) => {
-  const width = compact ? 124 : 198;
-  const height = compact ? 52 : 88;
-  const pathD = compact
-    ? 'M7 41 L28 32 L50 36 L74 20 L96 26 L117 12'
-    : 'M8 70 L42 54 L76 60 L111 31 L150 41 L190 15';
-  const dots = compact
-    ? [[7, 41], [28, 32], [50, 36], [74, 20], [96, 26], [117, 12]]
-    : [[8, 70], [42, 54], [76, 60], [111, 31], [150, 41], [190, 15]];
-
-  return (
-    <View style={styles.svgWrap}>
-      <Svg width="100%" height={compact ? 58 : 96} viewBox={`0 0 ${width} ${height}`}>
-        <Path d={`${pathD} L${width - 7} ${height - 9} L7 ${height - 9} Z`} fill={GREY_1} />
-        <Path d={pathD} fill="none" stroke={BLACK} strokeWidth={compact ? 2 : 2.4} strokeLinecap="round" strokeLinejoin="round" />
-        {dots.map(([cx, cy], index) => (
-          <Circle key={`line-dot-${index}`} cx={cx} cy={cy} r={compact ? 2.2 : 2.8} fill={BLACK} />
-        ))}
-        <Path d={`M7 ${height - 8.5} L${width - 7} ${height - 8.5}`} stroke={GREY_3} strokeWidth={1} />
-      </Svg>
-    </View>
-  );
-};
-
 const CalendarVisual = ({ compact }) => {
   const cells = compact ? 21 : 35;
   const active = new Set([2, 4, 8, 11, 12, 16, 20, 23, 25, 28, 31]);
@@ -224,65 +181,6 @@ const CalendarVisual = ({ compact }) => {
           ]}
         />
       ))}
-    </View>
-  );
-};
-
-const HeatmapVisual = ({ compact }) => {
-  const rows = [
-    [0.16, 0.28, 0.54, 0.18, 0.76, 0.38, 0.22],
-    [0.34, 0.86, 0.24, 0.48, 0.30, 0.66, 0.42],
-    [0.18, 0.44, 0.78, 0.34, 0.56, 0.24, 0.64],
-    [0.26, 0.16, 0.46, 0.70, 0.32, 0.54, 0.28],
-  ];
-  const visibleRows = compact ? rows.slice(0, 3) : rows;
-
-  return (
-    <View style={styles.heatmapWrap}>
-      {visibleRows.map((row, rowIndex) => (
-        <View key={`hm-row-${rowIndex}`} style={styles.heatmapRow}>
-          {row.map((opacity, colIndex) => (
-            <View
-              key={`hm-${rowIndex}-${colIndex}`}
-              style={[
-                styles.heatmapCell,
-                compact && styles.heatmapCellCompact,
-                { backgroundColor: `rgba(17,17,17,${opacity})` },
-              ]}
-            />
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-};
-
-const DonutVisual = ({ compact }) => {
-  const size = compact ? 48 : 72;
-  const stroke = compact ? 8 : 11;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const dash = c * 0.64;
-
-  return (
-    <View style={styles.center}>
-      <Svg width={size} height={size}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={GREY_2} strokeWidth={stroke} fill="none" />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke={BLACK}
-          strokeWidth={stroke}
-          fill="none"
-          strokeDasharray={`${dash} ${c - dash}`}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${size / 2}, ${size / 2}`}
-        />
-        <Circle cx={size / 2} cy={size / 2} r={Math.max(3, r - stroke * 1.06)} fill={BLACK} />
-      </Svg>
-      {!compact && <Text style={styles.donutText}>64%</Text>}
     </View>
   );
 };

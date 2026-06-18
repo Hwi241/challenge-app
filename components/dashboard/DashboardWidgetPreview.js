@@ -124,11 +124,13 @@ const buildGraphPreviewFromDashboardPreview = ({ family, widgetId, kind, title, 
   };
 };
 
-const BLACK = '#111111';
-const GREY_1 = '#F3F4F6';
-const GREY_2 = '#E5E7EB';
-const GREY_3 = '#D1D5DB';
-const GREY_4 = '#9CA3AF';
+const DASHBOARD_WIDGET_PREVIEW_COLORS = Object.freeze({
+  primary: '#111111',
+  surface: '#F3F4F6',
+  track: '#E5E7EB',
+  axis: '#D1D5DB',
+  muted: '#9CA3AF',
+});
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || min));
 
@@ -195,12 +197,12 @@ const ProgressVisual = ({ compact }) => {
   return (
     <View style={styles.center}>
       <Svg width={size} height={size}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={GREY_2} strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={DASHBOARD_WIDGET_PREVIEW_COLORS.track} strokeWidth={stroke} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={BLACK}
+          stroke={DASHBOARD_WIDGET_PREVIEW_COLORS.primary}
           strokeWidth={stroke}
           fill="none"
           strokeDasharray={`${dash} ${c - dash}`}
@@ -305,13 +307,13 @@ const PulseVisual = ({ compact }) => {
       <Svg width="100%" height={compact ? 52 : 82} viewBox={`0 0 ${width} ${height}`}>
         <Path
           d={`M7 ${mid} L28 ${mid} L38 ${mid - 18} L50 ${mid + 16} L64 ${mid - 8} L80 ${mid} L${width - 7} ${mid}`}
-          stroke={BLACK}
+          stroke={DASHBOARD_WIDGET_PREVIEW_COLORS.primary}
           strokeWidth={compact ? 2 : 2.4}
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <Path d={`M7 ${mid + 18} L${width - 7} ${mid + 18}`} stroke={GREY_3} strokeWidth={1} />
+        <Path d={`M7 ${mid + 18} L${width - 7} ${mid + 18}`} stroke={DASHBOARD_WIDGET_PREVIEW_COLORS.axis} strokeWidth={1} />
       </Svg>
     </View>
   );
@@ -488,7 +490,7 @@ const styles = StyleSheet.create({
     width: 11,
     height: 68,
     borderRadius: 6,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
@@ -500,13 +502,13 @@ const styles = StyleSheet.create({
   barFill: {
     width: '100%',
     borderRadius: 6,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   barDot: {
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: GREY_3,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.axis,
     marginTop: 6,
   },
 
@@ -527,7 +529,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 15,
     borderRadius: 4,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
   },
   calendarCellCompact: {
     width: 6,
@@ -535,11 +537,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   calendarCellActive: {
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   calendarCellToday: {
     borderWidth: 1,
-    borderColor: BLACK,
+    borderColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
     backgroundColor: '#FFFFFF',
   },
 
@@ -579,7 +581,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   progressText: {
-    color: BLACK,
+    color: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
     fontSize: 13,
     lineHeight: 15,
     fontWeight: '900',
@@ -594,7 +596,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 190,
     borderRadius: 14,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
     padding: 14,
     alignSelf: 'center',
   },
@@ -639,7 +641,7 @@ const styles = StyleSheet.create({
     fontSize: 36,
     lineHeight: 40,
     fontWeight: '900',
-    color: BLACK,
+    color: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
     includeFontPadding: false,
   },
   kpiNumberCompact: {
@@ -650,7 +652,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 6,
     borderRadius: 3,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
     marginTop: 6,
   },
 
@@ -662,7 +664,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: GREY_1,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -675,14 +677,14 @@ const styles = StyleSheet.create({
     width: 13,
     height: 13,
     borderRadius: 7,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   avatarBody: {
     width: 28,
     height: 12,
     borderTopLeftRadius: 14,
     borderTopRightRadius: 14,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
     marginTop: 4,
   },
   profileTextWrap: {
@@ -694,13 +696,13 @@ const styles = StyleSheet.create({
     width: 58,
     height: 6,
     borderRadius: 3,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   profileLine: {
     width: 78,
     height: 5,
     borderRadius: 3,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
   },
 
   batteryWrap: {
@@ -713,7 +715,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 16,
     borderRadius: 8,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
     overflow: 'hidden',
   },
   batteryTrackCompact: {
@@ -724,13 +726,13 @@ const styles = StyleSheet.create({
     width: '72%',
     height: '100%',
     borderRadius: 8,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   batteryTextLine: {
     width: '42%',
     height: 6,
     borderRadius: 3,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
     marginTop: 9,
   },
 
@@ -752,13 +754,13 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   connectLine: {
     flex: 1,
     height: 7,
     borderRadius: 4,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
   },
 
   memoWrap: {
@@ -774,19 +776,19 @@ const styles = StyleSheet.create({
     width: '82%',
     height: 7,
     borderRadius: 4,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   memoLine: {
     width: '100%',
     height: 7,
     borderRadius: 4,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
   },
   memoLineShort: {
     width: '58%',
     height: 7,
     borderRadius: 4,
-    backgroundColor: GREY_1,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.surface,
   },
 
   boardWrap: {
@@ -806,26 +808,26 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 32,
     borderRadius: 9,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   boardBlockLight: {
     flex: 1,
     height: 32,
     borderRadius: 9,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
   },
   boardLine: {
     width: '100%',
     height: 7,
     borderRadius: 4,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
     marginBottom: 7,
   },
   boardLineShort: {
     width: '68%',
     height: 7,
     borderRadius: 4,
-    backgroundColor: GREY_1,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.surface,
   },
 
   themeWrap: {
@@ -845,7 +847,7 @@ const styles = StyleSheet.create({
     width: 54,
     height: 42,
     borderRadius: 10,
-    backgroundColor: BLACK,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
   },
   themeMid: {
     position: 'absolute',
@@ -854,14 +856,14 @@ const styles = StyleSheet.create({
     width: 54,
     height: 42,
     borderRadius: 10,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
   },
   themeLight: {
     width: 54,
     height: 42,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: BLACK,
+    borderColor: DASHBOARD_WIDGET_PREVIEW_COLORS.primary,
     backgroundColor: '#FFFFFF',
     zIndex: 2,
   },
@@ -875,11 +877,11 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 13,
     borderWidth: 1.5,
-    borderColor: GREY_3,
+    borderColor: DASHBOARD_WIDGET_PREVIEW_COLORS.axis,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GREY_1,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.surface,
   },
   placeholderBoxCompact: {
     width: 30,
@@ -890,14 +892,14 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 24,
     fontWeight: '800',
-    color: GREY_4,
+    color: DASHBOARD_WIDGET_PREVIEW_COLORS.muted,
     includeFontPadding: false,
   },
   placeholderLine: {
     width: 58,
     height: 6,
     borderRadius: 3,
-    backgroundColor: GREY_2,
+    backgroundColor: DASHBOARD_WIDGET_PREVIEW_COLORS.track,
     marginTop: 8,
   },
 });

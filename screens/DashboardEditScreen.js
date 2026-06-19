@@ -23,6 +23,12 @@ import {
  getWidgetById,
  supportsWidgetTarget,
 } from '../constants/widgetCatalog';
+import { getPurchasedGraphIds } from '../utils/graphOwnership';
+import {
+ getPurchasedDashboardGraphWidgets,
+ isDashboardGraphRendererWidget,
+ isLegacyWidgetCatalogShopItem,
+} from '../utils/graphDashboardBridge';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
@@ -558,6 +564,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const layoutRef = useRef([]);
  const [rowGap, setRowGap] = useState(DASHBOARD_ROW_GAP_DEFAULT);
  const [pickerVisible, setPickerVisible] = useState(false);
+ const [purchasedGraphIds, setPurchasedGraphIds] = useState([]);
  const [loading, setLoading] = useState(true);
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
  const [draggingOriginalWidgetId, setDraggingOriginalWidgetId] = useState(null);
@@ -639,6 +646,27 @@ const setDashboardLayoutImmediate = useCallback((updater) => {
  useEffect(() => {
  loadLayout();
  }, [loadLayout]);
+
+ useEffect(() => {
+ let alive = true;
+
+ async function loadPurchasedGraphs() {
+   try {
+     const ids = await getPurchasedGraphIds();
+     if (alive) setPurchasedGraphIds(ids);
+   } catch (err) {
+     console.warn('[DashboardEdit] loadPurchasedGraphs error', err);
+   }
+ }
+
+ if (pickerVisible) {
+   loadPurchasedGraphs();
+ }
+
+ return () => {
+   alive = false;
+ };
+ }, [pickerVisible]);
 
  useEffect(() => {
  return () => {
@@ -1433,13 +1461,28 @@ const layoutRows = useMemo(() => {
  ? getDashboardEditableWidgets(dashboardTarget)
  : [];
 
- return sourceWidgets.filter((widget) => {
- const id = widget?.id || widget?.widgetId;
- if (!id || placedIds.has(id)) return false;
- if (typeof supportsWidgetTarget === 'function' && !supportsWidgetTarget(widget, dashboardTarget)) return false;
- return true;
+ // Non-graph widgets: legacy catalog widgets that are NOT graph renderers and NOT legacy shop items
+ const nonGraphWidgets = sourceWidgets.filter((widget) => {
+   const id = widget?.id || widget?.widgetId;
+   if (!id || placedIds.has(id)) return false;
+   if (typeof supportsWidgetTarget === 'function' && !supportsWidgetTarget(widget, dashboardTarget)) return false;
+   // Exclude graph renderer widgets and legacy shop items (they'll come from graph ownership)
+   if (isDashboardGraphRendererWidget(widget)) return false;
+   if (isLegacyWidgetCatalogShopItem(widget)) return false;
+   return true;
  });
- }, [dashboardTarget, placedIds]);
+
+ // Owned graph-based widgets
+ const ownedGraphWidgets = getPurchasedDashboardGraphWidgets(
+   Array.isArray(purchasedGraphIds) ? purchasedGraphIds : [],
+   dashboardTarget
+ ).filter((widget) => {
+   const id = widget?.id || widget?.widgetId;
+   return id && !placedIds.has(id);
+ });
+
+ return [...nonGraphWidgets, ...ownedGraphWidgets];
+ }, [dashboardTarget, placedIds, purchasedGraphIds]);
 
  const addGraph = useCallback((widget) => {
  resetResizeInteractionState();
@@ -1458,6 +1501,10 @@ const layoutRows = useMemo(() => {
    y: 0,
    w: Math.max(1, Math.min(GRID_COLUMNS, Number(widget?.defaultSize?.w || GRID_COLUMNS))),
    h: Math.max(1, Number(widget?.defaultSize?.h || 1)),
+   graphId: widget?.graphId,
+   graphCatalogId: widget?.graphCatalogId,
+   graphTitle: widget?.graphTitle,
+   isGraphCatalogBacked: widget?.isGraphCatalogBacked ?? false,
  };
 
  return compactDashboardLayoutSpaces(

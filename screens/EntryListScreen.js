@@ -2595,7 +2595,7 @@ export default function EntryListScreen({ route, navigation }) {
       try {
         const [result, storedRowGap] = await Promise.all([
           getDashboardLayoutStateForChallenge(challengeId, dashboardTarget),
-          getDashboardRowGapForChallenge(challengeId),
+          getDashboardRowGapForChallenge(challengeId, dashboardTarget),
         ]);
         console.log('[DASHBOARD_DEBUG_LOAD_RESULT]', {
           challengeId,
@@ -3320,24 +3320,60 @@ const runWeek = useCallback(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, challengeId, reloadTick, buildWeeks, reloadNonce]);
 
-  // dashboardEditReturnedAt 감지 — 저장 복귀 시 intro 스킵
+  // dashboardEditReturnedAt 감지 — 저장 복귀 시 저장된 dashboard layout 즉시 재로드
   useEffect(() => {
-        if (!dashboardEditReturnedAt) return;
+    if (!dashboardEditReturnedAt) return undefined;
 
+    let cancelled = false;
     const normalizedMode = dashboardEditReturnMode === 'save' ? 'save' : 'cancel';
     const suppressUntil = Date.now() + 2500;
 
-    if (normalizedMode === 'save') {
-      if (Array.isArray(dashboardEditLayout) && dashboardEditLayout.length > 0) {
-        setDashboardLayout(dashboardEditLayout.map((item) => ({ ...item })));
-        setDashboardLayoutHasStored(true);
-      }
+    const applySavedDashboardLayout = async () => {
+      if (normalizedMode !== 'save') return;
 
-      const numericRowGap = Number(dashboardEditRowGap);
-      if (Number.isFinite(numericRowGap) && numericRowGap >= 0) {
-        setDashboardRowGap(numericRowGap);
+      try {
+        const [result, storedRowGap] = await Promise.all([
+          getDashboardLayoutStateForChallenge(challengeId, dashboardTarget),
+          getDashboardRowGapForChallenge(challengeId, dashboardTarget),
+        ]);
+
+        if (cancelled) return;
+
+        const storedLayout = Array.isArray(result?.layout)
+          ? result.layout.map(item => ({...item}))
+          : [];
+
+        if (storedLayout.length > 0) {
+          setDashboardLayout(storedLayout);
+          setDashboardLayoutHasStored(Boolean(result?.hasStoredLayout));
+        } else if (Array.isArray(dashboardEditLayout) && dashboardEditLayout.length > 0) {
+          setDashboardLayout(dashboardEditLayout.map(item => ({...item})));
+          setDashboardLayoutHasStored(true);
+        }
+
+        const numericStoredRowGap = Number(storedRowGap);
+        if (Number.isFinite(numericStoredRowGap) && numericStoredRowGap >= 0) {
+          setDashboardRowGap(numericStoredRowGap);
+        } else {
+          const numericRouteRowGap = Number(dashboardEditRowGap);
+          if (Number.isFinite(numericRouteRowGap) && numericRouteRowGap >= 0) {
+            setDashboardRowGap(numericRouteRowGap);
+          }
+        }
+
+        setReloadNonce(nonce => nonce + 1);
+      } catch (error) {
+        // fallback to route params
+        if (Array.isArray(dashboardEditLayout) && dashboardEditLayout.length > 0) {
+          setDashboardLayout(dashboardEditLayout.map(item => ({...item})));
+          setDashboardLayoutHasStored(true);
+        }
+        const numRg = Number(dashboardEditRowGap);
+        if (Number.isFinite(numRg) && numRg >= 0) setDashboardRowGap(numRg);
       }
-    }
+    };
+
+    applySavedDashboardLayout();
 
     dashboardReturnModeRef.current = normalizedMode;
     dashboardReturnIntroHandledRef.current = false;
@@ -3370,7 +3406,9 @@ const runWeek = useCallback(() => {
     } else {
       setIntroK(1);
     }
-  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap, cancelWidgetTapAnimations, setAllWidgetTapK]);
+
+    return () => { cancelled = true; };
+  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap, cancelWidgetTapAnimations, setAllWidgetTapK, challengeId, dashboardTarget, getDashboardLayoutStateForChallenge, getDashboardRowGapForChallenge, setReloadNonce]);
 
   // focus 해제 시 저장 복귀 skip ref 초기화
   useEffect(() => {

@@ -2816,7 +2816,7 @@ isResizeActive && styles.graphCellResizeActive,
          width: overlayCornerWidth,
          height: overlayH,
          edgeOffset: RESIZE_CORNER_OUTSET,
-         showDiagonal: Boolean(activeDiagonalCorner),
+         showDiagonal: false,
          showGrid: false,
        })}
      </View>

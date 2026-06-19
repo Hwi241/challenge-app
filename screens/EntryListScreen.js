@@ -3576,10 +3576,8 @@ const runWeek = useCallback(() => {
     const GRID_CELL_PADDING_VIEW = 4;
     const DASHBOARD_BOARD_SIDE_BLEED = 4;
 
-    const effectiveGridColumns = isWideDashboardLayout
-      ? WIDE_GRID_COLUMNS
-      : GRID_COLUMNS;
-    const shouldUseWideReflow = isWideDashboardLayout;
+    const effectiveGridColumns = GRID_COLUMNS;
+    const shouldUseWideReflow = false;
     const isDashboardEditDisabled = !isShare && isWideDashboardLayout;
 
     const baseSafeLayout = baseLayout

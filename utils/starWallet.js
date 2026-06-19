@@ -10,7 +10,7 @@ export const STAR_KEYS = {
 };
 
 export const INITIAL_TEST_STARS = 2000;
-export const MAX_STARS = 9999;
+export const MAX_STARS = 10000;
 export const MIN_STARS = -5;
 
 const parseJson = (raw, fallback) => {

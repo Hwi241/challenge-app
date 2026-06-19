@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import NotificationDefaultsScreen from './screens/NotificationDefaultsScreen';
 import ChallengeListScreen from './screens/ChallengeListScreen';
@@ -31,6 +32,9 @@ import { colors } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
 import { cleanExpiredTrash } from './utils/trash';
 import { initializeNotificationsAsync } from './utils/notificationScheduler';
+import { PURCHASED_GRAPHS_KEY } from './utils/graphOwnership';
+import { DASHBOARD_LAYOUTS_KEY, DASHBOARD_ROW_GAPS_KEY } from './utils/dashboardLayout';
+import { STAR_KEYS } from './utils/starWallet';
 import DashboardEditScreen from './screens/DashboardEditScreen';
 
 const Stack = createNativeStackNavigator();
@@ -81,6 +85,66 @@ function StartupScreen() {
   );
 }
 
+const DEV_GRAPH_LINK_RESET_ONCE_KEY = 'dev_graph_link_reset_20260618_v1';
+const DEV_GRAPH_LINK_RESET_STAR_BALANCE = 10000;
+const LEGACY_DASHBOARD_GRAPH_WIDGET_IDS = new Set([
+  'weekly_bar',
+  'line_count_cumulative',
+  'line_minutes',
+  'grass_graph',
+]);
+
+const parseJsonSafe = (raw, fallback) => {
+  try {
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const removeLegacyGraphWidgetsFromLayoutMap = (layoutMap) => {
+  if (!layoutMap || typeof layoutMap !== 'object' || Array.isArray(layoutMap)) return {};
+
+  return Object.entries(layoutMap).reduce((nextMap, [key, value]) => {
+    if (!Array.isArray(value)) {
+      nextMap[key] = value;
+      return nextMap;
+    }
+
+    const filteredLayout = value.filter((item) => {
+      const widgetId = String(item?.widgetId || item?.id || item?.i || '');
+      return !LEGACY_DASHBOARD_GRAPH_WIDGET_IDS.has(widgetId);
+    });
+
+    nextMap[key] = filteredLayout;
+    return nextMap;
+  }, {});
+};
+
+const runGraphLinkResetOnce = async () => {
+  const alreadyDone = await AsyncStorage.getItem(DEV_GRAPH_LINK_RESET_ONCE_KEY);
+  if (alreadyDone === '1') return;
+
+  const rawLayoutMap = await AsyncStorage.getItem(DASHBOARD_LAYOUTS_KEY);
+  const layoutMap = parseJsonSafe(rawLayoutMap, {});
+  const cleanedLayoutMap = removeLegacyGraphWidgetsFromLayoutMap(layoutMap);
+
+  await AsyncStorage.multiSet([
+    [PURCHASED_GRAPHS_KEY, JSON.stringify([])],
+    [DASHBOARD_LAYOUTS_KEY, JSON.stringify(cleanedLayoutMap)],
+    [STAR_KEYS.wallet, JSON.stringify({
+      balance: DEV_GRAPH_LINK_RESET_STAR_BALANCE,
+      updatedAt: Date.now(),
+    })],
+    [STAR_KEYS.bootstrap, '1'],
+    [DEV_GRAPH_LINK_RESET_ONCE_KEY, '1'],
+  ]);
+
+  await AsyncStorage.removeItem(DASHBOARD_ROW_GAPS_KEY);
+
+  console.log('[GraphLinkReset] reset graph ownership, dashboard graph widgets, and star wallet once');
+};
+
 export default function App() {
   const [showStartup, setShowStartup] = useState(true);
 
@@ -120,6 +184,13 @@ export default function App() {
   // 휴지통 만료 항목 자동 정리 (30일 경과)
   useEffect(() => {
     cleanExpiredTrash(30);
+  }, []);
+
+  // 633 migration: 그래프 연동 준비 1회 리셋 + 별 10000개 지급
+  useEffect(() => {
+    runGraphLinkResetOnce().catch((error) => {
+      console.warn('[GraphLinkReset] reset failed:', error);
+    });
   }, []);
 
   return (

@@ -23,6 +23,12 @@ import {
  getWidgetById,
  supportsWidgetTarget,
 } from '../constants/widgetCatalog';
+import { getPurchasedGraphIds } from '../utils/graphOwnership';
+import {
+  getPurchasedGraphWidgets,
+  isDashboardGraphRendererWidget,
+  isLegacyWidgetCatalogShopItem,
+} from '../utils/graphDashboardBridge';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
@@ -286,6 +292,10 @@ const reflowDashboardLayoutWithFixedItem = (layout = [], fixedWidgetId, fixedFra
  });
 
  return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+};
+
+const buildResizedLayoutWithReflow = (layout, widgetId, nextFrame, options = {}) => {
+  return reflowDashboardLayoutWithFixedItem(layout, widgetId, nextFrame);
 };
 
 const clampDashboardResizeSize = (widgetId, rawW, rawH, bounds = {}) => {
@@ -559,6 +569,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [rowGap, setRowGap] = useState(DASHBOARD_ROW_GAP_DEFAULT);
  const [pickerVisible, setPickerVisible] = useState(false);
  const [loading, setLoading] = useState(true);
+ const [purchasedGraphIds, setPurchasedGraphIds] = useState([]);
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
  const [draggingOriginalWidgetId, setDraggingOriginalWidgetId] = useState(null);
  const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
@@ -652,6 +663,27 @@ const setDashboardLayoutImmediate = useCallback((updater) => {
    }
  };
  }, []);
+
+useEffect(() => {
+   let alive = true;
+
+   const loadPurchasedGraphs = async () => {
+     try {
+       const ids = await getPurchasedGraphIds();
+       if (!alive) return;
+       setPurchasedGraphIds(Array.isArray(ids) ? ids : []);
+     } catch (error) {
+       console.warn('[DashboardEditScreen] load purchased graphs failed:', error?.message || error);
+       if (alive) setPurchasedGraphIds([]);
+     }
+   };
+
+   loadPurchasedGraphs();
+
+   return () => {
+     alive = false;
+   };
+ }, [pickerVisible]);
 
 useEffect(() => {
  const dashAnim = resizeDashAnimRef.current;
@@ -1425,29 +1457,39 @@ const layoutRows = useMemo(() => {
 
  return { rowY, slots };
  });
- }, [displayLayout]);
+ }, [displayLayout]);  const pickerWidgets = useMemo(() => {
+    const sourceWidgets = typeof getDashboardEditableWidgets === 'function'
+      ? getDashboardEditableWidgets(dashboardTarget)
+      : [];
 
+    const nonGraphWidgets = sourceWidgets.filter((widget) => {
+      const id = widget?.id || widget?.widgetId;
+      if (!id || placedIds.has(id)) return false;
+      if (isLegacyWidgetCatalogShopItem(widget)) return false;
+      if (isDashboardGraphRendererWidget(widget)) return false;
+      if (typeof supportsWidgetTarget === 'function' && !supportsWidgetTarget(widget, dashboardTarget)) return false;
+      return true;
+    });
 
- const pickerWidgets = useMemo(() => {
- const sourceWidgets = typeof getDashboardEditableWidgets === 'function'
- ? getDashboardEditableWidgets(dashboardTarget)
- : [];
+    const ownedGraphWidgets = getPurchasedGraphWidgets(purchasedGraphIds, dashboardTarget)
+      .filter((widget) => {
+        const id = widget?.id || widget?.widgetId;
+        if (!id || placedIds.has(id)) return false;
+        if (typeof supportsWidgetTarget === 'function' && !supportsWidgetTarget(widget, dashboardTarget)) return false;
+        return true;
+      });
 
- return sourceWidgets.filter((widget) => {
- const id = widget?.id || widget?.widgetId;
- if (!id || placedIds.has(id)) return false;
- if (typeof supportsWidgetTarget === 'function' && !supportsWidgetTarget(widget, dashboardTarget)) return false;
- return true;
- });
- }, [dashboardTarget, placedIds]);
+    return [...nonGraphWidgets, ...ownedGraphWidgets];
+  }, [dashboardTarget, placedIds, purchasedGraphIds]);
 
- const addGraph = useCallback((widget) => {
+  const addGraph = useCallback((widget) => {
  resetResizeInteractionState();
 
  const widgetId = widget?.id || widget?.widgetId;
  if (!widgetId) return;
 
  setDashboardLayoutImmediate((current) => {
+
  if (current.some(item => (item.widgetId || item.id) === widgetId)) return current;
 
  const nextItem = {
@@ -1458,6 +1500,10 @@ const layoutRows = useMemo(() => {
    y: 0,
    w: Math.max(1, Math.min(GRID_COLUMNS, Number(widget?.defaultSize?.w || GRID_COLUMNS))),
    h: Math.max(1, Number(widget?.defaultSize?.h || 1)),
+   graphId: widget?.graphId || widget?.graphCatalogId || undefined,
+   graphCatalogId: widget?.graphCatalogId || widget?.graphId || undefined,
+   graphTitle: widget?.graphTitle || widget?.title || undefined,
+   isGraphCatalogBacked: widget?.isGraphCatalogBacked === true || false,
  };
 
  return compactDashboardLayoutSpaces(
@@ -1469,304 +1515,19 @@ const layoutRows = useMemo(() => {
 
  setPickerVisible(false);
  }, [dashboardTarget, resetResizeInteractionState, setDashboardLayoutImmediate]);
- const moveGraph = useCallback((widgetId, direction) => {
-  setDashboardLayoutImmediate((current) => {
-    const source = Array.isArray(current) ? current.map(normalizeLayoutItem) : [];
-    const movingItem = source.find((item) => item.widgetId === widgetId);
-    if (!movingItem) return current;
-
-    const getSize = (item) => {
-      const w = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w) || 1));
-      const h = Math.max(1, Number(item.h) || 1);
-      return { w, h };
-    };
-
-    const clampItem = (item) => {
-      const { w, h } = getSize(item);
-      return {
-        ...item,
-        w,
-        h,
-        x: Math.max(0, Math.min(GRID_COLUMNS - w, Number(item.x) || 0)),
-        y: Math.max(0, Number(item.y) || 0),
-      };
-    };
-
-    const overlaps = (a, b) => {
-      const aItem = clampItem(a);
-      const bItem = clampItem(b);
-      const xOverlap = aItem.x < bItem.x + bItem.w && aItem.x + aItem.w > bItem.x;
-      const yOverlap = aItem.y < bItem.y + bItem.h && aItem.y + aItem.h > bItem.y;
-      return xOverlap && yOverlap;
-    };
-
-    const isFree = (candidate, placed) => !placed.some((item) => overlaps(candidate, item));
-
-    const findNextFreePosition = (seedItem, placed) => {
-      const base = clampItem(seedItem);
-      const maxScanY = Math.max(
-        base.y + 30,
-        ...placed.map((item) => (Number(item.y) || 0) + (Number(item.h) || 1) + 30)
-      );
-
-      for (let y = base.y; y <= maxScanY; y += 1) {
-        const startX = y === base.y ? base.x : 0;
-        for (let x = startX; x <= GRID_COLUMNS - base.w; x += 1) {
-          const candidate = { ...base, x, y };
-          if (isFree(candidate, placed)) return candidate;
-        }
-      }
-
-      return { ...base, x: 0, y: maxScanY + 1 };
-    };
-
-    const reflowInOrder = (orderedItems) => {
-      const placed = [];
-
-      orderedItems.forEach((item) => {
-        const seedItem = clampItem({ ...item, y: 0 });
-        const nextItem = findNextFreePosition(seedItem, placed);
-        placed.push(nextItem);
-      });
-
-      return placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    };
-
-    const movingSize = getSize(movingItem);
-    const isDropTarget = direction && typeof direction === 'object' && direction.type === 'drop';
-
-    if (!isDropTarget && movingSize.w >= GRID_COLUMNS && (direction === 'left' || direction === 'right')) {
-      return current;
-    }
-
-    if (!isDropTarget && movingSize.w >= GRID_COLUMNS && (direction === 'up' || direction === 'down')) {
-      const sorted = source
-        .map(clampItem)
-        .sort((a, b) => (a.y - b.y) || (a.x - b.x));
-
-      const rows = [];
-      sorted.forEach((item) => {
-        const lastRow = rows[rows.length - 1];
-        if (!lastRow || lastRow.y !== item.y) {
-          rows.push({ y: item.y, items: [item] });
-        } else {
-          lastRow.items.push(item);
-        }
-      });
-
-      const rowIndex = rows.findIndex((row) =>
-        row.items.some((item) => item.widgetId === widgetId)
-      );
-
-      if (rowIndex < 0) return current;
-
-      const targetRowIndex = direction === 'up' ? rowIndex - 1 : rowIndex + 1;
-      if (targetRowIndex < 0 || targetRowIndex >= rows.length) return current;
-
-      const nextRows = [...rows];
-      const [movingRow] = nextRows.splice(rowIndex, 1);
-      nextRows.splice(targetRowIndex, 0, movingRow);
-
-      const orderedItems = nextRows.flatMap((row) => row.items);
-      return reflowInOrder(orderedItems);
-    }
-
-    let targetX = Number(movingItem.x) || 0;
-    let targetY = Number(movingItem.y) || 0;
-
-    if (isDropTarget) {
-      targetX = Number(direction.x) || 0;
-      targetY = Number(direction.y) || 0;
-    } else {
-      if (direction === 'left') targetX -= 1;
-      if (direction === 'right') targetX += 1;
-      if (direction === 'up') targetY -= 1;
-      if (direction === 'down') targetY += 1;
-    }
-
-    const targetHoverX =
-      isDropTarget && Number.isFinite(Number(direction.hoverX))
-        ? Number(direction.hoverX)
-        : targetX;
-    const targetHoverY =
-      isDropTarget && Number.isFinite(Number(direction.hoverY))
-        ? Number(direction.hoverY)
-        : targetY;
-
-    if (isDropTarget) {
-      const resultLayout = calculateReflowLayout(source, widgetId, {
-        x: targetX,
-        y: targetY,
-        hoverX: targetHoverX,
-        hoverY: targetHoverY,
-      });
-      return resultLayout;
-    }
-
-    const movedItem = clampItem({ ...movingItem, x: targetX, y: targetY });
-
-    if (movedItem.x === movingItem.x && movedItem.y === movingItem.y) {
-      return current;
-    }
-
-    const placed = [movedItem];
-    const remaining = source
-      .filter((item) => item.widgetId !== widgetId)
-      .map(clampItem)
-      .sort((a, b) => (a.y - b.y) || (a.x - b.x));
-
-    remaining.forEach((item) => {
-      const nextItem = findNextFreePosition(item, placed);
-      placed.push(nextItem);
-    });
-
-    const resultLayout = placed.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    return resultLayout;
-  });
-}, [dashboardTarget, setDashboardLayoutImmediate]);
-
- const removeGraph = useCallback((widgetId) => {
- const targetItem = layout.find((item) => (item.widgetId || item.id) === widgetId);
- const targetTitle = targetItem?.title || targetItem?.name || widgetId || '위젯';
-
- if (layout.length <= 1) {
- Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
- return;
- }
-
- Alert.alert(
- '위젯 삭제',
- `"${targetTitle}" 위젯을 대시보드에서 삭제할까요?`,
- [
- { text: '취소', style: 'cancel' },
- {
- text: '삭제',
- style: 'destructive',
- onPress: () => {
- resetResizeInteractionState();
-
- setDashboardLayoutImmediate((current) => {
- if (current.length <= 1) {
- Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
- return current;
- }
-
- const nextLayout = current.filter((item) => (item.widgetId || item.id) !== widgetId);
- return compactDashboardLayoutSpaces(
- repairDashboardLayoutOverlaps(
- normalizeLayout(nextLayout, dashboardTarget),
- ),
- );
- });
- },
- },
- ],
- );
- }, [dashboardTarget, layout, resetResizeInteractionState, setDashboardLayoutImmediate]);
-
-const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, nextSize, options = {}) => {
- if (!targetWidgetId || !nextSize) {
- return Array.isArray(sourceLayout) ? sourceLayout : [];
- }
-
- const source = Array.isArray(sourceLayout) ? sourceLayout.map(normalizeLayoutItem) : [];
- let resizedItem = null;
-
- const resizedLayout = source.map((item) => {
- const currentId = item.widgetId || item.id;
- if (currentId !== targetWidgetId) return item;
-
- const nextW = Number(nextSize.w);
- const nextH = Number(nextSize.h);
- const clamped = clampDashboardResizeSize(targetWidgetId, nextW, nextH);
- const maxX = Math.max(0, GRID_COLUMNS - clamped.w);
- const rawX = Number.isFinite(Number(nextSize.x)) ? Number(nextSize.x) : Number(item.x) || 0;
- const rawY = Number.isFinite(Number(nextSize.y)) ? Number(nextSize.y) : Number(item.y) || 0;
- const safeX = Math.max(0, Math.min(maxX, rawX));
- const safeY = Math.max(0, rawY);
-
- resizedItem = {
- ...item,
- x: safeX,
- y: safeY,
- w: clamped.w,
- h: clamped.h,
- };
-
- return resizedItem;
- });
-
- if (!resizedItem) return source;
-
- const isPreview = options?.isPreview === true;
-
- try {
- const reflowed = calculateReflowLayout(resizedLayout, targetWidgetId, {
- type: 'resize',
- x: resizedItem.x,
- y: resizedItem.y,
- w: resizedItem.w,
- h: resizedItem.h,
- hoverX: resizedItem.x,
- hoverY: resizedItem.y,
- isPreview,
- });
-
- return reflowDashboardLayoutWithFixedItem(
- Array.isArray(reflowed) ? reflowed : resizedLayout,
- targetWidgetId,
- resizedItem,
- );
- } catch (error) {
- if (!isPreview) {
- console.warn('[DashboardEditScreen] resize reflow failed:', error?.message || error);
- }
- return reflowDashboardLayoutWithFixedItem(
- resizedLayout,
- targetWidgetId,
- resizedItem,
- );
- }
-}, []);
-
-const resizeLayoutItem = useCallback((widgetId, nextSize) => {
- if (!widgetId || !nextSize) return;
-
- setDashboardLayoutImmediate((prev) => buildResizedLayoutWithReflow(prev, widgetId, nextSize, {
- isPreview: false,
- }));
-}, [buildResizedLayoutWithReflow, setDashboardLayoutImmediate]);
-
-const getLayoutPreviewSignature = useCallback((items) => {
- return Array.isArray(items)
- ? items
- .map((item) => [
- item.widgetId || item.id || '',
- Number(item.x) || 0,
- Number(item.y) || 0,
- Number(item.w) || 0,
- Number(item.h) || 0,
- ].join(':'))
- .join('|')
- : '';
-}, []);
-
- const signalDashboardEditReturn = useCallback((mode) => {
-    const returnRouteKey = route?.params?.returnRouteKey;
-    if (!returnRouteKey) return;
-
-    const dashboardEditReturnedAt = Date.now();
-        navigation.dispatch({
-      ...CommonActions.setParams({
-        dashboardEditReturnMode: mode,
-        dashboardEditReturnedAt,
-      }),
-      source: returnRouteKey,
-    });
-  }, [challengeId, navigation, route?.params?.returnRouteKey]);
 
   const returnToEntryList = useCallback((mode = 'cancel') => {
- signalDashboardEditReturn(mode);
+ const dashboardEditReturnedAt = Date.now();
+ const returnRouteKey = route?.params?.returnRouteKey;
+ if (returnRouteKey) {
+   navigation.dispatch({
+     ...CommonActions.setParams({
+       dashboardEditReturnMode: mode,
+       dashboardEditReturnedAt,
+     }),
+     source: returnRouteKey,
+   });
+ }
 
  if (isRecordRoomDashboard) {
  navigation.goBack();
@@ -1802,6 +1563,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  habitId: params?.habitId,
  item: params?.item,
  challenge: params?.challenge,
+
  };
 
  if (typeof navigation.replace === 'function') {
@@ -1810,7 +1572,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  }
 
  navigation.navigate('EntryList', entryListParams);
- }, [challengeId, isRecordRoomDashboard, navigation, params, signalDashboardEditReturn, title]);
+ }, [challengeId, isRecordRoomDashboard, navigation, params, route?.params?.returnRouteKey, title]);
 
  useEffect(() => {
  const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -2047,8 +1809,6 @@ const getLayoutPreviewSignature = useCallback((items) => {
         ...CommonActions.setParams({
           dashboardEditReturnMode: 'save',
           dashboardEditReturnedAt,
-          dashboardEditLayout: Array.isArray(layoutToSave) ? layoutToSave.map((item) => ({ ...item })) : [],
-          dashboardEditRowGap: rowGap,
         }),
         source: returnRouteKey,
       });
@@ -2442,7 +2202,9 @@ const origin = resizeOriginRef.current || {
  }
 
  const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, deltaRows);
- resizeLayoutItem(widgetId, nextFrame);
+ setDashboardLayoutImmediate((prev) => buildResizedLayoutWithReflow(prev, widgetId, nextFrame, {
+  isPreview: false,
+ }));
  clearResizeGhostBounceTimer();
  setPreviewLayout(null);
  setResizeGhostFrame(null);
@@ -2596,12 +2358,15 @@ const canMoveCard =
      if (lastTarget && lastTarget.widgetId === widgetId) {
        const dropX = safeW >= GRID_COLUMNS ? 0 : lastTarget.x;
        const dropY = lastTarget.y;
-       moveGraph(widgetId, {
-         type: 'drop',
-         x: dropX,
-         y: dropY,
-         hoverX: lastTarget.hoverX,
-         hoverY: lastTarget.hoverY,
+       setDashboardLayoutImmediate((current) => {
+         const source = Array.isArray(current) ? current.map(normalizeLayoutItem) : [];
+         return calculateReflowLayout(source, widgetId, {
+           type: 'drop',
+           x: dropX,
+           y: dropY,
+           hoverX: Number.isFinite(Number(lastTarget?.hoverX)) ? Number(lastTarget.hoverX) : dropX,
+           hoverY: Number.isFinite(Number(lastTarget?.hoverY)) ? Number(lastTarget.hoverY) : dropY,
+         });
        });
      } else if (deltaX !== 0 || deltaY !== 0) {
        const dragOrigin = dragOriginRef.current || { x: safeX, y: safeY, w: safeW, h: safeH };
@@ -2617,12 +2382,15 @@ const canMoveCard =
        const fallbackHoverY = originY + ((event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + rowGap));
        const stableFallbackHoverX = Math.round(fallbackHoverX * 4) / 4;
        const stableFallbackHoverY = Math.round(fallbackHoverY * 4) / 4;
-       moveGraph(widgetId, {
-         type: 'drop',
-         x: dropX,
-         y: dropY,
-         hoverX: stableFallbackHoverX,
-         hoverY: stableFallbackHoverY,
+       setDashboardLayoutImmediate((current) => {
+         const source = Array.isArray(current) ? current.map(normalizeLayoutItem) : [];
+         return calculateReflowLayout(source, widgetId, {
+           type: 'drop',
+           x: dropX,
+           y: dropY,
+           hoverX: Number.isFinite(Number(lastTarget?.hoverX)) ? Number(lastTarget.hoverX) : dropX,
+           hoverY: Number.isFinite(Number(lastTarget?.hoverY)) ? Number(lastTarget.hoverY) : dropY,
+         });
        });
      }
 
@@ -2769,7 +2537,7 @@ isResizeActive && styles.graphCellResizeActive,
          width: overlayCornerWidth,
          height: overlayH,
          edgeOffset: RESIZE_CORNER_OUTSET,
-         showDiagonal: Boolean(activeDiagonalCorner),
+         showDiagonal: Boolean(resizeGhostFrame?.corner),
          showGrid: false,
        })}
      </View>
@@ -2981,8 +2749,7 @@ const renderResizeGuideOverlay = () => {
  const guideHeight = Math.max(1, Number(guideFrame.height) || 1);
  const guideW = Math.max(1, Number(resizeGhostFrame?.w ?? activeItem?.w) || 1);
  const guideH = Math.max(1, Number(resizeGhostFrame?.h ?? activeItem?.h) || 1);
- const activeDiagonalCorner = activeResizeCorner || resizeGhostFrame?.corner || null;
- const isDraggingResizeCorner = Boolean(activeDiagonalCorner);
+ const isDraggingResizeCorner = Boolean(resizeGhostFrame?.corner);
 
  return (
  <View
@@ -3001,8 +2768,8 @@ const renderResizeGuideOverlay = () => {
  width: guideWidth,
  height: guideHeight,
  edgeOffset: RESIZE_CORNER_OUTSET,
- activeCorner: activeDiagonalCorner,
- showDiagonal: Boolean(activeDiagonalCorner),
+ activeCorner: resizeGhostFrame?.corner || null,
+ showDiagonal: Boolean(resizeGhostFrame?.corner),
  showGrid: true,
  gridColumns: guideW,
  gridRows: guideH,
@@ -3113,7 +2880,9 @@ const renderResizeGuideOverlay = () => {
  onPress={() => addGraph(widget)}
  >
  <Text style={styles.pickerTitle}>{widget.title || widget.name || widgetId}</Text>
- <Text style={styles.pickerMeta}>{widget.description || widgetId}</Text>
+ <Text style={styles.pickerMeta}>
+                {widget.isGraphCatalogBacked ? `내 그래프 · ${widget.graphId}` : (widget.description || widgetId)}
+              </Text>
  </TouchableOpacity>
  );
  })}

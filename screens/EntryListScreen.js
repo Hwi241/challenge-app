@@ -3337,6 +3337,7 @@ const runWeek = useCallback(() => {
       if (Number.isFinite(numericRowGap) && numericRowGap >= 0) {
         setDashboardRowGap(numericRowGap);
       }
+
     }
 
     dashboardReturnModeRef.current = normalizedMode;

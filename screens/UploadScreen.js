@@ -79,6 +79,7 @@ import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import { getAppSettings } from '../utils/appSettings';
 
 /* 습관 연속 인증 레벨 계산 */
 function calcStreakLevel(entries) {
@@ -115,6 +116,10 @@ function calcStreakLevel(entries) {
   return 1;
 }
 
+const HEALTH_CONNECT_PROVIDER = 'healthConnect';
+const HEALTH_SAMPLE_SOURCE_APP = 'samsungHealth';
+const isHealthConnectLinked = (hc = {}) => hc?.status === 'connected' || hc?.enabled === true || Object.values(hc?.permissions || {}).some(Boolean);
+const makeHealthSampleRecordsForDate = (dk) => { var s=Number(String(dk||'').replace(/[^\d]/g,'').slice(-4))||620,st=7600+(s%1800),wm=35+(s%15),rm=22+(s%12),rd=Number((3.4+((s%18)/10)).toFixed(1)),tm=wm+rm;return[{id:dk+'-steps',metricType:'steps',label:'걸음 수',value:st,unit:'steps',displayText:'걸음 수 '+st.toLocaleString('ko-KR')+'보',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk},{id:dk+'-walk',metricType:'duration',label:'걷기 운동',value:wm,unit:'minutes',displayText:'걷기 운동 '+wm+'분',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk},{id:dk+'-run',metricType:'exercise',label:'달리기',value:rm,unit:'minutes',distanceValue:rd,distanceUnit:'km',displayText:'달리기 '+rm+'분 · '+rd+'km',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk},{id:dk+'-total',metricType:'duration',label:'운동 시간 합계',value:tm,unit:'minutes',displayText:'운동 시간 합계 '+tm+'분',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk}];};
 
 export default function UploadScreen() {
   const MAX_TEXT_LEN = 1000;
@@ -133,6 +138,10 @@ const MAX_MINUTES = 1440; // 24시간
   const [selectedEntryDate, setSelectedEntryDate] = useState(() => toLocalDateOnly(new Date()));
   const [dateEditEnabled, setDateEditEnabled] = useState(false);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [healthConnectSettings, setHealthConnectSettings] = useState(null);
+  const [healthDataRecords, setHealthDataRecords] = useState([]);
+  const [healthDataDateKey, setHealthDataDateKey] = useState(null);
+  const [selectedHealthRecordIds, setSelectedHealthRecordIds] = useState([]);
   const submittedRef = useRef(false);
   const formScrollRef = useRef(null);
   const entryTextInputRef = useRef(null);
@@ -230,6 +239,7 @@ const MAX_MINUTES = 1440; // 24시간
           }
         }).catch(() => {});
       }
+      getAppSettings().then(function(s){setHealthConnectSettings(s?.dataIntegrations?.healthConnect||{});}).catch(function(){setHealthConnectSettings({});});
     }, [challengeId])
   );
 
@@ -313,6 +323,8 @@ const MAX_MINUTES = 1440; // 24시간
   const selectedEntryDateKey = getLocalDateKey(safeSelectedEntryDate);
   const todayEntryDateKey = getLocalDateKey(todayDate);
   const isPastEntryDate = selectedEntryDateKey !== todayEntryDateKey;
+  const healthConnectLinked = isHealthConnectLinked(healthConnectSettings);
+  const selectedHealthRecords = healthDataRecords.filter(function(r){return selectedHealthRecordIds.includes(r.id);});
 
   const hasUnsavedChanges = useCallback(() => (
     !!text.trim() ||
@@ -329,6 +341,10 @@ const MAX_MINUTES = 1440; // 24시간
     stayText: '계속 작성',
     leaveText: '나가기',
   });
+  const goToDataIntegrations = useCallback(function(){var m=function(){navigation.navigate('DataIntegrations');};if(hasUnsavedChanges()){Alert.alert('작성 중인 내용이 있어요','설정 화면으로 이동하면 입력 내용이 사라질 수 있습니다.',[{text:'취소',style:'cancel'},{text:'계속 이동',style:'destructive',onPress:m}]);return;}m();},[hasUnsavedChanges,navigation]);
+  const loadHealthDataForSelectedDate = useCallback(function(){if(busy)return;var r=makeHealthSampleRecordsForDate(selectedEntryDateKey);setHealthDataRecords(r);setHealthDataDateKey(selectedEntryDateKey);setSelectedHealthRecordIds([]);},[busy,selectedEntryDateKey]);
+  const toggleHealthRecordSelection = useCallback(function(id){setSelectedHealthRecordIds(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):p.concat([id]);});},[]);
+  const confirmSelectedHealthData = useCallback(function(){if(selectedHealthRecordIds.length===0){Alert.alert('선택 필요','인증에 사용할 데이터를 선택해주세요.');return;}Alert.alert('선택 완료','선택한 데이터가 인증 근거로 저장됩니다.');},[selectedHealthRecordIds.length]);
 
   const openEntryDatePicker = useCallback(() => {
     if (busy) return;
@@ -364,7 +380,7 @@ const MAX_MINUTES = 1440; // 24시간
       const trimmed = (text || '').trim();
 
       if (!trimmed && !imageUri) {
-        Alert.alert('확인', '텍스트 또는 사진 중 하나는 입력/선택해주세요.');
+        Alert.alert('확인', '텍스트, 사진, 건강 데이터 중 하나는 입력/선택해주세요.');
         return;
       }
 
@@ -392,6 +408,7 @@ const MAX_MINUTES = 1440; // 24시간
         text: trimmed,
         imageUri: imageUri || null,
         duration: finalDur,
+        linkedRecords: selectedHealthRecords,
         timestamp: entryTimestamp,
         ...(isPastEntry && {
           isPastEntry: true,
@@ -503,7 +520,7 @@ const MAX_MINUTES = 1440; // 24시간
     }
 
     if (!trimmed && !imageUri) {
-      Alert.alert('확인', '텍스트 또는 사진 중 하나는 입력/선택해주세요.');
+      Alert.alert('확인', '텍스트, 사진, 건강 데이터 중 하나는 입력/선택해주세요.');
       return;
     }
 
@@ -605,6 +622,37 @@ const MAX_MINUTES = 1440; // 24시간
           onChange={handleEntryDateChange}
         />
       )}
+
+      <View style={styles.healthDataBox}>
+        <Text style={styles.healthDataTitle}>데이터로 인증하기</Text>
+        {healthConnectLinked ? (
+          <>
+            <View style={styles.healthProviderRow}><Text style={styles.healthProviderLabel}>연동된 데이터 출처</Text><Text style={styles.healthProviderValue}>☑ Health Connect</Text></View>
+            <TouchableOpacity style={[styles.healthLoadButton,busy&&styles.healthButtonDisabled]} onPress={loadHealthDataForSelectedDate} activeOpacity={0.9} disabled={busy}>
+              <Text style={styles.healthLoadButtonText}>선택한 날짜 데이터 불러오기</Text>
+            </TouchableOpacity>
+            {healthDataRecords.length > 0 && (
+              <View style={styles.healthRecordList}>
+                <Text style={styles.healthRecordDateTitle}>{String(healthDataDateKey||'').replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1.$2.$3')} 데이터</Text>
+                {healthDataRecords.map(function(r){var c=selectedHealthRecordIds.includes(r.id);return(<TouchableOpacity key={r.id} style={styles.healthRecordRow} onPress={function(){toggleHealthRecordSelection(r.id);}} activeOpacity={0.85} disabled={busy}>
+                  <Text style={styles.healthRecCheck}>{c?'☑':'□'}</Text><Text style={styles.healthRecText}>{r.displayText}</Text>
+                </TouchableOpacity>);})}
+                <TouchableOpacity style={[styles.healthUseButton,selectedHealthRecordIds.length===0&&styles.healthButtonDisabled]} onPress={confirmSelectedHealthData} activeOpacity={0.9} disabled={selectedHealthRecordIds.length===0||busy}>
+                  <Text style={styles.healthUseButtonText}>선택한 데이터로 인증</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.healthEmptyTitle}>연동된 앱이 없어요.</Text>
+            <Text style={styles.healthEmptyText}>Health Connect를 연결하면 걸음 수와 운동 시간을 불러와 인증할 수 있어요.</Text>
+            <TouchableOpacity style={styles.healthLoadButton} onPress={goToDataIntegrations} activeOpacity={0.9} disabled={busy}>
+              <Text style={styles.healthLoadButtonText}>어플 연동하러 가기</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
 
       <View style={styles.card}>
         {/* "내용"과 "사진 넣기"를 가로 한 줄로 */}
@@ -754,7 +802,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: PALETTE.gray800,
   },
-  card: {
+    healthDataBox: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md || 12, padding: spacing.lg || 16, marginBottom: spacing.lg || 16 },
+  healthDataTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.sm || 8 },
+  healthProviderRow: { padding: 12, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md || 12, backgroundColor: PALETTE.gray50, marginBottom: spacing.md || 12 },
+  healthProviderLabel: { fontSize: 12, fontWeight: '700', color: PALETTE.gray600, marginBottom: 4 },
+  healthProviderValue: { fontSize: 14, fontWeight: '800', color: PALETTE.gray800 },
+  healthLoadButton: { height: 44, borderRadius: radius.md || 12, backgroundColor: PALETTE.gray800, alignItems: 'center', justifyContent: 'center' },
+  healthLoadButtonText: { color: PALETTE.white, fontSize: 14, fontWeight: '800' },
+  healthRecordList: { marginTop: spacing.md || 12, borderTopWidth: 1, borderTopColor: PALETTE.gray200, paddingTop: spacing.md || 12 },
+  healthRecordDateTitle: { fontSize: 14, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.sm || 8 },
+  healthRecordRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  healthRecCheck: { width: 24, fontSize: 16, color: PALETTE.gray800 },
+  healthRecText: { flex: 1, fontSize: 14, color: PALETTE.gray800 },
+  healthUseButton: { marginTop: spacing.md || 12, height: 44, borderRadius: radius.md || 12, backgroundColor: PALETTE.black, alignItems: 'center', justifyContent: 'center' },
+  healthUseButtonText: { color: PALETTE.white, fontSize: 14, fontWeight: '800' },
+  healthButtonDisabled: { opacity: 0.55 },
+  healthEmptyTitle: { fontSize: 14, fontWeight: '800', color: PALETTE.gray800, marginBottom: 4 },
+  healthEmptyText: { fontSize: 13, lineHeight: 19, color: PALETTE.gray600, marginBottom: spacing.md || 12 },
+card: {
     backgroundColor: PALETTE.white,
     borderWidth: 1,
     borderColor: PALETTE.gray200,

@@ -1019,6 +1019,129 @@ function aggregateByDate(entries){
   return Array.from(map.values()).sort((a,b)=>a.date-b.date);
 }
 
+
+/* ───────── Health Connect linkedRecords 그래프 ───────── */
+const HEALTH_LINKED_TREND_CONFIG = Object.freeze({
+  steps: Object.freeze({ title: '걸음 수 추세', unit: '보', emptyText: '걸음 수 데이터가 없습니다.' }),
+  minutes: Object.freeze({ title: '운동 시간 추세', unit: '분', emptyText: '운동 시간 데이터가 없습니다.' }),
+  distance: Object.freeze({ title: '운동 거리 추세', unit: 'km', emptyText: '운동 거리 데이터가 없습니다.' }),
+});
+
+function getHealthLinkedRecordDateKey(entry) {
+  var d = new Date(entry && entry.timestamp);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return keyOf(d);
+}
+
+function toHV(v) { var n=Number(v); return isFinite(n)?n:0; }
+
+function getHealthLinkedRecordMetricValue(record, metricType) {
+  if (!record || typeof record !== 'object') return 0;
+  var t = String(record.metricType||'').toLowerCase();
+  var u = String(record.unit||'').toLowerCase();
+  var l = String(record.label||'').toLowerCase();
+  if (metricType === 'steps') {
+    if (t==='steps'||u==='steps'||u==='보'||l.includes('걸음')) return toHV(record.value);
+    return 0;
+  }
+  if (metricType === 'minutes') {
+    if (u==='minutes'||u==='분'||t==='duration'||t==='exercise'||l.includes('운동')||l.includes('걷기')||l.includes('달리기')) return toHV(record.value);
+    return 0;
+  }
+  if (metricType === 'distance') {
+    if (record.distanceValue != null) {
+      var du = String(record.distanceUnit||record.unit||'').toLowerCase();
+      var d = toHV(record.distanceValue);
+      return (du==='m'||du==='meter'||du==='meters') ? d/1000 : d;
+    }
+    if (u==='km'||t==='distance'||l.includes('거리')) return toHV(record.value);
+    if (u==='m') return toHV(record.value)/1000;
+    return 0;
+  }
+  return 0;
+}
+
+function aggregateHealthLinkedRecordsByDate(entries, metricType) {
+  var map = {};
+  var list = entries || [];
+  for (var i = 0; i < list.length; i++) {
+    var e = list[i];
+    var dayKey = getHealthLinkedRecordDateKey(e);
+    if (!dayKey) continue;
+    var linked = Array.isArray(e && e.linkedRecords) ? e.linkedRecords : [];
+    if (!linked.length) continue;
+    var dayValue = 0;
+    for (var j = 0; j < linked.length; j++) { dayValue += getHealthLinkedRecordMetricValue(linked[j], metricType); }
+    if (dayValue <= 0) continue;
+    var d = new Date(e.timestamp); d.setHours(0,0,0,0);
+    var prev = map[dayKey] || { key: dayKey, date: d, value: 0 };
+    prev.value += dayValue;
+    map[dayKey] = prev;
+  }
+  return Object.values(map).sort(function(a,b){return a.date-b.date;});
+}
+
+function fmtHV(metricType, value) {
+  var n = Number(value) || 0;
+  if (metricType === 'distance') return (n >= 10 ? n.toFixed(0) : n.toFixed(1)) + 'km';
+  if (metricType === 'steps') return Math.round(n).toLocaleString() + '보';
+  return Math.round(n) + '분';
+}
+
+var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(_ref) {
+  var entries = _ref.entries, metricType = _ref.metricType, title = _ref.title, unit = _ref.unit, disabled = _ref.disabled;
+  var _a = useState({width:0,height:0}), box = _a[0], setBox = _a[1];
+  var onLayout = useCallback(function(ev){
+    var w=Math.floor(ev.nativeEvent.layout.width||0),h=Math.floor(ev.nativeEvent.layout.height||0);
+    if(w>0&&h>0)setBox(function(p){return p.width===w&&p.height===h?p:{width:w,height:h};});
+  },[]);
+  var series = useMemo(function(){return aggregateHealthLinkedRecordsByDate(entries, metricType);},[entries,metricType]);
+  var latest = series.length > 0 ? series[series.length-1] : null;
+  var config = HEALTH_LINKED_TREND_CONFIG[metricType] || {};
+  var displayTitle = title || config.title || '건강 데이터';
+  var emptyText = config.emptyText || '데이터가 없습니다.';
+  var cw = Math.max(1, box.width || 260), ch = Math.max(1, box.height || 120);
+  var px = 18, tp = 18, bt = 34, uw = Math.max(1, cw-px*2), uh = Math.max(1, ch-tp-bt);
+  var points = useMemo(function(){
+    if (!series.length) return [];
+    var vals = series.map(function(s){return Number(s.value)||0;});
+    var mx = Math.max(1, Math.max.apply(null, vals)), mn = Math.min(0, Math.min.apply(null, vals)), rg = Math.max(1, mx-mn);
+    return series.map(function(s,i){
+      var x = series.length === 1 ? cw/2 : px + (i / Math.max(1, series.length-1)) * uw;
+      var y = tp + (1 - ((Number(s.value)||0)-mn)/rg) * uh;
+      return {x:x, y:y, value:s.value, date:s.date, key:s.key};
+    });
+  },[series, cw, uw, uh, tp]);
+  var pathD = useMemo(function(){
+    if (!points.length) return '';
+    return points.map(function(p,i){return (i===0?'M':'L')+' '+p.x+' '+p.y;}).join(' ');
+  },[points]);
+  return (
+    React.createElement(DashboardWidgetShell, {header: React.createElement(DashboardWidgetHeader, {title:displayTitle, hideSides:true})},
+      React.createElement(View, {onLayout:onLayout, style:{flex:1,width:'100%',paddingHorizontal:8,paddingTop:2,paddingBottom:6,opacity:disabled?0.92:1}},
+        series.length === 0 ?
+          React.createElement(View, {style:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:8}},
+            React.createElement(Text, {numberOfLines:2, style:{color:'#9CA3AF',fontSize:11,lineHeight:15,fontWeight:'700',textAlign:'center'}}, emptyText),
+            React.createElement(Text, {numberOfLines:2, style:{marginTop:4,color:'#D1D5DB',fontSize:10,lineHeight:14,fontWeight:'700',textAlign:'center'}}, '선택한 데이터로 인증하면 표시됩니다.')
+          ) :
+          React.createElement(View, {style:{flex:1,width:'100%'}},
+            React.createElement(Svg, {width:'100%',height:'100%'},
+              React.createElement(Line, {x1:px,y1:ch-bt,x2:cw-px,y2:ch-bt,stroke:'#D1D5DB',strokeWidth:1}),
+              React.createElement(Path, {d:pathD,fill:'none',stroke:'#111111',strokeWidth:2.2,strokeLinecap:'round',strokeLinejoin:'round'}),
+              points.map(function(p,i){return React.createElement(Circle, {key:p.key+'-'+i,cx:p.x,cy:p.y,r:i===points.length-1?3.8:2.8,fill:i===points.length-1?'#111111':'#FFFFFF',stroke:'#111111',strokeWidth:1.8});})
+            ),
+            React.createElement(View, {pointerEvents:'none',style:{position:'absolute',left:8,right:8,bottom:2,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}},
+              React.createElement(Text, {numberOfLines:1,style:{color:'#9CA3AF',fontSize:10,fontWeight:'700'}}, series.length+'일'),
+              React.createElement(Text, {numberOfLines:1,style:{color:'#111111',fontSize:11,fontWeight:'900'}}, latest ? fmtHV(metricType, latest.value) : ('0'+unit))
+            )
+          )
+      )
+    )
+  );
+});
+
+
 /* ───────── 라인차트(횟수는 누적 그래프) ───────── */
 const LineGradientChart = memo(function LineGradientChart({
   startDate,
@@ -2946,6 +3069,12 @@ export default function EntryListScreen({ route, navigation }) {
       month_calendar: 'calendar',
       monthCalendar: 'calendar',
       health_steps_weekly: 'healthStepsWeekly',
+      health_steps_trend: 'healthStepsTrend',
+      healthStepsTrend: 'healthStepsTrend',
+      health_exercise_minutes_trend: 'healthExerciseMinutesTrend',
+      healthExerciseMinutesTrend: 'healthExerciseMinutesTrend',
+      health_distance_trend: 'healthDistanceTrend',
+      healthDistanceTrend: 'healthDistanceTrend',
       healthStepsWeekly: 'healthStepsWeekly',
       weekly_bar: 'weeklyBar',
       weeklyBar: 'weeklyBar',
@@ -3034,6 +3163,28 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       );
     }
+    if (widgetKind === 'healthStepsTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="steps" title="걸음 수 추세" unit="보" disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthExerciseMinutesTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="minutes" title="운동 시간 추세" unit="분" disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthDistanceTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="distance" title="운동 거리 추세" unit="km" disabled={isShare} />
+        </View>
+      );
+    }
+
     if (widgetKind === 'weeklyBar') {
       return (
         <View style={styles.weeklyWidgetArea}>

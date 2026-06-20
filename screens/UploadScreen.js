@@ -622,39 +622,7 @@ const MAX_MINUTES = 1440; // 24시간
           onChange={handleEntryDateChange}
         />
       )}
-
-      <View style={styles.healthDataBox}>
-        <Text style={styles.healthDataTitle}>데이터로 인증하기</Text>
-        {healthConnectLinked ? (
-          <>
-            <View style={styles.healthProviderRow}><Text style={styles.healthProviderLabel}>연동된 데이터 출처</Text><Text style={styles.healthProviderValue}>☑ Health Connect</Text></View>
-            <TouchableOpacity style={[styles.healthLoadButton,busy&&styles.healthButtonDisabled]} onPress={loadHealthDataForSelectedDate} activeOpacity={0.9} disabled={busy}>
-              <Text style={styles.healthLoadButtonText}>선택한 날짜 데이터 불러오기</Text>
-            </TouchableOpacity>
-            {healthDataRecords.length > 0 && (
-              <View style={styles.healthRecordList}>
-                <Text style={styles.healthRecordDateTitle}>{String(healthDataDateKey||'').replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1.$2.$3')} 데이터</Text>
-                {healthDataRecords.map(function(r){var c=selectedHealthRecordIds.includes(r.id);return(<TouchableOpacity key={r.id} style={styles.healthRecordRow} onPress={function(){toggleHealthRecordSelection(r.id);}} activeOpacity={0.85} disabled={busy}>
-                  <Text style={styles.healthRecCheck}>{c?'☑':'□'}</Text><Text style={styles.healthRecText}>{r.displayText}</Text>
-                </TouchableOpacity>);})}
-                <TouchableOpacity style={[styles.healthUseButton,selectedHealthRecordIds.length===0&&styles.healthButtonDisabled]} onPress={confirmSelectedHealthData} activeOpacity={0.9} disabled={selectedHealthRecordIds.length===0||busy}>
-                  <Text style={styles.healthUseButtonText}>선택한 데이터로 인증</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </>
-        ) : (
-          <>
-            <Text style={styles.healthEmptyTitle}>연동된 앱이 없어요.</Text>
-            <Text style={styles.healthEmptyText}>Health Connect를 연결하면 걸음 수와 운동 시간을 불러와 인증할 수 있어요.</Text>
-            <TouchableOpacity style={styles.healthLoadButton} onPress={goToDataIntegrations} activeOpacity={0.9} disabled={busy}>
-              <Text style={styles.healthLoadButtonText}>어플 연동하러 가기</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-
-      <View style={styles.card}>
+<View style={styles.card}>
         {/* "내용"과 "사진 넣기"를 가로 한 줄로 */}
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>내용</Text>
@@ -720,6 +688,37 @@ const MAX_MINUTES = 1440; // 24시간
       </View>
 
       <TouchableOpacity
+<View style={styles.healthDataBox}>
+        <Text style={styles.healthDataTitle}>데이터 불러오기</Text>
+        {healthConnectLinked ? (
+          <>
+            <View style={styles.healthProviderRow}><Text style={styles.healthProviderLabel}>연동된 데이터 출처</Text><Text style={styles.healthProviderValue}>☑ Health Connect</Text></View>
+            <TouchableOpacity style={[styles.healthLoadButton,busy&&styles.healthButtonDisabled]} onPress={loadHealthDataForSelectedDate} activeOpacity={0.9} disabled={busy}>
+              <Text style={styles.healthLoadButtonText}>선택한 날짜 데이터 불러오기</Text>
+            </TouchableOpacity>
+            {healthDataRecords.length > 0 && (
+              <View style={styles.healthRecordList}>
+                <Text style={styles.healthRecordDateTitle}>{String(healthDataDateKey||'').replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1.$2.$3')} 데이터</Text>
+                {healthDataRecords.map(function(r){var c=selectedHealthRecordIds.includes(r.id);return(<TouchableOpacity key={r.id} style={styles.healthRecordRow} onPress={function(){toggleHealthRecordSelection(r.id);}} activeOpacity={0.85} disabled={busy}>
+                  <Text style={styles.healthRecCheck}>{c?'☑':'□'}</Text><Text style={styles.healthRecText}>{r.displayText}</Text>
+                </TouchableOpacity>);})}
+                <TouchableOpacity style={[styles.healthUseButton,selectedHealthRecordIds.length===0&&styles.healthButtonDisabled]} onPress={confirmSelectedHealthData} activeOpacity={0.9} disabled={selectedHealthRecordIds.length===0||busy}>
+                  <Text style={styles.healthUseButtonText}>선택한 데이터로 인증</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.healthEmptyTitle}>연동된 앱이 없어요.</Text>
+            <Text style={styles.healthEmptyText}>Health Connect를 연결하면 걸음 수와 운동 시간을 불러와 인증할 수 있어요.</Text>
+            <TouchableOpacity style={styles.healthLoadButton} onPress={goToDataIntegrations} activeOpacity={0.9} disabled={busy}>
+              <Text style={styles.healthLoadButtonText}>어플 연동하러 가기</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
         style={[buttonStyles.primary.container, { marginTop: spacing.xl, opacity: busy ? 0.6 : 1 }]}
         onPress={onSubmit}
         activeOpacity={0.9}

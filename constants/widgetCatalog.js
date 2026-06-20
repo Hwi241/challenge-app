@@ -20,7 +20,7 @@ export const ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS = [
   'line_count_cumulative',
   'line_minutes',
   'grass_graph',
-  'health_steps_weekly'
+  'health_steps_weekly',
   'health_steps_trend',
   'health_exercise_minutes_trend',
   'health_distance_trend',];
@@ -36,7 +36,7 @@ export const ACTUAL_PURCHASABLE_DASHBOARD_GRAPH_WIDGET_IDS = [
   'line_count_cumulative',
   'line_minutes',
   'grass_graph',
-  'health_steps_weekly'
+  'health_steps_weekly',
   'health_steps_trend',
   'health_exercise_minutes_trend',
   'health_distance_trend',];

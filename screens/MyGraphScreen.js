@@ -129,7 +129,15 @@ function MyGraphScreen() {
     }, [])
   );
 
-  const ownedGraphIdSet = useMemo(() => new Set(purchasedGraphIds), [purchasedGraphIds]);
+  const ownedGraphIdSet = useMemo(() => {
+    const ids = new Set(purchasedGraphIds);
+    GRAPH_CATALOG.forEach((graph) => {
+      if (graph?.defaultOwned === true) {
+        ids.add(String(graph.id));
+      }
+    });
+    return ids;
+  }, [purchasedGraphIds]);
 
   const filteredGraphs = useMemo(() => {
     const ownedByCategory = getGraphsByCategory(selectedCategory).filter((graph) => (

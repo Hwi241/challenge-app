@@ -157,7 +157,8 @@ function GraphShopScreen() {
       starBalance,
       purchasedGraphIds,
     });
-    return sortGraphs(byFilter, sortKey);
+    const excludeDefault = byFilter.filter((graph) => graph?.shop !== false && graph?.defaultOwned !== true);
+    return sortGraphs(excludeDefault, sortKey);
   }, [selectedCategory, searchQuery, filterKey, sortKey, starBalance, purchasedGraphIds]);
 
   const selectViewMode = useCallback((nextViewMode) => {

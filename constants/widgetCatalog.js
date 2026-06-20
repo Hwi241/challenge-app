@@ -12,6 +12,29 @@ export const DEFAULT_WIDGET_IDS = [
   'month_calendar',
 ];
 
+export const ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS = [
+  'overall_progress',
+  'month_calendar',
+  'goal_black_box',
+  'weekly_bar',
+  'line_count_cumulative',
+  'line_minutes',
+  'grass_graph',
+];
+
+export const DEFAULT_OWNED_DASHBOARD_GRAPH_WIDGET_IDS = [
+  'overall_progress',
+  'month_calendar',
+];
+
+export const ACTUAL_PURCHASABLE_DASHBOARD_GRAPH_WIDGET_IDS = [
+  'goal_black_box',
+  'weekly_bar',
+  'line_count_cumulative',
+  'line_minutes',
+  'grass_graph',
+];
+
 export const RECORD_ROOM_WIDGET_IDS = [
   'profile-image',
   'profile-info',
@@ -51,10 +74,10 @@ export const WIDGET_CATALOG = [
   {
     id: 'goal_black_box',
     title: '도전 목표 위젯',
-    tier: 0,
-    price: 0,
-    shop: false,
-    defaultOwned: true,
+    tier: 1,
+    price: 25,
+    shop: true,
+    defaultOwned: false,
     supports: ['challenge'],
     defaultSize: { w: 6, h: 2 },
     minSize: { w: 2, h: 1 },
@@ -130,12 +153,12 @@ export const getDefaultWidgets = (target = DASHBOARD_TARGETS.CHALLENGE) =>
   WIDGET_CATALOG.filter((item) => item.defaultOwned && item.supports.includes(target));
 
 export const getShopWidgets = () =>
-  WIDGET_CATALOG.filter((item) => item.shop);
+  WIDGET_CATALOG.filter((item) => item.shop && ACTUAL_PURCHASABLE_DASHBOARD_GRAPH_WIDGET_IDS.includes(item.id));
 
 export const getDashboardEditableWidgets = (target = DASHBOARD_TARGETS.CHALLENGE) =>
   target === DASHBOARD_TARGETS.RECORD_ROOM
     ? WIDGET_CATALOG.filter((item) => supportsWidgetTarget(item, target))
-    : getShopWidgets().filter((item) => supportsWidgetTarget(item, target));
+    : WIDGET_CATALOG.filter((item) => ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS.includes(item.id) && supportsWidgetTarget(item, target));
 
 export const getWidgetsByTier = (tier) =>
   getShopWidgets().filter((item) => item.tier === tier);
@@ -176,7 +199,7 @@ export const getDefaultDashboardLayout = (target = DASHBOARD_TARGETS.CHALLENGE) 
  ];
 
  if (target === DASHBOARD_TARGETS.CHALLENGE) {
- base.push({ widgetId: 'goal_black_box', x: 0, y: 4, w: 6, h: 2 });
+ // goal_black_box는 기본 배치에서 제거 (구매 필요)
  }
 
  return base.filter((item) => {

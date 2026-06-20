@@ -23,6 +23,7 @@ import {
  getWidgetById,
  supportsWidgetTarget,
 } from '../constants/widgetCatalog';
+import { getPurchasedGraphIds } from '../utils/graphOwnership';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
@@ -559,6 +560,7 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [rowGap, setRowGap] = useState(DASHBOARD_ROW_GAP_DEFAULT);
  const [pickerVisible, setPickerVisible] = useState(false);
  const [loading, setLoading] = useState(true);
+ const [purchasedGraphIds, setPurchasedGraphIds] = useState([]);
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
  const [draggingOriginalWidgetId, setDraggingOriginalWidgetId] = useState(null);
  const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
@@ -639,6 +641,16 @@ const setDashboardLayoutImmediate = useCallback((updater) => {
  useEffect(() => {
  loadLayout();
  }, [loadLayout]);
+
+ useEffect(() => {
+   if (!pickerVisible) return;
+   let cancelled = false;
+   (async () => {
+     const ids = await getPurchasedGraphIds();
+     if (!cancelled) setPurchasedGraphIds(ids);
+   })();
+   return () => { cancelled = true; };
+ }, [pickerVisible, dashboardTarget]);
 
  useEffect(() => {
  return () => {
@@ -1433,13 +1445,20 @@ const layoutRows = useMemo(() => {
  ? getDashboardEditableWidgets(dashboardTarget)
  : [];
 
+ const purchasedWidgetIdSet = new Set(purchasedGraphIds);
+
  return sourceWidgets.filter((widget) => {
  const id = widget?.id || widget?.widgetId;
  if (!id || placedIds.has(id)) return false;
  if (typeof supportsWidgetTarget === 'function' && !supportsWidgetTarget(widget, dashboardTarget)) return false;
- return true;
+
+ // defaultOwned → always show; shop=false (free) → always show
+ if (widget.defaultOwned || widget.shop === false) return true;
+
+ // purchased-only graphs → only show if owned
+ return purchasedWidgetIdSet.has(String(id));
  });
- }, [dashboardTarget, placedIds]);
+ }, [dashboardTarget, placedIds, purchasedGraphIds]);
 
  const addGraph = useCallback((widget) => {
  resetResizeInteractionState();
@@ -2769,7 +2788,7 @@ isResizeActive && styles.graphCellResizeActive,
          width: overlayCornerWidth,
          height: overlayH,
          edgeOffset: RESIZE_CORNER_OUTSET,
-         showDiagonal: Boolean(activeDiagonalCorner),
+         showDiagonal: false,
          showGrid: false,
        })}
      </View>

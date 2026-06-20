@@ -55,7 +55,7 @@ class HealthConnectOnboardingActivity : Activity() {
     private fun bodyText(text: String): TextView = TextView(this).apply {
         this.text = text
         textSize = 15f
-        lineSpacing = 4f
+        setLineSpacing(4f, 1.0f)
         setTextColor(Color.rgb(51, 65, 85))
         setPadding(0, 0, 0, dp(14))
     }

@@ -687,8 +687,7 @@ const MAX_MINUTES = 1440; // 24시간
         />
       </View>
 
-      <TouchableOpacity
-<View style={styles.healthDataBox}>
+      <View style={styles.healthDataBox}>
         <Text style={styles.healthDataTitle}>데이터 불러오기</Text>
         {healthConnectLinked ? (
           <>
@@ -719,6 +718,7 @@ const MAX_MINUTES = 1440; // 24시간
         )}
       </View>
 
+      <TouchableOpacity
         style={[buttonStyles.primary.container, { marginTop: spacing.xl, opacity: busy ? 0.6 : 1 }]}
         onPress={onSubmit}
         activeOpacity={0.9}

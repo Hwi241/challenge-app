@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BackButton from '../components/BackButton';
@@ -8,45 +10,47 @@ import { getAppSettings, setDataIntegrationSettings } from '../utils/appSettings
 
 const HEALTH_CONNECT_PROVIDER = 'healthConnect';
 
-const STEP_PERMISSION_REQUEST = [
-  { accessType: 'read', recordType: 'Steps' },
+const HEALTH_CONNECT_DATA_TYPES = [
+  { key: 'steps',       title: '걸음 수',     permissionKey: 'readSteps',           unit: 'steps',   recordType: 'Steps',            status: 'apkReady',  summary: '일별 걸음 수를 인증 근거와 그래프에 사용할 수 있습니다.',       proofUse: '걷기·산책·출퇴근 챌린지',                     graphUse: '일간/주간 걸음 리듬 그래프' },
+  { key: 'exercise',    title: '운동 기록',   permissionKey: 'readExerciseSessions', unit: 'sessions',recordType: 'ExerciseSession',    status: 'planned',  summary: '러닝, 사이클, 헬스 등 운동 세션을 인증 근거로 사용할 예정입니다.', proofUse: '운동 완료 인증',                          graphUse: '운동 시간/횟수 그래프' },
+  { key: 'distance',    title: '이동 거리',   permissionKey: 'readDistance',          unit: 'm',       recordType: 'Distance',          status: 'planned',  summary: '걷기·러닝·라이딩 거리 데이터를 인증 근거로 사용할 예정입니다.',   proofUse: '거리 목표 인증',                          graphUse: '일간/주간 거리 그래프' },
+  { key: 'calories',    title: '칼로리',     permissionKey: 'readTotalCaloriesBurned',unit: 'kcal',    recordType: 'TotalCaloriesBurned',status: 'planned',  summary: '활동 칼로리 데이터를 운동 기록의 보조 근거로 사용할 예정입니다.',   proofUse: '운동 강도 보조 근거',                      graphUse: '칼로리 소모 그래프' },
+  { key: 'sleep',       title: '수면',       permissionKey: 'readSleep',              unit: 'hours',   recordType: 'SleepSession',      status: 'planned',  summary: '수면 시간과 수면 세션을 생활 루틴 인증에 사용할 예정입니다.',       proofUse: '수면 루틴 인증',                          graphUse: '수면 시간 그래프' },
+  { key: 'heartRate',   title: '심박',       permissionKey: 'readHeartRate',          unit: 'bpm',     recordType: 'HeartRate',         status: 'planned',  summary: '운동 중 심박 변화와 평균 심박을 보조 지표로 사용할 예정입니다.',     proofUse: '운동 강도 보조 근거',                      graphUse: '심박 변화 그래프' },
+  { key: 'weight',      title: '체중',       permissionKey: 'readWeight',             unit: 'kg',      recordType: 'Weight',            status: 'planned',  summary: '체중 변화를 장기 목표 관리 그래프로 사용할 예정입니다.',           proofUse: '체중 관리 기록',                          graphUse: '체중 변화 그래프' },
 ];
 
 function loadHealthConnectModule() {
-  try {
-    return require('react-native-health-connect');
-  } catch (e) {
-    return null;
-  }
+  try { return require('react-native-health-connect'); } catch (e) { return null; }
 }
 
-function normalizePermissionList(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  if (Array.isArray(value.permissions)) return value.permissions;
-  if (Array.isArray(value.grantedPermissions)) return value.grantedPermissions;
-  return [value];
+function normalizePermissionList(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  if (Array.isArray(v.permissions)) return v.permissions;
+  if (Array.isArray(v.grantedPermissions)) return v.grantedPermissions;
+  return [v];
 }
 
-function hasReadStepsPermission(permissionResult) {
-  const list = normalizePermissionList(permissionResult);
-  return list.some(function(p) {
-    var text = '';
-    if (typeof p === 'string') text = p;
-    else {
-      var pieces = [p.accessType, p.access, p.recordType, p.record, p.dataType, p.permission, p.recordClassName];
-      text = pieces.filter(Boolean).map(String).join(' ').toLowerCase();
-    }
-    return text.includes('read') && text.includes('step');
+function permText(p) {
+  if (!p) return '';
+  if (typeof p === 'string') return p;
+  return [p.accessType, p.access, p.recordType, p.record, p.dataType, p.permission, p.recordClassName].filter(Boolean).map(String).join(' ').toLowerCase();
+}
+
+function hasReadStepsPermission(r) {
+  return normalizePermissionList(r).some(function(p) {
+    var t = permText(p);
+    return t.includes('read') && t.includes('step');
   });
 }
 
-function describeSdkStatus(sdkStatus) {
-  if (sdkStatus === null || sdkStatus === undefined) return '확인 전';
-  var s = String(sdkStatus);
-  if (sdkStatus === 3 || s.toLowerCase().includes('available')) return '사용 가능';
-  if (sdkStatus === 2 || s.toLowerCase().includes('update')) return '업데이트 필요';
-  if (sdkStatus === 1 || s.toLowerCase().includes('unavail')) return '사용 불가';
+function describeSdkStatus(s) {
+  if (s == null) return '확인 전';
+  var t = String(s).toLowerCase();
+  if (s === 3 || t.includes('available')) return '사용 가능';
+  if (s === 2 || t.includes('update')) return '업데이트 필요';
+  if (s === 1 || t.includes('unavail')) return '사용 불가';
   return '상태 ' + s;
 }
 
@@ -59,6 +63,20 @@ function getStatusMeta(hc) {
   return { label: '권한 미연결', tone: 'neutral', desc: '걸음 수 읽기 권한을 연결해 주세요.' };
 }
 
+function getMetricStatusMeta(m, perms) {
+  if (m.key === 'steps') {
+    if (perms && perms.readSteps) return { label: '권한 연결됨', tone: 'success', desc: 'APK에서 Health Connect 걸음 수 읽기 권한이 연결된 상태입니다.' };
+    return { label: 'APK 연결 가능', tone: 'warning', desc: 'APK에서 Health Connect 걸음 수 읽기 권한을 요청할 수 있습니다.' };
+  }
+  return { label: 'UI 준비 중', tone: 'neutral', desc: 'Expo Go에서는 선택/저장 구조만 확인합니다.' };
+}
+
+function getSelectedMetricTypes(hc) {
+  var sel = hc && hc.selectedMetricTypes;
+  if (Array.isArray(sel) && sel.length > 0) return sel.filter(function(k) { return HEALTH_CONNECT_DATA_TYPES.some(function(t) { return t.key === k; }); });
+  return ['steps'];
+}
+
 export default function DataIntegrationsScreen({ navigation }) {
   var _a = useState(null), appSettings = _a[0], setAppSettings = _a[1];
   var _b = useState(true), loading = _b[0], setLoading = _b[1];
@@ -67,6 +85,13 @@ export default function DataIntegrationsScreen({ navigation }) {
 
   var hc = (appSettings && appSettings.dataIntegrations && appSettings.dataIntegrations.healthConnect) || {};
   var statusMeta = useMemo(function() { return getStatusMeta(hc); }, [hc.status, hc.lastError]);
+  var selectedMetricTypes = useMemo(function() { return getSelectedMetricTypes(hc); }, [hc.selectedMetricTypes]);
+  var metricEnabledMap = useMemo(function() {
+    var s = new Set(selectedMetricTypes);
+    var m = {};
+    HEALTH_CONNECT_DATA_TYPES.forEach(function(t) { m[t.key] = s.has(t.key); });
+    return m;
+  }, [selectedMetricTypes]);
 
   var loadSettings = useCallback(function() {
     setLoading(true);
@@ -79,167 +104,181 @@ export default function DataIntegrationsScreen({ navigation }) {
 
   var saveHC = useCallback(function(next) {
     return setDataIntegrationSettings(HEALTH_CONNECT_PROVIDER, Object.assign({}, next, { updatedAt: new Date().toISOString() })).then(function(saved) {
-      setAppSettings(saved);
-      return saved;
+      setAppSettings(saved); return saved;
     });
   }, []);
 
+  var toggleMetric = useCallback(function(key) {
+    var s = new Set(selectedMetricTypes);
+    if (s.has(key)) s.delete(key); else s.add(key);
+    var next = HEALTH_CONNECT_DATA_TYPES.map(function(t) { return t.key; }).filter(function(k) { return s.has(k); });
+    if (next.length === 0) { Alert.alert('최소 1개 필요', '기록 화면에서 사용할 항목을 최소 1개 이상 선택해주세요.'); return; }
+    saveHC(Object.assign({}, hc, { selectedMetricTypes: next, metricSettings: HEALTH_CONNECT_DATA_TYPES.reduce(function(acc, t) {
+      acc[t.key] = { enabled: next.includes(t.key), permissionKey: t.permissionKey, recordType: t.recordType, unit: t.unit, apkPermissionReady: t.key === 'steps' };
+      return acc;
+    }, {}) }));
+  }, [hc, saveHC, selectedMetricTypes]);
+
   var handleConnect = useCallback(function() {
-    if (connecting) return;
-    setConnecting(true);
+    if (connecting) return; setConnecting(true);
     var mod = loadHealthConnectModule();
     if (!mod) {
-      saveHC({ enabled: false, status: 'error', sdkStatus: null, permissions: { readSteps: false }, lastError: 'Expo Go에서는 Health Connect를 사용할 수 없습니다.' }).then(function() {
-        Alert.alert('APK/개발 빌드 필요', 'Health Connect 권한 요청은 Expo Go가 아닌 APK 또는 개발 빌드에서만 동작합니다.');
-      });
-      setConnecting(false);
-      return;
+      saveHC(Object.assign({}, hc, { enabled: false, status: 'error', permissions: Object.assign({}, (hc.permissions||{}), { readSteps: false }), lastError: 'Expo Go에서는 Health Connect 네이티브 모듈을 사용할 수 없습니다.' }));
+      Alert.alert('APK/개발 빌드 필요', 'Health Connect 권한 요청은 APK 또는 개발 빌드에서만 동작합니다.');
+      setConnecting(false); return;
     }
     (async function() {
       try {
-        var getSdkStatus = mod.getSdkStatus, initialize = mod.initialize, requestPermission = mod.requestPermission, getGrantedPermissions = mod.getGrantedPermissions;
-        var sdkStatus = null;
-        if (typeof getSdkStatus === 'function') sdkStatus = await getSdkStatus();
-        if (typeof initialize === 'function') await initialize();
-        var requestResult = null;
-        if (typeof requestPermission === 'function') requestResult = await requestPermission(STEP_PERMISSION_REQUEST);
-        var grantedResult = null;
-        if (typeof getGrantedPermissions === 'function') grantedResult = await getGrantedPermissions();
-        var readSteps = hasReadStepsPermission(requestResult) || hasReadStepsPermission(grantedResult);
-        await saveHC({ enabled: readSteps, status: readSteps ? 'connected' : 'permissionDenied', sdkStatus: sdkStatus, permissions: { readSteps: readSteps }, lastError: readSteps ? null : '걸음 수 읽기 권한이 허용되지 않았습니다.' });
-        Alert.alert(readSteps ? '걸음 수 권한 연결됨' : '걸음 수 권한 필요', readSteps ? 'Health Connect 걸음 수 읽기 권한이 허용되었습니다.' : '권한 화면이 열리지 않았거나 권한이 거부되었습니다. "Health Connect 권한 설정 열기"를 눌러 직접 확인하세요.');
-      } catch (err) {
-        var msg = (err && err.message) || 'Health Connect 권한 요청 중 오류가 발생했습니다.';
-        await saveHC({ enabled: false, status: 'error', permissions: { readSteps: false }, lastError: msg });
-        Alert.alert('Health Connect 오류', msg);
+        var gs = mod.getSdkStatus, init = mod.initialize, rp = mod.requestPermission, gpp = mod.getGrantedPermissions;
+        var sdk = typeof gs === 'function' ? await gs() : null;
+        if (typeof init === 'function') await init();
+        var reqR = typeof rp === 'function' ? await rp([{ accessType: 'read', recordType: 'Steps' }]) : null;
+        var grR = typeof gpp === 'function' ? await gpp() : null;
+        var rs = hasReadStepsPermission(reqR) || hasReadStepsPermission(grR);
+        await saveHC(Object.assign({}, hc, { enabled: rs, status: rs ? 'connected' : 'permissionDenied', sdkStatus: sdk, permissions: Object.assign({}, (hc.permissions||{}), { readSteps: rs }), lastError: rs ? null : '걸음 수 읽기 권한이 허용되지 않았습니다.' }));
+        Alert.alert(rs ? '연결됨' : '권한 필요', rs ? '걸음 수 읽기 권한이 허용되었습니다.' : '권한이 거부되었습니다.');
+      } catch(err) {
+        var msg = (err && err.message) || 'Health Connect 오류';
+        await saveHC(Object.assign({}, hc, { enabled: false, status: 'error', permissions: Object.assign({}, (hc.permissions||{}), { readSteps: false }), lastError: msg }));
+        Alert.alert('오류', msg);
       } finally { setConnecting(false); }
     })();
-  }, [connecting, saveHC]);
+  }, [connecting, hc, saveHC]);
 
   var handleOpenSettings = useCallback(function() {
     setOpeningSettings(true);
     var mod = loadHealthConnectModule();
-    if (!mod || typeof mod.openHealthConnectSettings !== 'function') {
-      Alert.alert('설정 열기 실패', 'Health Connect 설정을 직접 열 수 없습니다. Android 설정에서 Health Connect 권한을 확인해 주세요.');
-      setOpeningSettings(false);
-      return;
-    }
-    mod.openHealthConnectSettings().catch(function() {
-      Alert.alert('설정 열기 실패', 'Health Connect 설정을 여는 중 오류가 발생했습니다.');
-    }).finally(function() { setOpeningSettings(false); });
+    (async function() {
+      try {
+        if (mod && typeof mod.openHealthConnectSettings === 'function') { await mod.openHealthConnectSettings(); return; }
+        var Linking = require('react-native').Linking;
+        await Linking.openSettings();
+      } catch(e) { Alert.alert('설정 열기 실패'); }
+      finally { setOpeningSettings(false); }
+    })();
   }, []);
 
   var handleRefresh = useCallback(function() {
     setConnecting(true);
     var mod = loadHealthConnectModule();
     if (!mod || typeof mod.getGrantedPermissions !== 'function') {
-      Alert.alert('권한 재확인 불가', '현재 빌드에서 권한 재확인 기능을 사용할 수 없습니다.');
-      setConnecting(false);
-      return;
+      Alert.alert('권한 재확인 불가'); setConnecting(false); return;
     }
-    mod.getGrantedPermissions().then(function(granted) {
-      var readSteps = hasReadStepsPermission(granted);
-      return saveHC({ enabled: readSteps, status: readSteps ? 'connected' : 'permissionDenied', permissions: { readSteps: readSteps }, lastError: readSteps ? null : '걸음 수 읽기 권한이 아직 허용되지 않았습니다.' });
-    }).then(function() {
-      Alert.alert('권한 재확인 완료', '가장 최근 권한 상태로 업데이트했습니다.');
-    }).catch(function(err) {
-      var msg = (err && err.message) || '권한 재확인 중 오류가 발생했습니다.';
-      Alert.alert('권한 재확인 오류', msg);
-    }).finally(function() { setConnecting(false); });
-  }, [saveHC]);
+    mod.getGrantedPermissions().then(function(r) {
+      var rs = hasReadStepsPermission(r);
+      return saveHC(Object.assign({}, hc, { enabled: rs, status: rs ? 'connected' : 'permissionDenied', permissions: Object.assign({}, (hc.permissions||{}), { readSteps: rs }), lastError: rs ? null : '권한이 아직 허용되지 않았습니다.' }));
+    }).then(function() { Alert.alert('권한 재확인 완료'); }).catch(function(err) { Alert.alert('오류', (err&&err.message)||'권한 재확인 오류'); }).finally(function() { setConnecting(false); });
+  }, [hc, saveHC]);
 
   var handleReset = useCallback(function() {
-    Alert.alert('연결 상태 초기화', '앱에 저장된 연결 상태만 초기화합니다.', [
+    Alert.alert('초기화', '앱 저장 상태만 초기화합니다.', [
       { text: '취소', style: 'cancel' },
       { text: '초기화', style: 'destructive', onPress: function() {
-        saveHC({ enabled: false, status: 'notConnected', sdkStatus: null, permissions: { readSteps: false }, lastError: null });
+        saveHC({ enabled: false, status: 'notConnected', sdkStatus: null, selectedMetricTypes: ['steps'], permissions: { readSteps: false }, lastError: null });
       }},
     ]);
   }, [saveHC]);
 
   if (loading) {
     return (
-      <SafeAreaView style={ss.safeArea}>
-        <View style={ss.center}><ActivityIndicator /><Text style={ss.loadText}>설정 불러오는 중...</Text></View>
+      <SafeAreaView style={s.safeArea}>
+        <View style={s.center}><ActivityIndicator /><Text style={s.loadText}>불러오는 중...</Text></View>
       </SafeAreaView>
     );
   }
 
-  return (
-    <SafeAreaView style={ss.safeArea}>
-      <ScrollView contentContainerStyle={ss.content}>
-        <BackButton title="데이터 출처 관리" />
-        <Text style={ss.desc}>외부 데이터는 인증을 자동 완료하는 기능이 아니라, 기록을 증명하는 근거로 사용됩니다.</Text>
+  var perms = hc.permissions || {};
 
-        {/* Health Connect */}
-        <View style={ss.card}>
-          <View style={ss.cardHdr}>
+  return (
+    <SafeAreaView style={s.safeArea}>
+      <ScrollView contentContainerStyle={s.content}>
+        <BackButton title="데이터 출처 관리" />
+
+        <View style={s.card}>
+          <View style={s.cardHdr}>
             <View style={{ flex: 1 }}>
-              <Text style={ss.cardTitle}>Health Connect</Text>
-              <Text style={ss.cardSub}>삼성헬스·Google Fit 등 건강 데이터 허브</Text>
+              <Text style={s.cardTitle}>Health Connect</Text>
+              <Text style={s.cardSub}>삼성헬스·Google Fit 등 건강 데이터 허브</Text>
             </View>
             <Pill label={statusMeta.label} tone={statusMeta.tone} />
           </View>
-          <Text style={ss.descSmall}>{statusMeta.desc}</Text>
-
-          <View style={ss.notice}>
-            <Text style={ss.noticeTitle}>현재 테스트 지원 범위</Text>
-            <Text style={ss.noticeText}>지금은 Health Connect 전체 연결이 아니라 "걸음 수 읽기" 권한만 먼저 연결합니다.</Text>
+          <Text style={s.desc}>{statusMeta.desc}</Text>
+          <View style={s.notice}>
+            <Text style={s.noticeTitle}>중간 단계 작업 기준</Text>
+            <Text style={s.noticeText}>Expo Go에서 화면과 저장 구조만 확인합니다. 실제 권한 요청은 APK 통합 테스트에서 확인합니다.</Text>
           </View>
-
-          <View style={ss.infoList}>
-            <Text style={ss.infoItem}>• 요청 권한: 걸음 수 읽기 (READ_STEPS)</Text>
-            <Text style={ss.infoItem}>• 저장 내용: 연결 여부와 권한 상태</Text>
-            <Text style={ss.infoItem}>• 아직 실제 걸음 수 데이터는 읽지 않음</Text>
-            <Text style={ss.infoItem}>• SDK 상태: {describeSdkStatus(hc.sdkStatus)}</Text>
+          <View style={s.infoList}>
+            <Text style={s.infoItem}>• APK 확인 완료: 걸음 수 권한 연결</Text>
+            <Text style={s.infoItem}>• Expo Go 확인 범위: 데이터 타입 UI, 토글, 저장 구조</Text>
+            <Text style={s.infoItem}>• SDK: {describeSdkStatus(hc.sdkStatus)}</Text>
+            <Text style={s.infoItem}>• 기록 화면 사용 항목: {selectedMetricTypes.length}개</Text>
           </View>
-
-          <TouchableOpacity style={[ss.btnPrimary, connecting && ss.btnDisabled]} onPress={handleConnect} disabled={connecting} activeOpacity={0.85}>
-            <Text style={ss.btnPrimaryText}>{connecting ? '걸음 수 권한 확인 중...' : '걸음 수 권한 연결하기'}</Text>
+          <TouchableOpacity style={[s.btnPri, connecting && s.btnDis]} onPress={handleConnect} disabled={connecting} activeOpacity={0.85}>
+            <Text style={s.btnPriTxt}>{connecting ? '확인 중...' : '걸음 수 권한 연결하기'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[ss.btnSecondary, openingSettings && ss.btnDisabled]} onPress={handleOpenSettings} disabled={openingSettings} activeOpacity={0.85}>
-            <Text style={ss.btnSecondaryText}>{openingSettings ? '설정 여는 중...' : 'Health Connect 권한 설정 열기'}</Text>
+          <TouchableOpacity style={[s.btnSec, openingSettings && s.btnDis]} onPress={handleOpenSettings} disabled={openingSettings} activeOpacity={0.85}>
+            <Text style={s.btnSecTxt}>Health Connect 권한 설정 열기</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[ss.btnSecondary, connecting && ss.btnDisabled]} onPress={handleRefresh} disabled={connecting} activeOpacity={0.85}>
-            <Text style={ss.btnSecondaryText}>걸음 수 권한 다시 확인</Text>
+          <TouchableOpacity style={[s.btnSec, connecting && s.btnDis]} onPress={handleRefresh} disabled={connecting} activeOpacity={0.85}>
+            <Text style={s.btnSecTxt}>걸음 수 권한 다시 확인</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={ss.btnText} onPress={handleReset} activeOpacity={0.75}>
-            <Text style={ss.btnTextLabel}>앱 연결 상태 초기화</Text>
+          <TouchableOpacity style={s.btnTxt} onPress={handleReset} activeOpacity={0.75}>
+            <Text style={s.btnTxtLabel}>앱 연결 상태 초기화</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Future */}
-        <View style={ss.card}>
-          <Text style={ss.cardTitle}>이후 확장 예정</Text>
-          <View style={ss.futureGrid}>
-            {['운동 기록','이동 거리','칼로리','수면','심박','체중'].map(function(m) {
-              return <View key={m} style={ss.chip}><Text style={ss.chipText}>{m}</Text></View>;
-            })}
-          </View>
-        </View>
+        <Text style={s.secTitle}>연동 데이터 타입</Text>
+        <Text style={s.secDesc}>인증/기록하기 화면과 그래프에서 사용할 Health Connect 항목을 미리 선택합니다.</Text>
 
-        {/* Strava */}
-        <View style={ss.card}>
-          <View style={ss.cardHdr}>
+        {HEALTH_CONNECT_DATA_TYPES.map(function(m) {
+          var ms = getMetricStatusMeta(m, perms);
+          return (
+            <View key={m.key} style={s.mCard}>
+              <View style={s.mHdr}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.mTitle}>{m.title}</Text>
+                  <Text style={s.mType}>{m.recordType}</Text>
+                </View>
+                <Pill label={ms.label} tone={ms.tone} />
+              </View>
+              <Text style={s.mDesc}>{m.summary}</Text>
+              <Text style={s.mSub}>{ms.desc}</Text>
+              <View style={s.mMeta}>
+                <Text style={s.mMetaLbl}>인증 근거</Text><Text style={s.mMetaVal}>{m.proofUse}</Text>
+                <Text style={s.mMetaLbl}>그래프</Text><Text style={s.mMetaVal}>{m.graphUse}</Text>
+                <Text style={s.mMetaLbl}>단위</Text><Text style={s.mMetaVal}>{m.unit}</Text>
+              </View>
+              <View style={s.tglRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.tglTitle}>기록 화면에서 사용</Text>
+                  <Text style={s.tglDesc}>인증/기록하기 화면에서 이 연동 데이터 항목을 선택지로 보여줍니다.</Text>
+                </View>
+                <Switch value={metricEnabledMap[m.key]} onValueChange={function() { toggleMetric(m.key); }} />
+              </View>
+            </View>
+          );
+        })}
+
+        <View style={s.card}>
+          <View style={s.cardHdr}>
             <View style={{ flex: 1 }}>
-              <Text style={ss.cardTitle}>Strava</Text>
-              <Text style={ss.cardSub}>러닝·라이딩 기록 연동</Text>
+              <Text style={s.cardTitle}>Strava</Text>
+              <Text style={s.cardSub}>러닝·라이딩 기록 연동</Text>
             </View>
             <Pill label="준비 예정" tone="neutral" />
           </View>
-          <Text style={ss.descSmall}>OAuth 로그인과 운동 기록 선택 첨부 방식으로 확장할 예정입니다.</Text>
+          <Text style={s.desc}>OAuth 로그인과 운동 기록 선택 첨부 방식으로 확장할 예정입니다.</Text>
         </View>
 
-        {/* Garmin */}
-        <View style={ss.card}>
-          <View style={ss.cardHdr}>
+        <View style={s.card}>
+          <View style={s.cardHdr}>
             <View style={{ flex: 1 }}>
-              <Text style={ss.cardTitle}>Garmin</Text>
-              <Text style={ss.cardSub}>웨어러블 운동 기록 연동</Text>
+              <Text style={s.cardTitle}>Garmin</Text>
+              <Text style={s.cardSub}>웨어러블 운동 기록 연동</Text>
             </View>
             <Pill label="준비 예정" tone="neutral" />
           </View>
-          <Text style={ss.descSmall}>API 제공 범위와 개인 계정 연동 가능성을 확인한 뒤 추가합니다.</Text>
+          <Text style={s.desc}>API 제공 범위와 개인 계정 연동 가능성을 확인한 뒤 추가합니다.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -251,38 +290,44 @@ function Pill(props) {
   if (props.tone === 'success') { bg = '#DCFCE7'; tx = '#166534'; }
   else if (props.tone === 'warning') { bg = '#FEF3C7'; tx = '#92400E'; }
   else if (props.tone === 'danger') { bg = '#FEE2E2'; tx = '#991B1B'; }
-  else { bg = colors.gray400 || '#F1F5F9'; tx = colors.gray600 || '#475569'; }
-  return (
-    <View style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999, backgroundColor: bg }}>
-      <Text style={{ fontSize: 11, fontWeight: '800', color: tx }}>{props.label}</Text>
-    </View>
-  );
+  else { bg = '#F1F5F9'; tx = '#475569'; }
+  return (<View style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999, backgroundColor: bg }}><Text style={{ fontSize: 11, fontWeight: '800', color: tx }}>{props.label}</Text></View>);
 }
 
-var ss = StyleSheet.create({
+var s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background || '#F8FAFC' },
   content: { padding: spacing.lg || 20, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadText: { marginTop: 8, fontSize: 14, color: colors.gray600 || '#525252' },
-  desc: { marginTop: 8, marginBottom: spacing.lg || 20, fontSize: 14, lineHeight: 20, color: colors.gray600 || '#525252' },
-  descSmall: { marginTop: spacing.md || 12, fontSize: 14, lineHeight: 20, color: colors.gray600 || '#525252' },
+  loadText: { marginTop: 8, fontSize: 14, color: colors.gray600 || '#475569' },
+  desc: { marginTop: spacing.md || 12, fontSize: 14, lineHeight: 20, color: colors.gray600 || '#475569' },
   card: { padding: spacing.lg || 20, borderRadius: radius.lg || 16, backgroundColor: colors.surface || '#FFF', marginBottom: spacing.md || 12, borderWidth: 1, borderColor: colors.borderSoft || '#E2E8F0' },
   cardHdr: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  cardTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800 || '#111' },
-  cardSub: { marginTop: 3, fontSize: 13, color: colors.gray600 || '#525252' },
+  cardTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800 || '#0F172A' },
+  cardSub: { marginTop: 3, fontSize: 13, color: colors.gray600 || '#475569' },
   notice: { marginTop: spacing.md || 12, padding: spacing.md || 12, borderRadius: radius.md || 12, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' },
   noticeTitle: { fontSize: 13, fontWeight: '800', color: '#1D4ED8', marginBottom: 4 },
   noticeText: { fontSize: 13, lineHeight: 19, color: '#1E40AF' },
   infoList: { marginTop: spacing.md || 12 },
-  infoItem: { fontSize: 13, lineHeight: 20, color: colors.gray600 || '#525252' },
-  btnPrimary: { marginTop: spacing.lg || 20, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md || 12, backgroundColor: colors.black || '#111' },
-  btnPrimaryText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
-  btnSecondary: { marginTop: 8, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md || 12, backgroundColor: colors.gray400 || '#F1F5F9', borderWidth: 1, borderColor: colors.borderSoft || '#E2E8F0' },
-  btnSecondaryText: { fontSize: 14, fontWeight: '800', color: colors.gray800 || '#111' },
-  btnDisabled: { opacity: 0.55 },
-  btnText: { alignSelf: 'center', marginTop: spacing.md || 12, paddingVertical: 8 },
-  btnTextLabel: { fontSize: 13, fontWeight: '700', color: colors.gray600 || '#525252' },
-  futureGrid: { marginTop: spacing.md || 12, flexDirection: 'row', flexWrap: 'wrap' },
-  chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.gray400 || '#F1F5F9', borderWidth: 1, borderColor: colors.borderSoft || '#E2E8F0', marginRight: 8, marginBottom: 8 },
-  chipText: { fontSize: 12, fontWeight: '700', color: colors.gray600 || '#525252' },
+  infoItem: { fontSize: 13, lineHeight: 20, color: colors.gray600 || '#475569' },
+  btnPri: { marginTop: spacing.lg || 20, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md || 12, backgroundColor: colors.black || '#2563EB' },
+  btnPriTxt: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  btnSec: { marginTop: 8, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md || 12, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: colors.borderSoft || '#E2E8F0' },
+  btnSecTxt: { fontSize: 14, fontWeight: '800', color: colors.gray800 || '#1E293B' },
+  btnDis: { opacity: 0.55 },
+  btnTxt: { alignSelf: 'center', marginTop: spacing.md || 12, paddingVertical: 8 },
+  btnTxtLabel: { fontSize: 13, fontWeight: '700', color: colors.gray600 || '#64748B' },
+  secTitle: { fontSize: 19, fontWeight: '800', color: colors.gray800 || '#0F172A', marginTop: spacing.sm || 8, marginBottom: 4 },
+  secDesc: { fontSize: 13, lineHeight: 19, color: colors.gray600 || '#475569', marginBottom: spacing.md || 12 },
+  mCard: { padding: spacing.md || 12, borderRadius: radius.lg || 16, backgroundColor: colors.surface || '#FFF', marginBottom: spacing.md || 12, borderWidth: 1, borderColor: colors.borderSoft || '#E2E8F0' },
+  mHdr: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  mTitle: { fontSize: 16, fontWeight: '800', color: colors.gray800 || '#0F172A' },
+  mType: { marginTop: 2, fontSize: 11, fontWeight: '700', color: '#94A3B8' },
+  mDesc: { marginTop: spacing.sm || 8, fontSize: 13, lineHeight: 19, color: colors.gray600 || '#334155' },
+  mSub: { marginTop: 4, fontSize: 12, lineHeight: 18, color: '#64748B' },
+  mMeta: { marginTop: spacing.md || 12, padding: spacing.sm || 8, borderRadius: radius.md || 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' },
+  mMetaLbl: { fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 2 },
+  mMetaVal: { fontSize: 12, lineHeight: 17, color: '#334155', marginBottom: 6 },
+  tglRow: { marginTop: spacing.md || 12, paddingTop: spacing.md || 12, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tglTitle: { fontSize: 13, fontWeight: '800', color: colors.gray800 || '#1E293B' },
+  tglDesc: { marginTop: 2, fontSize: 12, lineHeight: 17, color: '#64748B' },
 });

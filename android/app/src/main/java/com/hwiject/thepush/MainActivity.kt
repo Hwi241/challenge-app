@@ -1,4 +1,5 @@
 package com.hwiject.thepush
+import dev.matinzd.healthconnect.permissions.HealthConnectPermissionDelegate
 
 import android.os.Build
 import android.os.Bundle
@@ -17,6 +18,7 @@ class MainActivity : ReactActivity() {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null)
+  HealthConnectPermissionDelegate.setPermissionDelegate(this)
   }
 
   /**

@@ -200,7 +200,22 @@ export default function SettingsScreen() {
         </Text>
       </View>
 
-      {/* 개선의견 */}
+            {/* 데이터 연동 */}
+      <View style={[styles.card, { marginTop: spacing.lg }]}>
+        <Text style={[styles.label, { marginBottom: spacing.sm }]}>데이터 연동</Text>
+        <Text style={[styles.hint, { marginTop: 0, marginBottom: spacing.md }]}>
+          Health Connect와 이후 추가될 외부 데이터 출처를 관리합니다. 연결된 데이터만 인증에 사용할 수 있어요.
+        </Text>
+        <TouchableOpacity
+          style={buttonStyles.outlineSoft.container}
+          onPress={() => navigation.navigate('DataIntegrations')}
+          activeOpacity={0.9}
+        >
+          <Text style={buttonStyles.outlineSoft.label}>데이터 출처 관리</Text>
+        </TouchableOpacity>
+      </View>
+
+{/* 개선의견 */}
       <View style={[styles.card, { marginTop: spacing.lg }]}>
         <Text style={[styles.label, { marginBottom: spacing.sm }]}>피드백</Text>
         <TouchableOpacity

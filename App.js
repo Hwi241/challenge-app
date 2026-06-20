@@ -19,6 +19,7 @@ import SimpleNotificationScreen from './screens/SimpleNotificationScreen';
 import WeeklyNotificationScreen from './screens/WeeklyNotificationScreen';
 import MonthlyNotificationScreen from './screens/MonthlyNotificationScreen';
 import HallOfFameScreen from './screens/HallOfFameScreen';
+import DataIntegrationsScreen from './screens/DataIntegrationsScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BackupScreen from './screens/BackupScreen';
 import TrashScreen from './screens/TrashScreen';
@@ -61,7 +62,8 @@ const linking = {
       ProfileInventory: 'profile-inventory',
       WidgetShop: 'widget-shop',
       MyGraphs: 'my-graphs',
-      Settings: 'settings',
+      DataIntegrations: 'data-integrations',
+ Settings: 'settings',
       Backup: 'backup',
       FullRangeNotification: 'full-range',
       NotificationDefaults: 'notification-defaults',
@@ -159,7 +161,8 @@ export default function App() {
             <Stack.Screen name="HallOfFameScreen" component={HallOfFameScreen} />
 
             {/* 설정/백업 */}
-            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="DataIntegrations" component={DataIntegrationsScreen} />
+ <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Backup" component={BackupScreen} />
             <Stack.Screen name="Trash" component={TrashScreen} />
 

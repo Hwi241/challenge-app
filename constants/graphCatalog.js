@@ -49,6 +49,9 @@ export const GRAPH_METRIC_TYPES = {
   SCORE: 'score',
   PERCENT: 'percent',
   RELATION: 'relation',
+  STEPS: 'steps',
+  DISTANCE: 'distance',
+  EXERCISE: 'exercise',
 };
 
 export const GRAPH_PREVIEW_FAMILIES = {

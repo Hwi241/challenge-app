@@ -19,9 +19,11 @@ export const ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS = [
   'weekly_bar',
   'line_count_cumulative',
   'line_minutes',
-  'grass_graph',,
+  'grass_graph',
   'health_steps_weekly'
-];
+  'health_steps_trend',
+  'health_exercise_minutes_trend',
+  'health_distance_trend',];
 
 export const DEFAULT_OWNED_DASHBOARD_GRAPH_WIDGET_IDS = [
   'overall_progress',
@@ -33,9 +35,11 @@ export const ACTUAL_PURCHASABLE_DASHBOARD_GRAPH_WIDGET_IDS = [
   'weekly_bar',
   'line_count_cumulative',
   'line_minutes',
-  'grass_graph',,
+  'grass_graph',
   'health_steps_weekly'
-];
+  'health_steps_trend',
+  'health_exercise_minutes_trend',
+  'health_distance_trend',];
 
 export const RECORD_ROOM_WIDGET_IDS = [
   'profile-image',

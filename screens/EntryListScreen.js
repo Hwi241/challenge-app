@@ -768,11 +768,26 @@ const MonthCalendar = memo(function MonthCalendar({
               else cellColor = '#111111';
             }
 
-            if (cert) {
+            if (cert || isToday) {
+              const todayUncertifiedBadgeStyle = isToday && !cert
+                ? {
+                    backgroundColor: '#D1D5DB',
+                  }
+                : null;
+
+              const todayBadgeTextStyle = isToday
+                ? {
+                    color: cert ? '#FFFFFF' : '#000000',
+                    fontWeight: '900',
+                    fontSize: calTodayFontSize,
+                    lineHeight: calTodayFontSize + scaleCal(2, 1.5, 4),
+                  }
+                : null;
+
               return (
                 <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
-                  <View style={[styles.calBadge, calBadgeDynamicStyle, compactCertBadgeAdjustStyle, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
-                    <Text style={[styles.calBadgeText, calBadgeTextDynamicStyle, compactCertBadgeTextCenterStyle]}>{d.getDate()}</Text>
+                  <View style={[styles.calBadge, calBadgeDynamicStyle, compactCertBadgeAdjustStyle, todayUncertifiedBadgeStyle, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
+                    <Text style={[styles.calBadgeText, calBadgeTextDynamicStyle, compactCertBadgeTextCenterStyle, todayBadgeTextStyle]}>{d.getDate()}</Text>
                   </View>
                 </View>
               );
@@ -780,7 +795,7 @@ const MonthCalendar = memo(function MonthCalendar({
 
             return (
               <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
-                <Text style={[styles.calCellText, calCellTextDynamicStyle, { color: cellColor }, isToday && !cert && { color: '#000', fontWeight: '900', fontSize: calTodayFontSize, lineHeight: calTodayFontSize + scaleCal(2, 1.5, 4) }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+                <Text style={[styles.calCellText, calCellTextDynamicStyle, { color: cellColor }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
                   {d.getDate()}
                 </Text>
               </View>

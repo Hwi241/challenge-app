@@ -1,7 +1,7 @@
 // constants/graphCatalog.js
 // Graph shop catalog for the graph-only shop.
 // This file is intentionally separate from widgetCatalog.js.
-// Only 6 actual dashboard graphs are defined here.
+// Actual dashboard graph catalog. Includes certification graphs and sample health graphs.
 
 export const GRAPH_CATEGORY_KEYS = {
   ALL: 'all',
@@ -138,6 +138,32 @@ export const GRAPH_CATALOG = [
  metricType: GRAPH_METRIC_TYPES.SCORE,
  seed: 103,
  features: ['도전 전용', '목표', '25별'],
+ },
+ },
+ {
+ id: 'health_steps_weekly',
+ title: '걸음 리듬',
+ category: GRAPH_CATEGORY_KEYS.BAR,
+ tier: 1,
+ price: 25,
+ defaultOwned: false,
+ shop: true,
+ description: '최근 7일 걸음 수를 목표선과 함께 보여줍니다. Health Connect 연동 전에는 샘플 데이터로 표시됩니다.',
+ inputs: [
+ { key: 'steps', label: '걸음 수', unit: '보' },
+ { key: 'goal', label: '목표', unit: '보' },
+ ],
+ minSize: { w: 4, h: 2 },
+ maxSize: { w: 6, h: 6 },
+ recommendedSize: { w: 6, h: 4 },
+ supports: ['습관', '도전'],
+ metricTypes: [GRAPH_METRIC_TYPES.COUNT, GRAPH_METRIC_TYPES.DATE],
+ preview: {
+ family: GRAPH_PREVIEW_FAMILIES.BAR,
+ variant: 'solidBars',
+ metricType: GRAPH_METRIC_TYPES.COUNT,
+ seed: 501,
+ features: ['샘플 데이터', '걸음 수', '8,000보 목표'],
  },
  },
  {

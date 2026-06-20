@@ -1,7 +1,7 @@
 export const DASHBOARD_TARGETS = {
-  CHALLENGE: 'challenge',
-  HABIT: 'habit',
-  RECORD_ROOM: 'recordRoom',
+ CHALLENGE: 'challenge',
+ HABIT: 'habit',
+ RECORD_ROOM: 'recordRoom',
 };
 
 export const GRID_COLUMNS = 6;
@@ -19,7 +19,8 @@ export const ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS = [
   'weekly_bar',
   'line_count_cumulative',
   'line_minutes',
-  'grass_graph',
+  'grass_graph',,
+  'health_steps_weekly'
 ];
 
 export const DEFAULT_OWNED_DASHBOARD_GRAPH_WIDGET_IDS = [
@@ -32,7 +33,8 @@ export const ACTUAL_PURCHASABLE_DASHBOARD_GRAPH_WIDGET_IDS = [
   'weekly_bar',
   'line_count_cumulative',
   'line_minutes',
-  'grass_graph',
+  'grass_graph',,
+  'health_steps_weekly'
 ];
 
 export const RECORD_ROOM_WIDGET_IDS = [
@@ -104,6 +106,7 @@ export const WIDGET_CATALOG = [
   { id: 't1_today_meter', title: '오늘 집중 미터', tier: 1, price: 30, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 1, h: 2 }, minSize: { w: 1, h: 2 }, maxSize: { w: 2, h: 4 }, kind: 'placeholder', previewFamily: 'progress' },
   { id: 't1_mini_summary', title: '미니 요약 카드', tier: 1, price: 30, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 1, h: 2 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 2 }, kind: 'placeholder', previewFamily: 'board' },
 
+  { id: 'health_steps_weekly', title: '걸음 리듬 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthStepsWeekly', previewFamily: 'bar' },
   { id: 'weekly_bar', title: '주간 막대 위젯', tier: 2, price: 80, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'weeklyBar', previewFamily: 'bar' },
   { id: 't2_weekly_heat', title: '주간 열감 지도', tier: 2, price: 80, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 3, h: 6 }, kind: 'placeholder', previewFamily: 'heatmap' },
   { id: 't2_record_balance', title: '기록 균형 카드', tier: 2, price: 80, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 2, h: 4 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 4 }, kind: 'placeholder', previewFamily: 'donut' },

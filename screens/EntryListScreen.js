@@ -583,6 +583,204 @@ const DashboardWidgetShell = memo(function DashboardWidgetShell({
   );
 });
 
+
+/* ───────── 건강 샘플 (HealthSteps) ───────── */
+const HEALTH_STEPS_WEEKLY_GOAL = 8000;
+const HEALTH_STEPS_WEEKLY_SAMPLE = Object.freeze([
+  { key: 'mon', label: '월', steps: 6420 },
+  { key: 'tue', label: '화', steps: 8120 },
+  { key: 'wed', label: '수', steps: 7340 },
+  { key: 'thu', label: '목', steps: 9650 },
+  { key: 'fri', label: '금', steps: 5280 },
+  { key: 'sat', label: '토', steps: 10420 },
+  { key: 'sun', label: '일', steps: 7860 },
+]);
+
+const formatStepCount = (value) => {
+  const numeric = Number(value) || 0;
+  return numeric.toLocaleString('ko-KR');
+};
+
+const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
+  disabled = false,
+}) {
+  const [box, setBox] = useState({ width: 0, height: 0 });
+
+  const onLayout = useCallback((event) => {
+    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
+    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
+    if (width <= 0 || height <= 0) return;
+    setBox((prev) => (
+      prev.width === width && prev.height === height
+        ? prev
+        : { width, height }
+    ));
+  }, []);
+
+  const todayIndex = useMemo(() => {
+    const day = new Date().getDay();
+    return day === 0 ? 6 : day - 1;
+  }, []);
+
+  const maxSteps = useMemo(() => (
+    Math.max(
+      HEALTH_STEPS_WEEKLY_GOAL,
+      ...HEALTH_STEPS_WEEKLY_SAMPLE.map((item) => Number(item.steps) || 0),
+      1,
+    )
+  ), []);
+
+  const bodyHeight = Math.max(1, Number(box.height) || 150);
+  const isCompact = bodyHeight < 116;
+  const chartHeight = Math.max(42, bodyHeight - (isCompact ? 38 : 50));
+  const goalLineTop = Math.max(
+    0,
+    Math.min(
+      chartHeight - 1,
+      Math.round(chartHeight * (1 - (HEALTH_STEPS_WEEKLY_GOAL / maxSteps)))
+    )
+  );
+
+  const todayItem = HEALTH_STEPS_WEEKLY_SAMPLE[todayIndex] || HEALTH_STEPS_WEEKLY_SAMPLE[0];
+
+  return (
+    <DashboardWidgetShell
+      header={
+        <DashboardWidgetHeader
+          title="걸음 리듬"
+          hideSides
+        />
+      }
+    >
+      <View
+        onLayout={onLayout}
+        style={{
+          flex: 1,
+          width: '100%',
+          paddingHorizontal: 10,
+          paddingTop: 6,
+          paddingBottom: 6,
+          opacity: disabled ? 0.92 : 1,
+        }}
+      >
+        <View style={{ position: 'relative', flex: 1, minHeight: chartHeight }}>
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: goalLineTop,
+              height: 1,
+              backgroundColor: '#9CA3AF',
+              opacity: 0.75,
+            }}
+          />
+          {!isCompact && (
+            <Text
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: Math.max(0, goalLineTop - 14),
+                color: '#6B7280',
+                fontSize: 9,
+                fontWeight: '800',
+                includeFontPadding: false,
+              }}
+            >
+              8,000
+            </Text>
+          )}
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              height: chartHeight,
+              paddingTop: 4,
+            }}
+          >
+            {HEALTH_STEPS_WEEKLY_SAMPLE.map((item, index) => {
+              const steps = Number(item.steps) || 0;
+              const isToday = index === todayIndex;
+              const reached = steps >= HEALTH_STEPS_WEEKLY_GOAL;
+              const barHeight = Math.max(8, Math.round((steps / maxSteps) * (chartHeight - 12)));
+              const barWidth = isCompact ? 12 : 16;
+
+              return (
+                <View
+                  key={item.key}
+                  style={{
+                    flex: 1,
+                    height: chartHeight,
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  <View
+                    style={{
+                      width: barWidth,
+                      height: barHeight,
+                      borderRadius: 5,
+                      backgroundColor: reached ? '#111111' : '#D1D5DB',
+                      borderWidth: isToday ? 2 : 0,
+                      borderColor: isToday ? '#111111' : 'transparent',
+                    }}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      marginTop: 3,
+                      color: isToday ? '#111111' : '#9CA3AF',
+                      fontSize: isCompact ? 8 : 9,
+                      lineHeight: isCompact ? 10 : 12,
+                      fontWeight: isToday ? '900' : '700',
+                      includeFontPadding: false,
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {!isCompact && (
+          <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                color: '#9CA3AF',
+                fontSize: 10,
+                lineHeight: 13,
+                fontWeight: '700',
+                includeFontPadding: false,
+              }}
+            >
+              샘플 데이터
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{
+                color: '#111111',
+                fontSize: 11,
+                lineHeight: 14,
+                fontWeight: '900',
+                includeFontPadding: false,
+              }}
+            >
+              오늘 {formatStepCount(todayItem.steps)}보
+            </Text>
+          </View>
+        )}
+      </View>
+    </DashboardWidgetShell>
+  );
+});
+
 /* ───────── 달력 ───────── */
 const MonthCalendar = memo(function MonthCalendar({
   startDate, endDate, entriesByDaySet, onPrev, onNext, monthDate, canPrev, canNext, highlightDate = null,
@@ -2747,6 +2945,8 @@ export default function EntryListScreen({ route, navigation }) {
       calendar: 'calendar',
       month_calendar: 'calendar',
       monthCalendar: 'calendar',
+      health_steps_weekly: 'healthStepsWeekly',
+      healthStepsWeekly: 'healthStepsWeekly',
       weekly_bar: 'weeklyBar',
       weeklyBar: 'weeklyBar',
       week: 'weeklyBar',
@@ -2823,6 +3023,15 @@ export default function EntryListScreen({ route, navigation }) {
         <DashboardGoalWidget
           rewardText={meta.rewardTitle ?? meta.reward}
         />
+      );
+    }
+    if (widgetKind === 'healthStepsWeekly') {
+      return (
+        <View style={styles.weeklyWidgetArea}>
+          <HealthStepsWeeklyWidget
+            disabled={isShare}
+          />
+        </View>
       );
     }
     if (widgetKind === 'weeklyBar') {

@@ -564,6 +564,24 @@ const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
   );
 });
 
+
+class HealthDashboardWidgetErrorBoundary extends React.PureComponent {
+  constructor(props) { super(props); this.state = { hasError: false, message: '' }; }
+  static getDerivedStateFromError(error) { return { hasError: true, message: error?.message ? String(error.message) : '위젯 렌더링 오류' }; }
+  componentDidCatch(error, info) { console.warn('[HealthWidgetError]', this.props?.widgetId || this.props?.title || 'unknown', error?.message || error, info?.componentStack || ''); }
+  render() {
+    if (this.state.hasError) {
+      return React.createElement(DashboardWidgetShell, { header: React.createElement(DashboardWidgetHeader, { title: this.props?.title || 'Health 위젯', hideSides: true }) },
+        React.createElement(View, { style: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 10 } },
+          React.createElement(Text, { numberOfLines: 1, style: { color: '#111111', fontSize: 12, fontWeight: '900', textAlign: 'center' } }, '위젯 오류'),
+          React.createElement(Text, { numberOfLines: 3, style: { marginTop: 5, color: '#9CA3AF', fontSize: 10, fontWeight: '700', textAlign: 'center' } }, '이 Health 그래프를 표시하지 못했습니다. 앱은 계속 사용할 수 있습니다.')
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const DashboardWidgetShell = memo(function DashboardWidgetShell({
   header,
   children,
@@ -3340,99 +3358,141 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
 });
 
     if (widgetKind === 'healthStepsGoalRate') {
-          return React.createElement(HealthStepsGoalRateWidget, { entries: entries, disabled: isShare, key: widgetKind + '-' + id });
+          return (
+            <HealthDashboardWidgetErrorBoundary widgetId="healthStepsGoalRate" title="걸음 목표 달성률">
+            {React.createElement(HealthStepsGoalRateWidget, { entries: entries, disabled: isShare, key: widgetKind + '-' + id })}
+          </HealthDashboardWidgetErrorBoundary>
+          );
         }
         if (widgetKind === 'healthStepsWeekly') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthStepsWeekly" title="걸음 리듬">
+
         <View style={styles.weeklyWidgetArea}>
           <HealthStepsWeeklyWidget
             disabled={isShare}
           />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthStepsTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthStepsTrend" title="걸음 수 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="steps" title="걸음 수 추세" unit="보" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthStepsCumulative') {
-          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'steps', title: '누적 걸음수', unit: '보', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id });
+          return (
+            <HealthDashboardWidgetErrorBoundary widgetId="healthStepsCumulative" title="누적 걸음수">
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'steps', title: '누적 걸음수', unit: '보', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id })}
+          </HealthDashboardWidgetErrorBoundary>
+          );
         }
         if (widgetKind === 'healthExerciseMinutesTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthExerciseMinutesTrend" title="운동 시간 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="minutes" title="운동 시간 추세" unit="분" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthExerciseWeeklyMinutes') {
-          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'minutes', title: '주간 운동시간', unit: '분', disabled: isShare, key: widgetKind + '-' + id });
+          return (
+            <HealthDashboardWidgetErrorBoundary widgetId="healthExerciseWeeklyMinutes" title="주간 운동시간">
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'minutes', title: '주간 운동시간', unit: '분', disabled: isShare, key: widgetKind + '-' + id })}
+          </HealthDashboardWidgetErrorBoundary>
+          );
         }
         if (widgetKind === 'healthDistanceWeekly') {
-          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '주간 이동거리', unit: 'km', disabled: isShare, key: widgetKind + '-' + id });
+          return (
+            <HealthDashboardWidgetErrorBoundary widgetId="healthDistanceWeekly" title="주간 이동거리">
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '주간 이동거리', unit: 'km', disabled: isShare, key: widgetKind + '-' + id })}
+          </HealthDashboardWidgetErrorBoundary>
+          );
         }
         if (widgetKind === 'healthDistanceCumulative') {
-          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '누적 운동거리', unit: 'km', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id });
+          return (
+            <HealthDashboardWidgetErrorBoundary widgetId="healthDistanceCumulative" title="누적 운동거리">
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '누적 운동거리', unit: 'km', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id })}
+          </HealthDashboardWidgetErrorBoundary>
+          );
         }
         if (widgetKind === 'healthDistanceTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthDistanceTrend" title="운동 거리 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="distance" title="운동 거리 추세" unit="km" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
 
     if (widgetKind === 'healthActiveCaloriesTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthActiveCaloriesTrend" title="운동 칼로리">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="calories" title="운동 칼로리" unit="kcal" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthSleepHoursTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthSleepHoursTrend" title="수면 시간 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="sleepHours" title="수면 시간 추세" unit="시간" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthSleepRhythm') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthSleepRhythm" title="수면 리듬">
+
         <View style={styles.weeklyWidgetArea}>
           <HealthSleepRhythmWidget entries={entries} disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthHeartRateTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthHeartRateTrend" title="평균 심박 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="heartRate" title="평균 심박 추세" unit="bpm" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthWeightTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthWeightTrend" title="체중 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="weight" title="체중 추세" unit="kg" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthBodyFatTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthBodyFatTrend" title="체지방률 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="bodyFat" title="체지방률 추세" unit="%" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
     if (widgetKind === 'healthBmiTrend') {
-      return (
+      return (<HealthDashboardWidgetErrorBoundary widgetId="healthBmiTrend" title="BMI 추세">
+
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="bmi" title="BMI 추세" unit="BMI" disabled={isShare} />
         </View>
-      );
+
+          </HealthDashboardWidgetErrorBoundary>);
     }
 
     if (widgetKind === 'weeklyBar') {

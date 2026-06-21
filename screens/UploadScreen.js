@@ -226,6 +226,9 @@ const MAX_MINUTES = 1440; // 24시간
       setSelectedEntryDate(toLocalDateOnly(new Date()));
       setDateEditEnabled(false);
       setDatePickerVisible(false);
+      setHealthDataRecords([]);
+      setHealthDataDateKey(null);
+      setSelectedHealthRecordIds([]);
       setChallengeInfo(null);
       submittedRef.current = false;
 
@@ -330,8 +333,9 @@ const MAX_MINUTES = 1440; // 24시간
     !!text.trim() ||
     !!imageUri ||
     !!duration ||
+    selectedHealthRecords.length > 0 ||
     !!isPastEntryDate
-  ), [text, imageUri, duration, isPastEntryDate]);
+  ), [text, imageUri, duration, selectedHealthRecords.length, isPastEntryDate]);
 
   const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
     navigation,
@@ -379,7 +383,7 @@ const MAX_MINUTES = 1440; // 24시간
 
       const trimmed = (text || '').trim();
 
-      if (!trimmed && !imageUri) {
+      if (!trimmed && !imageUri && selectedHealthRecords.length === 0) {
         Alert.alert('확인', '텍스트, 사진, 건강 데이터 중 하나는 입력/선택해주세요.');
         return;
       }
@@ -476,6 +480,9 @@ const MAX_MINUTES = 1440; // 24시간
             setText('');
             setImageUri(null);
             setDuration('');
+            setHealthDataRecords([]);
+            setHealthDataDateKey(null);
+            setSelectedHealthRecordIds([]);
             setSelectedEntryDate(toLocalDateOnly(new Date()));
             setDateEditEnabled(false);
             setDatePickerVisible(false);
@@ -503,6 +510,7 @@ const MAX_MINUTES = 1440; // 24시간
     text,
     imageUri,
     duration,
+    selectedHealthRecords,
     safeSelectedEntryDate,
     selectedEntryDateKey,
     navigation,
@@ -519,7 +527,7 @@ const MAX_MINUTES = 1440; // 24시간
       return;
     }
 
-    if (!trimmed && !imageUri) {
+    if (!trimmed && !imageUri && selectedHealthRecords.length === 0) {
       Alert.alert('확인', '텍스트, 사진, 건강 데이터 중 하나는 입력/선택해주세요.');
       return;
     }
@@ -554,7 +562,7 @@ const MAX_MINUTES = 1440; // 24시간
         },
       ]
     );
-  }, [busy, challengeId, text, imageUri, isPastEntryDate, saveEntry]);
+  }, [busy, challengeId, text, imageUri, selectedHealthRecords.length, isPastEntryDate, saveEntry]);
 
 
 

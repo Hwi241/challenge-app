@@ -117,9 +117,464 @@ function calcStreakLevel(entries) {
 }
 
 const HEALTH_CONNECT_PROVIDER = 'healthConnect';
-const HEALTH_SAMPLE_SOURCE_APP = 'samsungHealth';
-const isHealthConnectLinked = (hc = {}) => hc?.status === 'connected' || hc?.enabled === true || Object.values(hc?.permissions || {}).some(Boolean);
-const makeHealthSampleRecordsForDate = (dk) => { var s=Number(String(dk||'').replace(/[^\d]/g,'').slice(-4))||620,st=7600+(s%1800),wm=35+(s%15),rm=22+(s%12),rd=Number((3.4+((s%18)/10)).toFixed(1)),tm=wm+rm;return[{id:dk+'-steps',metricType:'steps',label:'걸음 수',value:st,unit:'steps',displayText:'걸음 수 '+st.toLocaleString('ko-KR')+'보',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk},{id:dk+'-walk',metricType:'duration',label:'걷기 운동',value:wm,unit:'minutes',displayText:'걷기 운동 '+wm+'분',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk},{id:dk+'-run',metricType:'exercise',label:'달리기',value:rm,unit:'minutes',distanceValue:rd,distanceUnit:'km',displayText:'달리기 '+rm+'분 · '+rd+'km',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk},{id:dk+'-total',metricType:'duration',label:'운동 시간 합계',value:tm,unit:'minutes',displayText:'운동 시간 합계 '+tm+'분',sourceProvider:'healthConnect',sourceApp:'samsungHealth',verified:true,dateKey:dk}];};
+const isHealthConnectLinked = (hc = {}) => (
+  hc?.status === 'connected' ||
+  hc?.enabled === true ||
+  Object.values(hc?.permissions || {}).some(Boolean)
+);
+
+const HEALTH_SOURCE_APP_LABELS = {
+  'com.sec.android.app.shealth': 'Samsung Health',
+  'com.google.android.apps.fitness': 'Google Fit',
+  'com.google.android.apps.healthdata': 'Health Connect',
+};
+
+const EXERCISE_TYPE_LABELS = {
+  8: '자전거',
+  16: '근력 운동',
+  25: '달리기',
+  26: '러닝머신',
+  57: '걷기',
+  58: '걷기',
+};
+
+function getHealthConnectModule() {
+  try { return require('react-native-health-connect'); } catch (e) { return null; }
+}
+
+function getHealthDateRange(dateKey) {
+  const safeDateKey = /^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || '')) ? String(dateKey) : getLocalDateKey(new Date());
+  const start = new Date(safeDateKey + 'T00:00:00');
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  end.setMilliseconds(end.getMilliseconds() - 1);
+  return { dateKey: safeDateKey, startTime: start.toISOString(), endTime: end.toISOString() };
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeRecordsResult(result) {
+  if (Array.isArray(result)) return result;
+  if (result && Array.isArray(result.records)) return result.records;
+  if (result && Array.isArray(result.data)) return result.data;
+  return [];
+}
+
+function getNestedValue(obj, path) {
+  for (const key of String(path).split('.')) {
+    if (obj == null || typeof obj !== 'object' || !(key in obj)) return undefined;
+    obj = obj[key];
+  }
+  return obj;
+}
+
+function getSourcePackageName(record) {
+  const raw = getNestedValue(record, 'metadata.dataOrigin.packageName') ||
+              getNestedValue(record, 'metadata.dataOrigin') ||
+              getNestedValue(record, 'dataOrigin.packageName') ||
+              getNestedValue(record, 'dataOrigin');
+  if (typeof raw === 'string') return raw;
+  if (raw && typeof raw.packageName === 'string') return raw.packageName;
+  return null;
+}
+
+function getSourceAppLabel(record) {
+  const pkg = getSourcePackageName(record);
+  return pkg ? (HEALTH_SOURCE_APP_LABELS[pkg] || pkg) : 'Health Connect';
+}
+
+function getLengthKm(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value / 1000;
+  const inKm = getNestedValue(value, 'inKilometers');
+  if (inKm != null) return toFiniteNumber(inKm);
+  const inM = getNestedValue(value, 'inMeters');
+  if (inM != null) return toFiniteNumber(inM) / 1000;
+  const unit = String(value.unit || '').toLowerCase();
+  const v = toFiniteNumber(value.value);
+  if (unit === 'km' || unit === 'kilometers') return v;
+  if (unit === 'm' || unit === 'meters') return v / 1000;
+  return v;
+}
+
+function getDurationMinutes(record) {
+  const secs = getNestedValue(record, 'duration.inSeconds') || getNestedValue(record, 'duration.seconds');
+  if (secs != null) return toFiniteNumber(secs) / 60;
+  const mins = getNestedValue(record, 'duration.inMinutes') || getNestedValue(record, 'duration.minutes');
+  if (mins != null) return toFiniteNumber(mins);
+  const start = record?.startTime ? new Date(record.startTime) : null;
+  const end = record?.endTime ? new Date(record.endTime) : null;
+  if (start && end && !isNaN(start) && !isNaN(end)) {
+    return Math.max(0, (end - start) / 60000);
+  }
+  return 0;
+}
+
+function getExerciseLabel(record, index = 0) {
+  const title = typeof record?.title === 'string' ? record.title.trim() : '';
+  if (title) return title;
+  const type = record?.exerciseType;
+  if (type != null && EXERCISE_TYPE_LABELS[type]) return EXERCISE_TYPE_LABELS[type];
+  if (type != null) return '운동 ' + type;
+  return '운동 세션 ' + (index + 1);
+}
+
+async function safeReadRecords(healthConnect, recordType, options) {
+  if (!healthConnect || typeof healthConnect.readRecords !== 'function') return [];
+  try {
+    const result = await healthConnect.readRecords(recordType, options);
+    return normalizeRecordsResult(result);
+  } catch (e) { return []; }
+}
+
+async function safeAggregate(healthConnect, request) {
+  if (!healthConnect || typeof healthConnect.aggregateRecord !== 'function') return null;
+  try { return await healthConnect.aggregateRecord(request); } catch (e) { return null; }
+}
+
+async function buildStepsRecord(healthConnect, range) {
+  let steps = 0;
+  let rawRecord = null;
+  const agg = await safeAggregate(healthConnect, {
+    recordType: 'Steps',
+    timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime },
+  });
+  steps = toFiniteNumber(getNestedValue(agg, 'COUNT_TOTAL'));
+  if (!steps) {
+    const records = await safeReadRecords(healthConnect, 'Steps', {
+      timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime },
+    });
+    rawRecord = records[0] || null;
+    steps = records.reduce((s, r) => s + toFiniteNumber(r.count), 0);
+  }
+  const rounded = Math.max(0, Math.round(steps));
+  if (rounded <= 0) return null;
+  return {
+    id: range.dateKey + '-steps',
+    metricType: 'steps', label: '걸음 수', value: rounded, unit: 'steps',
+    displayText: '걸음 수 ' + rounded.toLocaleString('ko-KR') + '보',
+    sourceProvider: 'healthConnect', sourceApp: getSourceAppLabel(rawRecord),
+    dataOrigin: getSourcePackageName(rawRecord), verified: true, dateKey: range.dateKey,
+    startTime: range.startTime, endTime: range.endTime,
+  };
+}
+
+async function buildDistanceRecord(healthConnect, range) {
+  let km = 0;
+  let rawRecord = null;
+  const agg = await safeAggregate(healthConnect, {
+    recordType: 'Distance',
+    timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime },
+  });
+  km = getLengthKm(getNestedValue(agg, 'DISTANCE'));
+  if (!km) {
+    const records = await safeReadRecords(healthConnect, 'Distance', {
+      timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime },
+    });
+    rawRecord = records[0] || null;
+    km = records.reduce((s, r) => s + getLengthKm(r.distance), 0);
+  }
+  const rounded = Number(km.toFixed(2));
+  if (rounded <= 0) return null;
+  return {
+    id: range.dateKey + '-distance',
+    metricType: 'distance', label: '운동 거리', value: rounded, unit: 'km',
+    distanceValue: rounded, distanceUnit: 'km',
+    displayText: '운동 거리 ' + (rounded >= 10 ? rounded.toFixed(0) : rounded.toFixed(1)) + 'km',
+    sourceProvider: 'healthConnect', sourceApp: getSourceAppLabel(rawRecord),
+    dataOrigin: getSourcePackageName(rawRecord), verified: true, dateKey: range.dateKey,
+    startTime: range.startTime, endTime: range.endTime,
+  };
+}
+
+async function buildExerciseRecords(healthConnect, range) {
+  const records = await safeReadRecords(healthConnect, 'ExerciseSession', {
+    timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime },
+  });
+  return records.map((rec, i) => {
+    const minutes = Math.round(getDurationMinutes(rec));
+    if (minutes <= 0) return null;
+    const label = getExerciseLabel(rec, i);
+    return {
+      id: range.dateKey + '-exercise-' + i,
+      metricType: 'exercise', label: label, value: minutes, unit: 'minutes',
+      displayText: label + ' ' + minutes + '분',
+      sourceProvider: 'healthConnect', sourceApp: getSourceAppLabel(rec),
+      dataOrigin: getSourcePackageName(rec),
+      exerciseType: rec?.exerciseType ?? null, title: rec?.title ?? null,
+      verified: true, dateKey: range.dateKey,
+      startTime: rec?.startTime || range.startTime,
+      endTime: rec?.endTime || range.endTime,
+    };
+  }).filter(Boolean);
+}
+
+
+
+function getEnergyKilocalories(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  const inKcal = getNestedValue(value, 'inKilocalories') || getNestedValue(value, 'kilocalories') || getNestedValue(value, 'kcal');
+  if (inKcal != null) return toFiniteNumber(inKcal);
+  const inCal = getNestedValue(value, 'inCalories') || getNestedValue(value, 'calories') || getNestedValue(value, 'cal');
+  if (inCal != null) return toFiniteNumber(inCal) / 1000;
+  const unit = String(value?.unit || '').toLowerCase();
+  const raw = toFiniteNumber(value?.value, 0);
+  if (unit === 'kilocalories' || unit === 'kilocalorie' || unit === 'kcal') return raw;
+  if (unit === 'calories' || unit === 'calorie' || unit === 'cal') return raw / 1000;
+  return raw;
+}
+
+function getMassKilograms(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  const inKg = getNestedValue(value, 'inKilograms') || getNestedValue(value, 'kilograms') || getNestedValue(value, 'kg');
+  if (inKg != null) return toFiniteNumber(inKg);
+  const inG = getNestedValue(value, 'inGrams') || getNestedValue(value, 'grams') || getNestedValue(value, 'g');
+  if (inG != null) return toFiniteNumber(inG) / 1000;
+  const unit = String(value?.unit || '').toLowerCase();
+  const raw = toFiniteNumber(value?.value, 0);
+  if (unit === 'kilograms' || unit === 'kilogram' || unit === 'kg') return raw;
+  if (unit === 'grams' || unit === 'gram' || unit === 'g') return raw / 1000;
+  return raw;
+}
+
+function getLengthMeters(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  const inM = getNestedValue(value, 'inMeters') || getNestedValue(value, 'meters') || getNestedValue(value, 'm');
+  if (inM != null) return toFiniteNumber(inM);
+  const inCm = getNestedValue(value, 'inCentimeters') || getNestedValue(value, 'centimeters') || getNestedValue(value, 'cm');
+  if (inCm != null) return toFiniteNumber(inCm) / 100;
+  const unit = String(value?.unit || '').toLowerCase();
+  const raw = toFiniteNumber(value?.value, 0);
+  if (unit === 'meters' || unit === 'meter' || unit === 'm') return raw;
+  if (unit === 'centimeters' || unit === 'centimeter' || unit === 'cm') return raw / 100;
+  return raw;
+}
+
+function getPercentageValue(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  const pct = getNestedValue(value, 'percentage') || getNestedValue(value, 'value');
+  return toFiniteNumber(pct, 0);
+}
+
+function getHeartRateBpm(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  const bpm = getNestedValue(value, 'inBeatsPerMinute') || getNestedValue(value, 'beatsPerMinute') || getNestedValue(value, 'bpm') || getNestedValue(value, 'value');
+  return toFiniteNumber(bpm, 0);
+}
+
+function getSleepDurationHours(record) {
+  const h = getNestedValue(record, 'duration.inHours') || getNestedValue(record, 'duration.hours');
+  if (h != null) return toFiniteNumber(h);
+  const m = getNestedValue(record, 'duration.inMinutes') || getNestedValue(record, 'duration.minutes');
+  if (m != null) return toFiniteNumber(m) / 60;
+  const s = getNestedValue(record, 'duration.inSeconds') || getNestedValue(record, 'duration.seconds');
+  if (s != null) return toFiniteNumber(s) / 3600;
+  const ms = getNestedValue(record, 'duration.inMilliseconds') || getNestedValue(record, 'duration.milliseconds');
+  if (ms != null && typeof ms !== 'object') return toFiniteNumber(ms) / 3600000;
+  const start = record?.startTime ? new Date(record.startTime) : null;
+  const end = record?.endTime ? new Date(record.endTime) : null;
+  if (start && end && !isNaN(start) && !isNaN(end)) return Math.max(0, (end - start) / 3600000);
+  return 0;
+}
+
+function normalizeSleepStages(record) {
+  const rawStages = Array.isArray(record?.stages) ? record.stages : Array.isArray(record?.stageRecords) ? record.stageRecords : [];
+  return rawStages.map(function(stage, index) {
+    var startTime = stage?.startTime || record?.startTime || null;
+    var endTime = stage?.endTime || record?.endTime || null;
+    var stageType = stage?.stage ?? stage?.stageType ?? stage?.type ?? stage?.name ?? index;
+    var hours = getSleepDurationHours(stage);
+    if (!hours && startTime && endTime) {
+      var s = new Date(startTime), e = new Date(endTime);
+      if (!isNaN(s) && !isNaN(e)) hours = Math.max(0, (e - s) / 3600000);
+    }
+    if (!hours || hours <= 0) return null;
+    return { stageType: stageType, value: Number(hours.toFixed(2)), unit: 'hours', startTime: startTime, endTime: endTime };
+  }).filter(Boolean);
+}
+
+async function buildCaloriesRecord(hc, range) {
+  var calories = 0, rawRecord = null;
+  try {
+    var agg = await safeAggregate(hc, { recordType: 'ActiveCaloriesBurned', timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+    calories = getEnergyKilocalories(getNestedValue(agg, 'ACTIVE_CALORIES_TOTAL'));
+  } catch (e) { console.warn('[HealthConnect] aggregate ActiveCaloriesBurned failed', e?.message || e); }
+  if (!calories) {
+    try {
+      var records = await safeReadRecords(hc, 'ActiveCaloriesBurned', { timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+      rawRecord = records[0] || null;
+      calories = records.reduce(function(s, r) { return s + getEnergyKilocalories(r?.energy); }, 0);
+    } catch (e) { console.warn('[HealthConnect] read ActiveCaloriesBurned failed', e?.message || e); }
+  }
+  var rounded = Math.max(0, Math.round(calories));
+  if (rounded <= 0) return null;
+  return { id: range.dateKey + '-active-calories', metricType: 'calories', label: '운동 칼로리', value: rounded, unit: 'kcal', displayText: '운동 칼로리 ' + rounded.toLocaleString('ko-KR') + 'kcal', sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: getSourceAppLabel(rawRecord), dataOrigin: getSourcePackageName(rawRecord), verified: true, dateKey: range.dateKey, startTime: range.startTime, endTime: range.endTime };
+}
+
+async function buildSleepRecords(hc, range) {
+  var results = [];
+  try {
+    var records = await safeReadRecords(hc, 'SleepSession', { timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+    records.forEach(function(record, index) {
+      var hours = Number(getSleepDurationHours(record).toFixed(2));
+      if (hours <= 0) return;
+      var sourceApp = getSourceAppLabel(record), dataOrigin = getSourcePackageName(record);
+      var st = record?.startTime || range.startTime, et = record?.endTime || range.endTime;
+      var stages = normalizeSleepStages(record);
+      results.push({ id: range.dateKey + '-sleep-' + index, metricType: 'sleepHours', label: '수면 시간', value: hours, unit: 'hours', displayText: '수면 시간 ' + (hours >= 10 ? hours.toFixed(0) : hours.toFixed(1)) + '시간', sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: sourceApp, dataOrigin: dataOrigin, verified: true, dateKey: range.dateKey, startTime: st, endTime: et });
+      if (stages.length) {
+        results.push({ id: range.dateKey + '-sleep-stage-' + index, metricType: 'sleepStage', label: '수면 리듬', value: hours, unit: 'hours', stages: stages, displayText: '수면 리듬 ' + stages.length + '구간', sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: sourceApp, dataOrigin: dataOrigin, verified: true, dateKey: range.dateKey, startTime: st, endTime: et });
+      }
+    });
+  } catch (e) { console.warn('[HealthConnect] read SleepSession failed', e?.message || e); }
+
+  if (results.some(function(r) { return r.metricType === 'sleepHours'; })) return results;
+
+  try {
+    var agg = await safeAggregate(hc, { recordType: 'SleepSession', timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+    var dur = getNestedValue(agg, 'SLEEP_DURATION_TOTAL');
+    var hours = Number(getSleepDurationHours({ duration: dur }).toFixed(2));
+    if (hours > 0) results.push({ id: range.dateKey + '-sleep-total', metricType: 'sleepHours', label: '수면 시간', value: hours, unit: 'hours', displayText: '수면 시간 ' + (hours >= 10 ? hours.toFixed(0) : hours.toFixed(1)) + '시간', sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: 'Health Connect', dataOrigin: null, verified: true, dateKey: range.dateKey, startTime: range.startTime, endTime: range.endTime });
+  } catch (e) { console.warn('[HealthConnect] aggregate SleepSession failed', e?.message || e); }
+
+  return results;
+}
+
+async function buildRestingHeartRateRecord(hc, range) {
+  var bpm = 0, rawRecord = null;
+  try {
+    var agg = await safeAggregate(hc, { recordType: 'RestingHeartRate', timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+    bpm = getHeartRateBpm(getNestedValue(agg, 'BPM_AVG'));
+  } catch (e) { console.warn('[HealthConnect] aggregate RestingHeartRate failed', e?.message || e); }
+  if (!bpm) {
+    try {
+      var records = await safeReadRecords(hc, 'RestingHeartRate', { timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+      rawRecord = records[0] || null;
+      var vals = records.map(function(r) { return getHeartRateBpm(r?.beatsPerMinute ?? r?.bpm ?? r?.value); }).filter(function(v) { return v > 0; });
+      if (vals.length) bpm = vals.reduce(function(s, v) { return s + v; }, 0) / vals.length;
+    } catch (e) { console.warn('[HealthConnect] read RestingHeartRate failed', e?.message || e); }
+  }
+  var rounded = Math.round(bpm);
+  if (rounded <= 0) return null;
+  return { id: range.dateKey + '-resting-heart-rate', metricType: 'heartRate', label: '평균 심박', value: rounded, unit: 'bpm', displayText: '평균 심박 ' + rounded + 'bpm', sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: getSourceAppLabel(rawRecord), dataOrigin: getSourcePackageName(rawRecord), verified: true, dateKey: range.dateKey, startTime: range.startTime, endTime: range.endTime };
+}
+
+async function buildWeightRecord(hc, range) {
+  var kg = 0, rawRecord = null;
+  try {
+    var agg = await safeAggregate(hc, { recordType: 'Weight', timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+    kg = getMassKilograms(getNestedValue(agg, 'WEIGHT_AVG'));
+  } catch (e) { console.warn('[HealthConnect] aggregate Weight failed', e?.message || e); }
+  if (!kg) {
+    try {
+      var records = await safeReadRecords(hc, 'Weight', { timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+      rawRecord = records[0] || null;
+      var vals = records.map(function(r) { return getMassKilograms(r?.weight); }).filter(function(v) { return v > 0; });
+      if (vals.length) kg = vals.reduce(function(s, v) { return s + v; }, 0) / vals.length;
+    } catch (e) { console.warn('[HealthConnect] read Weight failed', e?.message || e); }
+  }
+  var rounded = Number(kg.toFixed(1));
+  if (rounded <= 0) return null;
+  return { id: range.dateKey + '-weight', metricType: 'weight', label: '체중', value: rounded, unit: 'kg', displayText: '체중 ' + rounded.toFixed(1) + 'kg', sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: getSourceAppLabel(rawRecord), dataOrigin: getSourcePackageName(rawRecord), verified: true, dateKey: range.dateKey, startTime: range.startTime, endTime: range.endTime };
+}
+
+async function getHeightMeters(hc, range) {
+  var meters = 0;
+  try {
+    var agg = await safeAggregate(hc, { recordType: 'Height', timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+    meters = getLengthMeters(getNestedValue(agg, 'HEIGHT_AVG'));
+  } catch (e) { console.warn('[HealthConnect] aggregate Height failed', e?.message || e); }
+  if (!meters) {
+    try {
+      var records = await safeReadRecords(hc, 'Height', { timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+      var vals = records.map(function(r) { return getLengthMeters(r?.height); }).filter(function(v) { return v > 0; });
+      if (vals.length) meters = vals.reduce(function(s, v) { return s + v; }, 0) / vals.length;
+    } catch (e) { console.warn('[HealthConnect] read Height failed', e?.message || e); }
+  }
+  return meters;
+}
+
+async function buildBodyFatRecord(hc, range) {
+  try {
+    var records = await safeReadRecords(hc, 'BodyFat', { timeRangeFilter: { operator: 'between', startTime: range.startTime, endTime: range.endTime } });
+    var rawRecord = records[0] || null;
+    var vals = records.map(function(r) { return getPercentageValue(r?.percentage ?? r?.bodyFatPercentage ?? r?.value); }).filter(function(v) { return v > 0; });
+    if (!vals.length) return null;
+    var avg = vals.reduce(function(s, v) { return s + v; }, 0) / vals.length;
+    var rounded = Number(avg.toFixed(1));
+    return { id: range.dateKey + '-body-fat', metricType: 'bodyFat', label: '체지방률', value: rounded, unit: '%', displayText: '체지방률 ' + rounded.toFixed(1) + '%', sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: getSourceAppLabel(rawRecord), dataOrigin: getSourcePackageName(rawRecord), verified: true, dateKey: range.dateKey, startTime: range.startTime, endTime: range.endTime };
+  } catch (e) { console.warn('[HealthConnect] read BodyFat failed', e?.message || e); return null; }
+}
+
+async function buildBmiRecord(hc, range, weightRecord) {
+  var kg = Number(weightRecord?.value) || 0;
+  if (kg <= 0) return null;
+  var meters = await getHeightMeters(hc, range);
+  if (meters <= 0) return null;
+  var bmi = kg / (meters * meters);
+  var rounded = Number(bmi.toFixed(1));
+  if (rounded <= 0) return null;
+  return { id: range.dateKey + '-bmi', metricType: 'bmi', label: 'BMI', value: rounded, unit: 'BMI', heightMeters: Number(meters.toFixed(2)), weightKg: kg, displayText: 'BMI ' + rounded.toFixed(1), sourceProvider: HEALTH_CONNECT_PROVIDER, sourceApp: weightRecord?.sourceApp || 'Health Connect', dataOrigin: weightRecord?.dataOrigin || null, verified: true, dateKey: range.dateKey, startTime: range.startTime, endTime: range.endTime };
+}
+
+
+async function loadHealthConnectRecordsForDate(dateKey, healthConnectSettings = {}) {
+  if (!isHealthConnectLinked(healthConnectSettings)) {
+    throw new Error('Health Connect 연결 권한이 필요합니다.');
+  }
+  const hc = getHealthConnectModule();
+  if (!hc) throw new Error('이 빌드에서 Health Connect 모듈을 사용할 수 없습니다.');
+  if (typeof hc.initialize === 'function') await hc.initialize();
+  const range = getHealthDateRange(dateKey);
+  const perms = healthConnectSettings?.permissions || {};
+  const results = [];
+  if (perms.steps !== false) {
+    const sr = await buildStepsRecord(hc, range);
+    if (sr) results.push(sr);
+  }
+  if (perms.exercise !== false) {
+    const er = await buildExerciseRecords(hc, range);
+    results.push(...er);
+  }
+  if (perms.activeCalories !== false) {
+    const cr = await buildCaloriesRecord(hc, range);
+    if (cr) results.push(cr);
+  }
+  if (perms.distance !== false) {
+    const dr = await buildDistanceRecord(hc, range);
+    if (dr) results.push(dr);
+  }
+  if (perms.sleep !== false) {
+    const slr = await buildSleepRecords(hc, range);
+    results.push(...slr);
+  }
+  if (perms.restingHeartRate !== false) {
+    const hrr = await buildRestingHeartRateRecord(hc, range);
+    if (hrr) results.push(hrr);
+  }
+  let wr = null;
+  if (perms.weight !== false) {
+    wr = await buildWeightRecord(hc, range);
+    if (wr) results.push(wr);
+  }
+  if (perms.bodyFat !== false) {
+    const bfr = await buildBodyFatRecord(hc, range);
+    if (bfr) results.push(bfr);
+  }
+  if (perms.weight !== false && perms.height !== false && wr) {
+    const bmi = await buildBmiRecord(hc, range, wr);
+    if (bmi) results.push(bmi);
+  }
+  return results;
+}
 
 export default function UploadScreen() {
   const MAX_TEXT_LEN = 1000;
@@ -346,7 +801,27 @@ const MAX_MINUTES = 1440; // 24시간
     leaveText: '나가기',
   });
   const goToDataIntegrations = useCallback(function(){var m=function(){navigation.navigate('DataIntegrations');};if(hasUnsavedChanges()){Alert.alert('작성 중인 내용이 있어요','설정 화면으로 이동하면 입력 내용이 사라질 수 있습니다.',[{text:'취소',style:'cancel'},{text:'계속 이동',style:'destructive',onPress:m}]);return;}m();},[hasUnsavedChanges,navigation]);
-  const loadHealthDataForSelectedDate = useCallback(function(){if(busy)return;var r=makeHealthSampleRecordsForDate(selectedEntryDateKey);setHealthDataRecords(r);setHealthDataDateKey(selectedEntryDateKey);setSelectedHealthRecordIds([]);},[busy,selectedEntryDateKey]);
+  const loadHealthDataForSelectedDate = useCallback(async function(){
+  if (busy) return;
+  setBusy(true);
+  try {
+    const records = await loadHealthConnectRecordsForDate(selectedEntryDateKey, healthConnectSettings || {});
+    setHealthDataRecords(records);
+    setHealthDataDateKey(selectedEntryDateKey);
+    setSelectedHealthRecordIds([]);
+    if (!records.length) {
+      Alert.alert('데이터 없음', '선택한 날짜에 Health Connect에서 불러올 수 있는 데이터가 없습니다.');
+    }
+  } catch (error) {
+    console.warn('[HealthConnect] load failed', error?.message || error);
+    setHealthDataRecords([]);
+    setHealthDataDateKey(selectedEntryDateKey);
+    setSelectedHealthRecordIds([]);
+    Alert.alert('불러오기 실패', error?.message || 'Health Connect 데이터를 불러오지 못했습니다.');
+  } finally {
+    setBusy(false);
+  }
+}, [busy, selectedEntryDateKey, healthConnectSettings]);
   const toggleHealthRecordSelection = useCallback(function(id){setSelectedHealthRecordIds(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):p.concat([id]);});},[]);
   const confirmSelectedHealthData = useCallback(function(){if(selectedHealthRecordIds.length===0){Alert.alert('선택 필요','인증에 사용할 데이터를 선택해주세요.');return;}Alert.alert('선택 완료','선택한 데이터가 인증 근거로 저장됩니다.');},[selectedHealthRecordIds.length]);
 

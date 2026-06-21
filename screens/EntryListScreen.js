@@ -1047,6 +1047,7 @@ function getHealthLinkedRecordMetricValue(record, metricType) {
   }
   if (metricType === 'minutes') {
     if (u==='minutes'||u==='분'||t==='duration'||t==='exercise'||l.includes('운동')||l.includes('걷기')||l.includes('달리기')) return toHV(record.value);
+    if (u==='seconds'||u==='초') return toHV(record.value)/60;
     return 0;
   }
   if (metricType === 'distance') {
@@ -1057,6 +1058,31 @@ function getHealthLinkedRecordMetricValue(record, metricType) {
     }
     if (u==='km'||t==='distance'||l.includes('거리')) return toHV(record.value);
     if (u==='m') return toHV(record.value)/1000;
+    return 0;
+  }
+  if (metricType === 'calories') {
+    if (t==='calories'||u==='kcal'||l.includes('칼로리')) return toHV(record.value);
+    if (u==='cal'||u==='calories') return toHV(record.value)/1000;
+    return 0;
+  }
+  if (metricType === 'sleepHours') {
+    if (t==='sleephours'||t==='sleep'||u==='hours'||u==='시간'||l.includes('수면')) return toHV(record.value);
+    return 0;
+  }
+  if (metricType === 'heartRate') {
+    if (t==='heartrate'||u==='bpm'||l.includes('심박')) return toHV(record.value);
+    return 0;
+  }
+  if (metricType === 'weight') {
+    if (t==='weight'||u==='kg'||l.includes('체중')) return toHV(record.value);
+    return 0;
+  }
+  if (metricType === 'bodyFat') {
+    if (t==='bodyfat'||t==='body_fat'||t==='body fat'||u==='%'||l.includes('체지방')) return toHV(record.value);
+    return 0;
+  }
+  if (metricType === 'bmi') {
+    if (t==='bmi'||l.toLowerCase().includes('bmi')) return toHV(record.value);
     return 0;
   }
   return 0;
@@ -1084,10 +1110,70 @@ function aggregateHealthLinkedRecordsByDate(entries, metricType) {
 
 function fmtHV(metricType, value) {
   var n = Number(value) || 0;
-  if (metricType === 'distance') return (n >= 10 ? n.toFixed(0) : n.toFixed(1)) + 'km';
-  if (metricType === 'steps') return Math.round(n).toLocaleString() + '보';
-  return Math.round(n) + '분';
+  if (metricType === 'steps') return Math.round(n).toLocaleString('ko-KR') + '보';
+  if (metricType === 'minutes') return Math.round(n).toLocaleString('ko-KR') + '분';
+  if (metricType === 'distance') return (n >= 10 ? n.toFixed(1) : n.toFixed(2)) + 'km';
+  if (metricType === 'calories') return Math.round(n).toLocaleString('ko-KR') + 'kcal';
+  if (metricType === 'sleepHours') return (n >= 10 ? n.toFixed(0) : n.toFixed(1)) + '시간';
+  if (metricType === 'heartRate') return Math.round(n) + 'bpm';
+  if (metricType === 'weight') return n.toFixed(1) + 'kg';
+  if (metricType === 'bodyFat') return n.toFixed(1) + '%';
+  if (metricType === 'bmi') return n.toFixed(1);
+  return String(value ?? 0);
 }
+
+
+function getLatestSleepStageRecord(entries) {
+  var records = [];
+  (entries || []).forEach(function(entry) {
+    (entry?.linkedRecords || []).forEach(function(record) {
+      if (record?.metricType === 'sleepStage' && Array.isArray(record.stages) && record.stages.length) {
+        records.push({ entry: entry, record: record, timestamp: new Date(entry?.timestamp || record?.startTime || 0).getTime() });
+      }
+    });
+  });
+  records.sort(function(a, b) { return a.timestamp - b.timestamp; });
+  return records.length ? records[records.length - 1].record : null;
+}
+
+var HealthSleepRhythmWidget = memo(function HealthSleepRhythmWidget(_ref) {
+  var entries = _ref.entries, disabled = _ref.disabled;
+  var latest = useMemo(function() { return getLatestSleepStageRecord(entries); }, [entries]);
+  var stages = Array.isArray(latest?.stages) ? latest.stages : [];
+  var total = stages.reduce(function(sum, stage) { return sum + (Number(stage?.value) || 0); }, 0);
+  return (
+    React.createElement(DashboardWidgetShell, { header: React.createElement(DashboardWidgetHeader, { title: '수면 리듬', hideSides: true }) },
+    React.createElement(View, { style: { flex: 1, width: '100%', paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, opacity: disabled ? 0.92 : 1, justifyContent: 'center' } },
+      !stages.length ?
+        React.createElement(View, { style: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 } },
+          React.createElement(Text, { numberOfLines: 2, style: { color: '#9CA3AF', fontSize: 11, lineHeight: 15, fontWeight: '700', textAlign: 'center' } }, '수면 단계 데이터가 없습니다.'),
+          React.createElement(Text, { numberOfLines: 2, style: { marginTop: 4, color: '#D1D5DB', fontSize: 10, lineHeight: 14, fontWeight: '700', textAlign: 'center' } }, 'Health Connect 수면 데이터로 인증하면 표시됩니다.')
+        )
+      :
+        React.createElement(React.Fragment, null,
+          React.createElement(View, { style: { flexDirection: 'row', height: 18, borderRadius: 9, overflow: 'hidden', backgroundColor: '#E5E7EB' } },
+            stages.map(function(stage, index) {
+              var value = Number(stage?.value) || 0;
+              var flexV = total > 0 ? Math.max(0.2, value / total) : 1;
+              var label = getSleepStageLabel(stage?.stageType);
+              var op = label === '깸' || label === '이탈' ? 0.35 : label === '얕은' ? 0.55 : label === 'REM' ? 0.75 : 1;
+              return React.createElement(View, { key: String(index), style: { flex: flexV, backgroundColor: '#111111', opacity: op } });
+            })
+          ),
+          React.createElement(View, { style: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } },
+            React.createElement(Text, { numberOfLines: 1, style: { color: '#9CA3AF', fontSize: 10, fontWeight: '700' } }, '최근 수면'),
+            React.createElement(Text, { numberOfLines: 1, style: { color: '#111111', fontSize: 12, fontWeight: '900' } }, fmtHV('sleepHours', latest?.value || total))
+          ),
+          React.createElement(View, { style: { marginTop: 6, flexDirection: 'row', flexWrap: 'wrap' } },
+            stages.slice(0, 4).map(function(stage, index) {
+              return React.createElement(Text, { key: String(index), numberOfLines: 1, style: { marginRight: 8, marginBottom: 3, color: '#6B7280', fontSize: 9, fontWeight: '700' } }, getSleepStageLabel(stage?.stageType) + ' ' + fmtHV('sleepHours', stage?.value));
+            })
+          )
+        )
+    ))
+  );
+});
+
 
 var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(_ref) {
   var entries = _ref.entries, metricType = _ref.metricType, title = _ref.title, unit = _ref.unit, disabled = _ref.disabled;
@@ -3154,7 +3240,109 @@ export default function EntryListScreen({ route, navigation }) {
         />
       );
     }
-    if (widgetKind === 'healthStepsWeekly') {
+
+/* ───────── 건강 목표 달성률 ───────── */
+const HealthStepsGoalRateWidget = memo(function HealthStepsGoalRateWidget(_ref) {
+  var entries = _ref.entries || [];
+  var disabled = _ref.disabled || false;
+  var todaySteps = useMemo(function() {
+    var today = keyOf(new Date());
+    var agg = aggregateHealthLinkedRecordsByDate(entries, 'steps');
+    var found = null;
+    for (var i = 0; i < agg.length; i++) {
+      if (agg[i].key === today) { found = agg[i]; break; }
+    }
+    return found ? Number(found.value) || 0 : 0;
+  }, [entries]);
+  var goal = 8000;
+  var rate = Math.min(100, Math.round((todaySteps / goal) * 100));
+  return React.createElement(DashboardWidgetShell, {
+    header: React.createElement(DashboardWidgetHeader, { title: '걸음 목표 달성률', hideSides: true })
+  }, React.createElement(View, { style: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 8, opacity: disabled ? 0.92 : 1 } },
+    !entries || !entries.length ?
+      React.createElement(Text, { style: { color: '#9CA3AF', fontSize: 11, fontWeight: '700' } }, '걸음 수 데이터가 없습니다.')
+    :
+      React.createElement(React.Fragment, null,
+        React.createElement(Text, { style: { color: '#111111', fontSize: 28, fontWeight: '900', includeFontPadding: false } },
+          rate + '%'
+        ),
+        React.createElement(Text, { style: { color: '#6B7280', fontSize: 10, fontWeight: '700', marginTop: 4 } },
+          '오늘 ' + todaySteps.toLocaleString('ko-KR') + ' / ' + goal.toLocaleString('ko-KR') + '보'
+        ),
+        React.createElement(View, { style: { width: '80%', height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, marginTop: 8, overflow: 'hidden' } },
+          React.createElement(View, { style: { width: rate + '%', height: '100%', backgroundColor: rate >= 100 ? '#111111' : '#3B82F6', borderRadius: 3 } })
+        )
+      )
+  ));
+});
+
+/* ───────── 주간 요약 막대 위젯 (재사용) ───────── */
+const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
+  var entries = _ref2.entries || [];
+  var metricType = _ref2.metricType || 'steps';
+  var title = _ref2.title || '';
+  var unit = _ref2.unit || '';
+  var goalValue = _ref2.goalValue || 0;
+  var isCumulative = _ref2.isCumulative || false;
+  var disabled = _ref2.disabled || false;
+  var boxState = useState({ width: 0, height: 0 });
+  var box = boxState[0];
+  var setBox = boxState[1];
+  var onLayout = useCallback(function(e) {
+    var w = Math.floor(e?.nativeEvent?.layout?.width || 0);
+    var h = Math.floor(e?.nativeEvent?.layout?.height || 0);
+    if (w <= 0 || h <= 0) return;
+    setBox(function(p) { return (p.width === w && p.height === h) ? p : { width: w, height: h }; });
+  }, []);
+  var series = useMemo(function() {
+    var raw = aggregateHealthLinkedRecordsByDate(entries, metricType);
+    if (isCumulative) {
+      var cum = 0;
+      return raw.map(function(item) { cum += Number(item.value) || 0; return { key: item.key, value: cum, label: item.label }; });
+    }
+    return raw;
+  }, [entries, metricType, isCumulative]);
+  var latest = series.length > 0 ? series[series.length - 1] : null;
+  var maxVal = 1;
+  for (var i = 0; i < series.length; i++) {
+    var v = Number(series[i].value) || 0;
+    if (v > maxVal) maxVal = v;
+  }
+  if (goalValue > maxVal) maxVal = goalValue;
+  var bodyHeight = Math.max(1, Number(box.height) || 120);
+  var chartHeight = Math.max(40, bodyHeight - 40);
+  var displayVal = latest ? (metricType === 'steps' ? Math.round(Number(latest.value)).toLocaleString('ko-KR') : Number(latest.value).toFixed(1)) : '0';
+  return React.createElement(DashboardWidgetShell, {
+    header: React.createElement(DashboardWidgetHeader, { title: title, hideSides: true })
+  }, React.createElement(View, { onLayout: onLayout, style: { flex: 1, paddingHorizontal: 8, paddingBottom: 4, opacity: disabled ? 0.92 : 1 } },
+    !series.length ?
+      React.createElement(View, { style: { flex: 1, alignItems: 'center', justifyContent: 'center' } },
+        React.createElement(Text, { style: { color: '#9CA3AF', fontSize: 11, fontWeight: '700' } }, '데이터가 없습니다.')
+      )
+    :
+      React.createElement(React.Fragment, null,
+        React.createElement(View, { style: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: chartHeight, paddingTop: 4 } },
+          series.map(function(item, i) {
+            var v = Number(item.value) || 0;
+            var barH = Math.max(6, Math.round((v / maxVal) * (chartHeight - 8)));
+            var barW = isCumulative ? 20 : 14;
+            var isLatest = i === series.length - 1;
+            return React.createElement(View, { key: item.key, style: { flex: 1, alignItems: 'center', height: chartHeight, justifyContent: 'flex-end' } },
+              React.createElement(View, { style: { width: barW, height: barH, borderRadius: 4, backgroundColor: isLatest ? '#111111' : '#D1D5DB', opacity: v > 0 ? 1 : 0.3 } })
+            );
+          })
+        ),
+        React.createElement(View, { style: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 2 } },
+          React.createElement(Text, { style: { color: '#111111', fontSize: 10, fontWeight: '900' } }, '최신 ' + displayVal + unit)
+        )
+      )
+  ));
+});
+
+    if (widgetKind === 'healthStepsGoalRate') {
+          return React.createElement(HealthStepsGoalRateWidget, { entries: entries, disabled: isShare, key: widgetKind + '-' + id });
+        }
+        if (widgetKind === 'healthStepsWeekly') {
       return (
         <View style={styles.weeklyWidgetArea}>
           <HealthStepsWeeklyWidget
@@ -3170,17 +3358,79 @@ export default function EntryListScreen({ route, navigation }) {
         </View>
       );
     }
-    if (widgetKind === 'healthExerciseMinutesTrend') {
+    if (widgetKind === 'healthStepsCumulative') {
+          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'steps', title: '누적 걸음수', unit: '보', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id });
+        }
+        if (widgetKind === 'healthExerciseMinutesTrend') {
       return (
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="minutes" title="운동 시간 추세" unit="분" disabled={isShare} />
         </View>
       );
     }
-    if (widgetKind === 'healthDistanceTrend') {
+    if (widgetKind === 'healthExerciseWeeklyMinutes') {
+          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'minutes', title: '주간 운동시간', unit: '분', disabled: isShare, key: widgetKind + '-' + id });
+        }
+        if (widgetKind === 'healthDistanceWeekly') {
+          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '주간 이동거리', unit: 'km', disabled: isShare, key: widgetKind + '-' + id });
+        }
+        if (widgetKind === 'healthDistanceCumulative') {
+          return React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '누적 운동거리', unit: 'km', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id });
+        }
+        if (widgetKind === 'healthDistanceTrend') {
       return (
         <View style={styles.lineWidgetArea}>
           <HealthLinkedRecordsLineWidget entries={entries} metricType="distance" title="운동 거리 추세" unit="km" disabled={isShare} />
+        </View>
+      );
+    }
+
+    if (widgetKind === 'healthActiveCaloriesTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="calories" title="운동 칼로리" unit="kcal" disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthSleepHoursTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="sleepHours" title="수면 시간 추세" unit="시간" disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthSleepRhythm') {
+      return (
+        <View style={styles.weeklyWidgetArea}>
+          <HealthSleepRhythmWidget entries={entries} disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthHeartRateTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="heartRate" title="평균 심박 추세" unit="bpm" disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthWeightTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="weight" title="체중 추세" unit="kg" disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthBodyFatTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="bodyFat" title="체지방률 추세" unit="%" disabled={isShare} />
+        </View>
+      );
+    }
+    if (widgetKind === 'healthBmiTrend') {
+      return (
+        <View style={styles.lineWidgetArea}>
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="bmi" title="BMI 추세" unit="BMI" disabled={isShare} />
         </View>
       );
     }

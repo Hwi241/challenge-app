@@ -24,7 +24,6 @@ import SettingsScreen from './screens/SettingsScreen';
 import BackupScreen from './screens/BackupScreen';
 import TrashScreen from './screens/TrashScreen';
 import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
-import WidgetShopScreen from './screens/WidgetShopScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
 import MyGraphScreen from './screens/MyGraphScreen';
 
@@ -60,7 +59,7 @@ const linking = {
       EntryDetail: 'entry-detail',
       HallOfFameScreen: 'hall-of-fame',
       ProfileInventory: 'profile-inventory',
-      WidgetShop: 'widget-shop',
+      GraphShop: 'graph-shop',
       MyGraphs: 'my-graphs',
       DataIntegrations: 'data-integrations',
  Settings: 'settings',
@@ -142,7 +141,7 @@ export default function App() {
             {/* 메인 */}
             <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
         <Stack.Screen name="ProfileInventory" component={ProfileInventoryScreen} />
-        <Stack.Screen name="WidgetShop" component={GraphShopScreen} />
+        <Stack.Screen name="GraphShop" component={GraphShopScreen} />
         <Stack.Screen name="MyGraphs" component={MyGraphScreen} />
 
             {/* 알림 설정들 */}

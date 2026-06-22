@@ -91,7 +91,7 @@ export const RECORD_ROOM_WIDGET_IDS = [
 export const WIDGET_CATALOG = [
   {
     id: 'overall_progress',
-    title: '전체 진행 위젯',
+    title: '전체 진행 카드',
     tier: 0,
     price: 0,
     shop: false,
@@ -105,7 +105,7 @@ export const WIDGET_CATALOG = [
   },
   {
     id: 'goal_black_box',
-    title: '도전 목표 위젯',
+    title: '도전 목표 카드',
     tier: 1,
     price: 25,
     shop: true,
@@ -119,7 +119,7 @@ export const WIDGET_CATALOG = [
   },
   {
     id: 'month_calendar',
-    title: '달력 위젯',
+    title: '달력 카드',
     tier: 0,
     price: 0,
     shop: false,
@@ -136,10 +136,10 @@ export const WIDGET_CATALOG = [
   { id: 't1_today_meter', title: '오늘 집중 미터', tier: 1, price: 30, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 1, h: 2 }, minSize: { w: 1, h: 2 }, maxSize: { w: 2, h: 4 }, kind: 'placeholder', previewFamily: 'progress' },
   { id: 't1_mini_summary', title: '미니 요약 카드', tier: 1, price: 30, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 1, h: 2 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 2 }, kind: 'placeholder', previewFamily: 'board' },
 
-  { id: 'health_steps_weekly', title: '걸음 리듬 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthStepsWeekly', previewFamily: 'bar' },
-  { id: 'health_steps_trend', title: '걸음 수 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthStepsTrend', previewFamily: 'line' },
- { id: 'health_exercise_minutes_trend', title: '운동 시간 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthExerciseMinutesTrend', previewFamily: 'line' },
- { id: 'health_distance_trend', title: '운동 거리 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthDistanceTrend', previewFamily: 'line' },
+  { id: 'health_steps_weekly', title: '걸음 리듬 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthStepsWeekly', previewFamily: 'bar' },
+  { id: 'health_steps_trend', title: '걸음 수 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthStepsTrend', previewFamily: 'line' },
+ { id: 'health_exercise_minutes_trend', title: '운동 시간 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthExerciseMinutesTrend', previewFamily: 'line' },
+ { id: 'health_distance_trend', title: '운동 거리 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthDistanceTrend', previewFamily: 'line' },
 
  {
  id: 'health_steps_goal_rate',
@@ -210,24 +210,24 @@ export const WIDGET_CATALOG = [
  maxSize: { w: 6, h: 4 },
  kind: 'healthDistanceCumulative',
  previewFamily: 'bar',
- }, { id: 'health_active_calories_trend', title: '운동 칼로리 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthActiveCaloriesTrend', previewFamily: 'line' },
- { id: 'health_sleep_hours_trend', title: '수면 시간 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthSleepHoursTrend', previewFamily: 'line' },
- { id: 'health_sleep_rhythm', title: '수면 리듬 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthSleepRhythm', previewFamily: 'bar' },
- { id: 'health_heart_rate_trend', title: '평균 심박 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthHeartRateTrend', previewFamily: 'line' },
- { id: 'health_weight_trend', title: '체중 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthWeightTrend', previewFamily: 'line' },
- { id: 'health_body_fat_trend', title: '체지방률 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthBodyFatTrend', previewFamily: 'line' },
- { id: 'health_bmi_trend', title: 'BMI 추세 위젯', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthBmiTrend', previewFamily: 'line' },
+ }, { id: 'health_active_calories_trend', title: '운동 칼로리 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthActiveCaloriesTrend', previewFamily: 'line' },
+ { id: 'health_sleep_hours_trend', title: '수면 시간 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthSleepHoursTrend', previewFamily: 'line' },
+ { id: 'health_sleep_rhythm', title: '수면 리듬 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthSleepRhythm', previewFamily: 'bar' },
+ { id: 'health_heart_rate_trend', title: '평균 심박 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthHeartRateTrend', previewFamily: 'line' },
+ { id: 'health_weight_trend', title: '체중 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthWeightTrend', previewFamily: 'line' },
+ { id: 'health_body_fat_trend', title: '체지방률 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthBodyFatTrend', previewFamily: 'line' },
+ { id: 'health_bmi_trend', title: 'BMI 추세 카드', tier: 1, price: 25, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'healthBmiTrend', previewFamily: 'line' },
 
- { id: 'weekly_bar', title: '주간 막대 위젯', tier: 2, price: 80, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'weeklyBar', previewFamily: 'bar' },
+ { id: 'weekly_bar', title: '주간 막대 카드', tier: 2, price: 80, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'weeklyBar', previewFamily: 'bar' },
   { id: 't2_weekly_heat', title: '주간 열감 지도', tier: 2, price: 80, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 3, h: 6 }, kind: 'placeholder', previewFamily: 'heatmap' },
   { id: 't2_record_balance', title: '기록 균형 카드', tier: 2, price: 80, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 2, h: 4 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 4 }, kind: 'placeholder', previewFamily: 'donut' },
 
-  { id: 'line_count_cumulative', title: '누적 선형 위젯', tier: 3, price: 200, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'lineCount', previewFamily: 'line' },
+  { id: 'line_count_cumulative', title: '누적 선형 카드', tier: 3, price: 200, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'lineCount', previewFamily: 'line' },
   { id: 't3_streak_curve', title: '연속 기록 곡선', tier: 3, price: 200, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 3, h: 6 }, kind: 'placeholder', previewFamily: 'line' },
   { id: 't3_goal_velocity', title: '목표 속도계', tier: 3, price: 200, shop: true, placeholder: true, supports: ['challenge'], defaultSize: { w: 2, h: 4 }, minSize: { w: 1, h: 2 }, maxSize: { w: 3, h: 4 }, kind: 'placeholder', previewFamily: 'progress' },
 
-  { id: 'line_minutes', title: '시간 선형 위젯', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'lineMinutes', previewFamily: 'line' },
-  { id: 'grass_graph', title: '잔디 위젯', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'grass', previewFamily: 'heatmap' },
+  { id: 'line_minutes', title: '시간 선형 카드', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'lineMinutes', previewFamily: 'line' },
+  { id: 'grass_graph', title: '잔디 카드', tier: 4, price: 500, shop: true, placeholder: false, supports: ['challenge', 'habit'], defaultSize: { w: 6, h: 4 }, minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, kind: 'grass', previewFamily: 'heatmap' },
   { id: 't4_animated_pulse', title: '애니메이션 펄스', tier: 4, price: 500, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 2, h: 4 }, maxSize: { w: 3, h: 6 }, kind: 'placeholder', previewFamily: 'pulse' },
 
   { id: 't5_all_black_theme', title: '올블랙 전용 테마', tier: 5, price: 1000, shop: true, placeholder: true, supports: ['challenge', 'habit'], defaultSize: { w: 3, h: 4 }, minSize: { w: 3, h: 2 }, maxSize: { w: 3, h: 6 }, kind: 'theme', previewFamily: 'theme' },

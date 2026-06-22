@@ -567,13 +567,13 @@ const CalendarHeaderGrid = memo(function CalendarHeaderGrid({
 
 class HealthDashboardWidgetErrorBoundary extends React.PureComponent {
   constructor(props) { super(props); this.state = { hasError: false, message: '' }; }
-  static getDerivedStateFromError(error) { return { hasError: true, message: error?.message ? String(error.message) : '위젯 렌더링 오류' }; }
+  static getDerivedStateFromError(error) { return { hasError: true, message: error?.message ? String(error.message) : '카드 렌더링 오류' }; }
   componentDidCatch(error, info) { console.warn('[HealthWidgetError]', this.props?.widgetId || this.props?.title || 'unknown', error?.message || error, info?.componentStack || ''); }
   render() {
     if (this.state.hasError) {
-      return React.createElement(DashboardWidgetShell, { header: React.createElement(DashboardWidgetHeader, { title: this.props?.title || 'Health 위젯', hideSides: true }) },
+      return React.createElement(DashboardWidgetShell, { header: React.createElement(DashboardWidgetHeader, { title: this.props?.title || 'Health 카드', hideSides: true }) },
         React.createElement(View, { style: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 10 } },
-          React.createElement(Text, { numberOfLines: 1, style: { color: '#111111', fontSize: 12, fontWeight: '900', textAlign: 'center' } }, '위젯 오류'),
+          React.createElement(Text, { numberOfLines: 1, style: { color: '#111111', fontSize: 12, fontWeight: '900', textAlign: 'center' } }, '카드 오류'),
           React.createElement(Text, { numberOfLines: 3, style: { marginTop: 5, color: '#9CA3AF', fontSize: 10, fontWeight: '700', textAlign: 'center' } }, '이 Health 그래프를 표시하지 못했습니다. 앱은 계속 사용할 수 있습니다.')
         )
       );
@@ -3294,7 +3294,7 @@ const HealthStepsGoalRateWidget = memo(function HealthStepsGoalRateWidget(_ref) 
   ));
 });
 
-/* ───────── 주간 요약 막대 위젯 (재사용) ───────── */
+/* ───────── 주간 요약 막대 카드 (재사용) ───────── */
 const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
   var entries = _ref2.entries || [];
   var metricType = _ref2.metricType || 'steps';

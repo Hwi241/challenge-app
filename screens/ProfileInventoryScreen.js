@@ -1560,7 +1560,7 @@ export default function ProfileInventoryScreen() {
 
       <TouchableOpacity
         style={[styles.shopFloatingBtn, { bottom: Math.max(insets.bottom, 16) + CARD_GAP }]}
-        onPress={() => navigation.navigate('WidgetShop')}
+        onPress={() => navigation.navigate('GraphShop')}
         activeOpacity={0.9}
         accessibilityRole="button"
         accessibilityLabel="상점 열기"

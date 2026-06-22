@@ -1646,7 +1646,7 @@ const layoutRows = useMemo(() => {
 
  const removeGraph = useCallback((widgetId) => {
  const targetItem = layout.find((item) => (item.widgetId || item.id) === widgetId);
- const targetTitle = targetItem?.title || targetItem?.name || widgetId || '위젯';
+ const targetTitle = targetItem?.title || targetItem?.name || widgetId || '카드';
 
  if (layout.length <= 1) {
  Alert.alert('안내', '대시보드에는 그래프가 1개 이상 있어야 합니다.');
@@ -1654,8 +1654,8 @@ const layoutRows = useMemo(() => {
  }
 
  Alert.alert(
- '위젯 삭제',
- `"${targetTitle}" 위젯을 대시보드에서 삭제할까요?`,
+ '카드 삭제',
+ `"${targetTitle}" 카드을 대시보드에서 삭제할까요?`,
  [
  { text: '취소', style: 'cancel' },
  {
@@ -3077,7 +3077,7 @@ const renderResizeGuideOverlay = () => {
  </View>
  </View>
  <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>
- <Text style={styles.addText}>위젯추가</Text>
+ <Text style={styles.addText}>카드추가</Text>
  </TouchableOpacity>
  </View>
  </View>
@@ -3113,14 +3113,14 @@ const renderResizeGuideOverlay = () => {
  <View style={styles.modalOverlay}>
  <View style={styles.modalSheet}>
  <View style={styles.modalHeader}>
- <Text style={styles.modalTitle}>위젯 추가</Text>
+ <Text style={styles.modalTitle}>카드 추가</Text>
  <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setPickerVisible(false)}>
  <Text style={styles.modalCloseText}>×</Text>
  </TouchableOpacity>
  </View>
 
  {pickerWidgets.length === 0 ? (
- <Text style={styles.emptyText}>추가할 수 있는 위젯이 없습니다.</Text>
+ <Text style={styles.emptyText}>추가할 수 있는 카드이 없습니다.</Text>
  ) : (
  <ScrollView style={styles.pickerList}>
  {pickerWidgets.map((widget) => {

@@ -101,7 +101,7 @@ export default function Screen({navigation}){
         <BackButton title="데이터 출처 관리"/>
         <View style={st.card}>
           <Text style={st.ttl}>Health Connect</Text>
-          <Text style={st.dsc}>Health Connect 권한을 연결하면 Samsung Health 등에서 공유한 걸음, 운동, 수면, 심박 데이터를 인증 근거로 사용할 수 있습니다.</Text>
+          <Text style={st.dsc}>Health Connect 권한을 연결하면 Samsung Health, Strava 등에서 공유한 걸음, 운동, 수면, 심박 데이터를 인증 근거로 사용할 수 있습니다.</Text>
           <TouchableOpacity style={[st.btn,cn&&st.bd]} onPress={connect} disabled={cn||dc} activeOpacity={0.85}>
             <Text style={st.bt}>{cn?'연결 중...':ok?'권한 다시 연결하기':'권한 연결하기'}</Text>
           </TouchableOpacity>

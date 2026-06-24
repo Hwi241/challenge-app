@@ -64,7 +64,9 @@
         "android.permission.health.READ_EXERCISE",
         "android.permission.health.READ_LEAN_BODY_MASS",
         "android.permission.health.READ_BODY_FAT",
-        "android.permission.health.READ_ELEVATION_GAINED"
+        "android.permission.health.READ_ELEVATION_GAINED",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -73,6 +75,14 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "expo-mail-composer",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "인증 기록을 캘린더에 남기기 위해 캘린더 접근 권한이 필요합니다.",
+          "writeOnlyCalendarPermission": "인증 기록을 캘린더에 추가하기 위해 캘린더 쓰기 권한이 필요합니다.",
+          "writeOnlyAccess": true
+        }
+      ],
       "react-native-health-connect",
       [
         "expo-build-properties",

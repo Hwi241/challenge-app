@@ -13,6 +13,15 @@ const DEFAULTS = {
       updatedAt: null,
       lastError: null,
     },
+    calendarRecord: {
+      enabled: false,
+      status: 'notConnected',
+      selectedCalendarId: null,
+      selectedCalendarTitle: null,
+      writeMode: 'manual',
+      updatedAt: null,
+      lastError: null,
+    },
   },
 };
 
@@ -21,6 +30,7 @@ function normalizeAppSettings(settings) {
   const sourceIntegrations = source.dataIntegrations || {};
   const sourceHealthConnect = sourceIntegrations.healthConnect || {};
   const sourceHealthPermissions = sourceHealthConnect.permissions || {};
+  const sourceCalendarRecord = sourceIntegrations.calendarRecord || {};
   return {
     ...DEFAULTS,
     ...source,
@@ -34,6 +44,10 @@ function normalizeAppSettings(settings) {
           ...DEFAULTS.dataIntegrations.healthConnect.permissions,
           ...sourceHealthPermissions,
         },
+      },
+      calendarRecord: {
+        ...DEFAULTS.dataIntegrations.calendarRecord,
+        ...sourceCalendarRecord,
       },
     },
   };

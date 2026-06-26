@@ -271,6 +271,339 @@ export async function prepareCalendarRecordConnection() {
  }
 }
 
+const CALENDAR_EVENT_NOT_FOUND_ERROR = '기존 캘린더 일정을 찾을 수 없습니다. 캘린더에서 삭제되었을 수 있습니다.';
+
+async function updateCalendarEvent(Calendar, calendarEventId, draft) {
+  if (typeof Calendar.updateEventAsync === 'function') {
+    return Calendar.updateEventAsync(calendarEventId, draft);
+  }
+
+  if (typeof Calendar.updateEvent === 'function') {
+    const result = Calendar.updateEvent(calendarEventId, draft);
+    return result && typeof result.then === 'function' ? await result : result;
+  }
+
+  throw new Error('이 빌드에서 캘린더 이벤트 수정 기능을 사용할 수 없습니다.');
+}
+
+async function deleteCalendarEvent(Calendar, calendarEventId) {
+  if (typeof Calendar.deleteEventAsync === 'function') {
+    return Calendar.deleteEventAsync(calendarEventId);
+  }
+
+  if (typeof Calendar.deleteEvent === 'function') {
+    const result = Calendar.deleteEvent(calendarEventId);
+    return result && typeof result.then === 'function' ? await result : result;
+  }
+
+  throw new Error('이 빌드에서 캘린더 이벤트 삭제 기능을 사용할 수 없습니다.');
+}
+
+function getCalendarEventLookupRange({ entryDate, entry, draft } = {}) {
+  const sourceDate = draft?.startDate || entryDate || entry?.timestamp || Date.now();
+  const baseDate = new Date(sourceDate);
+  const safeDate = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+
+  const startDate = new Date(safeDate);
+  startDate.setHours(0, 0, 0, 0);
+  startDate.setDate(startDate.getDate() - 1);
+
+  const endDate = new Date(safeDate);
+  endDate.setHours(23, 59, 59, 999);
+  endDate.setDate(endDate.getDate() + 1);
+
+  return { startDate, endDate };
+}
+
+function isSameCalendarEventId(event, calendarEventId) {
+  return String(event?.id || event?.eventId || '') === String(calendarEventId || '');
+}
+
+async function getCalendarEventById(Calendar, calendarEventId) {
+  if (!calendarEventId) return null;
+
+  try {
+    if (typeof Calendar.getEventAsync === 'function') {
+      const event = await Calendar.getEventAsync(calendarEventId);
+      return event?.id || event?.eventId ? event : null;
+    }
+
+    if (typeof Calendar.getEvent === 'function') {
+      const result = Calendar.getEvent(calendarEventId);
+      const event = result && typeof result.then === 'function' ? await result : result;
+      return event?.id || event?.eventId ? event : null;
+    }
+  } catch (error) {
+    return null;
+  }
+
+  return null;
+}
+
+async function getCalendarEventsInRange(Calendar, calendarId, range) {
+  if (!calendarId || !range?.startDate || !range?.endDate) return [];
+
+  try {
+    if (typeof Calendar.getEventsAsync === 'function') {
+      const events = await Calendar.getEventsAsync([calendarId], range.startDate, range.endDate);
+      return Array.isArray(events) ? events : [];
+    }
+
+    if (typeof Calendar.getEvents === 'function') {
+      const result = Calendar.getEvents([calendarId], range.startDate, range.endDate);
+      const events = result && typeof result.then === 'function' ? await result : result;
+      return Array.isArray(events) ? events : [];
+    }
+  } catch (error) {
+    return [];
+  }
+
+  return [];
+}
+
+async function findCalendarRecordEvent(Calendar, calendarId, calendarEventId, { entryDate, entry, draft } = {}) {
+  const directEvent = await getCalendarEventById(Calendar, calendarEventId);
+  if (directEvent && isSameCalendarEventId(directEvent, calendarEventId)) {
+    return directEvent;
+  }
+
+  const range = getCalendarEventLookupRange({ entryDate, entry, draft });
+  const events = await getCalendarEventsInRange(Calendar, calendarId, range);
+  return events.find((event) => isSameCalendarEventId(event, calendarEventId)) || null;
+}
+
+export async function updateCalendarRecordEvent({
+  calendarRecord,
+  calendarEventId,
+  challengeTitle,
+  entry,
+  entryDate,
+  linkedRecords = [],
+  draft,
+} = {}) {
+  const Calendar = getCalendarRecordModule();
+  const settings = normalizeCalendarRecordSettings(calendarRecord);
+  let eventDraft = draft || null;
+
+  if (!calendarEventId) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.ERROR,
+      eventId: null,
+      draft: eventDraft,
+      shouldClearCalendarRecord: true,
+      error: '수정할 캘린더 일정 ID가 없습니다.',
+    };
+  }
+
+  if (!Calendar) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.UNAVAILABLE,
+      eventId: calendarEventId,
+      draft: eventDraft,
+      shouldClearCalendarRecord: false,
+      error: '이 빌드에서 캘린더 모듈을 사용할 수 없습니다.',
+    };
+  }
+
+  if (!isCalendarRecordLinked(settings)) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.NOT_CONNECTED,
+      eventId: calendarEventId,
+      draft: eventDraft,
+      shouldClearCalendarRecord: false,
+      error: '캘린더 기록이 연결되어 있지 않습니다.',
+    };
+  }
+
+  try {
+    const permission = await requestCalendarWritePermission(Calendar);
+    if (!isCalendarPermissionGranted(permission)) {
+      return {
+        ok: false,
+        status: CALENDAR_RECORD_STATUS.PERMISSION_DENIED,
+        eventId: calendarEventId,
+        draft: eventDraft,
+        permission,
+        shouldClearCalendarRecord: false,
+        error: '캘린더 권한이 허용되지 않았습니다.',
+      };
+    }
+
+    eventDraft = eventDraft || buildCalendarEventDraft({
+      challengeTitle,
+      entry,
+      entryDate,
+      linkedRecords,
+    });
+
+    const existingEvent = await findCalendarRecordEvent(Calendar, settings.selectedCalendarId, calendarEventId, {
+      entryDate,
+      entry,
+      draft: eventDraft,
+    });
+
+    if (!existingEvent) {
+      return {
+        ok: false,
+        status: CALENDAR_RECORD_STATUS.ERROR,
+        eventId: calendarEventId,
+        draft: eventDraft,
+        shouldClearCalendarRecord: true,
+        error: CALENDAR_EVENT_NOT_FOUND_ERROR,
+      };
+    }
+
+    await updateCalendarEvent(Calendar, calendarEventId, eventDraft);
+
+    const confirmedEvent = await findCalendarRecordEvent(Calendar, settings.selectedCalendarId, calendarEventId, {
+      entryDate,
+      entry,
+      draft: eventDraft,
+    });
+
+    if (!confirmedEvent) {
+      return {
+        ok: false,
+        status: CALENDAR_RECORD_STATUS.ERROR,
+        eventId: calendarEventId,
+        draft: eventDraft,
+        shouldClearCalendarRecord: true,
+        error: CALENDAR_EVENT_NOT_FOUND_ERROR,
+      };
+    }
+
+    return {
+      ok: true,
+      status: CALENDAR_RECORD_STATUS.CONNECTED,
+      eventId: calendarEventId,
+      draft: eventDraft,
+      shouldClearCalendarRecord: false,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.ERROR,
+      eventId: calendarEventId,
+      draft: eventDraft,
+      shouldClearCalendarRecord: false,
+      error: error?.message || '캘린더 일정을 수정하는 중 오류가 발생했습니다.',
+    };
+  }
+}
+
+export async function deleteCalendarRecordEvent({
+  calendarRecord,
+  calendarEventId,
+  entry,
+  entryDate,
+} = {}) {
+  const Calendar = getCalendarRecordModule();
+  const settings = normalizeCalendarRecordSettings(calendarRecord);
+
+  if (!calendarEventId) {
+    return {
+      ok: true,
+      status: CALENDAR_RECORD_STATUS.CONNECTED,
+      eventId: null,
+      alreadyMissing: true,
+      shouldClearCalendarRecord: true,
+      error: null,
+    };
+  }
+
+  if (!Calendar) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.UNAVAILABLE,
+      eventId: calendarEventId,
+      alreadyMissing: false,
+      shouldClearCalendarRecord: false,
+      error: '이 빌드에서 캘린더 모듈을 사용할 수 없습니다.',
+    };
+  }
+
+  if (!isCalendarRecordLinked(settings)) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.NOT_CONNECTED,
+      eventId: calendarEventId,
+      alreadyMissing: false,
+      shouldClearCalendarRecord: false,
+      error: '캘린더 기록이 연결되어 있지 않습니다.',
+    };
+  }
+
+  try {
+    const permission = await requestCalendarWritePermission(Calendar);
+    if (!isCalendarPermissionGranted(permission)) {
+      return {
+        ok: false,
+        status: CALENDAR_RECORD_STATUS.PERMISSION_DENIED,
+        eventId: calendarEventId,
+        permission,
+        alreadyMissing: false,
+        shouldClearCalendarRecord: false,
+        error: '캘린더 권한이 허용되지 않았습니다.',
+      };
+    }
+
+    const existingEvent = await findCalendarRecordEvent(Calendar, settings.selectedCalendarId, calendarEventId, {
+      entryDate,
+      entry,
+    });
+
+    if (!existingEvent) {
+      return {
+        ok: true,
+        status: CALENDAR_RECORD_STATUS.CONNECTED,
+        eventId: calendarEventId,
+        alreadyMissing: true,
+        shouldClearCalendarRecord: true,
+        error: null,
+      };
+    }
+
+    await deleteCalendarEvent(Calendar, calendarEventId);
+
+    const confirmedEvent = await findCalendarRecordEvent(Calendar, settings.selectedCalendarId, calendarEventId, {
+      entryDate,
+      entry,
+    });
+
+    if (confirmedEvent) {
+      return {
+        ok: false,
+        status: CALENDAR_RECORD_STATUS.ERROR,
+        eventId: calendarEventId,
+        alreadyMissing: false,
+        shouldClearCalendarRecord: false,
+        error: '캘린더 일정을 삭제하지 못했습니다.',
+      };
+    }
+
+    return {
+      ok: true,
+      status: CALENDAR_RECORD_STATUS.CONNECTED,
+      eventId: calendarEventId,
+      alreadyMissing: false,
+      shouldClearCalendarRecord: true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.ERROR,
+      eventId: calendarEventId,
+      alreadyMissing: false,
+      shouldClearCalendarRecord: false,
+      error: error?.message || '캘린더 일정을 삭제하는 중 오류가 발생했습니다.',
+    };
+  }
+}
 export function buildCalendarEventDraft({
  challengeTitle,
  entry,

@@ -17,9 +17,23 @@ import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import { getAppSettings } from '../utils/appSettings';
+import { deleteCalendarRecordEvent, updateCalendarRecordEvent } from '../utils/calendarRecord';
 
 const MAX_TEXT_LEN = 500;
 const MAX_MINUTES = 1440;
+
+function stripCalendarRecordMetadata(entry = {}) {
+  const {
+    calendarEventId,
+    calendarRecordedAt,
+    calendarRecordCalendarId,
+    calendarRecordCalendarTitle,
+    ...rest
+  } = entry || {};
+
+  return rest;
+}
 
 export default function EntryDetailScreen() {
   const route = useRoute();
@@ -147,6 +161,93 @@ export default function EntryDetailScreen() {
   const onSave = useCallback(() => {
     if (busy) return;
 
+    const saveEditedEntry = async ({ updateCalendar = false } = {}) => {
+      setBusy(true);
+
+      try {
+        if (!challengeId || !entryId) return;
+
+        const rawDur = toNumberOrZero(duration);
+        const finalDur = duration ? Math.min(Math.max(rawDur, 1), MAX_MINUTES) : 0;
+
+        const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+        const list = raw ? JSON.parse(raw) : [];
+        const idx = list.findIndex(e => e.id === entryId);
+
+        if (idx < 0) {
+          Alert.alert('오류', '인증 항목이 존재하지 않습니다.');
+          return;
+        }
+
+        const originalEntry = list[idx] || {};
+        const updated = {
+          ...originalEntry,
+          text: (text || '').trim(),
+          imageUri: imageUri || null,
+          duration: finalDur,
+          timestamp: timestamp || originalEntry.timestamp || Date.now(),
+        };
+
+        list[idx] = updated;
+        await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
+        markAsSaved();
+
+        if (updateCalendar && originalEntry?.calendarEventId) {
+          let calendarUpdateResult = null;
+
+          try {
+            const latestSettings = await getAppSettings();
+            const calendarRecord = latestSettings?.dataIntegrations?.calendarRecord || {};
+
+            calendarUpdateResult = await updateCalendarRecordEvent({
+              calendarRecord,
+              calendarEventId: originalEntry.calendarEventId,
+              challengeTitle: challengeTitle || routeTitle || '도전',
+              entry: updated,
+              entryDate: new Date(updated.timestamp || Date.now()),
+              linkedRecords: updated.linkedRecords || [],
+              draft: null,
+            });
+          } catch (calendarError) {
+            calendarUpdateResult = {
+              ok: false,
+              error: calendarError?.message || '캘린더 일정 수정 중 오류가 발생했습니다.',
+            };
+          }
+
+          if (calendarUpdateResult?.ok) {
+            Alert.alert('완료', '인증과 캘린더 일정이 수정되었습니다.', [
+              { text: '확인', onPress: () => navigation.goBack() },
+            ]);
+            return;
+          }
+
+          if (calendarUpdateResult?.shouldClearCalendarRecord) {
+            const clearedEntry = stripCalendarRecordMetadata(updated);
+            list[idx] = clearedEntry;
+            await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
+          }
+
+          const reason = calendarUpdateResult?.error || '알 수 없는 오류';
+          Alert.alert(
+            '인증 수정 완료',
+            `인증은 수정되었습니다.\n다만 캘린더 일정은 수정하지 못했습니다.\n\n원인: ${reason}`,
+            [{ text: '확인', onPress: () => navigation.goBack() }]
+          );
+          return;
+        }
+
+        Alert.alert('완료', '인증이 수정되었습니다.', [
+          { text: '확인', onPress: () => navigation.goBack() },
+        ]);
+      } catch (e) {
+        console.error(e);
+        Alert.alert('오류', '인증을 저장하지 못했습니다.');
+      } finally {
+        setBusy(false);
+      }
+    };
+
     Alert.alert(
       '저장하시겠습니까?',
       '이 인증 수정을 저장할까요?',
@@ -158,85 +259,178 @@ export default function EntryDetailScreen() {
         {
           text: '저장',
           onPress: async () => {
-            setBusy(true);
             try {
               if (!challengeId || !entryId) return;
-
-              // duration 최종 클램프(빈 문자열이면 0)
-              const rawDur = toNumberOrZero(duration);
-              const finalDur = duration ? Math.min(Math.max(rawDur, 1), MAX_MINUTES) : 0;
 
               const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
               const list = raw ? JSON.parse(raw) : [];
               const idx = list.findIndex(e => e.id === entryId);
+
               if (idx < 0) {
                 Alert.alert('오류', '인증 항목이 존재하지 않습니다.');
                 return;
               }
 
-              const updated = {
-                ...list[idx],
-                text: (text || '').trim(),
-                imageUri: imageUri || null,
-                duration: finalDur,
-                timestamp: timestamp || list[idx].timestamp || Date.now(),
-              };
-              list[idx] = updated;
+              const originalEntry = list[idx] || {};
 
-              await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
-              markAsSaved();
-              Alert.alert('완료', '인증이 수정되었습니다.', [
-                { text: '확인', onPress: () => navigation.goBack() },
-              ]);
+              if (originalEntry?.calendarEventId) {
+                Alert.alert(
+                  '캘린더에 기록된 인증',
+                  '이 인증은 캘린더에도 기록되어 있습니다.\n수정 내용을 캘린더 일정에도 반영할까요?',
+                  [
+                    { text: '취소', style: 'cancel' },
+                    {
+                      text: '인증만 수정',
+                      onPress: () => saveEditedEntry({ updateCalendar: false }),
+                    },
+                    {
+                      text: '인증+캘린더 수정',
+                      onPress: () => saveEditedEntry({ updateCalendar: true }),
+                    },
+                  ]
+                );
+                return;
+              }
+
+              await saveEditedEntry({ updateCalendar: false });
             } catch (e) {
               console.error(e);
-              Alert.alert('오류', '인증을 저장하지 못했습니다.');
-            } finally {
-              setBusy(false);
+              Alert.alert('오류', '인증 정보를 확인하지 못했습니다.');
             }
           },
         },
       ]
     );
-  }, [busy, challengeId, entryId, duration, imageUri, navigation, text, timestamp, markAsSaved]);
+  }, [
+    busy,
+    challengeId,
+    entryId,
+    duration,
+    imageUri,
+    navigation,
+    text,
+    timestamp,
+    markAsSaved,
+    challengeTitle,
+    routeTitle,
+  ]);
 
   const onDelete = useCallback(() => {
     if (busy) return;
+
+    const deleteEditedEntry = async ({ deleteCalendar = false } = {}) => {
+      setBusy(true);
+      try {
+        const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+        const list = raw ? JSON.parse(raw) : [];
+        const originalEntry = list.find(e => e.id === entryId) || null;
+        const next = list.filter(e => e.id !== entryId);
+
+        await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(next));
+
+        const challRaw = await AsyncStorage.getItem('challenges');
+        const challenges = challRaw ? JSON.parse(challRaw) : [];
+        const idx = challenges.findIndex((c) => c.id === challengeId);
+
+        if (idx >= 0) {
+          challenges[idx] = { ...challenges[idx], currentScore: next.length };
+          await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
+          await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
+          await syncWidgetChallengeList();
+        }
+
+        markAsSaved();
+
+        if (deleteCalendar && originalEntry?.calendarEventId) {
+          let calendarDeleteResult = null;
+
+          try {
+            const latestSettings = await getAppSettings();
+            const calendarRecord = latestSettings?.dataIntegrations?.calendarRecord || {};
+
+            calendarDeleteResult = await deleteCalendarRecordEvent({
+              calendarRecord,
+              calendarEventId: originalEntry.calendarEventId,
+              entry: originalEntry,
+              entryDate: new Date(originalEntry.timestamp || Date.now()),
+            });
+          } catch (calendarError) {
+            calendarDeleteResult = {
+              ok: false,
+              error: calendarError?.message || '캘린더 일정 삭제 중 오류가 발생했습니다.',
+            };
+          }
+
+          if (calendarDeleteResult?.ok) {
+            const message = calendarDeleteResult?.alreadyMissing
+              ? '인증이 삭제되었습니다.\n캘린더 일정은 이미 삭제된 상태였습니다.'
+              : '인증과 캘린더 일정이 삭제되었습니다.';
+
+            Alert.alert('삭제됨', message, [
+              { text: '확인', onPress: () => navigation.goBack() },
+            ]);
+            return;
+          }
+
+          const reason = calendarDeleteResult?.error || '알 수 없는 오류';
+          Alert.alert(
+            '삭제 완료',
+            `인증은 삭제되었습니다.\n다만 캘린더 일정은 삭제하지 못했습니다.\n\n원인: ${reason}`,
+            [{ text: '확인', onPress: () => navigation.goBack() }]
+          );
+          return;
+        }
+
+        Alert.alert('삭제됨', '인증이 삭제되었습니다.', [
+          { text: '확인', onPress: () => navigation.goBack() },
+        ]);
+      } catch (e) {
+        console.error(e);
+        Alert.alert('오류', '인증을 삭제하지 못했습니다.');
+      } finally {
+        setBusy(false);
+      }
+    };
+
     Alert.alert('삭제 확인', '이 인증을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       {
-        text: '삭제', style: 'destructive', onPress: async () => {
-          setBusy(true);
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
           try {
-            // 1) entries에서 삭제
             const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
             const list = raw ? JSON.parse(raw) : [];
-            const next = list.filter(e => e.id !== entryId);
-            await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(next));
+            const originalEntry = list.find(e => e.id === entryId) || null;
 
-            // 2) challenges의 currentScore 갱신
-            const challRaw = await AsyncStorage.getItem('challenges');
-            const challenges = challRaw ? JSON.parse(challRaw) : [];
-            const idx = challenges.findIndex((c) => c.id === challengeId);
-            if (idx >= 0) {
-              challenges[idx] = { ...challenges[idx], currentScore: next.length };
-              await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
-              await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
-      await syncWidgetChallengeList();
+            if (originalEntry?.calendarEventId) {
+              Alert.alert(
+                '캘린더에 기록된 인증',
+                '이 인증은 캘린더에도 기록되어 있습니다.\n캘린더 일정도 함께 삭제할까요?',
+                [
+                  { text: '취소', style: 'cancel' },
+                  {
+                    text: '인증만 삭제',
+                    style: 'destructive',
+                    onPress: () => deleteEditedEntry({ deleteCalendar: false }),
+                  },
+                  {
+                    text: '인증+캘린더 삭제',
+                    style: 'destructive',
+                    onPress: () => deleteEditedEntry({ deleteCalendar: true }),
+                  },
+                ]
+              );
+              return;
             }
 
-            markAsSaved();
-            Alert.alert('삭제됨', '인증이 삭제되었습니다.', [
-              { text: '확인', onPress: () => navigation.goBack() },
-            ]);
+            await deleteEditedEntry({ deleteCalendar: false });
           } catch (e) {
             console.error(e);
-            Alert.alert('오류', '인증을 삭제하지 못했습니다.');
-          } finally {
-            setBusy(false);
+            Alert.alert('오류', '인증 정보를 확인하지 못했습니다.');
           }
-        }
-      }
+        },
+      },
     ]);
   }, [busy, challengeId, entryId, navigation, markAsSaved]);
 

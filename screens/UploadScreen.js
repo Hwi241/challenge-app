@@ -577,6 +577,72 @@ async function loadHealthConnectRecordsForDate(dateKey, healthConnectSettings = 
   return results;
 }
 
+
+function getCalendarRecordResultTitle(result = {}, calendarRecord = {}) {
+  const selectedCalendar = result?.selectedCalendar || {};
+  return (
+    selectedCalendar?.title ||
+    selectedCalendar?.name ||
+    selectedCalendar?.ownerAccount ||
+    selectedCalendar?.source?.name ||
+    selectedCalendar?.source?.title ||
+    calendarRecord?.selectedCalendarTitle ||
+    '선택한 캘린더'
+  );
+}
+
+async function readSavedEntryForCalendarRecord(challengeId, entryId) {
+  if (!challengeId || !entryId) return null;
+
+  try {
+    const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list)
+      ? list.find((item) => String(item?.id) === String(entryId)) || null
+      : null;
+  } catch (error) {
+    console.warn('[CalendarRecord] read saved entry failed', error?.message || error);
+    return null;
+  }
+}
+
+async function markEntryCalendarRecorded(challengeId, entryId, result = {}, calendarRecord = {}) {
+  if (!challengeId || !entryId || !result?.ok) return null;
+
+  const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
+  const list = raw ? JSON.parse(raw) : [];
+
+  if (!Array.isArray(list)) {
+    throw new Error('저장된 인증 목록을 읽지 못했습니다.');
+  }
+
+  let updatedEntry = null;
+  const recordedAt = new Date().toISOString();
+  const selectedCalendar = result?.selectedCalendar || {};
+  const calendarId = selectedCalendar?.id || calendarRecord?.selectedCalendarId || null;
+  const calendarTitle = getCalendarRecordResultTitle(result, calendarRecord);
+
+  const nextList = list.map((item) => {
+    if (String(item?.id) !== String(entryId)) return item;
+
+    updatedEntry = {
+      ...item,
+      calendarEventId: result?.eventId || item?.calendarEventId || null,
+      calendarRecordedAt: recordedAt,
+      calendarRecordCalendarId: calendarId,
+      calendarRecordCalendarTitle: calendarTitle,
+    };
+    return updatedEntry;
+  });
+
+  if (!updatedEntry) {
+    throw new Error('저장된 인증 기록을 찾지 못했습니다.');
+  }
+
+  await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(nextList));
+  return updatedEntry;
+}
+
 export default function UploadScreen() {
   const MAX_TEXT_LEN = 1000;
 const MAX_MINUTES = 1440; // 24시간
@@ -976,6 +1042,19 @@ const MAX_MINUTES = 1440; // 24시간
         calendarRecordSavingRef.current = true;
 
         try {
+          // 중복 확인
+          const savedEntry = await readSavedEntryForCalendarRecord(challengeId, entry.id);
+          const existingCalendarEventId = entry?.calendarEventId || savedEntry?.calendarEventId;
+
+          if (existingCalendarEventId) {
+            Alert.alert(
+              '이미 기록됨',
+              '이 인증은 이미 캘린더에 기록되어 있습니다.',
+              [{ text: '확인', onPress: finishSavedEntryFlow }]
+            );
+            return;
+          }
+
           const latestSettings = await getAppSettings();
           const calendarRecord = latestSettings?.dataIntegrations?.calendarRecord || {};
           const result = await createCalendarRecordEvent({
@@ -988,6 +1067,14 @@ const MAX_MINUTES = 1440; // 24시간
           });
 
           if (result?.ok) {
+            const updatedEntry = await markEntryCalendarRecorded(challengeId, entry.id, result, calendarRecord);
+            if (updatedEntry?.calendarEventId) {
+              entry.calendarEventId = updatedEntry.calendarEventId;
+              entry.calendarRecordedAt = updatedEntry.calendarRecordedAt;
+              entry.calendarRecordCalendarId = updatedEntry.calendarRecordCalendarId;
+              entry.calendarRecordCalendarTitle = updatedEntry.calendarRecordCalendarTitle;
+            }
+
             Alert.alert(
               '캘린더 기록 완료',
               '선택한 캘린더에 인증 기록을 추가했습니다.',

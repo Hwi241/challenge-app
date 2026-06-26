@@ -300,3 +300,110 @@ export function buildCalendarEventDraft({
   timeZone: Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone || undefined,
  };
 }
+
+async function createCalendarEvent(Calendar, calendarId, draft) {
+  if (typeof Calendar.createEventAsync === 'function') {
+    return Calendar.createEventAsync(calendarId, draft);
+  }
+
+  if (typeof Calendar.createEvent === 'function') {
+    const result = Calendar.createEvent(calendarId, draft);
+    return result && typeof result.then === 'function' ? await result : result;
+  }
+
+  throw new Error('이 빌드에서 캘린더 이벤트 생성 기능을 사용할 수 없습니다.');
+}
+
+export async function createCalendarRecordEvent({
+  calendarRecord,
+  challengeTitle,
+  entry,
+  entryDate,
+  linkedRecords = [],
+  draft,
+} = {}) {
+  const Calendar = getCalendarRecordModule();
+  const settings = normalizeCalendarRecordSettings(calendarRecord);
+
+  if (!Calendar) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.UNAVAILABLE,
+      eventId: null,
+      draft: draft || null,
+      selectedCalendar: null,
+      error: '이 빌드에서 캘린더 모듈을 사용할 수 없습니다.',
+    };
+  }
+
+  if (!isCalendarRecordLinked(settings) || !settings.selectedCalendarId) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.NOT_CONNECTED,
+      eventId: null,
+      draft: draft || null,
+      selectedCalendar: null,
+      error: '캘린더 기록이 연결되어 있지 않습니다.',
+    };
+  }
+
+  let eventDraft = draft || null;
+
+  try {
+    const permission = await requestCalendarWritePermission(Calendar);
+    if (!isCalendarPermissionGranted(permission)) {
+      return {
+        ok: false,
+        status: CALENDAR_RECORD_STATUS.PERMISSION_DENIED,
+        eventId: null,
+        draft: eventDraft,
+        selectedCalendar: null,
+        permission,
+        error: '캘린더 권한이 허용되지 않았습니다.',
+      };
+    }
+
+    const calendars = await getDeviceCalendars(Calendar);
+    const selectedCalendar = (Array.isArray(calendars) ? calendars : []).find((calendar) => {
+      return String(calendar?.id) === String(settings.selectedCalendarId);
+    });
+
+    if (!selectedCalendar || !isWritableCalendar(selectedCalendar)) {
+      return {
+        ok: false,
+        status: CALENDAR_RECORD_STATUS.NO_WRITABLE_CALENDAR,
+        eventId: null,
+        draft: eventDraft,
+        selectedCalendar: selectedCalendar || null,
+        error: '선택한 캘린더에 기록할 수 없습니다. 설정 > 데이터 출처 관리에서 캘린더를 다시 선택해주세요.',
+      };
+    }
+
+    eventDraft = eventDraft || buildCalendarEventDraft({
+      challengeTitle,
+      entry,
+      entryDate,
+      linkedRecords,
+    });
+
+    const eventId = await createCalendarEvent(Calendar, settings.selectedCalendarId, eventDraft);
+
+    return {
+      ok: true,
+      status: CALENDAR_RECORD_STATUS.CONNECTED,
+      eventId: eventId || null,
+      draft: eventDraft,
+      selectedCalendar,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: CALENDAR_RECORD_STATUS.ERROR,
+      eventId: null,
+      draft: eventDraft,
+      selectedCalendar: null,
+      error: error?.message || '캘린더에 인증 기록을 저장하는 중 오류가 발생했습니다.',
+    };
+  }
+}

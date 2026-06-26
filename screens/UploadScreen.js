@@ -80,6 +80,7 @@ import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { getAppSettings } from '../utils/appSettings';
+import { createCalendarRecordEvent } from '../utils/calendarRecord';
 
 /* 습관 연속 인증 레벨 계산 */
 function calcStreakLevel(entries) {
@@ -598,6 +599,7 @@ const MAX_MINUTES = 1440; // 24시간
   const [healthDataDateKey, setHealthDataDateKey] = useState(null);
   const [selectedHealthRecordIds, setSelectedHealthRecordIds] = useState([]);
   const submittedRef = useRef(false);
+  const calendarRecordSavingRef = useRef(false);
   const formScrollRef = useRef(null);
   const entryTextInputRef = useRef(null);
   const durationInputRef = useRef(null);
@@ -686,6 +688,7 @@ const MAX_MINUTES = 1440; // 24시간
       setSelectedHealthRecordIds([]);
       setChallengeInfo(null);
       submittedRef.current = false;
+      calendarRecordSavingRef.current = false;
 
       if (challengeId) {
         AsyncStorage.getItem('challenges').then(raw => {
@@ -946,30 +949,77 @@ const MAX_MINUTES = 1440; // 24시간
           ? `인증이 등록되었습니다.\n+${starReward?.amount}★ 획득`
           : '인증이 등록되었습니다.';
 
+      const finishSavedEntryFlow = () => {
+        submittedRef.current = true;
+        markAsSaved();
+        setText('');
+        setImageUri(null);
+        setDuration('');
+        setHealthDataRecords([]);
+        setHealthDataDateKey(null);
+        setSelectedHealthRecordIds([]);
+        setSelectedEntryDate(toLocalDateOnly(new Date()));
+        setDateEditEnabled(false);
+        setDatePickerVisible(false);
+        navigation.replace('EntryList', {
+          challengeId,
+          title: nextTitle,
+          startDate: nextStart,
+          endDate: nextEnd,
+          targetScore: nextGoal,
+          reward: nextReward,
+        });
+      };
+
+      const handleCalendarRecordPress = async () => {
+        if (calendarRecordSavingRef.current) return;
+        calendarRecordSavingRef.current = true;
+
+        try {
+          const latestSettings = await getAppSettings();
+          const calendarRecord = latestSettings?.dataIntegrations?.calendarRecord || {};
+          const result = await createCalendarRecordEvent({
+            calendarRecord,
+            challengeTitle: nextTitle?.challengeTitle || challengeInfo?.title || '도전',
+            entry,
+            entryDate: new Date(entryTimestamp),
+            linkedRecords: selectedHealthRecords,
+            draft: null,
+          });
+
+          if (result?.ok) {
+            Alert.alert(
+              '캘린더 기록 완료',
+              '선택한 캘린더에 인증 기록을 추가했습니다.',
+              [{ text: '확인', onPress: finishSavedEntryFlow }]
+            );
+            return;
+          }
+
+          Alert.alert(
+            '캘린더 기록 실패',
+            (result?.error || '캘린더 기록에 실패했습니다.') + '\n\n설정 > 데이터 출처 관리에서 캘린더 연결을 확인해주세요.',
+            [{ text: '확인', onPress: finishSavedEntryFlow }]
+          );
+        } catch (calendarError) {
+          Alert.alert(
+            '캘린더 기록 실패',
+            (calendarError?.message || '캘린더 기록에 실패했습니다.') + '\n\n설정 > 데이터 출처 관리에서 캘린더 연결을 확인해주세요.',
+            [{ text: '확인', onPress: finishSavedEntryFlow }]
+          );
+        } finally {
+          calendarRecordSavingRef.current = false;
+        }
+      };
+
       Alert.alert('완료', completeMessage, [
         {
           text: '확인',
-          onPress: () => {
-            submittedRef.current = true;
-            markAsSaved();
-            setText('');
-            setImageUri(null);
-            setDuration('');
-            setHealthDataRecords([]);
-            setHealthDataDateKey(null);
-            setSelectedHealthRecordIds([]);
-            setSelectedEntryDate(toLocalDateOnly(new Date()));
-            setDateEditEnabled(false);
-            setDatePickerVisible(false);
-            navigation.replace('EntryList', {
-              challengeId,
-              title: nextTitle,
-              startDate: nextStart,
-              endDate: nextEnd,
-              targetScore: nextGoal,
-              reward: nextReward,
-            });
-          },
+          onPress: finishSavedEntryFlow,
+        },
+        {
+          text: '캘린더에 기록',
+          onPress: handleCalendarRecordPress,
         },
       ]);
     } catch (e) {
@@ -990,6 +1040,8 @@ const MAX_MINUTES = 1440; // 24시간
     selectedEntryDateKey,
     navigation,
     markAsSaved,
+    challengeTitle,
+    challengeInfo?.title,
   ]);
 
   const onSubmit = useCallback(() => {

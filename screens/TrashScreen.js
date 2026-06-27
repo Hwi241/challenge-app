@@ -191,19 +191,19 @@ const styles = StyleSheet.create({
   },
   emptyBtn: {
     borderWidth: 1,
-    borderColor: '#111',
+    borderColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: 6,
     paddingHorizontal: spacing.md,
   },
-  emptyBtnText: { color: '#111', fontWeight: '700', fontSize: 13 },
+  emptyBtnText: { color: colors.primary, fontWeight: '700', fontSize: 13 },
 
   listContent: { padding: spacing.lg, paddingBottom: 60 },
 
   card: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -216,24 +216,24 @@ const styles = StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: 8, marginTop: spacing.md },
 
   restoreBtn: {
-    backgroundColor: '#111',
+    backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  restoreBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  restoreBtnText: { color: colors.textInverse, fontWeight:'800', fontSize: 14 },
 
   deleteBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#111',
+    borderColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteBtnText: { color: '#111', fontWeight: '800', fontSize: 14 },
+  deleteBtnText: { color: colors.primary, fontWeight: '800', fontSize: 14 },
 
   empty: {
     textAlign: 'center',

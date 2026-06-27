@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   priceBadge: {
     backgroundColor: colors.black,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -675,7 +675,7 @@ const styles = StyleSheet.create({
   },
   tierBadge: {
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },

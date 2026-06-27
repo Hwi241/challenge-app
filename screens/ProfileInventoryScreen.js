@@ -1765,7 +1765,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   cardHeader: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   cardTitle: {
     fontSize: 13,

@@ -78,13 +78,13 @@ const ICON = require('../assets/icon.png');
 const AdBannerPlaceholder = () => (
   <View style={{
     height: 50,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   }}>
-    <Text style={{ color: '#9CA3AF', fontSize: 12 }}>광고 영역</Text>
+    <Text style={{ color: colors.textDisabled, fontSize: 12 }}>광고 영역</Text>
   </View>
 );
 
@@ -2913,7 +2913,7 @@ const RawDebugList = ({
               <Text style={{ fontWeight: '700' }}>
                 #{indexFromEnd} {new Date(it.timestamp).toLocaleString()}
               </Text>
-              <Text style={{ marginTop: 4, color: '#111' }}>
+              <Text style={{ marginTop: 4, color: colors.textPrimary }}>
                 {typeof it?.text === 'string' ? it.text : '(text 없음)'}
               </Text>
               {(typeof it?.duration === 'number' && it.duration > 0) && (
@@ -4342,7 +4342,7 @@ const runWeek = useCallback(() => {
   >
         {!isShare && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111' }}>대시보드</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>대시보드</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity
                 disabled={isDashboardEditDisabled}
@@ -4681,7 +4681,7 @@ postSummaryRow: {
 
   headerTop: { flexDirection: 'row', alignItems: 'center', height: 52, marginBottom: 6 },
   headerBackBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
-  headerBackArrow: { fontSize: 32, fontWeight: '300', color: '#111', lineHeight: 32, includeFontPadding: false, marginTop: -8 },
+  headerBackArrow: { fontSize: 32, fontWeight: '300', color: colors.textPrimary, lineHeight: 32, includeFontPadding: false, marginTop: -8 },
   headerTitleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerInfoBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
 
@@ -4696,7 +4696,7 @@ postSummaryRow: {
   },
   iconSquare: { width: 42, height: 42, borderRadius: 8 },
 
-  title: { fontSize: 20, fontWeight: '800', color: '#111', lineHeight: 26 },
+  title: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, lineHeight: 26 },
   period: { fontSize: 12, color: textGrey, marginTop: 4 },
 
   progressLabel: { marginTop: 10, color: textGrey },
@@ -4722,7 +4722,7 @@ postSummaryRow: {
   progressTitleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#111',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   progressHeaderSideSlot: {
@@ -4791,7 +4791,7 @@ weekPagerArrowHit: {
   },
   dashboardArrowText: {
     fontWeight: '800',
-    color: '#111',
+    color: colors.textPrimary,
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
@@ -4799,7 +4799,7 @@ weekPagerArrowHit: {
 weekPagerArrow: {
   fontSize: 15,
   fontWeight: '800',
-  color: '#111',
+  color: colors.textPrimary,
   lineHeight: 16,
 },
 weekPagerArrowDisabled: {
@@ -4930,8 +4930,8 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: colors.textInverse },
     justifyContent: 'space-between',
   },
   calNavBtn: { paddingHorizontal: 6, paddingVertical: 1 },
-  calNavText: { fontSize: 15, fontWeight: '800', color: '#111' },
-  calTitle: { fontSize: 12, fontWeight: '700', color: '#111' },
+  calNavText: { fontSize: 15, fontWeight: '800', color: colors.textPrimary },
+  calTitle: { fontSize: 12, fontWeight: '700', color: colors.textPrimary },
   dashboardWidgetShell: {
     flex: 1,
     width: '100%',
@@ -4975,7 +4975,7 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: colors.textInverse },
   dashboardWidgetHeaderNavText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#111',
+    color: colors.textPrimary,
   },
   dashboardWidgetHeaderNavDisabled: {
     opacity: 0.3,
@@ -5017,7 +5017,7 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: colors.textInverse },
     fontSize: 12,
     lineHeight: 14,
     fontWeight: '700',
-    color: '#111',
+    color: colors.textPrimary,
     textAlign: 'center',
     includeFontPadding: false,
     transform: [{ translateY: DASHBOARD_WIDGET_HEADER_TITLE_TOP_ADJUST }],
@@ -5047,7 +5047,7 @@ rewardBlackText: { fontSize: 17, fontWeight: '900', color: colors.textInverse },
     marginVertical: 1,
   },
   calBadgeText: { color: '#fff', fontWeight: '800', fontSize: 9.5 },
-  calCellText: { fontSize: 9.5, color: '#111' },
+  calCellText: { fontSize: 9.5, color: colors.textPrimary },
   calCellTextDim: { color: textGrey },
 
 
@@ -5136,6 +5136,6 @@ rewardBlockSpacing: {
     borderWidth: 1,
     borderColor: '#ECECEC',
   },
-  modalFieldValue: { fontSize: 13, color: '#111' },
-  modalFieldValueMultiline: { fontSize: 13, color: '#111', lineHeight: 18 },
+  modalFieldValue: { fontSize: 13, color: colors.textPrimary },
+  modalFieldValueMultiline: { fontSize: 13, color: colors.textPrimary, lineHeight: 18 },
 });

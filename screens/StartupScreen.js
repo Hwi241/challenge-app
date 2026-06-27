@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { colors } from '../styles/common';
 
 export default function StartupScreen() {
   const navigation = useNavigation();
@@ -25,6 +26,6 @@ export default function StartupScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   image: { width: '72%', height: '28%' }, // 안전한 여백 비율(원하면 조정)
 });

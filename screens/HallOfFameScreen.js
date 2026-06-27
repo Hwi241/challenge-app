@@ -343,7 +343,7 @@ export default function HallOfFameScreen() {
         data={hof}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl + Math.max(insets.bottom, 8) + 50 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.sm) + 50 }}
         ListEmptyComponent={<Text style={styles.empty}>아직 완료된 도전이 없습니다.</Text>}
         removeClippedSubviews
         windowSize={7}
@@ -354,7 +354,7 @@ export default function HallOfFameScreen() {
 
       {/* 선택 모드 하단바 (선택 버튼은 제거) */}
       {selectMode && (
-        <View pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <View pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
           <TouchableOpacity style={[buttonStyles.outlineSoft.container, { flex: 1, marginRight: spacing.sm }]} onPress={cancelSelectMode}>
             <Text style={buttonStyles.outlineSoft.label}>취소</Text>
           </TouchableOpacity>

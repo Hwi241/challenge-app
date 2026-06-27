@@ -5,22 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
-
-const PALETTE = {
-  white: "#FFFFFF",
-  black: "#000000",
-  gray50: "#FAFAFA",
-  gray100: "#F3F4F6",
-  gray200: "#E5E7EB",
-  gray300: "#D1D5DB",
-  gray400: "#9CA3AF",
-  gray600: "#525252",
-  gray700: "#374151",
-  gray800: "#111111"
-};
-
-const radius = { md: 12, lg: 16 };
-const spacing = { sm: 8, md: 12, lg: 16, xl: 20 };
+import { colors as PALETTE, radius, spacing } from '../styles/common';
 
 const STORAGE_KEY = 'notification_defaults';
 // defaults shape: { sound: 'system'|'silent'|'vibrate', snooze: { enabled: boolean, minutes: number } }
@@ -284,7 +269,7 @@ const styles = StyleSheet.create({
   saveBtnText: { color: PALETTE.white, fontWeight:'800' },
 
   // modal
-  modalBackdrop: { flex:1, backgroundColor:'rgba(0,0,0,0.35)', alignItems:'center', justifyContent:'center', padding: spacing.lg },
+  modalBackdrop: { flex:1, backgroundColor: colors.overlay, alignItems:'center', justifyContent:'center', padding: spacing.lg },
   modalCard: { width:'100%', backgroundColor:PALETTE.white, borderRadius:radius.lg, padding:spacing.lg, borderWidth:1, borderColor:PALETTE.gray200 },
   modalTitle: { fontSize:16, fontWeight:'800', color:PALETTE.gray800, marginBottom:spacing.md, textAlign:'center' },
   modalInput: {

@@ -33,6 +33,21 @@ export const primitive = {
  950: '#0A0A0A',
  },
 
+ // 기존 화면 fallback에 섞여 있던 slate 계열 호환용.
+ // 새 기본 UI는 neutral/color semantic을 우선 사용한다.
+ slate: {
+ 50: '#F8FAFC',
+ 100: '#F1F5F9',
+ 200: '#E2E8F0',
+ 300: '#CBD5E1',
+ 400: '#94A3B8',
+ 500: '#64748B',
+ 600: '#475569',
+ 700: '#334155',
+ 800: '#1E293B',
+ 900: '#0F172A',
+ },
+
  amber: {
  50: '#FFFBEB',
  100: '#FEF3C7',
@@ -117,6 +132,10 @@ export const color = {
 
  star: primitive.amber[500],
  starBg: primitive.amber[50],
+
+ overlay: 'rgba(0,0,0,0.35)',
+ overlayStrong: 'rgba(0,0,0,0.5)',
+ imageDeleteOverlay: 'rgba(229, 231, 235, 0.85)',
 };
 
 /**
@@ -156,15 +175,66 @@ export const colors = {
  textTertiary: color.textTertiary,
  textInverse: color.textInverse,
 
+ slate50: primitive.slate[50],
+ slate100: primitive.slate[100],
+ slate200: primitive.slate[200],
+ slate300: primitive.slate[300],
+ slate400: primitive.slate[400],
+ slate500: primitive.slate[500],
+ slate600: primitive.slate[600],
+ slate700: primitive.slate[700],
+ slate800: primitive.slate[800],
+ slate900: primitive.slate[900],
+
+ amber50: primitive.amber[50],
+ amber100: primitive.amber[100],
+ amber200: primitive.amber[200],
+ amber300: primitive.amber[300],
+ amber400: primitive.amber[400],
+ amber500: primitive.amber[500],
+ amber600: primitive.amber[600],
+ amber700: primitive.amber[700],
+ amber800: primitive.amber[800],
+ amber900: primitive.amber[900],
+
+ green50: primitive.green[50],
+ green100: primitive.green[100],
+ green200: primitive.green[200],
+ green500: primitive.green[500],
+ green600: primitive.green[600],
+ green700: primitive.green[700],
+
+ red50: primitive.red[50],
+ red100: primitive.red[100],
+ red200: primitive.red[200],
+ red500: primitive.red[500],
+ red600: primitive.red[600],
+ red700: primitive.red[700],
+
+ blue50: primitive.blue[50],
+ blue100: primitive.blue[100],
+ blue500: primitive.blue[500],
+ blue600: primitive.blue[600],
+ blue700: primitive.blue[700],
+
  success: color.success,
  successBg: color.successBg,
+ successBorder: color.successBorder,
  warning: color.warning,
  warningBg: color.warningBg,
+ warningBorder: color.warningBorder,
  danger: color.danger,
  dangerBg: color.dangerBg,
+ dangerBorder: color.dangerBorder,
  info: color.info,
  infoBg: color.infoBg,
+ infoBorder: color.infoBorder,
  star: color.star,
+ starBg: color.starBg,
+
+ overlay: color.overlay,
+ overlayStrong: color.overlayStrong,
+ imageDeleteOverlay: color.imageDeleteOverlay,
 };
 
 /* -------------------------------------------------------------------------- */

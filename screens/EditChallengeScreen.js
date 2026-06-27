@@ -1,18 +1,5 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const PALETTE = {
-  white: "#FFFFFF",
-  black: "#000000",
-  gray50: "#FAFAFA",
-  gray100: "#F3F4F6",
-  gray200: "#E5E7EB",
-  gray300: "#D1D5DB",
-  gray400: "#9CA3AF",
-  gray600: "#525252",
-  gray700: "#374151",
-  gray800: "#111111"
-};
-
 // screens/EditChallengeScreen.js
 // - UI 변경 없음(레이아웃/텍스트 그대로)
 // - 제목 50자, 보상 50자, 내용 500자: 입력 단계에서 잘라냄 + 저장 시 재검증
@@ -25,7 +12,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
-import { buttonStyles, spacing, radius } from '../styles/common';
+import { buttonStyles, spacing, radius, colors as PALETTE } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import BackButton from '../components/BackButton';
@@ -995,7 +982,7 @@ const styles = StyleSheet.create({
   weekHeaderText: { fontSize: 11, fontWeight: '800', color: PALETTE.gray700 },
 
   // 모달
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  modalBackdrop: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: PALETTE.gray200 },
   modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
   modalButton: { marginTop: spacing.sm },

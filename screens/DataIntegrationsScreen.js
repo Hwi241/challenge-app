@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Linking, Modal, ScrollView, StyleSh
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BackButton from '../components/BackButton';
-import { colors, radius, spacing } from '../styles/common';
+import { colors, radius, spacing, space } from '../styles/common';
 import { getAppSettings, setDataIntegrationSettings } from '../utils/appSettings';
 import {
   CALENDAR_RECORD_PROVIDER,
@@ -441,29 +441,154 @@ function showHealthConnectReconnectGuide() {
 }
 
 var st=StyleSheet.create({
-  safe:{flex:1,backgroundColor:colors.background||'#F8FAFC'},ct:{padding:spacing.lg||20,paddingBottom:40},
-  c:{flex:1,alignItems:'center',justifyContent:'center'},lt:{marginTop:8,fontSize:14,color:colors.gray600||'#475569'},
-  card:{padding:spacing.lg||20,borderRadius:radius.lg||18,backgroundColor:colors.surface||'#FFF',borderWidth:1,borderColor:colors.borderSoft||'#E2E8F0'},
-  ttl:{fontSize:18,fontWeight:'800',color:colors.gray800||'#0F172A'},dsc:{marginTop:4,fontSize:14,lineHeight:20,color:colors.gray600||'#475569'},
-  btn:{marginTop:spacing.lg||20,height:48,alignItems:'center',justifyContent:'center',borderRadius:radius.md||12,backgroundColor:colors.black||'#2563EB'},
-  bt:{fontSize:15,fontWeight:'800',color:'#FFF'},bd:{opacity:0.55},
-  db:{marginTop:8,height:46,alignItems:'center',justifyContent:'center',borderRadius:radius.md||12,backgroundColor:'#FEE2E2',borderWidth:1,borderColor:'#FECACA'},
-  dbt:{fontSize:14,fontWeight:'800',color:'#991B1B'},
-  overlay:{flex:1,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:20},
-  modalCard:{width:'100%',maxHeight:'80%',backgroundColor:'#FFF',borderRadius:18,padding:20,paddingTop:24},
-  modalTitle:{fontSize:18,fontWeight:'800',color:'#0F172A',textAlign:'center',marginBottom:16},
-  modalList:{maxHeight:400},
-  modalEmpty:{textAlign:'center',fontSize:14,color:'#64748B',paddingVertical:30},
-  modalItem:{flexDirection:'row',alignItems:'center',paddingVertical:14,paddingHorizontal:12,borderBottomWidth:1,borderBottomColor:'#F1F5F9'},
-  modalItemSelected:{backgroundColor:'#EFF6FF'},
-  modalItemContent:{flex:1},
-  modalItemTitle:{fontSize:15,fontWeight:'600',color:'#1E293B'},
-  modalItemTitleSelected:{color:'#2563EB'},
-  modalItemSub:{fontSize:12,color:'#64748B',marginTop:3},
-  modalBadge:{fontSize:12,fontWeight:'700',color:'#2563EB',backgroundColor:'#DBEAFE',paddingHorizontal:8,paddingVertical:3,borderRadius:8,overflow:'hidden'},
-  modalClose:{marginTop:16,height:46,alignItems:'center',justifyContent:'center',borderRadius:12,backgroundColor:'#F1F5F9'},
-  modalCloseText:{fontSize:15,fontWeight:'600',color:'#475569'},
-  modalDesc:{fontSize:13,lineHeight:19,color:'#6B7280',marginTop:6},
-  modalGuide:{fontSize:12,lineHeight:17,color:'#9CA3AF',marginTop:8,marginBottom:4,fontStyle:'italic'},
-  calendarCardSpacing:{marginTop:28},
+ safe: { flex: 1, backgroundColor: colors.background },
+ ct: { padding: spacing.lg, paddingBottom: space.xxxl },
+
+ c: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+ lt: { marginTop: spacing.sm, fontSize: 14, color: colors.textSecondary },
+
+ card: {
+ padding: spacing.lg,
+ borderRadius: radius.card,
+ backgroundColor: colors.surface,
+ borderWidth: 1,
+ borderColor: colors.border,
+ },
+ ttl: {
+ fontSize: 18,
+ fontWeight: '800',
+ color: colors.textPrimary,
+ },
+ dsc: {
+ marginTop: space.xxs,
+ fontSize: 14,
+ lineHeight: 20,
+ color: colors.textSecondary,
+ },
+
+ btn: {
+ marginTop: spacing.lg,
+ height: 48,
+ alignItems: 'center',
+ justifyContent: 'center',
+ borderRadius: radius.md,
+ backgroundColor: colors.primary,
+ },
+ bt: {
+ fontSize: 15,
+ fontWeight: '800',
+ color: colors.textInverse,
+ },
+ bd: { opacity: 0.55 },
+
+ db: {
+ marginTop: spacing.sm,
+ height: 46,
+ alignItems: 'center',
+ justifyContent: 'center',
+ borderRadius: radius.md,
+ backgroundColor: colors.dangerBg,
+ borderWidth: 1,
+ borderColor: colors.dangerBorder,
+ },
+ dbt: {
+ fontSize: 14,
+ fontWeight: '800',
+ color: colors.danger,
+ },
+
+ overlay: {
+ flex: 1,
+ backgroundColor: colors.overlayStrong,
+ justifyContent: 'center',
+ alignItems: 'center',
+ padding: space.lg,
+ },
+ modalCard: {
+ width: '100%',
+ maxHeight: '80%',
+ backgroundColor: colors.surface,
+ borderRadius: radius.sheet,
+ padding: space.lg,
+ paddingTop: spacing.xl,
+ },
+ modalTitle: {
+ fontSize: 18,
+ fontWeight: '800',
+ color: colors.textPrimary,
+ textAlign: 'center',
+ marginBottom: spacing.lg,
+ },
+ modalList: { maxHeight: 400 },
+ modalEmpty: {
+ textAlign: 'center',
+ fontSize: 14,
+ color: colors.slate500,
+ paddingVertical: space.xxl,
+ },
+ modalItem: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ paddingVertical: 14,
+ paddingHorizontal: spacing.md,
+ borderBottomWidth: 1,
+ borderBottomColor: colors.slate100,
+ },
+ modalItemSelected: {
+ backgroundColor: colors.infoBg,
+ },
+ modalItemContent: {
+ flex: 1,
+ },
+ modalItemTitle: {
+ fontSize: 15,
+ fontWeight: '600',
+ color: colors.slate800,
+ },
+ modalItemTitleSelected: {
+ color: colors.info,
+ },
+ modalItemSub: {
+ fontSize: 12,
+ color: colors.slate500,
+ marginTop: 3,
+ },
+ modalBadge: {
+ fontSize: 12,
+ fontWeight: '700',
+ color: colors.info,
+ backgroundColor: colors.blue100,
+ paddingHorizontal: spacing.sm,
+ paddingVertical: 3,
+ borderRadius: radius.sm,
+ overflow: 'hidden',
+ },
+ modalClose: {
+ marginTop: spacing.lg,
+ height: 46,
+ alignItems: 'center',
+ justifyContent: 'center',
+ borderRadius: radius.md,
+ backgroundColor: colors.slate100,
+ },
+ modalCloseText: {
+ fontSize: 15,
+ fontWeight: '600',
+ color: colors.slate600,
+ },
+ modalDesc: {
+ fontSize: 13,
+ lineHeight: 19,
+ color: colors.gray500,
+ marginTop: spacing.xs,
+ },
+ modalGuide: {
+ fontSize: 12,
+ lineHeight: 17,
+ color: colors.gray400,
+ marginTop: spacing.sm,
+ marginBottom: space.xxs,
+ fontStyle: 'italic',
+ },
+ calendarCardSpacing: { marginTop: 28 },
 });

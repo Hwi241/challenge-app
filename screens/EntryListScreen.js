@@ -4902,14 +4902,14 @@ rewardBlackBox: {
   width: '100%',
   height: '100%',
   minHeight: 56,
-  borderRadius: 12,
-  backgroundColor: '#111',
+  borderRadius: radius.md,
+  backgroundColor: colors.primary,
   paddingVertical: 10,
   paddingHorizontal: 16,
   alignItems: 'center',
   justifyContent: 'center',
 },
-rewardBlackText: { fontSize: 17, fontWeight: '900', color: '#fff' },
+rewardBlackText: { fontSize: 17, fontWeight: '900', color: colors.textInverse },
 
   hr: { height: 1, backgroundColor: '#C7C7C7', marginHorizontal: 8, marginBottom: 8 },
 
@@ -5096,21 +5096,21 @@ rewardBlockSpacing: {
 
   shareBtn: {
     position: 'absolute', right: 12,
-    backgroundColor: '#111', borderRadius: 14,
+    backgroundColor: colors.primary, borderRadius: radius.md,
     width: 52, height: 42,
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
   },
-  shareBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  shareBtnText: { color: colors.textInverse, fontWeight: '800', fontSize: 13 },
 
   uploadFloatingBtn: {
     position: 'absolute', left: 12,
-    backgroundColor: '#111', borderRadius: 14,
+    backgroundColor: colors.primary, borderRadius: radius.md,
     width: 52, height: 42,
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
   },
-  uploadFloatingText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  uploadFloatingText: { color: colors.textInverse, fontWeight: '800', fontSize: 13 },
 
   /* ───────── 정보 모달 스타일 ───────── */
   modalBackdrop: {

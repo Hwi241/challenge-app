@@ -12,7 +12,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
-import { buttonStyles, spacing, radius } from '../styles/common';
+import { buttonStyles, spacing, radius, colors } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
@@ -438,7 +438,7 @@ export default function EntryDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
       <BackButton title="인증 수정" onPress={handleBackPress} />
-        <Text style={{ color: '#666' }}>불러오는 중…</Text>
+        <Text style={{ color: colors.textSecondary }}>불러오는 중…</Text>
       </SafeAreaView>
     );
   }
@@ -492,7 +492,7 @@ export default function EntryDetailScreen() {
             style={[styles.input, { height: textHeight, textAlignVertical: 'top' }]}
             multiline
             editable={!busy}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.gray400}
             maxLength={MAX_TEXT_LEN}
             onContentSizeChange={e => {
               const h = e?.nativeEvent?.contentSize?.height || 0;
@@ -508,7 +508,7 @@ export default function EntryDetailScreen() {
             onChangeText={handleDurationChange}
             placeholder="숫자만 입력"
             style={styles.input}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.gray400}
             editable={!busy}
             {...numericInputProps}
           />
@@ -538,96 +538,93 @@ export default function EntryDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+ container: { flex: 1, backgroundColor: colors.background },
 
-  screenTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111',
-    marginBottom: spacing.lg,
-    textAlign: 'center', // 중앙 정렬
-  },
+ screenTitle: {
+ fontSize: 20,
+ fontWeight: '800',
+ color: colors.textPrimary,
+ marginBottom: spacing.lg,
+ textAlign: 'center',
+ },
 
-  titleBox: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: radius.md,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: spacing.lg,
-  },
-  titleBoxText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111',
-    textAlign: 'center',
-  },
+ titleBox: {
+ backgroundColor: colors.surface,
+ borderWidth: 1,
+ borderColor: colors.border,
+ borderRadius: radius.md,
+ paddingVertical: 12,
+ paddingHorizontal: 16,
+ marginBottom: spacing.lg,
+ },
+ titleBoxText: {
+ fontSize: 15,
+ fontWeight: '700',
+ color: colors.textPrimary,
+ textAlign: 'center',
+ },
 
-  card: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
+ card: {
+ backgroundColor: colors.surface,
+ borderWidth: 1,
+ borderColor: colors.border,
+ borderRadius: radius.card,
+ paddingHorizontal: spacing.lg,
+ paddingVertical: spacing.md,
+ },
 
-  // "내용"과 "사진 선택" 한 줄 + 간격 살짝 줄이기
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
+ cardHeaderRow: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'space-between',
+ marginBottom: spacing.sm,
+ },
 
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111',
-  },
+ cardTitle: {
+ fontSize: 16,
+ fontWeight: '800',
+ color: colors.textPrimary,
+ },
 
-  label: { fontSize: 13, color: '#525252', marginBottom: 6 },
+ label: { fontSize: 13, color: colors.textSecondary, marginBottom: 6 },
 
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#111',
-  },
+ input: {
+ backgroundColor: colors.surface,
+ borderWidth: 1,
+ borderColor: colors.border,
+ borderRadius: radius.md,
+ paddingHorizontal: 12,
+ paddingVertical: 10,
+ fontSize: 14,
+ color: colors.textPrimary,
+ },
 
-  // 미리보기(삭제 오버레이를 위한 래퍼)
-  previewWrap: {
-    position: 'relative',
-    marginBottom: spacing.md,
-  },
-  preview: {
-    width: '100%',
-    height: 200,
-    borderRadius: radius.md,
-    backgroundColor: '#F3F4F6',
-  },
-  // 우상단 반투명 회색 원형 + 검은 X
-  previewDeleteBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(229, 231, 235, 0.85)', // Gray-200 alpha
-  },
-  previewDeleteX: {
-    fontSize: 18,
-    lineHeight: 18,
-    color: '#000',
-    fontWeight: '900',
-    includeFontPadding: false,
-  },
+ previewWrap: {
+ position: 'relative',
+ marginBottom: spacing.md,
+ },
+ preview: {
+ width: '100%',
+ height: 200,
+ borderRadius: radius.md,
+ backgroundColor: colors.surfaceMuted,
+ },
+ previewDeleteBtn: {
+ position: 'absolute',
+ top: 8,
+ right: 8,
+ width: 28,
+ height: 28,
+ borderRadius: 14,
+ alignItems: 'center',
+ justifyContent: 'center',
+ backgroundColor: colors.imageDeleteOverlay,
+ },
+ previewDeleteX: {
+ fontSize: 18,
+ lineHeight: 18,
+ color: colors.black,
+ fontWeight: '900',
+ includeFontPadding: false,
+ },
 });

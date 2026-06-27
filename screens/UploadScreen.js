@@ -3,19 +3,6 @@ import { spendStars } from '../utils/starWallet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const PALETTE = {
-  white: "#FFFFFF",
-  black: "#000000",
-  gray50: "#FAFAFA",
-  gray100: "#F3F4F6",
-  gray200: "#E5E7EB",
-  gray300: "#D1D5DB",
-  gray400: "#9CA3AF",
-  gray600: "#525252",
-  gray700: "#374151",
-  gray800: "#111111"
-};
-
 const pad2 = (value) => String(value).padStart(2, '0');
 
 const toLocalDateOnly = (value = new Date()) => {
@@ -74,7 +61,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
-import { buttonStyles, spacing, radius } from '../styles/common';
+import { buttonStyles, spacing, radius, colors as PALETTE } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';

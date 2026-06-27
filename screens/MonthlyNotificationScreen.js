@@ -290,7 +290,7 @@ const onChangeScope = useCallback((scope)=>{
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <BackButton title="월간 알림 설정" onPress={handleBackPress} />
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
@@ -492,56 +492,56 @@ const onChangeScope = useCallback((scope)=>{
 const CELL = 48;
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: colors.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.gray800, textAlign:'center' },
-  desc: { color: colors.gray600, marginTop: 4, marginBottom: spacing.md, fontSize: 12, textAlign:'center' },
+  container: { padding: spacing.lg, backgroundColor: colors.background },
+  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, textAlign:'center' },
+  desc: { color: colors.textSecondary, marginTop: 4, marginBottom: spacing.md, fontSize: 12, textAlign:'center' },
 
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    borderTopWidth: 1, borderTopColor: '#E5E7EB',
-    borderLeftWidth: 1, borderLeftColor: '#E5E7EB',
+    borderTopWidth: 1, borderTopColor: colors.border,
+    borderLeftWidth: 1, borderLeftColor: colors.border,
     borderRadius: radius.lg,
     overflow: 'hidden',
-    backgroundColor:'#FFF'
+    backgroundColor: colors.surface
   },
   cell: {
     width: `${100/7}%`,
     minHeight: CELL + 36,
     padding: 6,
-    borderRightWidth: 1, borderRightColor: '#E5E7EB',
-    borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
+    borderRightWidth: 1, borderRightColor: colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  dateBadge: { fontSize: 12, fontWeight: '800', color: colors.gray800, marginBottom: 4, textAlign: 'right' },
+  dateBadge: { fontSize: 12, fontWeight: '800', color: colors.textPrimary, marginBottom: 4, textAlign: 'right' },
 
   chipsArea: { flexDirection:'row', flexWrap:'wrap' },
-  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.gray100, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 5, marginRight:6, marginBottom:6 },
-  chipText: { color: colors.gray800, fontSize: 11, lineHeight: 13, marginRight: 6, includeFontPadding: false },
-  chipRemove: { color: '#6B7280', fontSize: 14, fontWeight: '800' },
+  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 5, marginRight:6, marginBottom:6 },
+  chipText: { color: colors.textPrimary, fontSize: 11, lineHeight: 13, marginRight: 6, includeFontPadding: false },
+  chipRemove: { color: colors.textTertiary, fontSize: 14, fontWeight: '800' },
 
   addChip: {
     width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1, borderColor: '#D1D5DB',
-    backgroundColor: '#FFF',
+    borderWidth: 1, borderColor: colors.gray300,
+    backgroundColor: colors.surface,
     alignItems:'center', justifyContent:'center'
   },
-  addChipPlus: { color: colors.gray700, fontSize: 16, fontWeight: '800', lineHeight: 16 },
+  addChipPlus: { color: colors.textSecondary, fontSize: 16, fontWeight: '800', lineHeight: 16 },
 
   actions: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg },
-  resetBtn: { backgroundColor:'#FFF', borderWidth:1, borderColor:'#D1D5DB', borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  resetBtnText: { color: colors.gray700, fontSize: 14, fontWeight:'600' },
+  resetBtn: { backgroundColor: colors.surface, borderWidth:1, borderColor: colors.gray300, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+  resetBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight:'600' },
 
   // ===== 모달 =====
-  modalBackdrop:{ flex:1, backgroundColor:'rgba(0,0,0,0.35)', alignItems:'center', justifyContent:'center', padding: spacing.lg },
-  modalCard:{ width:'100%', backgroundColor:'#FFF', borderWidth:1, borderColor:'#E5E7EB', borderRadius: radius.lg, padding: spacing.lg },
+  modalBackdrop:{ flex:1, backgroundColor: colors.overlay, alignItems:'center', justifyContent:'center', padding: spacing.lg },
+  modalCard:{ width:'100%', backgroundColor: colors.surface, borderWidth:1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg },
 
-  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.gray800, textAlign:'center', marginBottom: spacing.md },
+  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.textPrimary, textAlign:'center', marginBottom: spacing.md },
 
   scopeRow:{ flexDirection:'row', flexWrap:'wrap', gap: 8, justifyContent:'center' },
-  scopeBtn:{ paddingVertical:8, paddingHorizontal:12, borderRadius: 999, backgroundColor: colors.gray100 },
-  scopeBtnOn:{ backgroundColor: colors.gray800 },
-  scopeText:{ color: colors.gray800, fontWeight:'800' },
-  scopeTextOn:{ color: '#FFF' },
+  scopeBtn:{ paddingVertical:8, paddingHorizontal:12, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
+  scopeBtnOn:{ backgroundColor: colors.primary },
+  scopeText:{ color: colors.textPrimary, fontWeight:'800' },
+  scopeTextOn:{ color: colors.textInverse },
 bulkGridWrap: {
   marginTop: spacing.md,
 },
@@ -565,15 +565,15 @@ dateCircle: {
   borderWidth: 1,
 },
 dateCircleOff: {
-  backgroundColor: '#FFF',
-  borderColor: '#D1D5DB',
+  backgroundColor: colors.surface,
+  borderColor: colors.gray300,
 },
 dateCircleOn: {
-  backgroundColor: colors.gray800,
-  borderColor: colors.gray800,
+  backgroundColor: colors.primary,
+  borderColor: colors.primary,
 },
-dateCircleText: { fontSize: 12, fontWeight: '800', color: colors.gray700 },
-dateCircleTextOn: { color: '#FFF' },
+dateCircleText: { fontSize: 12, fontWeight: '800', color: colors.textSecondary },
+dateCircleTextOn: { color: colors.textInverse },
 
 // 마지막 줄 빈 칸도 동일한 폭/높이로 자리를 차지해 칼럼 정렬 유지
 dateCirclePlaceholder: {
@@ -583,20 +583,20 @@ dateCirclePlaceholder: {
   opacity: 0,
 },
 
-  bulkTimesBox:{ marginTop: spacing.md, backgroundColor: colors.gray50, borderRadius: radius.md, padding: spacing.md, borderWidth:1, borderColor:'#E5E7EB' },
+  bulkTimesBox:{ marginTop: spacing.md, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md, borderWidth:1, borderColor: colors.border },
   bulkTimesHeader:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
-  bulkTimesTitle:{ fontSize:13, fontWeight:'800', color: colors.gray700 },
-  bulkEmptyHint:{ color: colors.gray500, fontSize:12 },
+  bulkTimesTitle:{ fontSize:13, fontWeight:'800', color: colors.textSecondary },
+  bulkEmptyHint:{ color: colors.textTertiary, fontSize:12 },
 
-  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor:'#D1D5DB', backgroundColor:'#FFF', alignItems:'center', justifyContent:'center' },
-  addBtnPlus:{ color: colors.gray700, fontSize:16, fontWeight:'800', lineHeight:16 },
+  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor: colors.gray300, backgroundColor: colors.surface, alignItems:'center', justifyContent:'center' },
+  addBtnPlus:{ color: colors.textSecondary, fontSize:16, fontWeight:'800', lineHeight:16 },
 
   timeChips:{ flexDirection:'row', flexWrap:'wrap', marginTop: spacing.sm },
 
   modalActions:{ flexDirection:'row', gap: 8, marginTop: spacing.lg },
   modalBtn:{ flex:1, alignItems:'center', paddingVertical:10, borderRadius: radius.md },
-  modalBtnGhost:{ backgroundColor: colors.gray100 },
-  modalBtnPrimary:{ backgroundColor: colors.gray800 },
-  modalBtnGhostText:{ color: colors.gray800, fontWeight:'800' },
-  modalBtnPrimaryText:{ color:'#FFF', fontWeight:'800' },
+  modalBtnGhost:{ backgroundColor: colors.surfaceMuted },
+  modalBtnPrimary:{ backgroundColor: colors.primary },
+  modalBtnGhostText:{ color: colors.textPrimary, fontWeight:'800' },
+  modalBtnPrimaryText:{ color: colors.textInverse, fontWeight:'800' },
 });

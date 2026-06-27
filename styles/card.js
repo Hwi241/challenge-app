@@ -4,18 +4,18 @@ import { colors, spacing, radius } from './common';
 
 /**
  * 카드 기본 스타일
- * - 기존 카드 모양을 해치지 않게 아주 중립적으로만 정의
- * - 각 화면이 여백/테두리를 덮어써도 문제 없도록 최소 토큰만 사용
+ * - 공통 디자인 토큰을 바라보는 카드 기준 스타일
+ * - 카드 라운딩은 THE PUSH Design System v1 기준인 radius.card를 사용
  */
 const cardStyles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
+ container: {
+ backgroundColor: colors.surface,
+ borderRadius: radius.card,
+ borderWidth: 1,
+ borderColor: colors.border,
+ paddingVertical: spacing.md,
+ paddingHorizontal: spacing.md,
+ },
 });
 
 export default cardStyles;

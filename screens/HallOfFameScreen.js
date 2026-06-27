@@ -15,8 +15,8 @@ import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-contex
 import { colors, spacing, radius, buttonStyles } from '../styles/common';
 import BackButton from '../components/BackButton';
 
-const CARD_BORDER = '#E5E7EB';   // gray-200: 도전 리스트와 동일
-const DIVIDER = '#D1D5DB';       // gray-300 (살짝 더 진하게)
+const CARD_BORDER = colors.border;   // 도전 리스트와 동일
+const DIVIDER = colors.gray300;       // 살짝 더 진하게
 const HOF_KEY = 'hof';
 const LEGACY_KEYS = ['hallOfFame', 'hall_of_fame', 'HOF']; // 1회 마이그레이션 용
 
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800, textAlign: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
 
   cardWrap: { marginTop: spacing.md },
   card: {
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   // 강조 시 테두리만 잠깐 검정 3px로
-  cardHighlight: { borderColor: '#111' },
+  cardHighlight: { borderColor: colors.primary },
 
   // 타이틀 중앙 정렬 + 선택 체크는 오버레이
   titleCenterWrap: {
@@ -424,18 +424,18 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     paddingBottom: 6,
   },
-  titleCentered: { fontSize: 16, fontWeight: '800', color: colors.gray800, textAlign: 'center' },
+  titleCentered: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
 
   checkOverlay: { position: 'absolute', right: 0, top: 0 },
   check: {
     width: 22, height: 22, borderRadius: 6,
-    borderWidth: 1, borderColor: '#111',
+    borderWidth: 1, borderColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: colors.surface,
   },
-  checkOn: { borderColor: '#111', backgroundColor: '#FFF' },
+  checkOn: { borderColor: colors.primary, backgroundColor: colors.surface },
   checkText: { fontSize: 14, color: 'transparent', fontWeight: '900' },
-  checkTextOn: { color: '#111' },
+  checkTextOn: { color: colors.primary },
 
   metaWrap: { marginTop: 2, alignItems: 'center' },
   meta: { fontSize: 12, color: colors.gray600, marginTop: 2, textAlign: 'center' },
@@ -460,9 +460,9 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   rewardBoxLabel: { fontSize: 11, color: colors.gray500, marginBottom: 2, textAlign: 'center' },
-  rewardBoxTitle: { fontSize: 15, fontWeight: '800', color: colors.gray800, textAlign: 'center' },
+  rewardBoxTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
 
-  empty: { textAlign: 'center', color: colors.gray400, marginTop: 60 },
+  empty: { textAlign: 'center', color: colors.textTertiary, marginTop: 60 },
 
   bottomBar: {
     position: 'absolute',
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
@@ -488,9 +488,9 @@ const styles = StyleSheet.create({
     borderColor: CARD_BORDER,
     alignItems: 'center',
   },
-  congratsTitle: { fontSize: 18, fontWeight: '800', color: colors.gray800, marginBottom: 4, textAlign: 'center' },
+  congratsTitle: { fontSize: 18, fontWeight: '800', color: colors.textPrimary, marginBottom: 4, textAlign: 'center' },
   congratsDesc: { color: colors.gray600, textAlign: 'center' },
   congratsDivider: { height: 1, backgroundColor: CARD_BORDER, alignSelf: 'stretch', marginTop: 10, marginBottom: 10, marginHorizontal: 4 },
   congratsRewardLabel: { fontSize: 12, color: colors.gray500, marginBottom: 4, textAlign: 'center' },
-  congratsRewardName: { fontSize: 20, fontWeight: '900', color: colors.gray800, textAlign: 'center' },
+  congratsRewardName: { fontSize: 20, fontWeight: '900', color: colors.textPrimary, textAlign: 'center' },
 });

@@ -571,7 +571,7 @@ const showFilterMenu = useCallback(() => {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="그래프 이름, 설명, 입력값, Tier 검색"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textTertiary}
           style={styles.searchInput}
           autoCorrect={false}
           autoCapitalize="none"
@@ -724,8 +724,8 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     height: 48,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceMuted,
     paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     fontSize: 22,
-    color: '#9CA3AF',
+    color: colors.textDisabled,
     marginRight: 8,
     fontWeight: '800',
   },
@@ -793,11 +793,11 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     padding: spacing.md,
   },
   graphCardOwned: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     opacity: 0.62,
   },
   cardTopRow: {
@@ -808,7 +808,7 @@ const styles = StyleSheet.create({
   priceBadge: {
     minHeight: 28,
     borderRadius: 14,
-    backgroundColor: '#111827',
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -821,9 +821,9 @@ const styles = StyleSheet.create({
   tierBadge: {
     minHeight: 28,
     borderRadius: 14,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: colors.gray300,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -871,7 +871,7 @@ const styles = StyleSheet.create({
   },
   lockHint: {
     marginTop: spacing.sm,
-    color: '#6B7280',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 16,
@@ -885,10 +885,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   purchaseButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: colors.gray300,
   },
   purchaseButtonOwned: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: colors.gray400,
   },
   purchaseButtonText: {
     color: colors.background,
@@ -896,10 +896,10 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   purchaseButtonTextDisabled: {
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   purchaseButtonTextOwned: {
-    color: '#F9FAFB',
+    color: colors.backgroundMuted,
   },
   emptyWrap: {
     paddingVertical: spacing.xxl,
@@ -974,12 +974,12 @@ const styles = StyleSheet.create({
     width: 188,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
+    borderColor: colors.gray300,
+    borderRadius: radius.md,
     overflow: 'hidden',
     zIndex: 20000,
     elevation: 2000,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOpacity: 0.14,
     shadowRadius: 9,
     shadowOffset: { width: 0, height: 5 },
@@ -999,13 +999,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.borderMuted,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   dropdownOverlayOptionOn: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
   },
   dropdownOverlayOptionLast: {
     borderBottomWidth: 0,
@@ -1093,7 +1093,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   mediumGraphCardOwned: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
     opacity: 0.72,
   },
   mediumGraphTopRow: {
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   mediumBuyButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: colors.gray300,
   },
   mediumBuyButtonText: {
     fontSize: 12,
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
   mediumBuyButtonTextDisabled: {
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   mediumOwnedBadge: {
     minHeight: 32,

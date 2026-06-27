@@ -13,7 +13,7 @@ import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 
-import { colors, spacing, radius, buttonStyles } from '../styles/common';
+import { colors, spacing, radius, font, buttonStyles, card as cardTokens, text as textTokens } from '../styles/common';
 import BackButton from '../components/BackButton';
 import { getNotificationsEnabled, setNotificationsEnabled } from '../utils/appSettings';
 
@@ -288,27 +288,36 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg },
+ container: { padding: spacing.lg },
 
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.borderSoft,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-  },
+ card: {
+ ...cardTokens.base,
+ },
 
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+ row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  label: { fontSize: 16, fontWeight: '700', color: colors.gray800 },
-  hint: { marginTop: spacing.sm, fontSize: 13, color: colors.gray600 },
+ label: {
+ ...textTokens.cardTitle,
+ },
+ hint: {
+ ...textTokens.bodyMuted,
+ marginTop: spacing.sm,
+ },
 
-  kvRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  kKey: { fontSize: 14, color: colors.gray600 },
-  kVal: { fontSize: 14, fontWeight: '700', color: colors.gray800 },
+ kvRow: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'space-between',
+ paddingVertical: spacing.sm,
+ },
+ kKey: {
+ fontSize: font.size.body,
+ fontWeight: font.weight.regular,
+ color: colors.textSecondary,
+ },
+ kVal: {
+ fontSize: font.size.body,
+ fontWeight: font.weight.bold,
+ color: colors.textPrimary,
+ },
 });

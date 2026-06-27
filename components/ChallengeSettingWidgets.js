@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { colors, spacing, radius, font } from '../styles/common';
 
 const WEEK_DAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -281,186 +282,186 @@ export function NotificationPreview({ notification, startDate, endDate }) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 16,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  cardTitleInline: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111111',
-  },
-  headerActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: 8,
-  },
-  clearCircleBtn: {
-    width: 22.4,
-    height: 22.4,
-    borderRadius: 11.2,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#374151',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearCircleText: {
-    color: '#374151',
-    fontSize: 14.4,
-    fontWeight: '800',
-    lineHeight: 14.4,
-    includeFontPadding: false,
-  },
-  headerSmallBtn: {
-    minWidth: 52,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSmallBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  previewBox: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  previewText: {
-    fontSize: 12,
-    color: '#333333',
-    textAlign: 'center',
-  },
-  daysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  dayCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  dayCircleOff: {
-    borderColor: '#DDDDDD',
-    backgroundColor: '#FFFFFF',
-  },
-  dayCircleOn: {
-    borderColor: '#111111',
-    backgroundColor: '#111111',
-  },
-  dayCircleText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#333333',
-  },
-  dayCircleTextOn: {
-    color: '#FFFFFF',
-  },
-  dateChipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  dateChip: {
-    minWidth: 28,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111111',
-    paddingHorizontal: 8,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  dateChipText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  weekGrid: {
-    flexDirection: 'row',
-  },
-  weekCol: {
-    flex: 1,
-    paddingHorizontal: 4,
-  },
-  weekColDivider: {
-    borderRightWidth: 1,
-    borderRightColor: '#EEEEEE',
-  },
-  weekDayLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#555555',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  weekTimeText: {
-    fontSize: 11,
-    textAlign: 'center',
-    color: '#333333',
-  },
-  monthOuter: {
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-  },
-  monthRow: {
-    flexDirection: 'row',
-  },
-  monthRowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  monthCell: {
-    flex: 1,
-    padding: 4,
-  },
-  monthCellDivider: {
-    borderRightWidth: 1,
-    borderRightColor: '#EEEEEE',
-  },
-  monthDateText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#555555',
-    textAlign: 'right',
-  },
-  monthTimeText: {
-    fontSize: 11,
-    color: '#333333',
-  },
-  fullRangeMonthTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#555555',
-    textAlign: 'center',
-  },
-  fullRangeWeekRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  fullRangeWeekCell: {
-    flex: 1,
-    alignItems: 'center',
-  },
+ card: {
+ backgroundColor: colors.surface,
+ borderWidth: 1,
+ borderColor: colors.border,
+ borderRadius: radius.card,
+ padding: spacing.lg,
+ },
+ cardHeaderRow: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'space-between',
+ marginBottom: spacing.md,
+ },
+ cardTitleInline: {
+ fontSize: font.size.bodyLarge,
+ fontWeight: font.weight.heavy,
+ color: colors.textPrimary,
+ },
+ headerActionRow: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ columnGap: spacing.sm,
+ },
+ clearCircleBtn: {
+ width: 22.4,
+ height: 22.4,
+ borderRadius: 11.2,
+ backgroundColor: colors.surface,
+ borderWidth: 1,
+ borderColor: colors.gray700,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ clearCircleText: {
+ color: colors.gray700,
+ fontSize: 14.4,
+ fontWeight: font.weight.heavy,
+ lineHeight: 14.4,
+ includeFontPadding: false,
+ },
+ headerSmallBtn: {
+ minWidth: 52,
+ paddingVertical: spacing.xs,
+ paddingHorizontal: 10,
+ borderRadius: radius.pill,
+ backgroundColor: colors.primary,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ headerSmallBtnText: {
+ color: colors.textInverse,
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ },
+ previewBox: {
+ backgroundColor: colors.backgroundMuted,
+ borderRadius: radius.sm,
+ padding: spacing.md,
+ borderWidth: 1,
+ borderColor: colors.borderMuted,
+ },
+ previewText: {
+ fontSize: font.size.meta,
+ color: colors.textPrimary,
+ textAlign: 'center',
+ },
+ daysRow: {
+ flexDirection: 'row',
+ justifyContent: 'space-between',
+ marginBottom: spacing.xs,
+ },
+ dayCircle: {
+ width: 22,
+ height: 22,
+ borderRadius: 11,
+ alignItems: 'center',
+ justifyContent: 'center',
+ borderWidth: 1,
+ },
+ dayCircleOff: {
+ borderColor: colors.gray300,
+ backgroundColor: colors.surface,
+ },
+ dayCircleOn: {
+ borderColor: colors.primary,
+ backgroundColor: colors.primary,
+ },
+ dayCircleText: {
+ fontSize: font.size.caption,
+ fontWeight: font.weight.heavy,
+ color: colors.textPrimary,
+ },
+ dayCircleTextOn: {
+ color: colors.textInverse,
+ },
+ dateChipWrap: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ justifyContent: 'center',
+ },
+ dateChip: {
+ minWidth: 28,
+ height: 24,
+ borderRadius: 12,
+ alignItems: 'center',
+ justifyContent: 'center',
+ backgroundColor: colors.primary,
+ paddingHorizontal: spacing.sm,
+ marginRight: spacing.xs,
+ marginBottom: spacing.xs,
+ },
+ dateChipText: {
+ fontSize: font.size.caption,
+ fontWeight: font.weight.heavy,
+ color: colors.textInverse,
+ },
+ weekGrid: {
+ flexDirection: 'row',
+ },
+ weekCol: {
+ flex: 1,
+ paddingHorizontal: spacing.xxs,
+ },
+ weekColDivider: {
+ borderRightWidth: 1,
+ borderRightColor: colors.border,
+ },
+ weekDayLabel: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: colors.textSecondary,
+ textAlign: 'center',
+ marginBottom: 2,
+ },
+ weekTimeText: {
+ fontSize: font.size.caption,
+ textAlign: 'center',
+ color: colors.textPrimary,
+ },
+ monthOuter: {
+ borderTopWidth: 1,
+ borderTopColor: colors.border,
+ },
+ monthRow: {
+ flexDirection: 'row',
+ },
+ monthRowDivider: {
+ borderBottomWidth: 1,
+ borderBottomColor: colors.border,
+ },
+ monthCell: {
+ flex: 1,
+ padding: spacing.xxs,
+ },
+ monthCellDivider: {
+ borderRightWidth: 1,
+ borderRightColor: colors.border,
+ },
+ monthDateText: {
+ fontSize: font.size.caption,
+ fontWeight: font.weight.heavy,
+ color: colors.textSecondary,
+ textAlign: 'right',
+ },
+ monthTimeText: {
+ fontSize: font.size.caption,
+ color: colors.textPrimary,
+ },
+ fullRangeMonthTitle: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: colors.textSecondary,
+ textAlign: 'center',
+ },
+ fullRangeWeekRow: {
+ flexDirection: 'row',
+ marginBottom: spacing.xxs,
+ },
+ fullRangeWeekCell: {
+ flex: 1,
+ alignItems: 'center',
+ },
 });

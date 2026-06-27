@@ -5,21 +5,8 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
-const PALETTE = {
-  white: "#FFFFFF",
-  black: "#000000",
-  gray50: "#FAFAFA",
-  gray100: "#F3F4F6",
-  gray200: "#E5E7EB",
-  gray300: "#D1D5DB",
-  gray400: "#9CA3AF",
-  gray600: "#525252",
-  gray700: "#374151",
-  gray800: "#111111"
-};
 
-
-import { buttonStyles, spacing, radius } from '../styles/common';
+import { buttonStyles, spacing, radius, colors as PALETTE } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
@@ -676,7 +663,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, fontWeight: '700', color: PALETTE.gray400 },
   tabTextActive: { color: PALETTE.black },
   previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray50, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: PALETTE.gray100 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  modalBackdrop: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg },
   modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
   modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },

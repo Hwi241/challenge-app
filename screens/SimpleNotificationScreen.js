@@ -206,7 +206,7 @@ export default function SimpleNotificationScreen() {
   }, [confirmSave, markAsSaved, navigation, returnTo, route.params?.onDone, selectedDays, times, weeks]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.gray50 }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <BackButton title="간단 알림 설정" onPress={handleBackPress} />
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
@@ -338,41 +338,41 @@ export default function SimpleNotificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: colors.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.gray800, marginBottom: spacing.lg, textAlign: 'center' },
+  container: { padding: spacing.lg, backgroundColor: colors.background },
+  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.lg, textAlign: 'center' },
 
-  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  helpText: { color: colors.gray600, fontSize: 12, marginTop: 4 },
+  helpText: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
 
   daysWrap: { marginTop: spacing.md, flexDirection: 'row', justifyContent: 'space-between' },
 
   // 원 컨테이너 자체에서 중앙 정렬
   dayCircle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  dayCircleOff: { borderColor: '#D1D5DB', backgroundColor: '#FFFFFF' },
-  dayCircleOn: { borderColor: '#000000', backgroundColor: '#000000' },
-  dayText: { fontSize: 12, fontWeight: '800', color: '#374151', includeFontPadding: false, textAlign: 'center' }, // 작게
-  dayTextOn: { color: '#FFFFFF' },
+  dayCircleOff: { borderColor: colors.gray300, backgroundColor: colors.surface },
+  dayCircleOn: { borderColor: colors.primary, backgroundColor: colors.primary },
+  dayText: { fontSize: 12, fontWeight: '800', color: colors.textSecondary, includeFontPadding: false, textAlign: 'center' }, // 작게
+  dayTextOn: { color: colors.textInverse },
 
-  toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFFFFF' },
-  toggleBtnOn: { borderColor: '#000000', backgroundColor: '#000000' },
-  toggleBtnText: { fontSize: 12, fontWeight: '800', color: '#111111' },
-  toggleBtnTextOn: { color: '#FFFFFF' },
+  toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.surface },
+  toggleBtnOn: { borderColor: colors.primary, backgroundColor: colors.primary },
+  toggleBtnText: { fontSize: 12, fontWeight: '800', color: colors.textPrimary },
+  toggleBtnTextOn: { color: colors.textInverse },
 
   timeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
-  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.gray100, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 6 },
-  chipText: { color: colors.gray800, fontSize: 12, marginRight: 6 },
-  chipRemove: { color: '#6B7280', fontSize: 14, fontWeight: '800' },
-  addBtn: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
-  addBtnPlus: { color: colors.gray700, fontSize: 16, fontWeight: '800', lineHeight: 16 },
+  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 6 },
+  chipText: { color: colors.textPrimary, fontSize: 12, marginRight: 6 },
+  chipRemove: { color: colors.textTertiary, fontSize: 14, fontWeight: '800' },
+  addBtn: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  addBtnPlus: { color: colors.textSecondary, fontSize: 16, fontWeight: '800', lineHeight: 16 },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', backgroundColor: '#FFF', borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: '#E5E7EB' },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: colors.gray800, marginBottom: spacing.md, textAlign: 'center' },
-  modalRow: { paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: radius.md },
-  modalRowOn: { backgroundColor: '#000', borderColor: '#000' },
-  modalRowText: { color: colors.gray800, fontWeight: '700' },
-  modalRowTextOn: { color: '#FFF' },
-  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: '#000' },
-  modalCloseText: { color: '#FFF', fontWeight: '700', fontSize: 12 },
+  modalBackdrop: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  modalCard: { width: '100%', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' },
+  modalRow: { paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  modalRowOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  modalRowText: { color: colors.textPrimary, fontWeight: '700' },
+  modalRowTextOn: { color: colors.textInverse },
+  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.primary },
+  modalCloseText: { color: colors.textInverse, fontWeight: '700', fontSize: 12 },
 });

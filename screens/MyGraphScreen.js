@@ -376,7 +376,7 @@ function MyGraphScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="보유 그래프 이름, 설명, 입력값, Tier 검색"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textTertiary}
           style={styles.searchInput}
           autoCorrect={false}
           autoCapitalize="none"
@@ -487,8 +487,8 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     height: 48,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceMuted,
     paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -496,13 +496,13 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     fontSize: 20,
-    color: '#9CA3AF',
+    color: colors.textDisabled,
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1F2937',
+    color: colors.textPrimary,
     paddingVertical: 0,
   },
   categoryScroll: {
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: spacing.sm,
     fontSize: 15,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   filterSortWrap: {
     position: 'relative',
@@ -573,11 +573,11 @@ const styles = StyleSheet.create({
   },
   filterSortText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   filterSortArrow: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
     marginLeft: 4,
   },
   dropdownOverlay: {
@@ -586,12 +586,12 @@ const styles = StyleSheet.create({
     zIndex: 10000,
     elevation: 1000,
     backgroundColor: colors.background,
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     paddingVertical: spacing.xs,
     minWidth: 160,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -613,11 +613,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   dropdownOverlayOptionOn: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
   },
   dropdownOverlayText: {
     fontSize: 15,
-    color: '#374151',
+    color: colors.textSecondary,
     flex: 1,
   },
   dropdownOverlayTextOn: {
@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     padding: spacing.md,
   },
   cardTopRow: {
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
   tierBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   tierBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   previewWrap: {
     alignItems: 'center',
@@ -693,11 +693,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 4,
     marginTop: spacing.sm,
-    color: '#1F2937',
+    color: colors.textPrimary,
   },
   graphDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textTertiary,
     marginBottom: spacing.sm,
   },
   infoBlock: {
@@ -706,14 +706,14 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: colors.textDisabled,
     marginBottom: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   infoText: {
     fontSize: 14,
-    color: '#374151',
+    color: colors.textSecondary,
   },
   emptyWrap: {
     alignItems: 'center',
@@ -724,12 +724,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: colors.textDisabled,
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#D1D5DB',
+    color: colors.textDisabled,
     textAlign: 'center',
   },
   mediumGraphCardOuter: {

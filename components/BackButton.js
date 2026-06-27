@@ -3,8 +3,11 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-export default function BackButton({ onPress, color = '#111', title }) {
+import { colors, spacing, font } from '../styles/common';
+
+export default function BackButton({ onPress, color = colors.primary, title }) {
  const navigation = useNavigation();
+
  return (
  <View style={styles.wrap}>
  <TouchableOpacity
@@ -26,25 +29,25 @@ const styles = StyleSheet.create({
  wrap: {
  flexDirection: 'row',
  alignItems: 'center',
- paddingHorizontal: 16,
- paddingVertical: 12,
+ paddingHorizontal: spacing.lg,
+ paddingVertical: spacing.md,
  backgroundColor: 'transparent',
  },
  btn: {
- padding: 4,
- marginRight: 4,
+ padding: spacing.xxs,
+ marginRight: spacing.xxs,
  },
  arrow: {
-    fontSize: 32,
-    fontWeight: '300',
-    lineHeight: 32,
-    includeFontPadding: false,
-    marginTop: -8,
-  },
+ fontSize: 32,
+ fontWeight: '300',
+ lineHeight: 32,
+ includeFontPadding: false,
+ marginTop: -8,
+ },
  title: {
- fontSize: 20,
- fontWeight: '800',
- color: '#111',
+ fontSize: font.size.title,
+ fontWeight: font.weight.heavy,
+ color: colors.primary,
  position: 'absolute',
  left: 0,
  right: 0,

@@ -316,15 +316,15 @@ export default function FullRangeNotificationScreen(){
 
   if(!start || !end){
     return (
-      <View style={{flex:1,alignItems:'center',justifyContent:'center', padding:spacing.lg, backgroundColor: colors.gray50}}>
-        <Text style={{color: colors.gray800, fontWeight:'800', fontSize:16, textAlign:'center'}}>시작일과 종료일을 먼저 선택해주세요.</Text>
+      <View style={{flex:1,alignItems:'center',justifyContent:'center', padding:spacing.lg, backgroundColor: colors.background}}>
+        <Text style={{color: colors.textPrimary, fontWeight:'800', fontSize:16, textAlign:'center'}}>시작일과 종료일을 먼저 선택해주세요.</Text>
       </View>
     );
   }
-  if (start > end) return <View style={{flex:1, backgroundColor: colors.gray50}} />;
+  if (start > end) return <View style={{flex:1, backgroundColor: colors.background}} />;
 
   return (
-    <View style={{flex:1, backgroundColor: colors.gray50}}>
+    <View style={{flex:1, backgroundColor: colors.background}}>
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 160 /* 고정 바 높이만큼 여백 */ }}
       >
@@ -535,22 +535,22 @@ export default function FullRangeNotificationScreen(){
 }
 
 const styles = StyleSheet.create({
-  title:{ fontSize:20, fontWeight:'800', color: colors.gray800, textAlign:'center' },
-  desc:{ color: colors.gray600, marginTop:4, marginBottom: spacing.md, fontSize:13, textAlign:'center' },
+  title:{ fontSize:20, fontWeight:'800', color: colors.textPrimary, textAlign:'center' },
+  desc:{ color: colors.textSecondary, marginTop:4, marginBottom: spacing.md, fontSize:13, textAlign:'center' },
 
-  monthTitle:{ fontSize:12, fontWeight:'800', color: colors.gray700, marginBottom:4, textAlign:'center' },
+  monthTitle:{ fontSize:12, fontWeight:'800', color: colors.textSecondary, marginBottom:4, textAlign:'center' },
 
   weekHeaderRow:{ flexDirection:'row', marginBottom:4 },
   weekHeaderCell:{ flex:1, alignItems:'center' },
-  weekHeaderCellDivider:{ borderRightWidth:1, borderRightColor:'#E5E7EB' },
-  weekHeaderText:{ fontSize:11, fontWeight:'800', color: colors.gray700 },
+  weekHeaderCellDivider:{ borderRightWidth:1, borderRightColor: colors.border },
+  weekHeaderText:{ fontSize:11, fontWeight:'800', color: colors.textSecondary },
 
-  gridOuter:{ borderTopWidth:1, borderTopColor:'#E5E7EB' },
+  gridOuter:{ borderTopWidth:1, borderTopColor: colors.border },
   row:{ flexDirection:'row' },
-  rowDivider:{ borderBottomWidth:1, borderBottomColor:'#E5E7EB' },
+  rowDivider:{ borderBottomWidth:1, borderBottomColor: colors.border },
   cell:{ flex:1, padding:6 },
-  cellDivider:{ borderRightWidth:1, borderRightColor:'#E5E7EB' },
-  dateText:{ fontSize:11, fontWeight:'800', color: colors.gray700, textAlign:'right' },
+  cellDivider:{ borderRightWidth:1, borderRightColor: colors.border },
+  dateText:{ fontSize:11, fontWeight:'800', color: colors.textSecondary, textAlign:'right' },
 
   
     // 시간 토큰 컨테이너 (간격 살짝 축소)
@@ -559,21 +559,21 @@ const styles = StyleSheet.create({
   chip:{
     flexDirection:'row',
     alignItems:'center',
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.pill,
     paddingVertical: 2,         // 3 → 2
     paddingHorizontal: 4,       // 6 → 4
     maxWidth: '100%',
   },
   chipText:{
-    color: colors.gray800,
+    color: colors.textPrimary,
     fontSize: 11,               // 12 → 11
     lineHeight: 13,             // 고정 라인 높이로 세로 정렬 안정화
     marginRight: 4,             // 6 → 4 (×와의 간격 축소)
     includeFontPadding: false,  // 안드로이드 내장 패딩 제거
   },
   chipRemove:{
-    color: '#6B7280',
+    color: colors.textTertiary,
     fontSize: 12,               // 14 → 12
     fontWeight: '800',
     // 여백 없애서 칸 안에서 깔끔하게
@@ -581,8 +581,8 @@ const styles = StyleSheet.create({
   },
 
   // + 버튼은 그대로 두되, 칸이 좁을 때를 대비해 유지
-  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor:'#D1D5DB', backgroundColor:'#FFF', alignItems:'center', justifyContent:'center' },
-  addBtnPlus:{ color: colors.gray700, fontSize:16, fontWeight:'800', lineHeight:16 },
+  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor: colors.gray300, backgroundColor: colors.surface, alignItems:'center', justifyContent:'center' },
+  addBtnPlus:{ color: colors.textSecondary, fontSize:16, fontWeight:'800', lineHeight:16 },
 
   /* 하단 고정 바 */
   fixedBar:{
@@ -590,21 +590,21 @@ const styles = StyleSheet.create({
     left:0, right:0, bottom:0,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.background,
     borderTopWidth: 0,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   fixedTopRow:{ flexDirection:'row', alignItems:'center', marginBottom: spacing.sm },
   fixedSave:{ marginTop: spacing.sm },
 
   // 고정 바 안 버튼들
-  resetBtn:{ backgroundColor:'#FFF', borderWidth:1, borderColor:'#D1D5DB', borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  resetBtnText:{ color: colors.gray700, fontSize: 14, fontWeight:'600' },
+  resetBtn:{ backgroundColor: colors.surface, borderWidth:1, borderColor: colors.gray300, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+  resetBtnText:{ color: colors.textSecondary, fontSize: 14, fontWeight:'600' },
 
   /* 모달(정중앙) */
   modalBackdrop:{
     flex:1,
-    backgroundColor:'rgba(0,0,0,0.35)',
+    backgroundColor: colors.overlay,
     alignItems:'center',
     justifyContent:'center',
     padding: spacing.lg
@@ -612,42 +612,42 @@ const styles = StyleSheet.create({
   modalCard:{
     width:'92%',
     maxWidth: 460,
-    backgroundColor:'#FFF',
-    borderWidth:1, borderColor:'#E5E7EB',
+    backgroundColor: colors.surface,
+    borderWidth:1, borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.lg,
   },
-  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.gray800, textAlign:'center', marginBottom: spacing.md },
+  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.textPrimary, textAlign:'center', marginBottom: spacing.md },
 
   scopeWrap:{ marginBottom: spacing.md },
   radioRow:{ flexDirection:'row', alignItems:'center', paddingVertical:8, paddingHorizontal:8, borderRadius: radius.md },
-  radioRowActive:{ backgroundColor: colors.gray100 },
-  radioOuter:{ width:18, height:18, borderRadius:9, borderWidth:2, borderColor: colors.gray800, alignItems:'center', justifyContent:'center', marginRight:10 },
-  radioOuterOn:{ borderColor: colors.gray800 },
-  radioInner:{ width:8, height:8, borderRadius:4, backgroundColor: colors.gray800 },
-  radioLabel:{ color: colors.gray800, fontWeight:'700' },
+  radioRowActive:{ backgroundColor: colors.surfaceMuted },
+  radioOuter:{ width:18, height:18, borderRadius:9, borderWidth:2, borderColor: colors.primary, alignItems:'center', justifyContent:'center', marginRight:10 },
+  radioOuterOn:{ borderColor: colors.primary },
+  radioInner:{ width:8, height:8, borderRadius:4, backgroundColor: colors.primary },
+  radioLabel:{ color: colors.textPrimary, fontWeight:'700' },
 
   // 날짜 직접 입력
   customInputWrap:{ marginTop: spacing.sm },
   customRow:{ flexDirection:'row', alignItems:'center', marginBottom: 8 },
-  customInputLabel:{ width:36, color: colors.gray700, fontWeight:'700' },
+  customInputLabel:{ width:36, color: colors.textSecondary, fontWeight:'700' },
   customInput:{
     flex:1,
-    backgroundColor:'#FFF',
-    borderWidth:1, borderColor:'#E5E7EB',
+    backgroundColor: colors.surface,
+    borderWidth:1, borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal:12, paddingVertical:10,
-    fontSize:14, color: colors.gray800
+    fontSize:14, color: colors.textPrimary
   },
-  customHint:{ marginTop:4, fontSize:11, color: colors.gray600, textAlign:'right' },
+  customHint:{ marginTop:4, fontSize:11, color: colors.textSecondary, textAlign:'right' },
 
-  sectionLabel:{ fontSize:13, fontWeight:'800', color: colors.gray800 },
+  sectionLabel:{ fontSize:13, fontWeight:'800', color: colors.textPrimary },
   timesEditRow:{ flexDirection:'row', alignItems:'center', marginTop:6 },
 
   modalActions:{ flexDirection:'row', gap:8, marginTop: spacing.lg },
   modalBtn:{ flex:1, paddingVertical:10, borderRadius: radius.md, alignItems:'center' },
-  modalGhost:{ backgroundColor: colors.gray100 },
-  modalGhostText:{ color: colors.gray800, fontWeight:'800' },
-  modalPrimary:{ backgroundColor: colors.gray800 },
-  modalPrimaryText:{ color:'#FFF', fontWeight:'800' },
+  modalGhost:{ backgroundColor: colors.surfaceMuted },
+  modalGhostText:{ color: colors.textPrimary, fontWeight:'800' },
+  modalPrimary:{ backgroundColor: colors.primary },
+  modalPrimaryText:{ color: colors.textInverse, fontWeight:'800' },
 });

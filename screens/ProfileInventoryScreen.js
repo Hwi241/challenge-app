@@ -1580,7 +1580,7 @@ export default function ProfileInventoryScreen() {
             multiline
             textAlignVertical="top"
             placeholder="나에게 남기고 싶은 말이나 다짐을 적어보세요."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textTertiary}
             style={styles.memoInput}
           />
           <View style={styles.memoModalActions}>
@@ -1604,14 +1604,14 @@ export default function ProfileInventoryScreen() {
             value={profileDraft.name}
             onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, name: value }))}
             placeholder="이름 또는 별명"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textTertiary}
             style={styles.profileInput}
           />
           <TextInput
             value={profileDraft.headline}
             onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, headline: value }))}
             placeholder="나를 밀어주는 한 문장"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textTertiary}
             style={styles.profileInput}
           />
           <TextInput
@@ -1620,7 +1620,7 @@ export default function ProfileInventoryScreen() {
             multiline
             textAlignVertical="top"
             placeholder="목표, 다짐, 나에 대한 설명을 적어보세요."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textTertiary}
             style={[styles.memoInput, { minHeight: 120 }]}
           />
           <View style={styles.memoModalActions}>
@@ -1645,7 +1645,7 @@ export default function ProfileInventoryScreen() {
             onChangeText={setHofGoalDraft}
             keyboardType="number-pad"
             placeholder="목표 갯수"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textTertiary}
             style={styles.profileInput}
           />
           <View style={styles.memoModalActions}>
@@ -1679,7 +1679,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
-  backText: { fontSize: 34, color: colors.gray800, fontWeight: '300', lineHeight: 34 },
+  backText: { fontSize: 34, color: colors.textPrimary, fontWeight: '300', lineHeight: 34 },
   starPill: {
     position: 'absolute',
     left: 0,
@@ -1688,18 +1688,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 110,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#111',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     columnGap: 7,
   },
-  starIcon: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  starText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  starIcon: { color: colors.textInverse, fontSize: 15, fontWeight: '900' },
+  starText: { color: colors.textInverse, fontSize: 16, fontWeight: '900' },
   shopFloatingBtn: {
     position: 'absolute',
     right: 12,
-    backgroundColor: '#111',
+    backgroundColor: colors.primary,
     borderRadius: 14,
     width: 52,
     height: 42,
@@ -1708,14 +1708,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   shopFloatingText: {
-    color: '#fff',
+    color: colors.textInverse,
     fontSize: 13,
     fontWeight: '900',
     includeFontPadding: false,
   },
   recordRoomInternalTitle: {
     flex: 1,
-    color: '#111',
+    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '800',
   },
@@ -1723,7 +1723,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '900',
-    color: '#111',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   scroll: { flex: 1 },
@@ -1752,37 +1752,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     padding: 14,
-    shadowColor: '#111',
+    shadowColor: colors.primary,
     shadowOpacity: 0.04,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 1,
   },
   dashboardCardDark: {
-    backgroundColor: '#111',
-    borderColor: '#111',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   cardHeader: {
     marginBottom: 8,
   },
   cardTitle: {
     fontSize: 13,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '900',
   },
   cardTitleDark: {
-    color: '#fff',
+    color: colors.textInverse,
   },
   cardSubtitle: {
     marginTop: 3,
     fontSize: 10.5,
-    color: colors.gray500,
+    color: colors.textTertiary,
     fontWeight: '700',
   },
   cardSubtitleDark: {
-    color: '#D1D5DB',
+    color: colors.gray300,
   },
   cardBody: {
     flex: 1,
@@ -1796,12 +1796,12 @@ const styles = StyleSheet.create({
   },
   kpiLabel: {
     fontSize: 10.5,
-    color: colors.gray600,
+    color: colors.textSecondary,
     fontWeight: '900',
     lineHeight: 13,
   },
   kpiLabelDark: {
-    color: '#E5E7EB',
+    color: colors.border,
   },
   kpiValueRow: {
     flexDirection: 'row',
@@ -1811,28 +1811,28 @@ const styles = StyleSheet.create({
   kpiIcon: {
     marginRight: 5,
     fontSize: 18,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '900',
   },
   kpiValue: {
     flexShrink: 1,
     fontSize: 22,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '900',
     letterSpacing: -0.8,
     lineHeight: 25,
   },
   kpiValueDark: {
-    color: '#fff',
+    color: colors.textInverse,
   },
   kpiNote: {
     fontSize: 9.5,
-    color: colors.gray500,
+    color: colors.textTertiary,
     fontWeight: '700',
     lineHeight: 12,
   },
   kpiNoteDark: {
-    color: '#D1D5DB',
+    color: colors.gray300,
   },
   profileImageTouchable: {
     width: '100%',
@@ -1847,13 +1847,13 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 37,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
   },
   profileAvatar: {
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -1862,7 +1862,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#111',
+    backgroundColor: colors.primary,
     marginTop: 6,
   },
   profileAvatarBody: {
@@ -1870,13 +1870,13 @@ const styles = StyleSheet.create({
     height: 28,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: '#111',
+    backgroundColor: colors.primary,
     marginTop: 6,
   },
   profileImageText: {
     marginTop: 10,
     fontSize: 11,
-    color: colors.gray500,
+    color: colors.textTertiary,
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -1886,25 +1886,25 @@ const styles = StyleSheet.create({
   },
   profileInfoName: {
     fontSize: 13,
-    color: colors.gray500,
+    color: colors.textTertiary,
     fontWeight: '800',
     marginBottom: 6,
   },
   profileInfoMain: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#111',
+    color: colors.textPrimary,
   },
   profileInfoSub: {
     marginTop: 6,
     fontSize: 12,
-    color: colors.gray600,
+    color: colors.textSecondary,
     fontWeight: '700',
   },
   profileEditHint: {
     marginTop: 10,
     fontSize: 11,
-    color: colors.gray400,
+    color: colors.textDisabled,
     fontWeight: '800',
   },
   infoPillRow: {
@@ -1916,23 +1916,23 @@ const styles = StyleSheet.create({
   infoPill: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#F3F4F6',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
   },
   infoPillText: {
     fontSize: 11,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '800',
   },
   infoPillDark: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#111',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
   },
   infoPillDarkText: {
     fontSize: 11,
-    color: '#fff',
+    color: colors.textInverse,
     fontWeight: '900',
   },
   cardPagerRow: {
@@ -1951,7 +1951,7 @@ const styles = StyleSheet.create({
   cardPagerText: {
     fontSize: 22,
     lineHeight: 22,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   cardPagerLabel: {
@@ -2182,19 +2182,19 @@ const styles = StyleSheet.create({
   connectRow: {
     minHeight: 30,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.borderMuted,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   connectTitle: {
     fontSize: 12,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '800',
   },
   connectStatus: {
     fontSize: 11,
-    color: colors.gray500,
+    color: colors.textTertiary,
     fontWeight: '800',
   },
   memoTouchable: {
@@ -2203,13 +2203,13 @@ const styles = StyleSheet.create({
   },
   memoText: {
     fontSize: 13,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '700',
     lineHeight: 19,
   },
   memoPlaceholder: {
     fontSize: 13,
-    color: colors.gray400,
+    color: colors.textDisabled,
     fontWeight: '700',
     lineHeight: 19,
   },
@@ -2219,7 +2219,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     padding: 14,
     overflow: 'hidden',
   },
@@ -2229,7 +2229,7 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: 16,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '900',
     marginBottom: 10,
   },
@@ -2242,31 +2242,31 @@ const styles = StyleSheet.create({
     height: 34,
     paddingHorizontal: 14,
     borderRadius: 17,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabButtonActive: {
-    backgroundColor: '#111',
+    backgroundColor: colors.primary,
   },
   tabButtonText: {
     fontSize: 12,
-    color: colors.gray600,
+    color: colors.textSecondary,
     fontWeight: '900',
   },
   tabButtonTextActive: {
-    color: '#fff',
+    color: colors.textInverse,
   },
   listEmpty: {
     marginVertical: 24,
     textAlign: 'center',
-    color: colors.gray400,
+    color: colors.textDisabled,
     fontWeight: '700',
   },
   listItem: {
     minHeight: 52,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.borderMuted,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -2277,29 +2277,29 @@ const styles = StyleSheet.create({
   },
   listItemTitle: {
     fontSize: 14,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '900',
   },
   listItemTitleMuted: {
-    color: '#9CA3AF',
+    color: colors.textDisabled,
   },
   listItemMeta: {
     marginTop: 3,
     fontSize: 11,
-    color: colors.gray500,
+    color: colors.textTertiary,
     fontWeight: '700',
   },
   listItemStatus: {
     fontSize: 12,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '900',
   },
   listItemStatusMuted: {
-    color: '#9CA3AF',
+    color: colors.textDisabled,
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(17,17,17,0.28)',
+    backgroundColor: colors.overlay,
   },
   memoModalCard: {
     position: 'absolute',
@@ -2307,35 +2307,35 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     top: '22%',
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     padding: 18,
   },
   memoModalTitle: {
     fontSize: 18,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '900',
     marginBottom: 12,
   },
   profileInput: {
     minHeight: 46,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '700',
     marginBottom: 10,
   },
   memoInput: {
     minHeight: 150,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 14,
     padding: 12,
     fontSize: 14,
-    color: '#111',
+    color: colors.textPrimary,
     fontWeight: '600',
     lineHeight: 20,
   },
@@ -2348,25 +2348,25 @@ const styles = StyleSheet.create({
   memoCancelBtn: {
     height: 38,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   memoCancelText: {
-    color: colors.gray700,
+    color: colors.textSecondary,
     fontWeight: '900',
   },
   memoSaveBtn: {
     height: 38,
     paddingHorizontal: 18,
-    borderRadius: 12,
-    backgroundColor: '#111',
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   memoSaveText: {
-    color: '#fff',
+    color: colors.textInverse,
     fontWeight: '900',
   },
 });

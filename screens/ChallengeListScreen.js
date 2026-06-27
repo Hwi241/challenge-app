@@ -18,7 +18,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 /* ---------- 상수 ---------- */
 const EDGE = 8;
-const CARD_BORDER = '#E5E7EB';
+const CARD_BORDER = colors.border;
 const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
@@ -1715,14 +1715,14 @@ const styles = StyleSheet.create({
   sortBarBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 6, marginBottom: 4 },
   sortBarText: { fontSize: 12, color: colors.gray600, fontWeight: '700' },
   sortBarArrow: { fontSize: 10, color: colors.gray400, marginLeft: 4 },
-  sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sortModalCard: { position: 'absolute', top: 100, left: spacing.lg, right: spacing.lg, backgroundColor: colors.surface, borderRadius: 14, padding: spacing.lg, borderWidth: 1, borderColor: '#E5E7EB', elevation: 8 },
-  sortModalTitle: { fontSize: 15, fontWeight: '800', color: colors.gray800, marginBottom: spacing.md, textAlign: 'center' },
-  sortOption: { paddingVertical: 12, paddingHorizontal: spacing.md, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sortOptionOn: { backgroundColor: colors.gray100 },
-  sortOptionText: { fontSize: 14, color: colors.gray800, fontWeight: '600' },
-  sortOptionTextOn: { fontWeight: '800', color: colors.gray800 },
-  sortOptionCheck: { fontSize: 14, color: colors.gray800, fontWeight: '900' },
+  sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay },
+  sortModalCard: { position: 'absolute', top: 100, left: spacing.lg, right: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, elevation: 8 },
+  sortModalTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' },
+  sortOption: { paddingVertical: 12, paddingHorizontal: spacing.md, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sortOptionOn: { backgroundColor: colors.surfaceMuted },
+  sortOptionText: { fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
+  sortOptionTextOn: { fontWeight: '800', color: colors.textPrimary },
+  sortOptionCheck: { fontSize: 14, color: colors.textPrimary, fontWeight: '900' },
   container: { flex: 1, backgroundColor: colors.background },
 
   header: {
@@ -1906,13 +1906,13 @@ const styles = StyleSheet.create({
   dimmedContent: { opacity: 0.55 },
 
   pctCircleWrap: { alignItems:'center', justifyContent:'center', position:'relative', width:26, height:26 },
-  pctCircleLabel: { position:'absolute', fontSize:6, fontWeight:'800', color:'#111', textAlign:'center', includeFontPadding:false },
+  pctCircleLabel: { position:'absolute', fontSize:6, fontWeight:'800', color: colors.textPrimary, textAlign:'center', includeFontPadding:false },
 
   uploadNowBtn: {
     marginTop: 10, height: 48, borderRadius: 14,
     backgroundColor: '#111', alignItems:'center', justifyContent:'center',
   },
-  uploadNowText: { fontSize:16, fontWeight:'800', color:'#fff' },
+  uploadNowText: { fontSize:16, fontWeight:'800', color: colors.textInverse },
 
   selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },
   title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
@@ -1926,7 +1926,7 @@ const styles = StyleSheet.create({
     width: ARROW_SIZE, height: ARROW_SIZE, borderRadius: 20,
     backgroundColor: colors.black, borderWidth: 1, borderColor: colors.black,
     alignItems: 'center', justifyContent: 'center',
-    elevation: 3, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 2 },
+    elevation: 3, shadowColor: colors.black, shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 2 },
   },
   circleArrowTxt: { color: colors.background, fontSize: 18, fontWeight: '900', lineHeight: 18, includeFontPadding: false },
 
@@ -1943,16 +1943,16 @@ const styles = StyleSheet.create({
 
   outlineBigBtn: {
     backgroundColor: colors.background,
-    borderWidth: 2, borderColor: '#000',
+    borderWidth: 2, borderColor: colors.primary,
     borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: spacing.sm,
   },
-  outlineBigText: { color: '#000', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  outlineBigText: { color: colors.primary, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   expiredBtn: {
     backgroundColor: '#F3F4F6',
     borderWidth: 1, borderColor: '#D1D5DB',
     borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: spacing.sm,
   },
-  expiredBtnText: { color: '#9CA3AF', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  expiredBtnText: { color: colors.textDisabled, fontSize: 16, fontWeight: '800', textAlign: 'center' },
 
   /* 빈 상태 */
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
@@ -1964,7 +1964,7 @@ const styles = StyleSheet.create({
     width: 50, height: 50, borderRadius: 25,
     backgroundColor: colors.black,
     alignItems: 'center', justifyContent: 'center',
-    elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
+    elevation: 6, shadowColor: colors.black, shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
   },
   addFabPlus: { color: colors.background, fontSize: 25, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
 
@@ -1973,7 +1973,7 @@ const styles = StyleSheet.create({
 
   profileFloatingBtn: {
     position: 'absolute', left: 12,
-    backgroundColor: '#111', borderRadius: 14,
+    backgroundColor: colors.primary, borderRadius: radius.md,
     width: 52, height: 42,
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
@@ -2003,13 +2003,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
   },
-  addFloatingText: { color: '#fff', fontWeight: '800', fontSize: 25, lineHeight: 27, includeFontPadding: false },
+  addFloatingText: { color: colors.textInverse, fontWeight: '800', fontSize: 25, lineHeight: 27, includeFontPadding: false },
 
   /* 정렬 스크림 */
-  fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2 },
+  fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayStrong, zIndex: 2 },
 
   /* 선택 카드 복제본 */
-  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
+  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: colors.black, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
   reorderFloatingMeasureProbe: {
     position: 'absolute',
     left: 0,

@@ -1910,8 +1910,8 @@ const styles = StyleSheet.create({
   infoPillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 12,
-    gap: 6,
+    marginTop: spacing.md,
+    gap: spacing.xs,
   },
   infoPill: {
     paddingHorizontal: 10,

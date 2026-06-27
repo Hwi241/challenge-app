@@ -1,6 +1,7 @@
 // utils/notificationScheduler.js
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { getNotificationsEnabled } from './appSettings';
 
 // 알림 응답 핸들러 추가: 버튼 누르면 알림이 사라지도록 처리
 Notifications.addNotificationResponseReceivedListener(response => {
@@ -39,6 +40,13 @@ export async function cancelAllForChallenge(challenge) {
 // ===== 등록(간단화) =====
 export async function registerNotificationsForChallenge(challenge) {
   if (!challenge?.id || !challenge?.notification?.mode) return;
+
+  const notificationsEnabled = await getNotificationsEnabled();
+  if (!notificationsEnabled) {
+    await cancelAllForChallenge(challenge);
+    return;
+  }
+
   const ok = await ensureNotificationPermissionAsync();
   if (!ok) return;
 

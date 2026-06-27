@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Linking, ScrollView  } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Application from 'expo-application';
 import * as MailComposer from 'expo-mail-composer';
@@ -16,8 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import { colors, spacing, radius, buttonStyles } from '../styles/common';
 import BackButton from '../components/BackButton';
-
-const STORAGE_KEY = 'settings.notificationsEnabled';
+import { getNotificationsEnabled, setNotificationsEnabled } from '../utils/appSettings';
 
 // ▶︎ 설정 방법
 // 1) app.json/app.config.ts의 expo.extra에 값을 넣으면 자동으로 사용됩니다.
@@ -42,23 +40,27 @@ export default function SettingsScreen() {
   const androidPackage = Application.applicationId ?? null;
 
   useEffect(() => {
+    let mounted = true;
+
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw != null) setEnabled(raw === 'true');
-      } catch {}
-      setLoading(false);
+        const saved = await getNotificationsEnabled();
+        if (mounted) setEnabled(saved);
+      } catch {
+        if (mounted) setEnabled(true);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     })();
-  }, []);
 
-  const persist = useCallback(async (value) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, value ? 'true' : 'false');
-    } catch {}
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const toggleNotifications = useCallback(async () => {
     const next = !enabled;
+
     if (next) {
       const { status } = await Notifications.getPermissionsAsync();
       if (status !== 'granted') {
@@ -68,10 +70,15 @@ export default function SettingsScreen() {
           return;
         }
       }
+    } else {
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      } catch {}
     }
+
     setEnabled(next);
-    persist(next);
-  }, [enabled, persist]);
+    await setNotificationsEnabled(next);
+  }, [enabled]);
 
   // ── 개선의견 메일
   const sendFeedback = useCallback(async () => {

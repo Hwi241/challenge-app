@@ -1059,7 +1059,7 @@ const MAX_MINUTES = 1440; // 24시간
           const calendarRecord = latestSettings?.dataIntegrations?.calendarRecord || {};
           const result = await createCalendarRecordEvent({
             calendarRecord,
-            challengeTitle: nextTitle?.challengeTitle || challengeInfo?.title || '도전',
+            challengeTitle: nextTitle || challengeInfo?.title || challengeTitle || '도전',
             entry,
             entryDate: new Date(entryTimestamp),
             linkedRecords: selectedHealthRecords,

@@ -638,17 +638,17 @@ const styles = StyleSheet.create({
   },
   graphCardOuter: {
     flex: 1,
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xxs,
     paddingBottom: spacing.md,
   },
   graphCardOuterWide: {
     maxWidth: '50%',
   },
   graphCardOuterWideLeft: {
-    paddingRight: 6,
+    paddingRight: spacing.xs,
   },
   graphCardOuterWideRight: {
-    paddingLeft: 6,
+    paddingLeft: spacing.xs,
   },
   graphCard: {
     backgroundColor: colors.background,

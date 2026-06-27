@@ -28,6 +28,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
 import DashboardWidgetPreview from '../components/dashboard/DashboardWidgetPreview';
+import { colors, radius } from '../styles/common';
 
 const AnimatedSvgLine = Animated.createAnimatedComponent(Line);
 
@@ -2252,7 +2253,7 @@ function MarqueeText({ text, style, enabled = true }) {
    const slotW = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
    return (
      <View style={[styles.graphCell, { opacity: 0.5 }]}>
-       <View style={[styles.graphCard, { minHeight: h >= 2 ? 120 : 90, backgroundColor: '#E5E7EB', borderColor: '#9CA3AF', borderStyle: 'dashed' }]} />
+       <View style={[styles.graphCard, { minHeight: h >= 2 ? 120 : 90, backgroundColor: colors.surfaceMuted, borderColor: colors.textDisabled, borderStyle: 'dashed' }]} />
      </View>
    );
  }
@@ -3151,7 +3152,7 @@ const renderResizeGuideOverlay = () => {
 const styles = StyleSheet.create({
  safe: {
  flex: 1,
- backgroundColor: '#fff',
+ backgroundColor: colors.surface,
  },
  header: {
  minHeight: 58,
@@ -3162,7 +3163,7 @@ const styles = StyleSheet.create({
  alignItems: 'center',
  justifyContent: 'space-between',
  borderBottomWidth: StyleSheet.hairlineWidth,
- borderBottomColor: '#e6e6e6',
+ borderBottomColor: colors.border,
  },
  backBtn: {
  width: 38,
@@ -3173,7 +3174,7 @@ const styles = StyleSheet.create({
  },
  backText: {
  fontSize: 36,
- color: '#111',
+ color: colors.textPrimary,
  lineHeight: 38,
  },
  headerSpacer: {
@@ -3187,7 +3188,7 @@ const styles = StyleSheet.create({
  textAlign: 'center',
  fontSize: 18,
  fontWeight: '800',
- color: '#111',
+ color: colors.textPrimary,
  zIndex: 1,
  },
  challengeTitle: {
@@ -3195,7 +3196,7 @@ const styles = StyleSheet.create({
  marginRight: 12,
  fontSize: 14,
  fontWeight: '700',
- color: '#444',
+ color: colors.textSecondary,
  },
   content: {
  paddingHorizontal: 18,
@@ -3216,60 +3217,60 @@ const styles = StyleSheet.create({
  height: 34,
  flexDirection: 'row',
  alignItems: 'center',
- borderRadius: 8,
+ borderRadius: radius.sm,
  borderWidth: 1,
- borderColor: '#D1D5DB',
- backgroundColor: '#fff',
+ borderColor: colors.slate300,
+ backgroundColor: colors.surface,
  overflow: 'hidden',
  },
  rowGapLabel: {
  paddingHorizontal: 8,
  fontSize: 12,
  fontWeight: '800',
- color: '#111',
+ color: colors.textPrimary,
  },
  rowGapButtons: {
  flexDirection: 'row',
  height: '100%',
  borderLeftWidth: 1,
- borderLeftColor: '#E5E7EB',
+ borderLeftColor: colors.border,
  },
  rowGapButton: {
  width: 30,
  height: '100%',
  alignItems: 'center',
  justifyContent: 'center',
- backgroundColor: '#fff',
+ backgroundColor: colors.surface,
  },
  rowGapButtonWithDivider: {
  borderLeftWidth: 1,
- borderLeftColor: '#E5E7EB',
+ borderLeftColor: colors.border,
  },
  rowGapButtonDisabled: {
- backgroundColor: '#F3F4F6',
+ backgroundColor: colors.surfaceMuted,
  },
  rowGapButtonText: {
  fontSize: 16,
  fontWeight: '900',
- color: '#111',
+ color: colors.textPrimary,
  lineHeight: 18,
  includeFontPadding: false,
  },
  rowGapButtonTextDisabled: {
- color: '#C7C7C7',
+ color: colors.textDisabled,
  },
  addBtn: {
  height: 34,
  paddingHorizontal: 12,
- borderRadius: 8,
+ borderRadius: radius.sm,
  borderWidth: 1,
- borderColor: '#111',
- backgroundColor: '#fff',
+ borderColor: colors.borderStrong,
+ backgroundColor: colors.surface,
  alignItems: 'center',
  justifyContent: 'center',
  },
  addText: {
- color: '#111',
+ color: colors.textPrimary,
  fontSize: 13,
  fontWeight: '800',
  },
@@ -3299,7 +3300,7 @@ graphCellResizeActive: {
 },
 graphCard: {
  minHeight: 132,
- borderRadius: 8,
+ borderRadius: radius.sm,
  padding: 12,
  },
 graphCardCompact: {
@@ -3310,12 +3311,12 @@ graphCardCompact: {
  },
 graphCardVisualSurface: {
  ...StyleSheet.absoluteFillObject,
- borderRadius: 8,
+ borderRadius: radius.sm,
  borderWidth: 1,
- borderColor: '#d8d8d8',
+ borderColor: colors.border,
  borderTopWidth: 3,
- borderTopColor: '#111',
- backgroundColor: '#fff',
+ borderTopColor: colors.primary,
+ backgroundColor: colors.surface,
  zIndex: 0,
  elevation: 0,
  },
@@ -3354,17 +3355,17 @@ graphCardVisualSurface: {
  fontSize: 15,
  lineHeight: 18,
  fontWeight: '800',
- color: '#111',
+ color: colors.textPrimary,
  includeFontPadding: false,
  },
  graphSizeBadge: {
  minWidth: 38,
  height: 22,
  paddingHorizontal: 7,
- borderRadius: 11,
- backgroundColor: '#F3F4F6',
+ borderRadius: radius.pill,
+ backgroundColor: colors.surfaceMuted,
  borderWidth: 1,
- borderColor: '#E5E7EB',
+ borderColor: colors.border,
  alignItems: 'center',
  justifyContent: 'center',
  },
@@ -3372,13 +3373,13 @@ graphCardVisualSurface: {
  minWidth: 32,
  height: 18,
  paddingHorizontal: 5,
- borderRadius: 9,
+ borderRadius: radius.pill,
  },
  graphSizeBadgeText: {
  fontSize: 11,
  lineHeight: 13,
  fontWeight: '900',
- color: '#111',
+ color: colors.textPrimary,
  includeFontPadding: false,
  },
  graphSizeBadgeTextCompact: {
@@ -3392,25 +3393,25 @@ graphCardVisualSurface: {
  minWidth: 42,
  height: 26,
  paddingHorizontal: 9,
- borderRadius: 13,
+ borderRadius: radius.pill,
  borderWidth: 1,
- borderColor: '#ccc',
+ borderColor: colors.border,
  alignItems: 'center',
  justifyContent: 'center',
- backgroundColor: '#fff',
+ backgroundColor: colors.surface,
  zIndex: 12,
  elevation: 4,
  },
  removeText: {
  fontSize: 11,
  fontWeight: '800',
- color: '#444',
+ color: colors.textSecondary,
  lineHeight: 13,
  includeFontPadding: false,
  },
  graphCardResizeActive: {
- borderColor: '#111',
- shadowColor: '#000',
+ borderColor: colors.borderStrong,
+ shadowColor: colors.black,
  shadowOffset: { width: 0, height: 4 },
  shadowOpacity: 0.08,
  shadowRadius: 8,
@@ -3425,16 +3426,16 @@ graphCardDimmed: {
 resizeHandle: {
  width: 28,
  height: 28,
- borderRadius: 14,
+ borderRadius: radius.pill,
  borderWidth: 1,
- borderColor: '#ccc',
- backgroundColor: '#fff',
+ borderColor: colors.border,
+ backgroundColor: colors.surface,
  alignItems: 'center',
  justifyContent: 'center',
 },
 resizeHandleActive: {
- backgroundColor: '#fff',
- borderColor: '#ccc',
+ backgroundColor: colors.surface,
+ borderColor: colors.border,
 },
 resizeHandleCornerTopRight: {
  position: 'absolute',
@@ -3444,7 +3445,7 @@ resizeHandleCornerTopRight: {
  height: 8,
  borderTopWidth: 2,
  borderRightWidth: 2,
- borderColor: '#111',
+ borderColor: colors.borderStrong,
 },
 resizeHandleCornerBottomLeft: {
  position: 'absolute',
@@ -3454,7 +3455,7 @@ resizeHandleCornerBottomLeft: {
  height: 8,
  borderBottomWidth: 2,
  borderLeftWidth: 2,
- borderColor: '#111',
+ borderColor: colors.borderStrong,
 },
 resizeActiveOverlay: {
  ...StyleSheet.absoluteFillObject,
@@ -3495,7 +3496,7 @@ resizeActiveCorner: {
  position: 'absolute',
  width: RESIZE_ACTIVE_CORNER_SIZE,
  height: RESIZE_ACTIVE_CORNER_SIZE,
- borderColor: '#111',
+ borderColor: colors.borderStrong,
 },
 resizeActiveCornerTopRight: {
  top: 0,
@@ -3518,13 +3519,13 @@ resizeActiveDiagonalTrack: {
 resizeActiveDiagonalDash: {
  borderTopWidth: 1.2,
  borderStyle: 'dashed',
- borderColor: '#111',
+ borderColor: colors.borderStrong,
 },
  emptyText: {
  paddingVertical: 24,
  textAlign: 'center',
  fontSize: 14,
- color: '#777',
+ color: colors.textTertiary,
  },
  footer: {
  position: 'absolute',
@@ -3536,46 +3537,46 @@ resizeActiveDiagonalDash: {
  paddingHorizontal: 18,
  paddingTop: 12,
  borderTopWidth: StyleSheet.hairlineWidth,
- borderTopColor: '#e6e6e6',
- backgroundColor: '#fff',
+ borderTopColor: colors.border,
+ backgroundColor: colors.surface,
  },
  footerButton: {
  flex: 1,
  height: 48,
- borderRadius: 8,
+ borderRadius: radius.sm,
  alignItems: 'center',
  justifyContent: 'center',
  },
  cancelButton: {
  borderWidth: 1,
- borderColor: '#bbb',
- backgroundColor: '#fff',
+ borderColor: colors.border,
+ backgroundColor: colors.surface,
  },
  saveButton: {
- backgroundColor: '#111',
+ backgroundColor: colors.primary,
  },
  cancelButtonText: {
  fontSize: 15,
  fontWeight: '800',
- color: '#111',
+ color: colors.textPrimary,
  },
  saveButtonText: {
  fontSize: 15,
  fontWeight: '800',
- color: '#fff',
+ color: colors.textInverse,
  },
  modalOverlay: {
  flex: 1,
  padding: 20,
- backgroundColor: 'rgba(0,0,0,0.38)',
+ backgroundColor: colors.overlay,
  alignItems: 'center',
  justifyContent: 'center',
  },
  modalSheet: {
  width: '100%',
  maxHeight: '75%',
- borderRadius: 12,
- backgroundColor: '#fff',
+ borderRadius: radius.md,
+ backgroundColor: colors.surface,
  padding: 16,
  },
  modalHeader: {
@@ -3586,20 +3587,20 @@ resizeActiveDiagonalDash: {
  modalTitle: {
  flex: 1,
  fontSize: 18,
- fontWeight: '800',color: '#111',
+ fontWeight: '800',color: colors.textPrimary,
  },
  modalCloseBtn: {
  width: 32,
  height: 32,
- borderRadius: 16,
+ borderRadius: radius.lg,
  alignItems: 'center',
  justifyContent: 'center',
- backgroundColor: '#f1f1f1',
+ backgroundColor: colors.surfaceMuted,
  },
  modalCloseText: {
  fontSize: 20,
  fontWeight: '800',
- color: '#333',
+ color: colors.textSecondary,
  lineHeight: 24,
  },
  pickerList: {
@@ -3608,17 +3609,17 @@ resizeActiveDiagonalDash: {
  pickerItem: {
  paddingVertical: 13,
  borderBottomWidth: StyleSheet.hairlineWidth,
- borderBottomColor: '#e5e5e5',
+ borderBottomColor: colors.border,
  },
  pickerTitle: {
  fontSize: 15,
  fontWeight: '800',
- color: '#111',
+ color: colors.textPrimary,
  },
  pickerMeta: {
  marginTop: 4,
  fontSize: 12,
- color: '#777',
+ color: colors.textTertiary,
  },
  absoluteGraphCell: {
  position: 'absolute',
@@ -3630,9 +3631,9 @@ absoluteGraphCellResizeActive: {
  dragPlaceholderOverlay: {
  position: 'absolute',
  borderWidth: 1.2,
- borderColor: '#999',
- borderRadius: 10,
- backgroundColor: 'rgba(0,0,0,0.04)',
+ borderColor: colors.textTertiary,
+ borderRadius: radius.md,
+ backgroundColor: colors.surfaceMuted,
  zIndex: 998,
  pointerEvents: 'none',
  },
@@ -3648,8 +3649,8 @@ resizeGhostFrameOverlay: {
  elevation: 0,
  borderWidth: 1.5,
  borderStyle: 'solid',
- borderColor: '#B8B8B8',
- borderRadius: 10,
+ borderColor: colors.gray400,
+ borderRadius: radius.md,
  backgroundColor: 'transparent',
  overflow: 'visible',
  pointerEvents: 'none',
@@ -3658,7 +3659,7 @@ resizeGhostCorner: {
  position: 'absolute',
  width: RESIZE_ACTIVE_CORNER_SIZE,
  height: RESIZE_ACTIVE_CORNER_SIZE,
- borderColor: '#111',
+ borderColor: colors.borderStrong,
 },
 resizeGhostCornerTopRight: {
  top: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
@@ -3681,6 +3682,6 @@ resizeGhostDiagonalTrack: {
 resizeGhostDiagonalDash: {
  borderTopWidth: 1.2,
  borderStyle: 'dashed',
- borderColor: '#111',
+ borderColor: colors.borderStrong,
 },
 });

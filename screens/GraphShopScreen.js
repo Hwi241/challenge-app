@@ -1045,8 +1045,8 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
   graphShopBackButton: {
-    padding: 4,
-    marginRight: 4,
+    padding: spacing.xxs,
+    marginRight: spacing.xxs,
   },
   graphShopBackIcon: {
     fontSize: 32,

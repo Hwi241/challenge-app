@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
   searchIcon: {
     fontSize: 22,
     color: colors.textDisabled,
-    marginRight: 8,
+    marginRight: spacing.sm,
     fontWeight: '800',
   },
   searchInput: {

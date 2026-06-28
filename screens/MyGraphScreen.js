@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   filterSortArrow: {
     fontSize: 12,
     color: colors.textTertiary,
-    marginLeft: 4,
+    marginLeft: spacing.xxs,
   },
   dropdownOverlay: {
     position: 'absolute',

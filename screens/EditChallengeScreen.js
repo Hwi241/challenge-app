@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
   col: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  rightBtnGroup: { flexDirection: 'row', alignItems: 'center', columnGap: 8 },
+  rightBtnGroup: { flexDirection: 'row', alignItems: 'center', columnGap: spacing.sm },
 
   // 기존 텍스트형 삭제 버튼(안씀, 호환 위해 유지)
   deleteBtn: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray300, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },

@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.textDisabled,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   emptySubText: {
     fontSize: 14,

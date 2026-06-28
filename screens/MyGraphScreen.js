@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
     borderRadius: radius.sm,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: spacing.xxs,
   },
   priceBadgeText: {
     fontSize: 13,

@@ -2258,7 +2258,7 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
   },
   listEmpty: {
-    marginVertical: 24,
+    marginVertical: spacing.xl,
     textAlign: 'center',
     color: colors.textDisabled,
     fontWeight: '700',

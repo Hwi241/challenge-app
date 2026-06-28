@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: radius.sm,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: spacing.xxs,
   },
   tierBadgeText: {
     fontSize: 13,

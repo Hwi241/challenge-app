@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     elevation: 999,
     marginLeft: 0,
     marginRight: 0,
-    marginBottom: 6,
+    marginBottom: spacing.xs,
     overflow: 'visible',
   },
   filterSortRow: {

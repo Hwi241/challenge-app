@@ -782,10 +782,10 @@ const styles = StyleSheet.create({
     width: '50%',
   },
   graphCardOuterWideLeft: {
-    paddingRight: 6,
+    paddingRight: spacing.xs,
   },
   graphCardOuterWideRight: {
-    paddingLeft: 6,
+    paddingLeft: spacing.xs,
   },
   graphCard: {
     zIndex: 0,

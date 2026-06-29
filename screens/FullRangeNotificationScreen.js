@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   gridOuter:{ borderTopWidth:1, borderTopColor: colors.border },
   row:{ flexDirection:'row' },
   rowDivider:{ borderBottomWidth:1, borderBottomColor: colors.border },
-  cell:{ flex:1, padding:6 },
+  cell:{ flex:1, padding: spacing.xs },
   cellDivider:{ borderRightWidth:1, borderRightColor: colors.border },
   dateText:{ fontSize:11, fontWeight:'800', color: colors.textSecondary, textAlign:'right' },
 

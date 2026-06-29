@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   sectionLabel:{ fontSize:13, fontWeight:'800', color: colors.textPrimary },
   timesEditRow:{ flexDirection:'row', alignItems:'center', marginTop: spacing.xs },
 
-  modalActions:{ flexDirection:'row', gap:8, marginTop: spacing.lg },
+  modalActions:{ flexDirection:'row', gap: spacing.sm, marginTop: spacing.lg },
   modalBtn:{ flex:1, paddingVertical:10, borderRadius: radius.md, alignItems:'center' },
   modalGhost:{ backgroundColor: colors.surfaceMuted },
   modalGhostText:{ color: colors.textPrimary, fontWeight:'800' },

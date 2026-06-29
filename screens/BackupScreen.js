@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   modeBtn: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
   },

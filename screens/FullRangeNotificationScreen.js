@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   modalTitle:{ fontSize:16, fontWeight:'800', color: colors.textPrimary, textAlign:'center', marginBottom: spacing.md },
 
   scopeWrap:{ marginBottom: spacing.md },
-  radioRow:{ flexDirection:'row', alignItems:'center', paddingVertical:8, paddingHorizontal:8, borderRadius: radius.md },
+  radioRow:{ flexDirection:'row', alignItems:'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radius.md },
   radioRowActive:{ backgroundColor: colors.surfaceMuted },
   radioOuter:{ width:18, height:18, borderRadius:9, borderWidth:2, borderColor: colors.primary, alignItems:'center', justifyContent:'center', marginRight:10 },
   radioOuterOn:{ borderColor: colors.primary },

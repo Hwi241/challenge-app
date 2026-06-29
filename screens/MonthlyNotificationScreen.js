@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
 
   modalTitle:{ fontSize:16, fontWeight:'800', color: colors.textPrimary, textAlign:'center', marginBottom: spacing.md },
 
-  scopeRow:{ flexDirection:'row', flexWrap:'wrap', gap: 8, justifyContent:'center' },
+  scopeRow:{ flexDirection:'row', flexWrap:'wrap', gap: spacing.sm, justifyContent:'center' },
   scopeBtn:{ paddingVertical:8, paddingHorizontal:12, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
   scopeBtnOn:{ backgroundColor: colors.primary },
   scopeText:{ color: colors.textPrimary, fontWeight:'800' },

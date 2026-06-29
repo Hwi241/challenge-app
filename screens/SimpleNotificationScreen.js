@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   toggleBtnText: { fontSize: 12, fontWeight: '800', color: colors.textPrimary },
   toggleBtnTextOn: { color: colors.textInverse },
 
-  timeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
+  timeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 6 },
   chipText: { color: colors.textPrimary, fontSize: 12, marginRight: 6 },
   chipRemove: { color: colors.textTertiary, fontSize: 14, fontWeight: '800' },

@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
 
   monthTitle:{ fontSize:12, fontWeight:'800', color: colors.textSecondary, marginBottom:4, textAlign:'center' },
 
-  weekHeaderRow:{ flexDirection:'row', marginBottom:4 },
+  weekHeaderRow:{ flexDirection:'row', marginBottom: spacing.xxs },
   weekHeaderCell:{ flex:1, alignItems:'center' },
   weekHeaderCellDivider:{ borderRightWidth:1, borderRightColor: colors.border },
   weekHeaderText:{ fontSize:11, fontWeight:'800', color: colors.textSecondary },

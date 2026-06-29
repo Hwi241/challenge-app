@@ -373,6 +373,6 @@ const styles = StyleSheet.create({
   modalRowOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   modalRowText: { color: colors.textPrimary, fontWeight: '700' },
   modalRowTextOn: { color: colors.textInverse },
-  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.primary },
+  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.pill, backgroundColor: colors.primary },
   modalCloseText: { color: colors.textInverse, fontWeight: '700', fontSize: 12 },
 });

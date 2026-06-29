@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
 
   // 날짜 직접 입력
   customInputWrap:{ marginTop: spacing.sm },
-  customRow:{ flexDirection:'row', alignItems:'center', marginBottom: 8 },
+  customRow:{ flexDirection:'row', alignItems:'center', marginBottom: spacing.sm },
   customInputLabel:{ width:36, color: colors.textSecondary, fontWeight:'700' },
   customInput:{
     flex:1,

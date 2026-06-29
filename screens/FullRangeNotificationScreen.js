@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   customHint:{ marginTop:4, fontSize:11, color: colors.textSecondary, textAlign:'right' },
 
   sectionLabel:{ fontSize:13, fontWeight:'800', color: colors.textPrimary },
-  timesEditRow:{ flexDirection:'row', alignItems:'center', marginTop:6 },
+  timesEditRow:{ flexDirection:'row', alignItems:'center', marginTop: spacing.xs },
 
   modalActions:{ flexDirection:'row', gap:8, marginTop: spacing.lg },
   modalBtn:{ flex:1, paddingVertical:10, borderRadius: radius.md, alignItems:'center' },

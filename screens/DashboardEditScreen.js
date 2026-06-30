@@ -3327,7 +3327,7 @@ graphCardVisualSurface: {
  position: 'relative',
  zIndex: 2,
  elevation: 1,
- columnGap: 8,
+ columnGap: spacing.sm,
  },
  graphHeaderCompact: {
  minHeight: 18,

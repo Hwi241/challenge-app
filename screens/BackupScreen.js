@@ -137,7 +137,7 @@ export default function BackupScreen() {
             {loading && (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.black} />
-          <Text style={{ marginTop: 8, color: colors.gray600 }}>처리 중…</Text>
+          <Text style={{ marginTop: spacing.sm, color: colors.gray600 }}>처리 중…</Text>
         </View>
       )}
       </ScrollView>

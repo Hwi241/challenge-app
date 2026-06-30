@@ -3306,7 +3306,7 @@ graphCard: {
 graphCardCompact: {
  paddingTop: 4,
  paddingBottom: 2,
- paddingHorizontal: 8,
+ paddingHorizontal: spacing.sm,
  overflow: 'hidden',
  },
 graphCardVisualSurface: {

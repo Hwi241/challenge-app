@@ -3224,7 +3224,7 @@ const styles = StyleSheet.create({
  overflow: 'hidden',
  },
  rowGapLabel: {
- paddingHorizontal: 8,
+ paddingHorizontal: spacing.sm,
  fontSize: 12,
  fontWeight: '800',
  color: colors.textPrimary,

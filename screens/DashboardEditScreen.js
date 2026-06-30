@@ -3301,7 +3301,7 @@ graphCellResizeActive: {
 graphCard: {
  minHeight: 132,
  borderRadius: radius.sm,
- padding: 12,
+ padding: spacing.md,
  },
 graphCardCompact: {
  paddingTop: 4,

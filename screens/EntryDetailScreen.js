@@ -553,8 +553,8 @@ const styles = StyleSheet.create({
  borderWidth: 1,
  borderColor: colors.border,
  borderRadius: radius.md,
- paddingVertical: 12,
- paddingHorizontal: 16,
+ paddingVertical: spacing.md,
+ paddingHorizontal: spacing.lg,
  marginBottom: spacing.lg,
  },
  titleBoxText: {

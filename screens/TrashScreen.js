@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: radius.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
   },
   emptyBtnText: { color: colors.primary, fontWeight: '700', fontSize: 13 },

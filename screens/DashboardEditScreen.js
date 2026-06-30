@@ -3261,7 +3261,7 @@ const styles = StyleSheet.create({
  },
  addBtn: {
  height: 34,
- paddingHorizontal: 12,
+ paddingHorizontal: spacing.md,
  borderRadius: radius.sm,
  borderWidth: 1,
  borderColor: colors.borderStrong,

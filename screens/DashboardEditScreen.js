@@ -3337,7 +3337,7 @@ graphCardVisualSurface: {
  graphTitleGroup: {
  flexDirection: 'row',
  alignItems: 'center',
- gap: 8,
+ gap: spacing.sm,
  flex: 1,
  minWidth: 0,
  overflow: 'hidden',

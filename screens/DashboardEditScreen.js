@@ -28,7 +28,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
 import DashboardWidgetPreview from '../components/dashboard/DashboardWidgetPreview';
-import { colors, radius } from '../styles/common';
+import { colors, radius, spacing } from '../styles/common';
 
 const AnimatedSvgLine = Animated.createAnimatedComponent(Line);
 
@@ -3211,7 +3211,7 @@ const styles = StyleSheet.create({
  headerActions: {
  flexDirection: 'row',
  alignItems: 'center',
- gap: 8,
+ gap: spacing.sm,
  },
  rowGapControl: {
  height: 34,

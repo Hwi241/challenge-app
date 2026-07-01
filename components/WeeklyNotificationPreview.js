@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     minHeight: CELL_MIN_HEIGHT,
     borderRightWidth: 1,
     borderRightColor: colors.gray200,
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xxs,
     alignItems: 'center',
   },
   timeChip: {

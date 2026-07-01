@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
-    marginBottom: 4,
+    marginBottom: spacing.xxs,
   },
   timeText: {
     fontSize: 12,

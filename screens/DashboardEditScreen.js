@@ -3617,7 +3617,7 @@ resizeActiveDiagonalDash: {
  color: colors.textPrimary,
  },
  pickerMeta: {
- marginTop: 4,
+ marginTop: spacing.xxs,
  fontSize: 12,
  color: colors.textTertiary,
  },

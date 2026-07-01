@@ -3193,7 +3193,7 @@ const styles = StyleSheet.create({
  },
  challengeTitle: {
  flex: 1,
- marginRight: 12,
+ marginRight: spacing.md,
  fontSize: 14,
  fontWeight: '700',
  color: colors.textSecondary,

@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray100,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xxs,
     marginBottom: 4,
   },
   timeText: {

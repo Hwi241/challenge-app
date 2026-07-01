@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gray200,
     borderRadius: radius.sm,
-    padding: 4,
+    padding: spacing.xxs,
     marginRight: 4,
     marginBottom: 4,
     backgroundColor: colors.gray50,

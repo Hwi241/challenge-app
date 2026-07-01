@@ -3577,7 +3577,7 @@ resizeActiveDiagonalDash: {
  maxHeight: '75%',
  borderRadius: radius.md,
  backgroundColor: colors.surface,
- padding: 16,
+ padding: spacing.lg,
  },
  modalHeader: {
  flexDirection: 'row',

@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   timeChip: {
     backgroundColor: colors.gray100,
     borderRadius: radius.pill,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     marginBottom: 4,
   },

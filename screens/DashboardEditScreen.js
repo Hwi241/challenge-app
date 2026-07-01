@@ -3582,7 +3582,7 @@ resizeActiveDiagonalDash: {
  modalHeader: {
  flexDirection: 'row',
  alignItems: 'center',
- marginBottom: 12,
+ marginBottom: spacing.md,
  },
  modalTitle: {
  flex: 1,

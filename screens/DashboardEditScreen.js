@@ -3388,8 +3388,8 @@ graphCardVisualSurface: {
  },
  removeBtnBottomRight: {
  position: 'absolute',
- right: 12,
- bottom: 12,
+ right: spacing.md,
+ bottom: spacing.md,
  minWidth: 42,
  height: 26,
  paddingHorizontal: 9,

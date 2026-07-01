@@ -3522,7 +3522,7 @@ resizeActiveDiagonalDash: {
  borderColor: colors.borderStrong,
 },
  emptyText: {
- paddingVertical: 24,
+ paddingVertical: spacing.xl,
  textAlign: 'center',
  fontSize: 14,
  color: colors.textTertiary,

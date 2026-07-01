@@ -216,7 +216,7 @@ const FullRangeNotificationPreview = ({ payload = {}, startDate, endDate }) => {
           while (cells.length % 7 !== 0) cells.push(null);
 
           return (
-            <View key={`${y}-${mi}`} style={{ marginBottom: 8 }}>
+            <View key={`${y}-${mi}`} style={{ marginBottom: spacing.sm }}>
               <Text style={styles.fullRangeMonthTitle}>{y}.{pad2(mi + 1)}</Text>
               <View style={styles.fullRangeWeekRow}>
                 {['일', '월', '화', '수', '목', '금', '토'].map((w, i) => (

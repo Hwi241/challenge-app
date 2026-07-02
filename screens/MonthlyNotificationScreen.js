@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   dateBadge: { fontSize: 12, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.xxs, textAlign: 'right' },
 
   chipsArea: { flexDirection:'row', flexWrap:'wrap' },
-  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 5, marginRight: spacing.xs, marginBottom:6 },
+  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 5, marginRight: spacing.xs, marginBottom: spacing.xs },
   chipText: { color: colors.textPrimary, fontSize: 11, lineHeight: 13, marginRight: 6, includeFontPadding: false },
   chipRemove: { color: colors.textTertiary, fontSize: 14, fontWeight: '800' },
 

@@ -494,7 +494,7 @@ const CELL = 48;
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, backgroundColor: colors.background },
   screenTitle: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, textAlign:'center' },
-  desc: { color: colors.textSecondary, marginTop: 4, marginBottom: spacing.md, fontSize: 12, textAlign:'center' },
+  desc: { color: colors.textSecondary, marginTop: spacing.xxs, marginBottom: spacing.md, fontSize: 12, textAlign:'center' },
 
   grid: {
     flexDirection: 'row',

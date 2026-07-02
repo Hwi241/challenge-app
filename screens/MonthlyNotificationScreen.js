@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 1, borderRightColor: colors.border,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  dateBadge: { fontSize: 12, fontWeight: '800', color: colors.textPrimary, marginBottom: 4, textAlign: 'right' },
+  dateBadge: { fontSize: 12, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.xxs, textAlign: 'right' },
 
   chipsArea: { flexDirection:'row', flexWrap:'wrap' },
   chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 5, marginRight:6, marginBottom:6 },

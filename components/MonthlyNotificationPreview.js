@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     padding: spacing.xxs,
     marginRight: spacing.xxs,
-    marginBottom: 4,
+    marginBottom: spacing.xxs,
     backgroundColor: colors.gray50,
   },
   cellEmpty: {

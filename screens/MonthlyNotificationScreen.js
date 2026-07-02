@@ -593,7 +593,7 @@ dateCirclePlaceholder: {
 
   timeChips:{ flexDirection:'row', flexWrap:'wrap', marginTop: spacing.sm },
 
-  modalActions:{ flexDirection:'row', gap: 8, marginTop: spacing.lg },
+  modalActions:{ flexDirection:'row', gap: spacing.sm, marginTop: spacing.lg },
   modalBtn:{ flex:1, alignItems:'center', paddingVertical:10, borderRadius: radius.md },
   modalBtnGhost:{ backgroundColor: colors.surfaceMuted },
   modalBtnPrimary:{ backgroundColor: colors.primary },

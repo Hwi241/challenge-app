@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gray200,
     borderRadius: radius.sm,
     padding: spacing.xxs,
-    marginRight: 4,
+    marginRight: spacing.xxs,
     marginBottom: 4,
     backgroundColor: colors.gray50,
   },

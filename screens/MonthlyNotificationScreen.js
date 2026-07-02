@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   cell: {
     width: `${100/7}%`,
     minHeight: CELL + 36,
-    padding: 6,
+    padding: spacing.xs,
     borderRightWidth: 1, borderRightColor: colors.border,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },

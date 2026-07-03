@@ -2273,7 +2273,7 @@ const styles = StyleSheet.create({
   listItemMain: {
     flex: 1,
     minWidth: 0,
-    paddingRight: 12,
+    paddingRight: spacing.md,
   },
   listItemTitle: {
     fontSize: 14,

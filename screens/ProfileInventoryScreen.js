@@ -2343,7 +2343,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: spacing.sm,
   },
   memoCancelBtn: {
     height: 38,

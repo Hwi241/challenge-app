@@ -2333,7 +2333,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 14,
-    padding: 12,
+    padding: spacing.md,
     fontSize: 14,
     color: colors.textPrimary,
     fontWeight: '600',

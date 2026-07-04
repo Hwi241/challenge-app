@@ -2347,7 +2347,7 @@ const styles = StyleSheet.create({
   },
   memoCancelBtn: {
     height: 38,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',

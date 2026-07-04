@@ -2314,7 +2314,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.textPrimary,
     fontWeight: '900',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   profileInput: {
     minHeight: 46,

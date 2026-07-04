@@ -1966,7 +1966,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: spacing.sm,
   },
   barColumn: {
     flex: 1,

@@ -1915,7 +1915,7 @@ const styles = StyleSheet.create({
   },
   infoPill: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceMuted,
   },

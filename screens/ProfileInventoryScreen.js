@@ -1896,7 +1896,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   profileInfoSub: {
-    marginTop: 6,
+    marginTop: spacing.xs,
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '700',

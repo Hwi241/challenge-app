@@ -1926,7 +1926,7 @@ const styles = StyleSheet.create({
   },
   infoPillDark: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
   },
@@ -2032,7 +2032,7 @@ const styles = StyleSheet.create({
     color: '#111',
   },
   emptyCardSubText: {
-    marginTop: 6,
+    marginTop: spacing.xs,
     fontSize: 11,
     color: colors.gray500,
     fontWeight: '700',
@@ -2073,7 +2073,7 @@ const styles = StyleSheet.create({
   heatmapHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   heatmapDayLabel: {
     flex: 1,
@@ -2133,7 +2133,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     backgroundColor: '#E5E7EB',
     overflow: 'hidden',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   goalBarFill: {
     height: '100%',

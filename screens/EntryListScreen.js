@@ -65,6 +65,7 @@ import {
 } from '../constants/widgetCatalog';
 import { getOwnedWidgets } from '../utils/widgetOwnership';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
+import { colors, radius, spacing } from '../styles/common';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

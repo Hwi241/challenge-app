@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   saveBtnText: { color: PALETTE.white, fontWeight:'800' },
 
   // modal
-  modalBackdrop: { flex:1, backgroundColor: colors.overlay, alignItems:'center', justifyContent:'center', padding: spacing.lg },
+  modalBackdrop: { flex:1, backgroundColor: PALETTE.overlay, alignItems:'center', justifyContent:'center', padding: spacing.lg },
   modalCard: { width:'100%', backgroundColor:PALETTE.white, borderRadius:radius.lg, padding:spacing.lg, borderWidth:1, borderColor:PALETTE.gray200 },
   modalTitle: { fontSize:16, fontWeight:'800', color:PALETTE.gray800, marginBottom:spacing.md, textAlign:'center' },
   modalInput: {

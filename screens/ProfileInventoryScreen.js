@@ -1888,7 +1888,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textTertiary,
     fontWeight: '800',
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   profileInfoMain: {
     fontSize: 20,

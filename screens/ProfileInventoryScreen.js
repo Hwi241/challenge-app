@@ -2044,7 +2044,7 @@ const styles = StyleSheet.create({
   },
   calendarWeekLabel: {
     width: '14.2857%',
-    marginBottom: 6,
+    marginBottom: spacing.xs,
     textAlign: 'center',
     fontSize: 10,
     color: colors.gray400,
@@ -2054,7 +2054,7 @@ const styles = StyleSheet.create({
     width: '14.2857%',
     aspectRatio: 1,
     borderRadius: 8,
-    marginBottom: 4,
+    marginBottom: spacing.xxs,
     alignItems: 'center',
     justifyContent: 'center',
   },

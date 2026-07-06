@@ -9,14 +9,14 @@ export const GRAPH_PREVIEW_DEFAULT_SIZE = 150;
 
 // ---- Color palette ----
 export const GRAPH_PREVIEW_COLORS = Object.freeze({
-  primary: '#111827',
-  secondary: '#6B7280',
-  tertiary: '#9CA3AF',
-  axis: '#D1D5DB',
-  border: '#E5E7EB',
-  backgroundStart: '#F9FAFB',
-  backgroundEnd: '#EEF2F7',
-  surface: '#F9FAFB',
+  primary: '#0A0A0A',
+  secondary: '#525252',
+  tertiary: '#737373',
+  axis: '#D4D4D4',
+  border: '#E5E5E5',
+  backgroundStart: '#FAFAFA',
+  backgroundEnd: '#F5F5F5',
+  surface: '#FFFFFF',
   white: '#FFFFFF',
 });
 
@@ -40,14 +40,14 @@ export const GRAPH_PREVIEW_METRIC_LABELS = Object.freeze({
 // ---- Frame (background card) ----
 export const GRAPH_PREVIEW_FRAME = Object.freeze({
   viewBox: GRAPH_PREVIEW_VIEW_BOX,
-  radius: 22,
+  radius: 16,
   inset: 1,
   width: 118,
   height: 118,
   borderWidth: 1.5,
-  gradientStartColor: '#F9FAFB',
-  gradientEndColor: '#EEF2F7',
-  borderColor: '#E5E7EB',
+  gradientStartColor: '#FAFAFA',
+  gradientEndColor: '#F5F5F5',
+  borderColor: '#E5E5E5',
 });
 
 // ---- Metric tag (label badge) ----
@@ -63,7 +63,7 @@ export const GRAPH_PREVIEW_METRIC_TAG = Object.freeze({
   textOffsetX: 9,
   fontSize: 7,
   fontWeight: '800',
-  fillColor: '#111827',
+  fillColor: '#0A0A0A',
   opacity: 0.92,
   textColor: '#FFFFFF',
 });

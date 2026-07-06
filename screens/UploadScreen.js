@@ -1433,6 +1433,7 @@ card: {
     borderColor: PALETTE.gray200,
     borderRadius: radius.md,
     padding: spacing.lg,
+    marginBottom: spacing.lg,
   },
   // "내용"과 "사진 넣기"를 한 줄로, 간격 살짝 줄임
   cardHeaderRow: {

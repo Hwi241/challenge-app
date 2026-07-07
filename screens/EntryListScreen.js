@@ -66,6 +66,10 @@ import {
 import { getOwnedWidgets } from '../utils/widgetOwnership';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import { colors, radius, spacing } from '../styles/common';
+import {
+  GRAPH_RENDER_GRAPH_IDS,
+  resolveGraphRenderRule,
+} from '../constants/graphRenderRules';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -1206,6 +1210,11 @@ var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(
   var config = HEALTH_LINKED_TREND_CONFIG[metricType] || {};
   var displayTitle = title || config.title || '건강 데이터';
   var emptyText = config.emptyText || '데이터가 없습니다.';
+  var healthLineRenderRule = useMemo(function() {
+    return resolveGraphRenderRule({ graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND });
+  }, []);
+  var healthLineColors = healthLineRenderRule.colors;
+  var healthLineLayout = healthLineRenderRule.layout;
   var cw = Math.max(1, box.width || 260), ch = Math.max(1, box.height || 120);
   var px = 18, tp = 18, bt = 34, uw = Math.max(1, cw-px*2), uh = Math.max(1, ch-tp-bt);
   var points = useMemo(function(){
@@ -1232,13 +1241,13 @@ var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(
           ) :
           React.createElement(View, {style:{flex:1,width:'100%'}},
             React.createElement(Svg, {width:'100%',height:'100%'},
-              React.createElement(Line, {x1:px,y1:ch-bt,x2:cw-px,y2:ch-bt,stroke:'#D1D5DB',strokeWidth:1}),
-              React.createElement(Path, {d:pathD,fill:'none',stroke:'#111111',strokeWidth:2.2,strokeLinecap:'round',strokeLinejoin:'round'}),
-              points.map(function(p,i){return React.createElement(Circle, {key:p.key+'-'+i,cx:p.x,cy:p.y,r:i===points.length-1?3.8:2.8,fill:i===points.length-1?'#111111':'#FFFFFF',stroke:'#111111',strokeWidth:1.8});})
+              React.createElement(Line, {x1:px,y1:ch-bt,x2:cw-px,y2:ch-bt,stroke:healthLineColors.axisStroke,strokeWidth:healthLineLayout.axisStrokeWidth}),
+              React.createElement(Path, {d:pathD,fill:'none',stroke:healthLineColors.lineStroke,strokeWidth:Math.max(2.2, healthLineLayout.strokeWidth),strokeLinecap:'round',strokeLinejoin:'round'}),
+              points.map(function(p,i){return React.createElement(Circle, {key:p.key+'-'+i,cx:p.x,cy:p.y,r:i===points.length-1?healthLineLayout.selectedMarkerRadius:Math.max(2.8, healthLineLayout.markerRadius-0.4),fill:i===points.length-1?healthLineColors.markerStroke:healthLineColors.markerFill,stroke:healthLineColors.markerStroke,strokeWidth:Math.max(1.8, healthLineLayout.markerStrokeWidth||1.8)});})
             ),
             React.createElement(View, {pointerEvents:'none',style:{position:'absolute',left:8,right:8,bottom:2,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}},
-              React.createElement(Text, {numberOfLines:1,style:{color:'#9CA3AF',fontSize:10,fontWeight:'700'}}, series.length+'일'),
-              React.createElement(Text, {numberOfLines:1,style:{color:'#111111',fontSize:11,fontWeight:'900'}}, latest ? fmtHV(metricType, latest.value) : ('0'+unit))
+              React.createElement(Text, {numberOfLines:1,style:{color:healthLineColors.labelText,fontSize:10,fontWeight:'700'}}, series.length+'일'),
+              React.createElement(Text, {numberOfLines:1,style:{color:healthLineColors.lineStroke,fontSize:11,fontWeight:'900'}}, latest ? fmtHV(metricType, latest.value) : ('0'+unit))
             )
           )
       )
@@ -1265,6 +1274,7 @@ const LineGradientChart = memo(function LineGradientChart({
   plotBottomInset=42,
   scaleLayout=false,
   layoutBaseHeight=185,
+  graphId=null,
 }){
   const lineBaseHeight = Math.max(1, Number(layoutBaseHeight) || 185);
   const lineScaleRaw = (Math.max(1, Number(height) || 185)) / lineBaseHeight;
@@ -1274,35 +1284,47 @@ const LineGradientChart = memo(function LineGradientChart({
     return Math.max(min, Math.min(max, scaled));
   };
 
+  const resolvedLineGraphId = graphId || (
+    metric === 'minutes'
+      ? GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES
+      : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE
+  );
+  const lineRenderRule = useMemo(
+    () => resolveGraphRenderRule({ graphId: resolvedLineGraphId }),
+    [resolvedLineGraphId]
+  );
+  const lineRenderColors = lineRenderRule.colors;
+  const lineRenderLayout = lineRenderRule.layout;
+
   const axisInset = Math.max(0, Number(plotInset) || 0);
 
-  const EDGE_DEFAULT_MARKER_R = scaleLine(3.2, 2.6, 4.8);
-  const EDGE_DEFAULT_MARKER_STROKE_W = scaleLine(2, 1.6, 3);
-  const SELECTED_MARKER_R = scaleLine(3.8, 3, 5.4);
-  const SELECTED_MARKER_STROKE_W = scaleLine(2.1, 1.7, 3.2);
-  const LINE_STROKE_W = scaleLine(1.6, 1.2, 2.4);
-  const LINE_AXIS_STROKE_W = scaleLine(1, 0.8, 1.5);
-  const LINE_AREA_GAP = scaleLine(6, 4, 10);
+  const EDGE_DEFAULT_MARKER_R = scaleLine(lineRenderLayout.markerRadius, 2.6, 4.8);
+  const EDGE_DEFAULT_MARKER_STROKE_W = scaleLine(lineRenderLayout.markerStrokeWidth, 1.6, 3);
+  const SELECTED_MARKER_R = scaleLine(lineRenderLayout.selectedMarkerRadius, 3, 5.4);
+  const SELECTED_MARKER_STROKE_W = scaleLine(lineRenderLayout.selectedMarkerStrokeWidth, 1.7, 3.2);
+  const LINE_STROKE_W = scaleLine(lineRenderLayout.strokeWidth, 1.2, 2.4);
+  const LINE_AXIS_STROKE_W = scaleLine(lineRenderLayout.axisStrokeWidth, 0.8, 1.5);
+  const LINE_AREA_GAP = scaleLine(lineRenderLayout.areaGap, 4, 10);
 
-  const LINE_AXIS_LABEL_FONT_SIZE = scaleLine(10, 8, 10.8);
-  const LINE_AXIS_LABEL_Y_OFFSET = scaleLine(16, 12, 22);
+  const LINE_AXIS_LABEL_FONT_SIZE = scaleLine(lineRenderLayout.axisLabelFontSize, 8, 10.8);
+  const LINE_AXIS_LABEL_Y_OFFSET = scaleLine(lineRenderLayout.axisLabelYOffset, 12, 22);
 
-  const LINE_LABEL_FONT_SIZE = scaleLine(10, 8, 10.8);
-  const LINE_LABEL_H = Math.round(scaleLine(18, 15, 20));
-  const LINE_LABEL_RX = scaleLine(6, 4, 8);
-  const LINE_LABEL_BOTTOM_PAD = scaleLine(6, 5, 8);
+  const LINE_LABEL_FONT_SIZE = scaleLine(lineRenderLayout.tooltipFontSize, 8, 10.8);
+  const LINE_LABEL_H = Math.round(scaleLine(lineRenderLayout.tooltipHeight, 15, 20));
+  const LINE_LABEL_RX = scaleLine(lineRenderLayout.tooltipRadius, 4, 8);
+  const LINE_LABEL_BOTTOM_PAD = scaleLine(lineRenderLayout.tooltipBottomPad, 5, 8);
 
-  const LINE_LABEL_CHAR_W = scaleLine(5.5, 4.6, 7.2);
-  const LINE_LABEL_W_PAD = scaleLine(10, 8, 16);
-  const LINE_LABEL_MIN_W = scaleLine(70, 58, 96);
-  const LINE_LABEL_MAX_W = scaleLine(130, 110, 170);
-  const LINE_LABEL_GAP = Math.round(scaleLine(8, 4, 12));
-  const LINE_LABEL_END_GAP = Math.round(scaleLine(10, 4, 14));
+  const LINE_LABEL_CHAR_W = scaleLine(lineRenderLayout.tooltipCharWidth, 4.6, 7.2);
+  const LINE_LABEL_W_PAD = scaleLine(lineRenderLayout.tooltipWidthPad, 8, 16);
+  const LINE_LABEL_MIN_W = scaleLine(lineRenderLayout.tooltipMinWidth, 58, 96);
+  const LINE_LABEL_MAX_W = scaleLine(lineRenderLayout.tooltipMaxWidth, 110, 170);
+  const LINE_LABEL_GAP = Math.round(scaleLine(lineRenderLayout.tooltipGap, 4, 12));
+  const LINE_LABEL_END_GAP = Math.round(scaleLine(lineRenderLayout.tooltipEndGap, 4, 14));
 
-  const LINE_PAGER_DOT_R = scaleLine(4, 3, 6);
-  const LINE_PAGER_DOT_Y_OFFSET = scaleLine(14, 10, 22);
-  const LINE_PAGER_DOT_X_GAP = scaleLine(10, 8, 16);
-  const LINE_TOUCH_RADIUS = scaleLine(16, 12, 22);
+  const LINE_PAGER_DOT_R = scaleLine(lineRenderLayout.pagerDotRadius, 3, 6);
+  const LINE_PAGER_DOT_Y_OFFSET = scaleLine(lineRenderLayout.pagerDotYOffset, 10, 22);
+  const LINE_PAGER_DOT_X_GAP = scaleLine(lineRenderLayout.pagerDotXGap, 8, 16);
+  const LINE_TOUCH_RADIUS = scaleLine(lineRenderLayout.touchRadius, 12, 22);
 
   const autoPointSafeInset = EDGE_DEFAULT_MARKER_R + EDGE_DEFAULT_MARKER_STROKE_W / 2;
   const pointSafeInset = Math.max(
@@ -1495,8 +1517,11 @@ const safeNodePts = useMemo(() => {
   useEffect(()=>{ setSelectedIdx(null); }, [entries, metric]);
 
   const labelDims = (txt='')=>{
-    const w = Math.max(70, Math.min(130, 10 + txt.length * 5.5));
-    return { w, h:18 };
+    const w = Math.max(
+      LINE_LABEL_MIN_W,
+      Math.min(LINE_LABEL_MAX_W, LINE_LABEL_W_PAD + txt.length * LINE_LABEL_CHAR_W)
+    );
+    return { w, h: LINE_LABEL_H };
   };
 
   const placeLabel = (p, text, isEnd=false)=>{
@@ -1586,38 +1611,38 @@ const safeNodePts = useMemo(() => {
 
         <Defs>
           <LinearGradient id={`grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={progressGrey} stopOpacity="0.85"/>
-            <Stop offset="100%" stopColor={progressGrey} stopOpacity="0"/>
+            <Stop offset="0%" stopColor={lineRenderColors.axisStroke} stopOpacity="0.85"/>
+            <Stop offset="100%" stopColor={lineRenderColors.axisStroke} stopOpacity="0"/>
           </LinearGradient>
         </Defs>
 
         {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} />}
-        {!!pts.length && <Path d={pathD} fill="none" stroke={baseBlack} strokeWidth={LINE_STROKE_W} />}
+        {!!pts.length && <Path d={pathD} fill="none" stroke={lineRenderColors.lineStroke} strokeWidth={LINE_STROKE_W} />}
 
         {/* X축 */}
-        <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={progressGrey} strokeWidth={LINE_AXIS_STROKE_W} />
+        <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={lineRenderColors.axisStroke} strokeWidth={LINE_AXIS_STROKE_W} />
 
         {/* 좌/우 라벨 */}
-        <SvgText x={left+4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={textGrey} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="start">
+        <SvgText x={left+4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={lineRenderColors.labelText} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="start">
           {`${String(new Date(start).getFullYear()).slice(2)}-${pad2(new Date(start).getMonth()+1)}-${pad2(new Date(start).getDate())}`}
         </SvgText>
-        <SvgText x={left+cw-4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={textGrey} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="end">
+        <SvgText x={left+cw-4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={lineRenderColors.labelText} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="end">
           {`Today ${String((new Date()).getFullYear()).slice(2)}-${pad2((new Date()).getMonth()+1)}-${pad2((new Date()).getDate())}`}
         </SvgText>
 
         {/* 마커/라벨 */}
         {!selPoint && safeEndNode && (
-          <Circle cx={safeEndNode.x} cy={safeEndNode.y} r={EDGE_DEFAULT_MARKER_R} fill="#fff" stroke={baseBlack} strokeWidth={EDGE_DEFAULT_MARKER_STROKE_W}/>
+          <Circle cx={safeEndNode.x} cy={safeEndNode.y} r={EDGE_DEFAULT_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={EDGE_DEFAULT_MARKER_STROKE_W}/>
         )}
         {selPoint && (
-          <Circle cx={selPoint.x} cy={selPoint.y} r={SELECTED_MARKER_R} fill="#fff" stroke={baseBlack} strokeWidth={SELECTED_MARKER_STROKE_W}/>
+          <Circle cx={selPoint.x} cy={selPoint.y} r={SELECTED_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={SELECTED_MARKER_STROKE_W}/>
         )}
         {selPoint && selectedLabel && (() => {
           const pos = placeLabel(selPoint, selectedLabel, selectedIdx === series.length - 1);
           return (
             <>
-              <Rect x={pos.lx} y={pos.ly} width={pos.w} height={pos.h} rx={6} fill="#111"/>
-              <SvgText x={pos.lx + pos.w/2} y={pos.ly + pos.h - 6} fill="#fff" fontSize={10} fontWeight="700" textAnchor="middle">
+              <Rect x={pos.lx} y={pos.ly} width={pos.w} height={pos.h} rx={LINE_LABEL_RX} fill={lineRenderColors.tooltipFill}/>
+              <SvgText x={pos.lx + pos.w/2} y={pos.ly + pos.h - 6} fill={lineRenderColors.tooltipText} fontSize={LINE_LABEL_FONT_SIZE} fontWeight="700" textAnchor="middle">
                 {selectedLabel}
               </SvgText>
             </>
@@ -1627,8 +1652,8 @@ const safeNodePts = useMemo(() => {
           const pos = placeLabel(safeEndNode, defaultLabel, true);
           return (
             <>
-              <Rect x={pos.lx} y={pos.ly} width={pos.w} height={pos.h} rx={6} fill="#111"/>
-              <SvgText x={pos.lx + pos.w/2} y={pos.ly + pos.h - 6} fill="#fff" fontSize={10} fontWeight="700" textAnchor="middle">
+              <Rect x={pos.lx} y={pos.ly} width={pos.w} height={pos.h} rx={LINE_LABEL_RX} fill={lineRenderColors.tooltipFill}/>
+              <SvgText x={pos.lx + pos.w/2} y={pos.ly + pos.h - 6} fill={lineRenderColors.tooltipText} fontSize={LINE_LABEL_FONT_SIZE} fontWeight="700" textAnchor="middle">
                 {defaultLabel}
               </SvgText>
             </>
@@ -1638,8 +1663,8 @@ const safeNodePts = useMemo(() => {
         {/* 내장 페이저 점 */}
         {showPager && (
         <>
-        <Circle cx={dotCx1} cy={dotCy} r={LINE_PAGER_DOT_R} fill={pagerIndex===0 ? '#111' : '#D1D5DB'} />
-        <Circle cx={dotCx2} cy={dotCy} r={LINE_PAGER_DOT_R} fill={pagerIndex===1 ? '#111' : '#D1D5DB'} />
+        <Circle cx={dotCx1} cy={dotCy} r={LINE_PAGER_DOT_R} fill={pagerIndex===0 ? lineRenderColors.pagerActive : lineRenderColors.pagerInactive} />
+        <Circle cx={dotCx2} cy={dotCy} r={LINE_PAGER_DOT_R} fill={pagerIndex===1 ? lineRenderColors.pagerActive : lineRenderColors.pagerInactive} />
         </>
         )}
       </Svg>
@@ -1691,6 +1716,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             startDate={startDate}
             entries={entries}
             metric="count"         // 누적 그래프
+            graphId={GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE}
             width={pageW-4}
             height={185}
             introProgress={introProgress}
@@ -1704,6 +1730,7 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
             startDate={startDate}
             entries={entries}
             metric="minutes"
+            graphId={GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES}
             width={pageW-4}
             height={185}
             introProgress={introProgress}
@@ -1742,8 +1769,17 @@ const DashboardLineChart = memo(function DashboardLineChart({
 
   const chartWidth = Math.max(1, chartBox.width);
   const chartHeight = Math.max(1, chartBox.height);
-  const DASHBOARD_LINE_PLOT_TOP = 10;
-  const DASHBOARD_LINE_PLOT_BOTTOM = 30;
+  const lineDashboardRule = useMemo(
+    () => resolveGraphRenderRule({
+      graphId: metric === 'minutes'
+        ? GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES
+        : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE,
+    }),
+    [metric]
+  );
+  const DASHBOARD_LINE_PLOT_TOP = lineDashboardRule.layout.dashboardPlotTop;
+  const DASHBOARD_LINE_PLOT_BOTTOM = lineDashboardRule.layout.dashboardPlotBottom;
+  const DASHBOARD_LINE_BASE_HEIGHT = lineDashboardRule.layout.dashboardBaseHeight;
 
   return (
     <View style={styles.lineWidgetArea} onLayout={onLayout}>
@@ -1762,7 +1798,8 @@ const DashboardLineChart = memo(function DashboardLineChart({
           plotTopInset={DASHBOARD_LINE_PLOT_TOP}
           plotBottomInset={DASHBOARD_LINE_PLOT_BOTTOM}
           scaleLayout
-          layoutBaseHeight={168}
+          graphId={metric === 'minutes' ? GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE}
+          layoutBaseHeight={DASHBOARD_LINE_BASE_HEIGHT}
         />
       ) : (
         <View style={{ flex: 1, width: '100%' }} />

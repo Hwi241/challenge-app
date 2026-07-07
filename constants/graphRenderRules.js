@@ -12,6 +12,8 @@ export const GRAPH_RENDER_GRAPH_IDS = Object.freeze({
   LINE_COUNT_CUMULATIVE: 'line_count_cumulative',
   LINE_MINUTES: 'line_minutes',
   GRASS_GRAPH: 'grass_graph',
+  HEALTH_STEPS_WEEKLY: 'health_steps_weekly',
+  HEALTH_STEPS_TREND: 'health_steps_trend',
 });
 
 export const GRAPH_RENDER_FAMILIES = Object.freeze({
@@ -29,6 +31,29 @@ export const GRAPH_RENDER_GRAPH_FAMILY_BY_ID = Object.freeze({
   [GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE]: GRAPH_RENDER_FAMILIES.LINE,
   [GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES]: GRAPH_RENDER_FAMILIES.LINE,
   [GRAPH_RENDER_GRAPH_IDS.GRASS_GRAPH]: GRAPH_RENDER_FAMILIES.GRASS,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY]: GRAPH_RENDER_FAMILIES.WEEKLY_BAR,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+});
+
+export const GRAPH_RENDER_DEFAULT_FAMILY = GRAPH_RENDER_FAMILIES.LINE;
+
+export const GRAPH_RENDER_UNKNOWN_GRAPH_ID_BEHAVIOR = Object.freeze({
+  fallbackFamily: GRAPH_RENDER_DEFAULT_FAMILY,
+  shouldWarnInDevelopment: true,
+  reason: 'Unknown graphId falls back to the line family until it is explicitly mapped or a new family is created.',
+});
+
+export const GRAPH_RENDER_FAMILY_EXTENSION_REQUIREMENTS = Object.freeze([
+  'GRAPH_RENDER_FAMILIES',
+  'GRAPH_RENDER_GRAPH_FAMILY_BY_ID',
+  'GRAPH_RENDER_EDITABLE_COLOR_SLOTS',
+  'GRAPH_RENDER_LAYOUT_RULES',
+  'GRAPH_RENDER_INTERNAL_COLOR_MAP',
+]);
+
+export const GRAPH_RENDER_NEW_GRAPH_DECISION_RULES = Object.freeze({
+  reuseExistingFamily: 'If the new graph shares geometry, interaction, data shape, and editable color slots with an existing family, only add graphId mapping.',
+  createNewFamily: 'If the new graph needs different geometry, different interaction, different data shape, or different editable color slots, create a new family.',
 });
 
 export const GRAPH_RENDER_COLOR_ROLES = Object.freeze({
@@ -276,8 +301,30 @@ function cleanColor(value) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function getGraphRenderFamilyForGraphId(graphId) {
+export function getExplicitGraphRenderFamilyForGraphId(graphId) {
   return GRAPH_RENDER_GRAPH_FAMILY_BY_ID[graphId] || null;
+}
+
+export function isKnownGraphRenderGraphId(graphId) {
+  return !!getExplicitGraphRenderFamilyForGraphId(graphId);
+}
+
+export function getGraphRenderFamilyForGraphId(graphId) {
+  return getExplicitGraphRenderFamilyForGraphId(graphId) || GRAPH_RENDER_DEFAULT_FAMILY;
+}
+
+export function shouldCreateNewGraphRenderFamily({
+  requiresDifferentGeometry = false,
+  requiresDifferentColorSlots = false,
+  requiresDifferentInteraction = false,
+  requiresDifferentDataShape = false,
+} = {}) {
+  return Boolean(
+    requiresDifferentGeometry ||
+    requiresDifferentColorSlots ||
+    requiresDifferentInteraction ||
+    requiresDifferentDataShape
+  );
 }
 
 export function getGraphRenderEditableColorSlots(family) {

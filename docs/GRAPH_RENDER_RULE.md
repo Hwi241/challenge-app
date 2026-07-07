@@ -43,24 +43,31 @@ docs/GRAPH_RENDER_RULE.md
 
 ## 3. 1차 기준 대상 그래프
 
-1차 기준 대상은 현재 실제 대시보드에서 사용하는 아래 5종이다.
+1차 기준 대상은 현재 실제 대시보드에서 사용하는 graph family 5종이다. 실제 graphId는 이 family 중 하나에 매핑한다.
 
 - overall_progress
-  = 전체 진행률
+  = overallProgress family
 
 - month_calendar
-  = 달력
+  = calendar family
 
 - weekly_bar
-  = 주간 막대그래프
+  = weeklyBar family
 
-- line_count_cumulative / line_minutes
-  = 선형그래프
+- line_count_cumulative
+line_minutes
+health_steps_trend
+  = line family
 
 - grass_graph
-  = 잔디그래프
+  = grass family
 
-Health Connect 그래프와 기록실 그래프는 이후 단계에서 이 기준을 확장해 적용한다.
+- health_steps_weekly
+  = weeklyBar family
+
+즉, 기준은 5개 그래프만을 위한 것이 아니라 현재와 미래의 graphId를 family에 태우기 위한 분류 체계다.
+
+현재 확인된 Health Connect 그래프 중 health_steps_weekly, health_steps_trend도 1차 매핑에 포함한다.
 
 ---
 
@@ -572,17 +579,60 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
 
 ---
 
-## 14. 적용 순서
+## 14. 새 그래프와 새 family 확장 기준
+
+그래프 종류는 계속 늘어날 수 있다.
+
+새 그래프가 생기면 먼저 기존 family로 표현 가능한지 판단한다.
+
+1. 기존 family로 표현 가능한 그래프인가?
+ = 기존 family에 graphId만 매핑한다.
+
+2. 기존 family로 표현하면 억지인가?
+ = 새 family를 만든다.
+
+3. 새 family를 만들면 아래 기준을 반드시 함께 추가한다.
+ - GRAPH_RENDER_FAMILIES
+ - GRAPH_RENDER_GRAPH_FAMILY_BY_ID
+ - GRAPH_RENDER_EDITABLE_COLOR_SLOTS
+ - GRAPH_RENDER_LAYOUT_RULES
+ - GRAPH_RENDER_INTERNAL_COLOR_MAP
+
+기존 family를 재사용하는 예:
+
+- health_steps_trend = line family
+- health_steps_weekly = weeklyBar family
+- 새로운 월별 추이 그래프 = line family
+- 새로운 주간 비교 막대 그래프 = weeklyBar 또는 bar 계열 family
+
+새 family가 필요한 예:
+
+- 카테고리 비율 원형 그래프 = pie 또는 donut family 필요 가능
+- 분포 그래프 = distribution family 필요 가능
+- 목표별 비교형 가로 막대 그래프 = compareBar family 필요 가능
+- 네트워크 관계 그래프 = network family 필요 가능
+
+알 수 없는 graphId가 들어오면 기본 fallback은 line family로 둔다.
+
+단, fallback은 임시 안전장치다.
+
+새 그래프가 실제 상품으로 등록되면 반드시 명시적으로 GRAPH_RENDER_GRAPH_FAMILY_BY_ID에 매핑해야 한다.
+
+---
+
+## 15. 적용 순서
 
 안전한 적용 순서는 아래와 같다.
 
-- 669-1 = 이 문서 생성
+- 669-1 = GRAPH_RENDER_RULE 문서 생성
 - 669-2 = constants/graphRenderRules.js 생성 (아직 화면 연결 없음)
-- 669-3 = 선형그래프 기준 연결 (LineGradientChart부터 적용)
-- 669-4 = 주간막대그래프 기준 연결
-- 669-5 = 잔디그래프 기준 연결
-- 669-6 = 달력 기준 연결
-- 669-7 = 전체 진행률 기준 연결
+- 669-3 = 문서와 기준 JS 커밋/푸시
+- 669-4 = 새 그래프/family 확장 규칙 보강 (현재 추가 graphId 매핑, 아직 화면 연결 없음)
+- 669-5 = 선형그래프 family 기준 연결 (line_count_cumulative / line_minutes / health_steps_trend 계열)
+- 669-6 = 주간막대 family 기준 연결 (weekly_bar / health_steps_weekly 계열)
+- 669-7 = 잔디그래프 기준 연결
+- 669-8 = 달력 기준 연결
+- 669-9 = 전체 진행률 기준 연결
 
 원칙:
 
@@ -594,9 +644,13 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
 
 4. 하지만 모든 기준 이름은 미래 커스텀 기능에서 그대로 재사용할 수 있게 만든다.
 
+5. 새 그래프가 늘어나면 기존 family 재사용 가능 여부를 먼저 판단한다.
+
+6. 새 family가 필요하면 색상 슬롯, 레이아웃, 내부 색상 매핑을 세트로 추가한다.
+
 ---
 
-## 15. 금지 기준
+## 16. 금지 기준
 
 아래 방식은 금지한다.
 
@@ -609,7 +663,7 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
 
 ---
 
-## 16. 다음 작업자가 먼저 읽어야 할 파일
+## 17. 다음 작업자가 먼저 읽어야 할 파일
 
 실제 그래프 기준 작업자는 아래 순서로 읽는다.
 

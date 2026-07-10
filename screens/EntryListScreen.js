@@ -814,7 +814,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
 
 /* ───────── 달력 ───────── */
 const MonthCalendar = memo(function MonthCalendar({
-  startDate, endDate, entriesByDaySet, onPrev, onNext, monthDate, canPrev, canNext, highlightDate = null,
+  startDate, endDate, entriesByDaySet, onPrev, onNext, monthDate, canPrev, canNext, highlightDate = null, graphId = GRAPH_RENDER_GRAPH_IDS.MONTH_CALENDAR,
 }) {
   const [calendarBox, setCalendarBox] = useState({ width: 0, height: 0 });
 
@@ -830,6 +830,13 @@ const MonthCalendar = memo(function MonthCalendar({
     }
   }, []);
 
+  const calendarRenderRule = useMemo(
+    () => resolveGraphRenderRule({ graphId }),
+    [graphId]
+  );
+  const calendarRenderColors = calendarRenderRule.colors;
+  const calendarRenderLayout = calendarRenderRule.layout;
+
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const first = new Date(year, month, 1);
@@ -841,7 +848,7 @@ const MonthCalendar = memo(function MonthCalendar({
 
   const calendarRows = Math.max(1, Math.ceil(cells.length / 7));
 
-  const CALENDAR_BODY_BASE_HEIGHT = 142;
+  const CALENDAR_BODY_BASE_HEIGHT = calendarRenderLayout.bodyBaseHeight;
   const calendarBodyHeight = Math.max(1, calendarBox.height || CALENDAR_BODY_BASE_HEIGHT);
   const CALENDAR_SCALE_RAW = calendarBodyHeight / CALENDAR_BODY_BASE_HEIGHT;
   const CALENDAR_SCALE = Math.max(0.75, Math.min(1.45, CALENDAR_SCALE_RAW));
@@ -850,42 +857,42 @@ const MonthCalendar = memo(function MonthCalendar({
     return Math.max(min, Math.min(max, scaled));
   };
 
-  const CAL_DOW_H = Math.round(scaleCal(14, 11, 20));
-  const CAL_GRID_TOP_GAP = Math.round(scaleCal(3, 2, 7));
-  const CAL_BOTTOM_PAD = Math.round(scaleCal(4, 3, 8));
-  const CAL_CELL_MARGIN_V = scaleCal(1, 0.5, 2);
+  const CAL_DOW_H = Math.round(scaleCal(calendarRenderLayout.dowHeight, 11, 20));
+  const CAL_GRID_TOP_GAP = Math.round(scaleCal(calendarRenderLayout.gridTopGap, 2, 7));
+  const CAL_BOTTOM_PAD = Math.round(scaleCal(calendarRenderLayout.bottomPad, 3, 8));
+  const CAL_CELL_MARGIN_V = scaleCal(calendarRenderLayout.cellMarginV, 0.5, 2);
 
   const availableCalendarH = Math.max(
     1,
     calendarBodyHeight - CAL_DOW_H - CAL_GRID_TOP_GAP - CAL_BOTTOM_PAD
   );
   const calCellOuterH = Math.max(
-    8,
+    calendarRenderLayout.cellOuterMinHeight,
     Math.floor(availableCalendarH / calendarRows)
   );
   const calCellH = Math.max(
-    8,
+    calendarRenderLayout.cellHeightMin,
     calCellOuterH - CAL_CELL_MARGIN_V * 2
   );
   const calCellFontSize = Math.max(
-    scaleCal(10.1, 9.7, 11.4),
-    Math.min(scaleCal(11.8, 10.2, 11.5), calCellH * 0.72)
+    scaleCal(calendarRenderLayout.cellFontBase, calendarRenderLayout.cellFontMin, calendarRenderLayout.cellFontMax),
+    Math.min(scaleCal(calendarRenderLayout.cellFontUpperBase, calendarRenderLayout.cellFontUpperMin, calendarRenderLayout.cellFontUpperMax), calCellH * 0.72)
   );
   const calBadgeFontSize = Math.max(
-    scaleCal(9.2, 8.9, 10.3),
-    Math.min(scaleCal(11, 9.5, 10.8), calCellH * 0.68)
+    scaleCal(calendarRenderLayout.badgeFontBase, calendarRenderLayout.badgeFontMin, calendarRenderLayout.badgeFontMax),
+    Math.min(scaleCal(calendarRenderLayout.badgeFontUpperBase, calendarRenderLayout.badgeFontUpperMin, calendarRenderLayout.badgeFontUpperMax), calCellH * 0.68)
   );
   const calTodayFontSize = Math.min(
-    scaleCal(12.2, 10.8, 11.8),
+    scaleCal(calendarRenderLayout.todayFontBase || 12.2, 10.8, 11.8),
     calCellFontSize + scaleCal(0.6, 0.4, 0.6)
   );
   const calBadgeMinWidth = Math.max(
-    scaleCal(14, 12, 17),
-    Math.min(scaleCal(18.2, 15, 25), calCellH * 1.02)
+    scaleCal(calendarRenderLayout.badgeMinWidthBase, calendarRenderLayout.badgeMinWidthMin, calendarRenderLayout.badgeMinWidthMax),
+    Math.min(scaleCal(calendarRenderLayout.badgeMinWidthUpperBase, calendarRenderLayout.badgeMinWidthUpperMin, calendarRenderLayout.badgeMinWidthUpperMax), calCellH * 1.02)
   );
   const calBadgePaddingV = calCellH <= scaleCal(12, 10, 16)
     ? 0
-    : Math.round(scaleCal(1.2, 1, 2.2));
+    : Math.round(scaleCal(calendarRenderLayout.badgePaddingVBase, calendarRenderLayout.badgePaddingVMin, calendarRenderLayout.badgePaddingVMax));
 
   const calCellDynamicStyle = {
     height: calCellH,
@@ -894,26 +901,26 @@ const MonthCalendar = memo(function MonthCalendar({
 
   const calCellTextDynamicStyle = {
     fontSize: calCellFontSize,
-    lineHeight: calCellFontSize + scaleCal(2, 1.5, 4),
+    lineHeight: calCellFontSize + scaleCal(calendarRenderLayout.cellLineGap, 1.5, 4),
     includeFontPadding: false,
   };
 
   const calBadgeDynamicStyle = {
     minWidth: calBadgeMinWidth,
     paddingVertical: calBadgePaddingV,
-    borderRadius: scaleCal(8, 6, 12),
+    borderRadius: scaleCal(calendarRenderLayout.badgeRadius, 6, 12),
   };
 
   const calBadgeTextDynamicStyle = {
     fontSize: calBadgeFontSize,
-    lineHeight: calBadgeFontSize + scaleCal(2, 1.5, 4),
+    lineHeight: calBadgeFontSize + scaleCal(calendarRenderLayout.badgeLineGap, 1.5, 4),
     includeFontPadding: false,
   };
 
-  const isCompactCalendar = CALENDAR_SCALE <= 0.85;
+  const isCompactCalendar = CALENDAR_SCALE <= calendarRenderLayout.compactScaleThreshold;
   const compactCertBadgeHeight = Math.max(
     calBadgeFontSize + scaleCal(5.2, 4.6, 6.2),
-    Math.min(calCellH - scaleCal(1.2, 0.8, 1.6), scaleCal(18, 16, 20))
+    Math.min(calCellH - scaleCal(1.2, 0.8, 1.6), scaleCal(calendarRenderLayout.compactBadgeHeightBase || 18, 16, 20))
   );
 
   const compactCertBadgeAdjustStyle = isCompactCalendar
@@ -931,7 +938,7 @@ const MonthCalendar = memo(function MonthCalendar({
     ? {
         lineHeight: compactCertBadgeHeight,
         textAlignVertical: 'center',
-        transform: [{ translateY: scaleCal(0.7, 0.5, 1) }],
+        transform: [{ translateY: scaleCal(calendarRenderLayout.compactBadgeTextTranslateY, 0.5, 1) }],
       }
     : null;
 
@@ -968,7 +975,7 @@ const MonthCalendar = memo(function MonthCalendar({
               {
                 height: CAL_DOW_H,
                 lineHeight: CAL_DOW_H,
-                fontSize: scaleCal(10.5, 9.5, 13),
+                fontSize: scaleCal(calendarRenderLayout.dowFontSize, 9.5, 13),
                 includeFontPadding: false,
               },
             ]}
@@ -991,22 +998,22 @@ const MonthCalendar = memo(function MonthCalendar({
             const cert = isCert(d);
             const isHighlight = highlightDate === keyOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
             const isToday = d.toDateString() === today.toDateString();
-            let cellColor = '#D1D5DB';
+            let cellColor = calendarRenderColors.emptyDay;
             if (ranged) {
-              if (isFuture) cellColor = '#777777';
-              else cellColor = '#111111';
+              if (isFuture) cellColor = calendarRenderColors.futureDay;
+              else cellColor = calendarRenderColors.activeDateText;
             }
 
             if (cert || isToday) {
               const todayUncertifiedBadgeStyle = isToday && !cert
                 ? {
-                    backgroundColor: '#D1D5DB',
+                    backgroundColor: calendarRenderColors.todayFill,
                   }
                 : null;
 
               const todayBadgeTextStyle = isToday
                 ? {
-                    color: cert ? '#FFFFFF' : '#000000',
+                    color: cert ? calendarRenderColors.certifiedText : calendarRenderColors.todayText,
                     fontWeight: '900',
                     fontSize: calTodayFontSize,
                     lineHeight: calTodayFontSize + scaleCal(2, 1.5, 4),
@@ -1015,8 +1022,8 @@ const MonthCalendar = memo(function MonthCalendar({
 
               return (
                 <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
-                  <View style={[styles.calBadge, calBadgeDynamicStyle, compactCertBadgeAdjustStyle, todayUncertifiedBadgeStyle, isHighlight && { borderWidth: 2, borderColor: '#FFD700' }]}>
-                    <Text style={[styles.calBadgeText, calBadgeTextDynamicStyle, compactCertBadgeTextCenterStyle, todayBadgeTextStyle]}>{d.getDate()}</Text>
+                  <View style={[styles.calBadge, { backgroundColor: calendarRenderColors.certifiedFill }, calBadgeDynamicStyle, compactCertBadgeAdjustStyle, todayUncertifiedBadgeStyle, isHighlight && { borderWidth: calendarRenderLayout.highlightBorderWidth, borderColor: calendarRenderColors.highlightBorder }]}>
+                    <Text style={[styles.calBadgeText, { color: calendarRenderColors.certifiedText }, calBadgeTextDynamicStyle, compactCertBadgeTextCenterStyle, todayBadgeTextStyle]}>{d.getDate()}</Text>
                   </View>
                 </View>
               );
@@ -1024,7 +1031,7 @@ const MonthCalendar = memo(function MonthCalendar({
 
             return (
               <View key={`d${idx}`} style={[styles.calCell, calCellDynamicStyle]}>
-                <Text style={[styles.calCellText, calCellTextDynamicStyle, { color: cellColor }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline' }]}>
+                <Text style={[styles.calCellText, calCellTextDynamicStyle, { color: cellColor }, isHighlight && { fontWeight: '900', textDecorationLine: 'underline', textDecorationColor: calendarRenderColors.highlightBorder }]}>
                   {d.getDate()}
                 </Text>
               </View>
@@ -3316,6 +3323,7 @@ export default function EntryListScreen({ route, navigation }) {
               endDate={meta.endDate || new Date()}
               entriesByDaySet={entriesByDaySet}
               monthDate={monthDate}
+              graphId={GRAPH_RENDER_GRAPH_IDS.MONTH_CALENDAR}
               onPrev={isShare ? undefined : prevMonth}
               onNext={isShare ? undefined : nextMonth}
               canPrev={isShare ? false : canPrevMonth}

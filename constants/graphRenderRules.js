@@ -67,6 +67,13 @@ export const GRAPH_RENDER_COLOR_ROLES = Object.freeze({
   empty: '#FAFAFA',
   inverse: '#FFFFFF',
   highlight: '#0A0A0A',
+  grassLevel0: '#F3F4F6',
+  grassLevel1: '#E5E7EB',
+  grassLevel2: '#A0A0A0',
+  grassLevel3: '#555555',
+  grassLevel4: '#111111',
+  grassMonthLabel: '#6B7280',
+  grassArrow: '#111111',
 });
 
 export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
@@ -158,25 +165,40 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
   }),
 
   [GRAPH_RENDER_FAMILIES.GRASS]: Object.freeze({
-    base: Object.freeze({
-      label: '기록 색',
-      defaultRole: 'primary',
-      description: '잔디그래프에서 가장 강한 기록 단계 색입니다.',
-    }),
-    empty: Object.freeze({
+    level0: Object.freeze({
       label: '빈 칸',
-      defaultRole: 'track',
-      description: '기록이 없거나 가장 약한 칸의 색입니다.',
+      defaultRole: 'grassLevel0',
+      description: '잔디그래프의 범위 밖 또는 가장 약한 빈 칸 색입니다.',
     }),
-    text: Object.freeze({
+    level1: Object.freeze({
+      label: '약한 칸',
+      defaultRole: 'grassLevel1',
+      description: '잔디그래프에서 기록이 없거나 미래 날짜에 쓰는 약한 칸 색입니다.',
+    }),
+    level2: Object.freeze({
+      label: '기록 1단계',
+      defaultRole: 'grassLevel2',
+      description: '잔디그래프의 첫 번째 기록 단계 색입니다.',
+    }),
+    level3: Object.freeze({
+      label: '기록 2단계',
+      defaultRole: 'grassLevel3',
+      description: '잔디그래프의 두 번째 기록 단계 색입니다.',
+    }),
+    level4: Object.freeze({
+      label: '기록 3단계',
+      defaultRole: 'grassLevel4',
+      description: '잔디그래프의 가장 강한 기록 단계 색입니다.',
+    }),
+    monthLabel: Object.freeze({
       label: '월 글씨',
-      defaultRole: 'secondary',
+      defaultRole: 'grassMonthLabel',
       description: '잔디그래프 상단 월 라벨 색입니다.',
     }),
-    accent: Object.freeze({
-      label: '강조 효과',
-      defaultRole: 'primary',
-      description: '웨이브 애니메이션과 강조 효과의 기준 색입니다.',
+    arrow: Object.freeze({
+      label: '화살표',
+      defaultRole: 'grassArrow',
+      description: '잔디그래프 좌우 이동 화살표 색입니다.',
     }),
   }),
 });
@@ -242,13 +264,21 @@ export const GRAPH_RENDER_LAYOUT_RULES = Object.freeze({
   }),
 
   [GRAPH_RENDER_FAMILIES.GRASS]: Object.freeze({
+    baseHeight: 168,
     rows: 7,
+    topLabelHeight: 18,
+    topLabelGap: 4,
     minCellSize: 8,
     maxCellSize: 18,
     minCellGap: 2,
     maxCellGap: 4,
     cellRadius: 2,
     monthFontSize: 10.5,
+    monthLineHeight: 13,
+    arrowSize: 15,
+    waveWidth: 4,
+    waveSpeed: 0.02,
+    waveDiagonal: 0.6,
   }),
 });
 
@@ -295,17 +325,17 @@ export const GRAPH_RENDER_INTERNAL_COLOR_MAP = Object.freeze({
   }),
 
   [GRAPH_RENDER_FAMILIES.GRASS]: Object.freeze({
-    level0: 'empty',
-    level1: 'empty',
-    level2: 'tertiary',
-    level3: 'text',
-    level4: 'base',
-    waveLow: 'empty',
-    waveMid: 'tertiary',
-    waveHigh: 'text',
-    wavePeak: 'accent',
-    monthLabel: 'text',
-    arrow: 'accent',
+    level0: 'level0',
+    level1: 'level1',
+    level2: 'level2',
+    level3: 'level3',
+    level4: 'level4',
+    waveLow: 'level1',
+    waveMid: 'level2',
+    waveHigh: 'level3',
+    wavePeak: 'level4',
+    monthLabel: 'monthLabel',
+    arrow: 'arrow',
   }),
 });
 

@@ -435,6 +435,7 @@ const DashboardArrow = memo(function DashboardArrow({
   boxHeight = 20,
   disabled = false,
   style = null,
+  color = '#111',
 }) {
   const chevronSize = Math.max(9, (Number(size) || 15) * 0.86);
   const strokeWidth = Math.max(1.7, Math.min(2.7, chevronSize * 0.16));
@@ -462,7 +463,7 @@ const DashboardArrow = memo(function DashboardArrow({
         <Path
           d={pathD}
           fill="none"
-          stroke="#111"
+          stroke={color}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -2587,7 +2588,7 @@ const GRASS_ROWS = 7;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
-const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass, dashboardReturnTrigger = 0 }) {
+const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, introProgress = 1, onTap, onTapGrass, dashboardReturnTrigger = 0, graphId = GRAPH_RENDER_GRAPH_IDS.GRASS_GRAPH }) {
     useEffect(() => {
       return () => {};
     }, []);
@@ -2614,6 +2615,13 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     }
   }, []);
 
+  const grassRenderRule = useMemo(
+    () => resolveGraphRenderRule({ graphId }),
+    [graphId]
+  );
+  const grassRenderColors = grassRenderRule.colors;
+  const grassRenderLayout = grassRenderRule.layout;
+
   useEffect(() => { if (onTap) onTap(() => setWaveTrigger(t => t + 1)); }, [onTap]);
   useEffect(() => {
     if (!dashboardReturnTrigger) return;
@@ -2626,10 +2634,10 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
 
     const TOTAL_COLS = 60;
-    const TOTAL_ROWS = 7;
-    const WAVE_WIDTH = 4;
-    const WAVE_SPEED = 0.02;
-    const DIAGONAL = 0.6;
+    const TOTAL_ROWS = grassRenderLayout.rows;
+    const WAVE_WIDTH = grassRenderLayout.waveWidth;
+    const WAVE_SPEED = grassRenderLayout.waveSpeed;
+    const DIAGONAL = grassRenderLayout.waveDiagonal;
     const startTime = performance.now();
 
     const tick = (now) => {
@@ -2657,12 +2665,12 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
       if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
       sparkTimersRef.current.forEach(t => clearTimeout(t));
     };
-  }, [waveTrigger]);
+  }, [waveTrigger, grassRenderLayout]);
 
   const containerWidth = Math.max(1, containerSize.width);
   const containerHeight = Math.max(1, containerSize.height);
 
-  const GRASS_BASE_HEIGHT = 168;
+  const GRASS_BASE_HEIGHT = grassRenderLayout.baseHeight;
   const GRASS_SCALE_RAW = containerHeight / GRASS_BASE_HEIGHT;
   const GRASS_SCALE = Math.max(0.75, Math.min(1.45, GRASS_SCALE_RAW));
   const scaleGrass = (value, min, max) => {
@@ -2671,21 +2679,21 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   };
 
   const LEFT_LABEL_W = 0;
-  const TOP_LABEL_H = Math.round(scaleGrass(18, 14, 26));
-  const TOP_LABEL_GAP = Math.round(scaleGrass(4, 3, 8));
+  const TOP_LABEL_H = Math.round(scaleGrass(grassRenderLayout.topLabelHeight, 14, 26));
+  const TOP_LABEL_GAP = Math.round(scaleGrass(grassRenderLayout.topLabelGap, 3, 8));
 
-  const MIN_CELL_SIZE = scaleGrass(8, 6, 12);
-  const MAX_CELL_SIZE = scaleGrass(18, 14, 26);
-  const MIN_CELL_GAP = scaleGrass(2, 1.5, 3);
-  const MAX_CELL_GAP = scaleGrass(4, 3, 6);
+  const MIN_CELL_SIZE = scaleGrass(grassRenderLayout.minCellSize, 6, 12);
+  const MAX_CELL_SIZE = scaleGrass(grassRenderLayout.maxCellSize, 14, 26);
+  const MIN_CELL_GAP = scaleGrass(grassRenderLayout.minCellGap, 1.5, 3);
+  const MAX_CELL_GAP = scaleGrass(grassRenderLayout.maxCellGap, 3, 6);
 
-  const GRASS_CELL_RADIUS = scaleGrass(2, 1.5, 4);
-  const GRASS_MONTH_FONT_SIZE = scaleGrass(10.5, 9.7, 11.2);
-  const GRASS_MONTH_LINE_H = Math.round(scaleGrass(13, 11, 16));
+  const GRASS_CELL_RADIUS = scaleGrass(grassRenderLayout.cellRadius, 1.5, 4);
+  const GRASS_MONTH_FONT_SIZE = scaleGrass(grassRenderLayout.monthFontSize, 9.7, 11.2);
+  const GRASS_MONTH_LINE_H = Math.round(scaleGrass(grassRenderLayout.monthLineHeight, 11, 16));
 
   const CELL_GAP = Math.max(
     MIN_CELL_GAP,
-    Math.min(MAX_CELL_GAP, scaleGrass(4, 2, 6))
+    Math.min(MAX_CELL_GAP, scaleGrass(grassRenderLayout.maxCellGap, 2, 6))
   );
   const availableGridHeight = Math.max(
     1,
@@ -2700,7 +2708,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   );
   const graphBoxHeight = TOP_LABEL_H + TOP_LABEL_GAP + GRASS_ROWS * cellSize + (GRASS_ROWS - 1) * CELL_GAP;
 const GRASS_ARROW_BOX_H = TOP_LABEL_H;
-const GRASS_ARROW_SIZE = scaleGrass(15, 12, 18);
+const GRASS_ARROW_SIZE = scaleGrass(grassRenderLayout.arrowSize, 12, 18);
 
   const { cellData, weekStarts, monthLabels } = useMemo(() => {
     if (!startDate || !endDate) return { cellData: [], weekStarts: [], monthLabels: [] };
@@ -2768,7 +2776,13 @@ const GRASS_ARROW_SIZE = scaleGrass(15, 12, 18);
     const graphWidth = totalCols * colUnit - CELL_GAP;
     const contentWidth = contentCols * colUnit - CELL_GAP;
     const canScrollGrass = contentWidth > containerWidth + 1;
-  const LEVEL_COLORS = ['#F3F4F6', '#E5E7EB', '#A0A0A0', '#555555', '#111111'];
+  const LEVEL_COLORS = [
+    grassRenderColors.level0,
+    grassRenderColors.level1,
+    grassRenderColors.level2,
+    grassRenderColors.level3,
+    grassRenderColors.level4,
+  ];
   const handlePressGrass = useCallback(() => {
     setWaveTrigger((t) => t + 1);
     if (typeof onTapGrass === 'function') {
@@ -2787,10 +2801,10 @@ const GRASS_ARROW_SIZE = scaleGrass(15, 12, 18);
               const wave = waveIntensity[col * GRASS_ROWS + row] ?? 0;
               const baseColor = LEVEL_COLORS[baseLevel] ?? '#F3F4F6';
               let waveColor = baseColor;
-              if (wave > 0.85) waveColor = '#111111';
-              else if (wave > 0.6) waveColor = '#555555';
-              else if (wave > 0.25) waveColor = '#A0A0A0';
-              else if (wave > 0.05) waveColor = '#E5E7EB';
+              if (wave > 0.85) waveColor = grassRenderColors.wavePeak;
+              else if (wave > 0.6) waveColor = grassRenderColors.waveHigh;
+              else if (wave > 0.25) waveColor = grassRenderColors.waveMid;
+              else if (wave > 0.05) waveColor = grassRenderColors.waveLow;
               return (
                 <View key={row} style={{
                   width: cellSize, height: cellSize,
@@ -2834,6 +2848,7 @@ const GRASS_ARROW_SIZE = scaleGrass(15, 12, 18);
                       left: ml.col * (cellSize + CELL_GAP),
                       fontSize: GRASS_MONTH_FONT_SIZE,
                       lineHeight: GRASS_MONTH_LINE_H,
+                      color: grassRenderColors.monthLabel,
                       includeFontPadding: false,
                     },
                   ]}
@@ -2853,7 +2868,7 @@ const GRASS_ARROW_SIZE = scaleGrass(15, 12, 18);
           {canScrollGrass && scrollPos.x > 5 && (
           <View style={styles.grassArrowLeft}>
             <TouchableOpacity onPress={() => grassScrollRef.current?.scrollTo({x: 0, animated: true})} hitSlop={{top:12, bottom:12, left:12, right:12}}>
-              <DashboardArrow direction="left" size={GRASS_ARROW_SIZE} boxHeight={GRASS_ARROW_BOX_H} />
+              <DashboardArrow direction="left" size={GRASS_ARROW_SIZE} boxHeight={GRASS_ARROW_BOX_H} color={grassRenderColors.arrow} />
             </TouchableOpacity>
           </View>
         )}
@@ -2862,7 +2877,7 @@ const GRASS_ARROW_SIZE = scaleGrass(15, 12, 18);
           {canScrollGrass && scrollPos.x + containerWidth < graphWidth - 5 && (
           <View style={styles.grassArrowRight}>
             <TouchableOpacity onPress={() => grassScrollRef.current?.scrollToEnd({animated: true})} hitSlop={{top:12, bottom:12, left:12, right:12}}>
-              <DashboardArrow direction="right" size={GRASS_ARROW_SIZE} boxHeight={GRASS_ARROW_BOX_H} />
+              <DashboardArrow direction="right" size={GRASS_ARROW_SIZE} boxHeight={GRASS_ARROW_BOX_H} color={grassRenderColors.arrow} />
             </TouchableOpacity>
           </View>
         )}
@@ -3580,6 +3595,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
             entries={entries}
             startDate={meta.startDate}
             endDate={meta.endDate}
+            graphId={GRAPH_RENDER_GRAPH_IDS.GRASS_GRAPH}
             dashboardReturnTrigger={isShare ? 0 : grassDashboardReturnTick}
           />
         </View>

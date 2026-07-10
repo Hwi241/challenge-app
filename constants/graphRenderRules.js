@@ -195,12 +195,17 @@ export const GRAPH_RENDER_LAYOUT_RULES = Object.freeze({
   }),
 
   [GRAPH_RENDER_FAMILIES.WEEKLY_BAR]: Object.freeze({
+    baseViewHeight: 168,
+    fallbackViewHeight: 168,
     barWidth: 16,
     barRadius: 4,
     segmentGap: 2,
     emptyDotSize: 4,
     pagerDotSize: 5,
     pagerDotActiveSize: 6,
+    pagerDotHitWidth: 12,
+    pagerArrowHitWidth: 22,
+    pagerArrowSize: 15,
   }),
 
   [GRAPH_RENDER_FAMILIES.LINE]: Object.freeze({

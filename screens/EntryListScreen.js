@@ -645,6 +645,13 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
     return day === 0 ? 6 : day - 1;
   }, []);
 
+  const weeklyRenderRule = useMemo(
+    () => resolveGraphRenderRule({ graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY }),
+    []
+  );
+  const weeklyRenderColors = weeklyRenderRule.colors;
+  const weeklyRenderLayout = weeklyRenderRule.layout;
+
   const maxSteps = useMemo(() => (
     Math.max(
       HEALTH_STEPS_WEEKLY_GOAL,
@@ -695,7 +702,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
               right: 0,
               top: goalLineTop,
               height: 1,
-              backgroundColor: '#9CA3AF',
+              backgroundColor: weeklyRenderColors.countBarFill,
               opacity: 0.75,
             }}
           />
@@ -706,7 +713,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
                 position: 'absolute',
                 right: 0,
                 top: Math.max(0, goalLineTop - 14),
-                color: '#6B7280',
+                color: weeklyRenderColors.text,
                 fontSize: 9,
                 fontWeight: '800',
                 includeFontPadding: false,
@@ -730,7 +737,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
               const isToday = index === todayIndex;
               const reached = steps >= HEALTH_STEPS_WEEKLY_GOAL;
               const barHeight = Math.max(8, Math.round((steps / maxSteps) * (chartHeight - 12)));
-              const barWidth = isCompact ? 12 : 16;
+              const barWidth = isCompact ? Math.max(10, weeklyRenderLayout.barWidth - 4) : weeklyRenderLayout.barWidth;
 
               return (
                 <View
@@ -746,17 +753,17 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
                     style={{
                       width: barWidth,
                       height: barHeight,
-                      borderRadius: 5,
-                      backgroundColor: reached ? '#111111' : '#D1D5DB',
+                      borderRadius: weeklyRenderLayout.barRadius,
+                      backgroundColor: reached ? weeklyRenderColors.durationBarFill : weeklyRenderColors.countBarFill,
                       borderWidth: isToday ? 2 : 0,
-                      borderColor: isToday ? '#111111' : 'transparent',
+                      borderColor: isToday ? weeklyRenderColors.accent : 'transparent',
                     }}
                   />
                   <Text
                     numberOfLines={1}
                     style={{
                       marginTop: 3,
-                      color: isToday ? '#111111' : '#9CA3AF',
+                      color: isToday ? weeklyRenderColors.todayText : weeklyRenderColors.text,
                       fontSize: isCompact ? 8 : 9,
                       lineHeight: isCompact ? 10 : 12,
                       fontWeight: isToday ? '900' : '700',
@@ -776,7 +783,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
             <Text
               numberOfLines={1}
               style={{
-                color: '#9CA3AF',
+                color: weeklyRenderColors.text,
                 fontSize: 10,
                 lineHeight: 13,
                 fontWeight: '700',
@@ -788,7 +795,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
             <Text
               numberOfLines={1}
               style={{
-                color: '#111111',
+                color: weeklyRenderColors.durationBarFill,
                 fontSize: 11,
                 lineHeight: 14,
                 fontWeight: '900',
@@ -2037,6 +2044,7 @@ const WeekView = memo(function WeekView({
   onTapBar,
   challengeStartDate,
   challengeEndDate,
+  graphId = GRAPH_RENDER_GRAPH_IDS.WEEKLY_BAR,
 }) {
   const scrollRef = useRef(null);
   const scrollXRef = useRef(new Animated.Value(0));
@@ -2062,8 +2070,15 @@ const WeekView = memo(function WeekView({
     if (h && Math.abs(h - viewH) >= 4) setViewH(h);
   }, [pageW, viewH]);
 
-  const PADDING_H = 0;
-  const WEEK_BAR_W = 16;
+ const weeklyRenderRule = useMemo(
+    () => resolveGraphRenderRule({ graphId }),
+    [graphId]
+  );
+  const weeklyRenderColors = weeklyRenderRule.colors;
+  const weeklyRenderLayout = weeklyRenderRule.layout;
+
+   const PADDING_H = 0;
+  const WEEK_BAR_W = weeklyRenderLayout.barWidth;
   const WEEK_DATE_TEXT_SAFE_PAD = 2;
   const WEEK_EDGE_TARGET_W = Math.max(WEEK_BAR_W, weekDateTextWidth + WEEK_DATE_TEXT_SAFE_PAD);
   const EDGE_COLUMN_BLEED = pageW > 0 && weekDateTextWidth > 0
@@ -2149,8 +2164,8 @@ const WeekView = memo(function WeekView({
     return result;
   }, [weeksData, currentIndex, challengeStartDate, challengeEndDate]);
 
-  const WEEK_FALLBACK_VIEW_HEIGHT = 168;
-  const WEEK_BASE_VIEW_HEIGHT = 168;
+  const WEEK_FALLBACK_VIEW_HEIGHT = weeklyRenderLayout.fallbackViewHeight;
+  const WEEK_BASE_VIEW_HEIGHT = weeklyRenderLayout.baseViewHeight;
 
   const WEEK_VIEW_HEIGHT = viewH > 0 ? viewH : WEEK_FALLBACK_VIEW_HEIGHT;
   const WEEK_SCALE_RAW = WEEK_VIEW_HEIGHT / WEEK_BASE_VIEW_HEIGHT;
@@ -2197,12 +2212,12 @@ const WeekView = memo(function WeekView({
   );
   const WEEK_BAR_VALUE_RANGE_H = Math.max(1, WEEK_BAR_VALUE_MAX_H - WEEK_BAR_VALUE_BASE_H);
 
-  const WEEK_EMPTY_DOT_SIZE = scaleWeek(4, 3, 6);
-  const WEEK_PAGER_DOT_SIZE = scaleWeek(5, 4, 8);
-  const WEEK_PAGER_DOT_ACTIVE_SIZE = scaleWeek(6, 5, 9);
-  const WEEK_PAGER_DOT_HIT_W = Math.round(scaleWeek(12, 10, 18));
-  const WEEK_PAGER_ARROW_HIT_W = Math.round(scaleWeek(22, 18, 30));
-  const WEEK_PAGER_ARROW_FONT_SIZE = scaleWeek(15, 13, 20);
+  const WEEK_EMPTY_DOT_SIZE = scaleWeek(weeklyRenderLayout.emptyDotSize, 3, 6);
+  const WEEK_PAGER_DOT_SIZE = scaleWeek(weeklyRenderLayout.pagerDotSize, 4, 8);
+  const WEEK_PAGER_DOT_ACTIVE_SIZE = scaleWeek(weeklyRenderLayout.pagerDotActiveSize, 5, 9);
+  const WEEK_PAGER_DOT_HIT_W = Math.round(scaleWeek(weeklyRenderLayout.pagerDotHitWidth, 10, 18));
+  const WEEK_PAGER_ARROW_HIT_W = Math.round(scaleWeek(weeklyRenderLayout.pagerArrowHitWidth, 18, 30));
+  const WEEK_PAGER_ARROW_FONT_SIZE = scaleWeek(weeklyRenderLayout.pagerArrowSize, 13, 20);
 
 const todayKey = useMemo(() => {
   const today = new Date();
@@ -2227,9 +2242,9 @@ const WEEK_TODAY_DAY_LINE_H = Math.max(
   WEEK_DAY_LINE_H,
   Math.round(WEEK_TODAY_DAY_FONT_SIZE + scaleWeek(2, 1.5, 4))
 );
-const WEEK_TODAY_EMPTY_DOT_COLOR = '#9CA3AF';
+const WEEK_TODAY_EMPTY_DOT_COLOR = weeklyRenderColors.todayEmptyDotFill;
 const WEEK_TODAY_TEXT_STYLE = {
-  color: '#000',
+  color: weeklyRenderColors.todayText,
   fontWeight: '900',
 };
 
@@ -2277,6 +2292,7 @@ const WEEK_TODAY_TEXT_STYLE = {
                             styles.dateLabel,
                             {
                               marginBottom: WEEK_DATE_DAY_GAP,
+                              color: weeklyRenderColors.text,
                               fontSize: WEEK_DATE_FONT_SIZE,
                               lineHeight: WEEK_DATE_LINE_H,
                               includeFontPadding: false,
@@ -2295,6 +2311,7 @@ const WEEK_TODAY_TEXT_STYLE = {
                           style={[
                             styles.dayLabel,
                             {
+                              color: weeklyRenderColors.text,
                               fontSize: WEEK_DAY_FONT_SIZE,
                               lineHeight: WEEK_DAY_LINE_H,
                               includeFontPadding: false,
@@ -2340,6 +2357,7 @@ const WEEK_TODAY_TEXT_STYLE = {
     WEEK_TODAY_DATE_LINE_H,
     WEEK_TODAY_DAY_FONT_SIZE,
     WEEK_TODAY_DAY_LINE_H,
+    weeklyRenderColors,
   ]);
 
 const renderWeek = useCallback(({ dailyStats }, idx) => {
@@ -2366,7 +2384,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
                     width: WEEK_EMPTY_DOT_SIZE,
                     height: WEEK_EMPTY_DOT_SIZE,
                     borderRadius: WEEK_EMPTY_DOT_SIZE / 2,
-                    backgroundColor: isTodayBar ? WEEK_TODAY_EMPTY_DOT_COLOR : '#D1D5DB',
+                    backgroundColor: isTodayBar ? WEEK_TODAY_EMPTY_DOT_COLOR : weeklyRenderColors.countBarFill,
                     marginBottom: WEEK_BAR_VERTICAL_GAP,
                   }}
                 />
@@ -2397,18 +2415,18 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
                   <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
                     {(() => {
                       if (segDurations.length <= 1) {
-                        return <View style={[styles.bar, { height: hTime, backgroundColor: baseBlack }]} />;
+                        return <View style={[styles.bar, { width: WEEK_BAR_W, height: hTime, borderRadius: weeklyRenderLayout.barRadius, backgroundColor: weeklyRenderColors.durationBarFill }]} />;
                       }
-                      const segGap = 2;
+                      const segGap = weeklyRenderLayout.segmentGap;
                       const available = Math.max(hTime - segGap * (segDurations.length - 1), 2 * segDurations.length);
                       return segDurations.map((dur, s) => {
                         const ratio = totalSegDur > 0 ? (dur / totalSegDur) : (1 / segDurations.length);
                         const segH = Math.max(4, ratio * available);
                         return (
                           <View key={s} style={{
-                            width: 16, height: segH, borderRadius: 4,
-                            marginBottom: s === segDurations.length - 1 ? 0 : 2,
-                            backgroundColor: baseBlack,
+                            width: WEEK_BAR_W, height: segH, borderRadius: weeklyRenderLayout.barRadius,
+                            marginBottom: s === segDurations.length - 1 ? 0 : segGap,
+                            backgroundColor: weeklyRenderColors.durationBarFill,
                           }}/>
                         );
                       });
@@ -2423,16 +2441,16 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
             return (
               <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
                 <Text style={[styles.barText, { fontSize: WEEK_BAR_TEXT_FONT_SIZE, lineHeight: WEEK_BAR_TEXT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{' '}</Text>
-                <View style={{ marginVertical: 2, height: hCount, justifyContent:'flex-end', alignItems:'center' }}>
+                <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hCount, justifyContent:'flex-end', alignItems:'center' }}>
                   {(() => {
-                    const segGap = 2;
+                    const segGap = weeklyRenderLayout.segmentGap;
                     const available = Math.max(hCount - segGap * (segCount - 1), 2 * segCount);
                     const segH = Math.max(4, available / segCount);
                     return Array.from({ length: segCount }).map((_, s) => (
                       <View key={s} style={{
-                        width: 16, height: segH, borderRadius: 4,
+                        width: WEEK_BAR_W, height: segH, borderRadius: weeklyRenderLayout.barRadius,
                         marginBottom: s === segCount - 1 ? 0 : segGap,
-                        backgroundColor: progressGrey,
+                        backgroundColor: weeklyRenderColors.countBarFill,
                       }}/>
                     ));
                   })()}
@@ -2444,7 +2462,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
         </TouchableOpacity>
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE, weeklyRenderColors, weeklyRenderLayout, WEEK_BAR_W]);
 
   useEffect(() => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;
@@ -2529,6 +2547,11 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
                 : styles.weekPagerDotOutRange;
 
               const dotSize = week.isCurrent ? WEEK_PAGER_DOT_ACTIVE_SIZE : WEEK_PAGER_DOT_SIZE;
+              const dotColor = week.isCurrent
+                ? weeklyRenderColors.pagerActive
+                : week.inChallengeRange
+                ? weeklyRenderColors.pagerInactive
+                : weeklyRenderColors.countBarFill;
 
               return (
                 <TouchableOpacity
@@ -2540,7 +2563,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
                   disabled={week.dataIndex < 0}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.weekPagerDot, dotStyle, { width: dotSize, height: dotSize, borderRadius: dotSize / 2 }]} />
+                  <View style={[styles.weekPagerDot, dotStyle, { width: dotSize, height: dotSize, borderRadius: dotSize / 2, backgroundColor: dotColor }]} />
                 </TouchableOpacity>
               );
             })}
@@ -3545,6 +3568,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
             onTapBar={isShare ? undefined : runWeek}
             challengeStartDate={meta.startDate}
             challengeEndDate={meta.endDate}
+            graphId={GRAPH_RENDER_GRAPH_IDS.WEEKLY_BAR}
           />
         </View>
       );

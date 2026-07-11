@@ -1142,3 +1142,121 @@ goal_black_box는 ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS에 포함되어 있지만, �
 7. 하드코딩 색을 새로 추가하지 않는다.
 
 8. recordRoom 그래프는 이번 670 흐름에서 섞지 않는다.
+
+---
+
+## 18. 670-3 신규 graphId와 family 코드 확장 완료 기준
+
+670-3 단계에서는 constants/graphRenderRules.js에 아래 코드 기준을 추가한다.
+
+이 단계의 목적은 실제 렌더 연결이 아니라, 나중에 색상 커스텀 UI를 쉽게 붙일 수 있도록 graphId, family, editable color slot, layout rule, internal color map의 기준을 먼저 만드는 것이다.
+
+---
+
+### 18-1. 신규 graphId 추가 기준
+
+GRAPH_RENDER_GRAPH_IDS에 아래 실제 대시보드 카드 graphId를 추가한다.
+
+- goal_black_box
+- health_exercise_minutes_trend
+- health_distance_trend
+- health_steps_goal_rate
+- health_steps_cumulative
+- health_exercise_weekly_minutes
+- health_distance_weekly
+- health_distance_cumulative
+- health_active_calories_trend
+- health_sleep_hours_trend
+- health_sleep_rhythm
+- health_heart_rate_trend
+- health_weight_trend
+- health_body_fat_trend
+- health_bmi_trend
+
+주의:
+
+- Health 추세형 카드를 모두 health_steps_trend로 뭉개지 않는다.
+- graphId는 나중에 byGraphId 색상 커스텀의 기준이므로 카드별로 고유해야 한다.
+
+---
+
+### 18-2. 신규 family 추가 기준
+
+GRAPH_RENDER_FAMILIES에 아래 family를 추가한다.
+
+- progressBar
+- metricBar
+- stackedSegment
+- infoCard
+
+의미:
+
+- progressBar
+ = 숫자와 가로 진행 바 중심 카드
+
+- metricBar
+ = 수치형 막대와 최신값 중심 카드
+
+- stackedSegment
+ = 전체 대비 구성 비율을 한 줄 조각으로 보여주는 카드
+
+- infoCard
+ = 그래프가 아니라 목표/보상/설명 중심 정보 카드
+
+---
+
+### 18-3. graphId to family 매핑 기준
+
+아래 매핑을 코드 기준으로 유지한다.
+
+| graphId | family |
+|---|---|
+| goal_black_box | infoCard |
+| health_exercise_minutes_trend | line |
+| health_distance_trend | line |
+| health_active_calories_trend | line |
+| health_sleep_hours_trend | line |
+| health_heart_rate_trend | line |
+| health_weight_trend | line |
+| health_body_fat_trend | line |
+| health_bmi_trend | line |
+| health_steps_goal_rate | progressBar |
+| health_steps_cumulative | metricBar |
+| health_exercise_weekly_minutes | metricBar |
+| health_distance_weekly | metricBar |
+| health_distance_cumulative | metricBar |
+| health_sleep_rhythm | stackedSegment |
+
+---
+
+### 18-4. 색상 커스텀 대비 원칙
+
+이번 단계에서 추가한 모든 신규 family는 아래 세트를 반드시 가진다.
+
+- GRAPH_RENDER_COLOR_ROLES
+- GRAPH_RENDER_EDITABLE_COLOR_SLOTS
+- GRAPH_RENDER_LAYOUT_RULES
+- GRAPH_RENDER_INTERNAL_COLOR_MAP
+
+이 구조를 맞춰야 나중에 아래 설정 우선순위가 깨지지 않는다.
+
+- byInstanceId
+- byGraphId
+- byFamily
+- global
+- default
+
+---
+
+### 18-5. 이번 단계에서 하지 않는 것
+
+670-3에서는 아래 작업을 하지 않는다.
+
+- EntryListScreen.js 수정
+- 실제 렌더 컴포넌트 연결
+- HealthLinkedRecordsLineWidget graphId prop 연결
+- DashboardGoalWidget infoCard 연결
+- 색상 커스텀 UI 구현
+- recordRoom 그래프 family 정리
+
+위 항목은 670-4 이후 단계에서 나눠서 진행한다.

@@ -7,6 +7,7 @@ export const GRAPH_RENDER_RULE_VERSION = 1;
 
 export const GRAPH_RENDER_GRAPH_IDS = Object.freeze({
   OVERALL_PROGRESS: 'overall_progress',
+  GOAL_BLACK_BOX: 'goal_black_box',
   MONTH_CALENDAR: 'month_calendar',
   WEEKLY_BAR: 'weekly_bar',
   LINE_COUNT_CUMULATIVE: 'line_count_cumulative',
@@ -14,6 +15,20 @@ export const GRAPH_RENDER_GRAPH_IDS = Object.freeze({
   GRASS_GRAPH: 'grass_graph',
   HEALTH_STEPS_WEEKLY: 'health_steps_weekly',
   HEALTH_STEPS_TREND: 'health_steps_trend',
+  HEALTH_EXERCISE_MINUTES_TREND: 'health_exercise_minutes_trend',
+  HEALTH_DISTANCE_TREND: 'health_distance_trend',
+  HEALTH_STEPS_GOAL_RATE: 'health_steps_goal_rate',
+  HEALTH_STEPS_CUMULATIVE: 'health_steps_cumulative',
+  HEALTH_EXERCISE_WEEKLY_MINUTES: 'health_exercise_weekly_minutes',
+  HEALTH_DISTANCE_WEEKLY: 'health_distance_weekly',
+  HEALTH_DISTANCE_CUMULATIVE: 'health_distance_cumulative',
+  HEALTH_ACTIVE_CALORIES_TREND: 'health_active_calories_trend',
+  HEALTH_SLEEP_HOURS_TREND: 'health_sleep_hours_trend',
+  HEALTH_SLEEP_RHYTHM: 'health_sleep_rhythm',
+  HEALTH_HEART_RATE_TREND: 'health_heart_rate_trend',
+  HEALTH_WEIGHT_TREND: 'health_weight_trend',
+  HEALTH_BODY_FAT_TREND: 'health_body_fat_trend',
+  HEALTH_BMI_TREND: 'health_bmi_trend',
 });
 
 export const GRAPH_RENDER_FAMILIES = Object.freeze({
@@ -22,10 +37,15 @@ export const GRAPH_RENDER_FAMILIES = Object.freeze({
   WEEKLY_BAR: 'weeklyBar',
   LINE: 'line',
   GRASS: 'grass',
+  PROGRESS_BAR: 'progressBar',
+  METRIC_BAR: 'metricBar',
+  STACKED_SEGMENT: 'stackedSegment',
+  INFO_CARD: 'infoCard',
 });
 
 export const GRAPH_RENDER_GRAPH_FAMILY_BY_ID = Object.freeze({
   [GRAPH_RENDER_GRAPH_IDS.OVERALL_PROGRESS]: GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS,
+  [GRAPH_RENDER_GRAPH_IDS.GOAL_BLACK_BOX]: GRAPH_RENDER_FAMILIES.INFO_CARD,
   [GRAPH_RENDER_GRAPH_IDS.MONTH_CALENDAR]: GRAPH_RENDER_FAMILIES.CALENDAR,
   [GRAPH_RENDER_GRAPH_IDS.WEEKLY_BAR]: GRAPH_RENDER_FAMILIES.WEEKLY_BAR,
   [GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE]: GRAPH_RENDER_FAMILIES.LINE,
@@ -33,6 +53,20 @@ export const GRAPH_RENDER_GRAPH_FAMILY_BY_ID = Object.freeze({
   [GRAPH_RENDER_GRAPH_IDS.GRASS_GRAPH]: GRAPH_RENDER_FAMILIES.GRASS,
   [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY]: GRAPH_RENDER_FAMILIES.WEEKLY_BAR,
   [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_MINUTES_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_ACTIVE_CALORIES_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_HOURS_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_HEART_RATE_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_WEIGHT_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_BODY_FAT_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_BMI_TREND]: GRAPH_RENDER_FAMILIES.LINE,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE]: GRAPH_RENDER_FAMILIES.PROGRESS_BAR,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE]: GRAPH_RENDER_FAMILIES.METRIC_BAR,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_WEEKLY_MINUTES]: GRAPH_RENDER_FAMILIES.METRIC_BAR,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_WEEKLY]: GRAPH_RENDER_FAMILIES.METRIC_BAR,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_CUMULATIVE]: GRAPH_RENDER_FAMILIES.METRIC_BAR,
+  [GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_RHYTHM]: GRAPH_RENDER_FAMILIES.STACKED_SEGMENT,
 });
 
 export const GRAPH_RENDER_DEFAULT_FAMILY = GRAPH_RENDER_FAMILIES.LINE;
@@ -87,6 +121,37 @@ export const GRAPH_RENDER_COLOR_ROLES = Object.freeze({
   overallProgressTrack: '#D1D5DB',
   overallProgressCenterFill: '#111111',
   overallProgressLabelText: '#FFFFFF',
+
+  progressBarFill: '#3B82F6',
+  progressBarTrack: '#E5E7EB',
+  progressBarSuccess: '#111111',
+  progressBarValueText: '#111111',
+  progressBarCaptionText: '#6B7280',
+  progressBarEmptyText: '#9CA3AF',
+
+  metricBarFill: '#D1D5DB',
+  metricBarLatestFill: '#111111',
+  metricBarGoalLine: '#D1D5DB',
+  metricBarValueText: '#111111',
+  metricBarCaptionText: '#9CA3AF',
+  metricBarEmptyText: '#9CA3AF',
+
+  stackedSegmentTrack: '#E5E7EB',
+  stackedSegmentPrimary: '#111111',
+  stackedSegmentSecondary: '#525252',
+  stackedSegmentTertiary: '#9CA3AF',
+  stackedSegmentMuted: '#D1D5DB',
+  stackedSegmentValueText: '#111111',
+  stackedSegmentCaptionText: '#6B7280',
+  stackedSegmentEmptyText: '#9CA3AF',
+
+  infoCardTitleText: '#111111',
+  infoCardBodyText: '#525252',
+  infoCardCaptionText: '#9CA3AF',
+  infoCardAccentText: '#111111',
+  infoCardSurfaceFill: '#FFFFFF',
+  infoCardDivider: '#E5E7EB',
+  infoCardEmptyText: '#9CA3AF',
 });
 
 export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
@@ -239,6 +304,153 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
       description: '잔디그래프 좌우 이동 화살표 색입니다.',
     }),
   }),
+
+  [GRAPH_RENDER_FAMILIES.PROGRESS_BAR]: Object.freeze({
+    progressFill: Object.freeze({
+      label: '진행 바',
+      defaultRole: 'progressBarFill',
+      description: '목표 달성률 가로 바의 채워진 영역입니다.',
+    }),
+    trackFill: Object.freeze({
+      label: '남은 바',
+      defaultRole: 'progressBarTrack',
+      description: '목표 달성률 가로 바의 배경 영역입니다.',
+    }),
+    successFill: Object.freeze({
+      label: '달성 색',
+      defaultRole: 'progressBarSuccess',
+      description: '목표를 달성했을 때 쓰는 진행 바 색입니다.',
+    }),
+    valueText: Object.freeze({
+      label: '큰 숫자',
+      defaultRole: 'progressBarValueText',
+      description: '목표 달성률의 큰 숫자 텍스트입니다.',
+    }),
+    captionText: Object.freeze({
+      label: '보조 설명',
+      defaultRole: 'progressBarCaptionText',
+      description: '현재값과 목표값을 설명하는 보조 텍스트입니다.',
+    }),
+    emptyText: Object.freeze({
+      label: '빈 상태',
+      defaultRole: 'progressBarEmptyText',
+      description: '데이터가 없을 때 표시하는 텍스트입니다.',
+    }),
+  }),
+
+  [GRAPH_RENDER_FAMILIES.METRIC_BAR]: Object.freeze({
+    barFill: Object.freeze({
+      label: '일반 막대',
+      defaultRole: 'metricBarFill',
+      description: '수치형 막대 카드의 일반 막대 색입니다.',
+    }),
+    latestBarFill: Object.freeze({
+      label: '최신 막대',
+      defaultRole: 'metricBarLatestFill',
+      description: '가장 최근 값 막대의 강조 색입니다.',
+    }),
+    goalLine: Object.freeze({
+      label: '목표선',
+      defaultRole: 'metricBarGoalLine',
+      description: '목표 기준선 또는 보조 기준선 색입니다.',
+    }),
+    valueText: Object.freeze({
+      label: '값글씨',
+      defaultRole: 'metricBarValueText',
+      description: '최신값 또는 대표값 텍스트 색입니다.',
+    }),
+    captionText: Object.freeze({
+      label: '보조 글씨',
+      defaultRole: 'metricBarCaptionText',
+      description: '기간, 단위, 설명 텍스트 색입니다.',
+    }),
+    emptyText: Object.freeze({
+      label: '빈 상태',
+      defaultRole: 'metricBarEmptyText',
+      description: '데이터가 없을 때 표시하는 텍스트입니다.',
+    }),
+  }),
+
+  [GRAPH_RENDER_FAMILIES.STACKED_SEGMENT]: Object.freeze({
+    trackFill: Object.freeze({
+      label: '전체 배경',
+      defaultRole: 'stackedSegmentTrack',
+      description: '비율 조각 바의 전체 배경 색입니다.',
+    }),
+    segmentPrimary: Object.freeze({
+      label: '강한 구간',
+      defaultRole: 'stackedSegmentPrimary',
+      description: '가장 강한 구간 또는 대표 조각 색입니다.',
+    }),
+    segmentSecondary: Object.freeze({
+      label: '중간 구간',
+      defaultRole: 'stackedSegmentSecondary',
+      description: '중간 강도의 조각 색입니다.',
+    }),
+    segmentTertiary: Object.freeze({
+      label: '약한 구간',
+      defaultRole: 'stackedSegmentTertiary',
+      description: '약한 조각 색입니다.',
+    }),
+    segmentMuted: Object.freeze({
+      label: '흐린 구간',
+      defaultRole: 'stackedSegmentMuted',
+      description: '흐리게 표시할 조각 색입니다.',
+    }),
+    valueText: Object.freeze({
+      label: '값 글씨',
+      defaultRole: 'stackedSegmentValueText',
+      description: '수면 시간 등 대표값 텍스트 색입니다.',
+    }),
+    captionText: Object.freeze({
+      label: '보조 글씨',
+      defaultRole: 'stackedSegmentCaptionText',
+      description: '범례와 보조 설명 텍스트 색입니다.',
+    }),
+    emptyText: Object.freeze({
+      label: '빈 상태',
+      defaultRole: 'stackedSegmentEmptyText',
+      description: '데이터가 없을 때 표시하는 텍스트입니다.',
+    }),
+  }),
+
+  [GRAPH_RENDER_FAMILIES.INFO_CARD]: Object.freeze({
+    titleText: Object.freeze({
+      label: '제목',
+      defaultRole: 'infoCardTitleText',
+      description: '정보 카드 제목 텍스트 색입니다.',
+    }),
+    bodyText: Object.freeze({
+      label: '본문',
+      defaultRole: 'infoCardBodyText',
+      description: '정보 카드 본문 텍스트 색입니다.',
+    }),
+    captionText: Object.freeze({
+      label: '보조 설명',
+      defaultRole: 'infoCardCaptionText',
+      description: '정보 카드 보조 설명 텍스트 색입니다.',
+    }),
+    accentText: Object.freeze({
+      label: '강조 글씨',
+      defaultRole: 'infoCardAccentText',
+      description: '보상, 목표 등 강조 텍스트 색입니다.',
+    }),
+    surfaceFill: Object.freeze({
+      label: '내부 배경',
+      defaultRole: 'infoCardSurfaceFill',
+      description: '정보 카드 내부 보조 배경 색입니다.',
+    }),
+    divider: Object.freeze({
+      label: '구분선',
+      defaultRole: 'infoCardDivider',
+      description: '정보 카드 내부 구분선 색입니다.',
+    }),
+    emptyText: Object.freeze({
+      label: '빈 상태',
+      defaultRole: 'infoCardEmptyText',
+      description: '정보가 없을 때 표시하는 텍스트입니다.',
+    }),
+  }),
 });
 
 export const GRAPH_RENDER_LAYOUT_RULES = Object.freeze({
@@ -363,6 +575,51 @@ export const GRAPH_RENDER_LAYOUT_RULES = Object.freeze({
     waveSpeed: 0.02,
     waveDiagonal: 0.6,
   }),
+
+  [GRAPH_RENDER_FAMILIES.PROGRESS_BAR]: Object.freeze({
+    bodyBaseHeight: 96,
+    valueFontSize: 28,
+    captionFontSize: 10,
+    barHeight: 6,
+    barRadius: 3,
+    barWidthRatio: 0.8,
+    gapAfterValue: 4,
+    gapBeforeBar: 8,
+  }),
+
+  [GRAPH_RENDER_FAMILIES.METRIC_BAR]: Object.freeze({
+    bodyBaseHeight: 120,
+    chartMinHeight: 40,
+    chartBottomReserved: 40,
+    barWidth: 14,
+    cumulativeBarWidth: 20,
+    barRadius: 4,
+    minBarHeight: 6,
+    valueFontSize: 11,
+    captionFontSize: 10,
+  }),
+
+  [GRAPH_RENDER_FAMILIES.STACKED_SEGMENT]: Object.freeze({
+    bodyBaseHeight: 96,
+    segmentHeight: 18,
+    segmentRadius: 9,
+    labelGap: 8,
+    legendGap: 6,
+    captionFontSize: 10,
+    valueFontSize: 12,
+    legendFontSize: 9,
+  }),
+
+  [GRAPH_RENDER_FAMILIES.INFO_CARD]: Object.freeze({
+    bodyBaseHeight: 72,
+    titleFontSize: 13,
+    bodyFontSize: 12,
+    captionFontSize: 10,
+    titleLineHeight: 17,
+    bodyLineHeight: 16,
+    verticalGap: 5,
+    horizontalPadding: 12,
+  }),
 });
 
 export const GRAPH_RENDER_INTERNAL_COLOR_MAP = Object.freeze({
@@ -420,6 +677,45 @@ export const GRAPH_RENDER_INTERNAL_COLOR_MAP = Object.freeze({
     wavePeak: 'level4',
     monthLabel: 'monthLabel',
     arrow: 'arrow',
+  }),
+
+  [GRAPH_RENDER_FAMILIES.PROGRESS_BAR]: Object.freeze({
+    progressFill: 'progressFill',
+    trackFill: 'trackFill',
+    successFill: 'successFill',
+    valueText: 'valueText',
+    captionText: 'captionText',
+    emptyText: 'emptyText',
+  }),
+
+  [GRAPH_RENDER_FAMILIES.METRIC_BAR]: Object.freeze({
+    barFill: 'barFill',
+    latestBarFill: 'latestBarFill',
+    goalLine: 'goalLine',
+    valueText: 'valueText',
+    captionText: 'captionText',
+    emptyText: 'emptyText',
+  }),
+
+  [GRAPH_RENDER_FAMILIES.STACKED_SEGMENT]: Object.freeze({
+    trackFill: 'trackFill',
+    segmentPrimary: 'segmentPrimary',
+    segmentSecondary: 'segmentSecondary',
+    segmentTertiary: 'segmentTertiary',
+    segmentMuted: 'segmentMuted',
+    valueText: 'valueText',
+    captionText: 'captionText',
+    emptyText: 'emptyText',
+  }),
+
+  [GRAPH_RENDER_FAMILIES.INFO_CARD]: Object.freeze({
+    titleText: 'titleText',
+    bodyText: 'bodyText',
+    captionText: 'captionText',
+    accentText: 'accentText',
+    surfaceFill: 'surfaceFill',
+    divider: 'divider',
+    emptyText: 'emptyText',
   }),
 });
 

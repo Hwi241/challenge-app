@@ -1490,3 +1490,89 @@ HealthWeeklyMetricWidget 내부에서는 아래 직접 색상값을 사용하지
 ### 21-5. 다음 단계
 
 670-7에서는 health_sleep_rhythm을 stackedSegment family 기준으로 연결한다.
+
+---
+
+## 22. 670-7 health_sleep_rhythm stackedSegment 연결 완료 기준
+
+670-7 단계에서는 health_sleep_rhythm 카드를 stackedSegment family 기준으로 실제 연결한다.
+
+이 단계는 HealthSleepRhythmWidget의 수면 단계 조각 바 색상과 주요 크기 기준을 graphRenderRules 기준으로 교체하는 작업이다.
+
+---
+
+### 22-1. 연결 대상
+
+| widgetKind | graphId | family |
+|---|---|---|
+| healthSleepRhythm | health_sleep_rhythm | stackedSegment |
+
+---
+
+### 22-2. 구현 기준
+
+HealthSleepRhythmWidget은 아래 기준을 따른다.
+
+- graphId prop을 받는다.
+- graphId가 없으면 HEALTH_SLEEP_RHYTHM으로 fallback한다.
+- resolveGraphRenderRule({ graphId })를 사용한다.
+- useMemo dependency에 graphId를 포함한다.
+- stackedSegmentRenderRule.colors를 사용한다.
+- stackedSegmentRenderRule.layout을 사용한다.
+- 전체 segment 배경은 trackFill을 사용한다.
+- 대표 수면 구간은 segmentPrimary를 사용한다.
+- REM 구간은 segmentSecondary를 사용한다.
+- 얕은 수면 구간은 segmentTertiary를 사용한다.
+- 깸/이탈 구간은 segmentMuted를 사용한다.
+- 최근 수면 값은 valueText를 사용한다.
+- 보조 설명과 라벨은 captionText 또는 segment 색상을 사용한다.
+- 데이터 없음 문구는 emptyText를 사용한다.
+
+---
+
+### 22-3. 이번 단계에서 제거하는 하드코딩 기준
+
+HealthSleepRhythmWidget 내부에서는 아래 직접 색상값을 사용하지 않는다.
+
+- #9CA3AF
+- #D1D5DB
+- #E5E7EB
+- #111111
+- #6B7280
+
+주요 레이아웃 값은 stackedSegment layout rule에서 가져온다.
+
+- segmentHeight
+- segmentRadius
+- labelGap
+- legendGap
+- captionFontSize
+- valueFontSize
+- legendFontSize
+
+---
+
+### 22-4. 이번 단계에서 하지 않는 것
+
+670-7에서는 아래 작업을 하지 않는다.
+
+- constants/graphRenderRules.js 수정
+- HealthStepsGoalRateWidget 수정
+- HealthWeeklyMetricWidget 수정
+- HealthLinkedRecordsLineWidget 수정
+- DashboardGoalWidget 수정
+- progressBar 추가 연결
+- metricBar 추가 연결
+- infoCard 실제 연결
+- 색상 커스텀 UI 구현
+
+---
+
+### 22-5. 다음 단계
+
+670-8에서는 goal_black_box를 infoCard family 기준으로 연결한다.
+
+대상:
+
+- goal_black_box
+- DashboardGoalWidget

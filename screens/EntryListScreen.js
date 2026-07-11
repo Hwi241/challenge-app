@@ -1189,41 +1189,143 @@ function getLatestSleepStageRecord(entries) {
 }
 
 var HealthSleepRhythmWidget = memo(function HealthSleepRhythmWidget(_ref) {
-  var entries = _ref.entries, disabled = _ref.disabled;
-  var latest = useMemo(function() { return getLatestSleepStageRecord(entries); }, [entries]);
-  var stages = Array.isArray(latest?.stages) ? latest.stages : [];
-  var total = stages.reduce(function(sum, stage) { return sum + (Number(stage?.value) || 0); }, 0);
-  return (
-    React.createElement(DashboardWidgetShell, { header: React.createElement(DashboardWidgetHeader, { title: '수면 리듬', hideSides: true }) },
-    React.createElement(View, { style: { flex: 1, width: '100%', paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, opacity: disabled ? 0.92 : 1, justifyContent: 'center' } },
-      !stages.length ?
-        React.createElement(View, { style: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 } },
-          React.createElement(Text, { numberOfLines: 2, style: { color: '#9CA3AF', fontSize: 11, lineHeight: 15, fontWeight: '700', textAlign: 'center' } }, '수면 단계 데이터가 없습니다.'),
-          React.createElement(Text, { numberOfLines: 2, style: { marginTop: 4, color: '#D1D5DB', fontSize: 10, lineHeight: 14, fontWeight: '700', textAlign: 'center' } }, 'Health Connect 수면 데이터로 인증하면 표시됩니다.')
-        )
-      :
-        React.createElement(React.Fragment, null,
-          React.createElement(View, { style: { flexDirection: 'row', height: 18, borderRadius: 9, overflow: 'hidden', backgroundColor: '#E5E7EB' } },
-            stages.map(function(stage, index) {
-              var value = Number(stage?.value) || 0;
-              var flexV = total > 0 ? Math.max(0.2, value / total) : 1;
-              var label = getSleepStageLabel(stage?.stageType);
-              var op = label === '깸' || label === '이탈' ? 0.35 : label === '얕은' ? 0.55 : label === 'REM' ? 0.75 : 1;
-              return React.createElement(View, { key: String(index), style: { flex: flexV, backgroundColor: '#111111', opacity: op } });
-            })
-          ),
-          React.createElement(View, { style: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } },
-            React.createElement(Text, { numberOfLines: 1, style: { color: '#9CA3AF', fontSize: 10, fontWeight: '700' } }, '최근 수면'),
-            React.createElement(Text, { numberOfLines: 1, style: { color: '#111111', fontSize: 12, fontWeight: '900' } }, fmtHV('sleepHours', latest?.value || total))
-          ),
-          React.createElement(View, { style: { marginTop: 6, flexDirection: 'row', flexWrap: 'wrap' } },
-            stages.slice(0, 4).map(function(stage, index) {
-              return React.createElement(Text, { key: String(index), numberOfLines: 1, style: { marginRight: 8, marginBottom: 3, color: '#6B7280', fontSize: 9, fontWeight: '700' } }, getSleepStageLabel(stage?.stageType) + ' ' + fmtHV('sleepHours', stage?.value));
-            })
-          )
-        )
-    ))
-  );
+ var entries = _ref.entries, disabled = _ref.disabled;
+ var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_RHYTHM;
+
+ var stackedSegmentRenderRule = useMemo(function() {
+ return resolveGraphRenderRule({ graphId: graphId });
+ }, [graphId]);
+ var stackedSegmentColors = stackedSegmentRenderRule.colors;
+ var stackedSegmentLayout = stackedSegmentRenderRule.layout;
+
+ var latest = useMemo(function() { return getLatestSleepStageRecord(entries); }, [entries]);
+ var stages = Array.isArray(latest?.stages) ? latest.stages : [];
+ var total = stages.reduce(function(sum, stage) { return sum + (Number(stage?.value) || 0); }, 0);
+
+ var getSegmentColor = useCallback(function(label) {
+ if (label === '깸' || label === '이탈') return stackedSegmentColors.segmentMuted;
+ if (label === '얕은') return stackedSegmentColors.segmentTertiary;
+ if (label === 'REM') return stackedSegmentColors.segmentSecondary;
+ return stackedSegmentColors.segmentPrimary;
+ }, [stackedSegmentColors]);
+
+ return (
+ React.createElement(DashboardWidgetShell, { header: React.createElement(DashboardWidgetHeader, { title: '수면 리듬', hideSides: true }) },
+ React.createElement(View, {
+ style: {
+ flex: 1,
+ width: '100%',
+ paddingHorizontal: 10,
+ paddingTop: 8,
+ paddingBottom: 8,
+ opacity: disabled ? 0.92 : 1,
+ justifyContent: 'center'
+ }
+ },
+ !stages.length ?
+ React.createElement(View, {
+ style: {
+ flex: 1,
+ alignItems: 'center',
+ justifyContent: 'center',
+ paddingHorizontal: 8
+ }
+ },
+ React.createElement(Text, {
+ numberOfLines: 2,
+ style: {
+ color: stackedSegmentColors.emptyText,
+ fontSize: stackedSegmentLayout.captionFontSize,
+ lineHeight: stackedSegmentLayout.captionFontSize + 4,
+ fontWeight: '700',
+ textAlign: 'center'
+ }
+ }, '수면 단계 데이터가 없습니다.'),
+ React.createElement(Text, {
+ numberOfLines: 2,
+ style: {
+ marginTop: 4,
+ color: stackedSegmentColors.captionText,
+ fontSize: stackedSegmentLayout.legendFontSize,
+ lineHeight: stackedSegmentLayout.legendFontSize + 5,
+ fontWeight: '700',
+ textAlign: 'center'
+ }
+ }, 'Health Connect 수면 데이터로 인증하면 표시됩니다.')
+ )
+ :
+ React.createElement(React.Fragment, null,
+ React.createElement(View, {
+ style: {
+ flexDirection: 'row',
+ height: stackedSegmentLayout.segmentHeight,
+ borderRadius: stackedSegmentLayout.segmentRadius,
+ overflow: 'hidden',
+ backgroundColor: stackedSegmentColors.trackFill
+ }
+ },
+ stages.map(function(stage, index) {
+ var value = Number(stage?.value) || 0;
+ var flexV = total > 0 ? Math.max(0.2, value / total) : 1;
+ var label = getSleepStageLabel(stage?.stageType);
+ return React.createElement(View, {
+ key: String(index),
+ style: {
+ flex: flexV,
+ backgroundColor: getSegmentColor(label)
+ }
+ });
+ })
+ ),
+ React.createElement(View, {
+ style: {
+ marginTop: stackedSegmentLayout.labelGap,
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'space-between'
+ }
+ },
+ React.createElement(Text, {
+ numberOfLines: 1,
+ style: {
+ color: stackedSegmentColors.captionText,
+ fontSize: stackedSegmentLayout.captionFontSize,
+ fontWeight: '700'
+ }
+ }, '최근 수면'),
+ React.createElement(Text, {
+ numberOfLines: 1,
+ style: {
+ color: stackedSegmentColors.valueText,
+ fontSize: stackedSegmentLayout.valueFontSize,
+ fontWeight: '900'
+ }
+ }, fmtHV('sleepHours', latest?.value || total))
+ ),
+ React.createElement(View, {
+ style: {
+ marginTop: stackedSegmentLayout.legendGap,
+ flexDirection: 'row',
+ flexWrap: 'wrap'
+ }
+ },
+ stages.slice(0, 4).map(function(stage, index) {
+ var label = getSleepStageLabel(stage?.stageType);
+ return React.createElement(Text, {
+ key: String(index),
+ numberOfLines: 1,
+ style: {
+ marginRight: 8,
+ marginBottom: 3,
+ color: getSegmentColor(label),
+ fontSize: stackedSegmentLayout.legendFontSize,
+ fontWeight: '700'
+ }
+ }, label + ' ' + fmtHV('sleepHours', stage?.value));})
+ )
+ )
+ ))
+ );
 });
 
 
@@ -3729,7 +3831,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthSleepRhythm" title="수면 리듬">
 
         <View style={styles.weeklyWidgetArea}>
-          <HealthSleepRhythmWidget entries={entries} disabled={isShare} />
+          <HealthSleepRhythmWidget entries={entries} disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_RHYTHM} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);

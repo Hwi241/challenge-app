@@ -82,23 +82,33 @@ export const GRAPH_RENDER_COLOR_ROLES = Object.freeze({
   calendarTodayUncertifiedFill: '#D1D5DB',
   calendarTodayUncertifiedText: '#000000',
   calendarHighlight: '#FFD700',
+
+  overallProgressFill: '#111111',
+  overallProgressTrack: '#D1D5DB',
+  overallProgressCenterFill: '#111111',
+  overallProgressLabelText: '#FFFFFF',
 });
 
 export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
   [GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS]: Object.freeze({
     progress: Object.freeze({
       label: '진행률',
-      defaultRole: 'primary',
+      defaultRole: 'overallProgressFill',
       description: '전체 진행률 원형 그래프의 채워진 영역입니다.',
     }),
     track: Object.freeze({
       label: '남은 영역',
-      defaultRole: 'track',
+      defaultRole: 'overallProgressTrack',
       description: '아직 채워지지 않은 진행률 배경입니다.',
+    }),
+    centerFill: Object.freeze({
+      label: '중앙 원',
+      defaultRole: 'overallProgressCenterFill',
+      description: '진행률 숫자 뒤의 중앙 원 배경입니다.',
     }),
     label: Object.freeze({
       label: '숫자',
-      defaultRole: 'primary',
+      defaultRole: 'overallProgressLabelText',
       description: '진행률 숫자 텍스트입니다.',
     }),
   }),
@@ -233,10 +243,21 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
 
 export const GRAPH_RENDER_LAYOUT_RULES = Object.freeze({
   [GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS]: Object.freeze({
+    bodyBaseHeight: 146,
     baseSize: 104,
     baseStroke: 11,
     minScale: 0.75,
     maxScale: 1.45,
+    safePadBase: 4,
+    safePadMin: 3,
+    safePadMax: 8,
+    minStroke: 3,
+    labelBaseFontSize: 20,
+    labelMinFontSize: 11,
+    labelMaxFontSize: 21,
+    labelLineGap: 2,
+    innerRadiusFactor: 1.25,
+    minInnerRadius: 2,
   }),
 
   [GRAPH_RENDER_FAMILIES.CALENDAR]: Object.freeze({
@@ -348,6 +369,7 @@ export const GRAPH_RENDER_INTERNAL_COLOR_MAP = Object.freeze({
   [GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS]: Object.freeze({
     progressFill: 'progress',
     trackFill: 'track',
+    centerFill: 'centerFill',
     labelText: 'label',
   }),
 

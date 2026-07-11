@@ -257,31 +257,45 @@ const Donut = memo(function Donut({
   size = 110,
   stroke = 12,
   labelFontSize = 20,
+  graphId = GRAPH_RENDER_GRAPH_IDS.OVERALL_PROGRESS,
 }) {
-  const radius = (size - stroke) / 2;
+  const overallRenderRule = useMemo(
+    () => resolveGraphRenderRule({ graphId }),
+    [graphId]
+  );
+  const overallRenderColors = overallRenderRule.colors;
+  const overallRenderLayout = overallRenderRule.layout;
+  const effectiveStroke = Number(stroke) > 0 ? Number(stroke) : overallRenderLayout.baseStroke;
+  const radius = (size - effectiveStroke) / 2;
   const cx = size / 2, cy = size / 2;
   const circumference = 2 * Math.PI * radius;
   const clampedTarget = Math.max(0, Math.min(100, targetPercent));
   const k = Math.max(0, Math.min(1, progress));
   const display = isNaN(clampedTarget) ? 0 : Math.round(clampedTarget * k);
   const dash = (display / 100) * circumference;
-  const innerRadius = Math.max(2, radius - stroke * 1.25);
+  const innerRadius = Math.max(
+    overallRenderLayout.minInnerRadius,
+    radius - effectiveStroke * overallRenderLayout.innerRadiusFactor
+  );
+  const effectiveLabelFontSize = Number(labelFontSize) > 0
+    ? Number(labelFontSize)
+    : overallRenderLayout.labelBaseFontSize;
 
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size}>
-        <Circle cx={cx} cy={cy} r={radius} stroke={progressGrey} strokeWidth={stroke} fill="none" />
+        <Circle cx={cx} cy={cy} r={radius} stroke={overallRenderColors.trackFill} strokeWidth={effectiveStroke} fill="none" />
         <Circle
           cx={cx} cy={cy} r={radius}
-          stroke={baseBlack} strokeWidth={stroke} fill="none"
+          stroke={overallRenderColors.progressFill} strokeWidth={effectiveStroke} fill="none"
           strokeDasharray={`${dash} ${circumference - dash}`}
           strokeLinecap="round"
           rotation="-90" origin={`${cx}, ${cy}`}
         />
-        <Circle cx={cx} cy={cy} r={innerRadius} fill="#111" />
+        <Circle cx={cx} cy={cy} r={innerRadius} fill={overallRenderColors.centerFill} />
       </Svg>
       <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ fontSize: labelFontSize, lineHeight: labelFontSize + 2, fontWeight: '900', color: '#fff', includeFontPadding: false }}>{display}%</Text>
+        <Text style={{ fontSize: effectiveLabelFontSize, lineHeight: effectiveLabelFontSize + overallRenderLayout.labelLineGap, fontWeight: '900', color: overallRenderColors.labelText, includeFontPadding: false }}>{display}%</Text>
       </View>
     </View>
   );
@@ -1828,6 +1842,7 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
   progress,
   onPress,
   disabled = false,
+  graphId = GRAPH_RENDER_GRAPH_IDS.OVERALL_PROGRESS,
 }) {
   const [box, setBox] = useState({ width: 0, height: 0 });
 
@@ -1843,20 +1858,26 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
     }
   }, []);
 
-  const PROGRESS_BODY_BASE_HEIGHT = 146;
+  const overallRenderRule = useMemo(
+    () => resolveGraphRenderRule({ graphId }),
+    [graphId]
+  );
+  const overallRenderLayout = overallRenderRule.layout;
+
+  const PROGRESS_BODY_BASE_HEIGHT = overallRenderLayout.bodyBaseHeight;
   const progressBodyHeight = Math.max(1, box.height || PROGRESS_BODY_BASE_HEIGHT);
   const PROGRESS_SCALE_RAW = progressBodyHeight / PROGRESS_BODY_BASE_HEIGHT;
-  const PROGRESS_SCALE = Math.max(0.75, Math.min(1.45, PROGRESS_SCALE_RAW));
+  const PROGRESS_SCALE = Math.max(overallRenderLayout.minScale, Math.min(overallRenderLayout.maxScale, PROGRESS_SCALE_RAW));
   const scaleProgress = (value, min, max) => {
     const scaled = value * PROGRESS_SCALE;
     return Math.max(min, Math.min(max, scaled));
   };
 
-  const donutLabelFontSize = donutSize > 0
-    ? Math.round(Math.max(11, Math.min(21, donutSize * (20 / PROGRESS_DONUT_SIZE))))
-    : 20;
-
-  const SAFE_PAD = Math.round(scaleProgress(4, 3, 8));
+  const SAFE_PAD = Math.round(scaleProgress(
+    overallRenderLayout.safePadBase,
+    overallRenderLayout.safePadMin,
+    overallRenderLayout.safePadMax
+  ));
 
   const availableW = Math.max(1, box.width - SAFE_PAD * 2);
   const availableH = Math.max(1, box.height - SAFE_PAD * 2);
@@ -1864,8 +1885,20 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
     ? Math.floor(Math.min(availableW, availableH))
     : 0;
   const donutStroke = donutSize > 0
-    ? Math.max(3, Math.round(donutSize * (PROGRESS_DONUT_STROKE / PROGRESS_DONUT_SIZE)))
-    : PROGRESS_DONUT_STROKE;
+    ? Math.max(
+        overallRenderLayout.minStroke,
+        Math.round(donutSize * (overallRenderLayout.baseStroke / overallRenderLayout.baseSize))
+      )
+    : overallRenderLayout.baseStroke;
+  const donutLabelFontSize = donutSize > 0
+    ? Math.round(Math.max(
+        overallRenderLayout.labelMinFontSize,
+        Math.min(
+          overallRenderLayout.labelMaxFontSize,
+          donutSize * (overallRenderLayout.labelBaseFontSize / overallRenderLayout.baseSize)
+        )
+      ))
+    : overallRenderLayout.labelBaseFontSize;
 
   return (
     <TouchableOpacity
@@ -1883,6 +1916,7 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
             size={donutSize}
             stroke={donutStroke}
             labelFontSize={donutLabelFontSize}
+            graphId={graphId}
           />
         ) : null}
       </View>
@@ -3300,6 +3334,7 @@ export default function EntryListScreen({ route, navigation }) {
             progress={isShare ? undefined : donutProgressK}
             onPress={isShare ? undefined : runDonut}
             disabled={isShare}
+            graphId={GRAPH_RENDER_GRAPH_IDS.OVERALL_PROGRESS}
           />
         </DashboardWidgetShell>
       );

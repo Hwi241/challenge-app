@@ -698,3 +698,447 @@ grass: {
 7. constants/graphPreviewRules.js
 
 constants/graphRenderRules.js는 이미 생성되어 있으며, 실제 화면 연결 기준으로 유지 관리한다.
+
+---
+
+## 17. 실제 대시보드 카드 family 분류와 색상 커스텀 준비 기준
+
+이 섹션은 ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS 기준 실제 challenge/habit 대시보드 카드 전체를 graphRenderRules family 기준으로 정리한다.
+
+목적은 단순한 색상 하드코딩 제거가 아니라, 이후 사용자 색상 커스텀 기능에서 아래 단위가 모두 가능하도록 사전에 구조를 맞추는 것이다.
+
+- byInstanceId
+ = 같은 graphId라도 특정 배치 카드 1개만 색상 변경
+
+- byGraphId
+ = 특정 카드 종류 전체 색상 변경
+
+- byFamily
+ = 같은 형태 family 전체 색상 변경
+
+- global
+ = 모든 그래프/대시보드 카드 공통 색상 변경
+
+- default
+ = 앱 기본값
+
+핵심 원칙:
+
+1. family는 그래프의 형태 문법이다.
+
+2. graphId는 사용자 색상 커스텀의 카드 종류 단위다.
+
+3. 같은 family를 쓰더라도 graphId는 카드별로 고유하게 유지한다.
+
+4. 렌더 컴포넌트는 가능하면 graphId prop을 받아 resolveGraphRenderRule({ graphId })를 호출해야 한다.
+
+5. 여러 카드가 같은 컴포넌트를 공유하더라도 하나의 graphId로 뭉개지 않는다.
+
+6. 현재 실제 카드가 없는 미래 family는 코드에 미리 만들지 않는다.
+
+7. 현재 실제 카드 때문에 필요한 family만 추가한다.
+
+8. recordRoom 전용 그래프는 이번 670 흐름의 범위에서 제외하고 별도 단계에서 판단한다.
+
+---
+
+### 17-1. 기존 family 유지 대상
+
+아래 카드들은 이미 존재하는 family를 그대로 사용한다.
+
+| graphId | family | 기준 |
+|---|---|---|
+| overall_progress | overallProgress | 원형 도넛 진행률 |
+| month_calendar | calendar | 월간 달력 |
+| weekly_bar | weeklyBar | 도전/습관 주간 인증 막대 |
+| line_count_cumulative | line | 누적 횟수 선형 추세 |
+| line_minutes | line | 시간 선형 추세 |
+| grass_graph | grass | 잔디/히트맵 |
+| health_steps_weekly | weeklyBar | 걸음 수 주간 리듬 |
+| health_steps_trend | line | 걸음 수 선형 추세 |
+
+주의:
+
+- health_steps_weekly는 Health 카드지만 형태가 기존 weeklyBar와 맞으므로 새 family를 만들지 않는다.
+- health_steps_trend는 Health 카드지만 형태가 기존 line과 맞으므로 새 family를 만들지 않는다.
+
+---
+
+### 17-2. line family로 추가 매핑할 Health 추세형 카드
+
+아래 카드들은 새 family가 아니라 기존 line family를 사용한다.
+
+| graphId | family | 기준 |
+|---|---|---|
+| health_exercise_minutes_trend | line | 운동 시간 선형 추세 |
+| health_distance_trend | line | 운동 거리 선형 추세 |
+| health_active_calories_trend | line | 운동 칼로리 선형 추세 |
+| health_sleep_hours_trend | line | 수면 시간 선형 추세 |
+| health_heart_rate_trend | line | 평균 심박 선형 추세 |
+| health_weight_trend | line | 체중 선형 추세 |
+| health_body_fat_trend | line | 체지방률 선형 추세 |
+| health_bmi_trend | line | BMI 선형 추세 |
+
+중요:
+
+현재 HealthLinkedRecordsLineWidget은 여러 metricType을 처리하지만, 모든 추세형 카드를 하나의 health_steps_trend graphId로 처리하면 나중에 graphId별 색상 커스텀이 불가능하다.
+
+따라서 다음 코드 연결 단계에서는 HealthLinkedRecordsLineWidget이 graphId prop을 받도록 하고, 각 렌더 분기에서 고유 graphId를 전달해야 한다.
+
+예상 연결 방향:
+
+- health_exercise_minutes_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_MINUTES_TREND
+
+- health_distance_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_TREND
+
+- health_active_calories_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_ACTIVE_CALORIES_TREND
+
+- health_sleep_hours_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_HOURS_TREND
+
+- health_heart_rate_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_HEART_RATE_TREND
+
+- health_weight_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_WEIGHT_TREND
+
+- health_body_fat_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_BODY_FAT_TREND
+
+- health_bmi_trend
+ = GRAPH_RENDER_GRAPH_IDS.HEALTH_BMI_TREND
+
+---
+
+### 17-3. 신규 progressBar family
+
+대상:
+
+| graphId | family | 기준 |
+|---|---|---|
+| health_steps_goal_rate | progressBar | 숫자 + 가로 진행률 바 |
+
+progressBar는 overallProgress와 다르다.
+
+- overallProgress
+ = 원형 도넛, 원형 track, 중앙 원, 숫자
+
+- progressBar
+ = 큰 숫자, 가로 bar, track, 목표 달성 색, 보조 설명
+
+예상 색상 슬롯:
+
+| slot | 의미 |
+|---|---|
+| progressFill | 채워진 진행 바 |
+| trackFill | 남은 영역 배경 |
+| successFill | 목표 달성 상태 색 |
+| valueText | 큰 숫자 |
+| captionText | 보조 설명 |
+| emptyText | 데이터 없음 글씨 |
+
+예상 내부 색상 map:
+
+| internal key | slot |
+|---|---|
+| progressFill | progressFill |
+| trackFill | trackFill |
+| successFill | successFill |
+| valueText | valueText |
+| captionText | captionText |
+| emptyText | emptyText |
+
+예상 layout 기준:
+
+| key | value | 의미 |
+|---|---:|---|
+| bodyBaseHeight | 96 | 기본 본문 높이 |
+| valueFontSize | 28 | 큰 숫자 기준 크기 |
+| captionFontSize | 10 | 보조 설명 기준 크기 |
+| barHeight | 6 | 진행 바 높이 |
+| barRadius | 3 | 진행 바 반경 |
+| barWidthRatio | 0.8 | 카드 폭 대비 바 폭 |
+| gapAfterValue | 4 | 값 아래 간격 |
+| gapBeforeBar | 8 | 바 위 간격 |
+
+적용 기준:
+
+- 목표 대비 달성률을 가로 진행 바와 숫자로 보여주면 progressBar를 사용한다.
+- 원형 도넛이면 overallProgress를 사용한다.
+- 목표 달성 여부에 따라 색이 바뀌면 successFill을 사용한다.
+
+---
+
+### 17-4. 신규 metricBar family
+
+대상:
+
+| graphId | family | 기준 |
+|---|---|---|
+| health_steps_cumulative | metricBar | 누적 걸음수 막대 |
+| health_exercise_weekly_minutes | metricBar | 주간 운동시간 막대 |
+| health_distance_weekly | metricBar | 주간 이동거리 막대 |
+| health_distance_cumulative | metricBar | 누적 운동거리 막대 |
+
+metricBar는 weeklyBar와 다르다.
+
+- weeklyBar
+ = 도전/습관 인증 리듬, 요일, 시간/횟수 구분, 오늘 강조, 주간 페이저
+
+- metricBar
+ = 수치형 metric, 최신값, 단위, 누적 여부, 목표선 가능
+
+예상 색상 슬롯:
+
+| slot | 의미 |
+|---|---|
+| barFill | 일반 막대 |
+| latestBarFill | 최신 막대 |
+| goalLine | 목표선 |
+| valueText | 최신값 글씨 |
+| captionText | 보조 글씨 |
+| emptyText | 데이터 없음 글씨 |
+
+예상 내부 색상 map:
+
+| internal key | slot |
+|---|---|
+| barFill | barFill |
+| latestBarFill | latestBarFill |
+| goalLine | goalLine |
+| valueText | valueText |
+| captionText | captionText |
+| emptyText | emptyText |
+
+예상 layout 기준:
+
+| key | value | 의미 |
+|---|---:|---|
+| bodyBaseHeight | 120 | 기본 본문 높이 |
+| chartMinHeight | 40 | 최소 차트 높이 |
+| chartBottomReserved | 40 | 하단 텍스트 예약 높이 |
+| barWidth | 14 | 일반 막대 폭 |
+| cumulativeBarWidth | 20 | 누적 막대 폭 |
+| barRadius | 4 | 막대 반경 |
+| minBarHeight | 6 | 최소 막대 높이 |
+| valueFontSize | 11 | 값 글씨 크기 |
+| captionFontSize | 10 | 보조 글씨 크기 |
+
+적용 기준:
+
+- 여러 날짜/항목을 막대 높이로 비교하면 metricBar를 사용한다.
+- 최신값 텍스트가 붙는 수치형 카드면 metricBar를 사용한다.
+- Health 전용으로 묶지 않고, 향후 다른 수치형 막대 카드에도 재사용한다.
+
+---
+
+### 17-5. 신규 stackedSegment family
+
+대상:
+
+| graphId | family | 기준 |
+|---|---|---|
+| health_sleep_rhythm | stackedSegment | 수면 단계 비율 조각 바 |
+
+stackedSegment는 metricBar와 다르다.
+
+- metricBar
+ = 각 막대 높이가 값
+
+- stackedSegment
+ = 한 줄 전체가 100%, 각 조각 너비가 비율
+
+예상 색상 슬롯:
+
+| slot | 의미 |
+|---|---|
+| trackFill | 전체 배경 |
+| segmentPrimary | 강한 구간 |
+| segmentSecondary | 중간 구간 |
+| segmentTertiary | 약한 구간 |
+| segmentMuted | 흐린 구간 |
+| valueText | 값 글씨 |
+| captionText | 보조 글씨 |
+| emptyText | 데이터 없음 글씨 |
+
+예상 내부 색상 map:
+
+| internal key | slot |
+|---|---|
+| trackFill | trackFill |
+| segmentPrimary | segmentPrimary |
+| segmentSecondary | segmentSecondary |
+| segmentTertiary | segmentTertiary |
+| segmentMuted | segmentMuted |
+| valueText | valueText |
+| captionText | captionText |
+| emptyText | emptyText |
+
+예상 layout 기준:
+
+| key | value | 의미 |
+|---|---:|---|
+| bodyBaseHeight | 96 | 기본 본문 높이 |
+| segmentHeight | 18 | 조각 바 높이 |
+| segmentRadius | 9 | 조각 바 반경 |
+| labelGap | 8 | 라벨 간격 |
+| legendGap | 6 | 범례 간격 |
+| captionFontSize | 10 | 보조 글씨 크기 |
+| valueFontSize | 12 | 값 글씨 크기 |
+| legendFontSize | 9 | 범례 글씨 크기 |
+
+적용 기준:
+
+- 전체 대비 구성 비율을 한 줄의 조각으로 보여주면 stackedSegment를 사용한다.
+- 수면 단계, 활동 구성, 시간 배분 같은 구조에 재사용할 수 있다.
+- 막대 높이 비교가 아니므로 metricBar에 넣지 않는다.
+
+---
+
+### 17-6. 신규 infoCard family
+
+대상:
+
+| graphId | family | 기준 |
+|---|---|---|
+| goal_black_box | infoCard | 목표/보상 설명 카드 |
+
+infoCard는 그래프 family가 아니라 대시보드 정보 카드 family다.
+
+goal_black_box는 ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS에 포함되어 있지만, 데이터 시각화가 아니라 목표와 보상을 보여주는 카드다.
+
+그래도 나중에 사용자가 카드별 색상을 바꿀 수 있게 하려면 graphRenderRules 기준에 포함한다.
+
+예상 색상 슬롯:
+
+| slot | 의미 |
+|---|---|
+| titleText | 제목 |
+| bodyText | 본문 |
+| captionText | 보조 설명 |
+| accentText | 강조 글씨 |
+| surfaceFill | 카드 내부 배경 |
+| divider | 구분선 |
+| emptyText | 빈 상태 글씨 |
+
+예상 내부 색상 map:
+
+| internal key | slot |
+|---|---|
+| titleText | titleText |
+| bodyText | bodyText |
+| captionText | captionText |
+| accentText | accentText |
+| surfaceFill | surfaceFill |
+| divider | divider |
+| emptyText | emptyText |
+
+예상 layout 기준:
+
+| key | value | 의미 |
+|---|---:|---|
+| bodyBaseHeight | 72 | 기본 본문 높이 |
+| titleFontSize | 13 | 제목 크기 |
+| bodyFontSize | 12 | 본문 크기 |
+| captionFontSize | 10 | 보조 글씨 크기 |
+| titleLineHeight | 17 | 제목 줄높이 |
+| bodyLineHeight | 16 | 본문 줄높이 |
+| verticalGap | 5 | 세로 간격 |
+| horizontalPadding | 12 | 좌우 여백 |
+
+적용 기준:
+
+- 축, 선, 막대, 달력, 잔디, segment가 없고 설명/목표/보상 정보 중심이면 infoCard를 사용한다.
+- goal_black_box는 graph가 아니지만 실제 대시보드 카드이므로 infoCard family로 관리한다.
+- recordRoom의 메모/상태 카드로 확장할지는 별도 단계에서 판단한다.
+
+---
+
+### 17-7. 최종 ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS 분류표
+
+| graphId | family | 이번 670 흐름 처리 |
+|---|---|---|
+| overall_progress | overallProgress | 완료 |
+| goal_black_box | infoCard | 신규 family 필요 |
+| month_calendar | calendar | 완료 |
+| weekly_bar | weeklyBar | 완료 |
+| line_count_cumulative | line | 완료 |
+| line_minutes | line | 완료 |
+| grass_graph | grass | 완료 |
+| health_steps_weekly | weeklyBar | 완료 |
+| health_steps_trend | line | 완료 |
+| health_exercise_minutes_trend | line | graphId 추가 필요 |
+| health_distance_trend | line | graphId 추가 필요 |
+| health_steps_goal_rate | progressBar | 신규 family 필요 |
+| health_steps_cumulative | metricBar | 신규 family 필요 |
+| health_exercise_weekly_minutes | metricBar | 신규 family 필요 |
+| health_distance_weekly | metricBar | 신규 family 필요 |
+| health_distance_cumulative | metricBar | 신규 family 필요 |
+| health_active_calories_trend | line | graphId 추가 필요 |
+| health_sleep_hours_trend | line | graphId 추가 필요 |
+| health_sleep_rhythm | stackedSegment | 신규 family 필요 |
+| health_heart_rate_trend | line | graphId 추가 필요 |
+| health_weight_trend | line | graphId 추가 필요 |
+| health_body_fat_trend | line | graphId 추가 필요 |
+| health_bmi_trend | line | graphId 추가 필요 |
+
+---
+
+### 17-8. 다음 코드 작업 순서
+
+670-3:
+
+- constants/graphRenderRules.js에 누락 graphId와 신규 family 4개를 추가한다.
+- GRAPH_RENDER_GRAPH_IDS 추가
+- GRAPH_RENDER_FAMILIES 추가
+- GRAPH_RENDER_GRAPH_FAMILY_BY_ID 추가
+- GRAPH_RENDER_COLOR_ROLES 추가
+- GRAPH_RENDER_EDITABLE_COLOR_SLOTS 추가
+- GRAPH_RENDER_LAYOUT_RULES 추가
+- GRAPH_RENDER_INTERNAL_COLOR_MAP 추가
+- 문서와 코드 매핑을 검증한다.
+- 아직 EntryListScreen.js 렌더 연결은 최소화한다.
+
+670-4:
+
+- Health 추세형 line 카드들이 각자의 고유 graphId로 resolveGraphRenderRule을 타도록 연결한다.
+- HealthLinkedRecordsLineWidget에 graphId prop을 추가한다.
+- 기존 health_steps_trend 하나로 뭉개진 구조를 해소한다.
+
+670-5:
+
+- progressBar, metricBar, stackedSegment 실제 렌더 컴포넌트를 graphRenderRules 기준으로 연결한다.
+- health_steps_goal_rate
+- health_steps_cumulative
+- health_exercise_weekly_minutes
+- health_distance_weekly
+- health_distance_cumulative
+- health_sleep_rhythm
+
+670-6:
+
+- goal_black_box를 infoCard 기준으로 연결한다.
+- DashboardGoalWidget이 infoCard family의 colors/layout을 사용하도록 한다.
+
+---
+
+### 17-9. 금지 기준
+
+1. 새 카드를 하나의 기존 graphId로 뭉개지 않는다.
+
+2. Health 추세형 카드를 모두 health_steps_trend로 처리하지 않는다.
+
+3. family 이름을 데이터 출처 기준으로 만들지 않는다.
+
+4. Health 전용 family를 불필요하게 만들지 않는다.
+
+5. 실제 카드가 없는 미래 family를 코드에 미리 만들지 않는다.
+
+6. 색상 커스텀 UI가 아직 없더라도 byGraphId, byFamily, byInstanceId 확장을 막는 구조로 만들지 않는다.
+
+7. 하드코딩 색을 새로 추가하지 않는다.
+
+8. recordRoom 그래프는 이번 670 흐름에서 섞지 않는다.

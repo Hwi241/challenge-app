@@ -1229,6 +1229,7 @@ var HealthSleepRhythmWidget = memo(function HealthSleepRhythmWidget(_ref) {
 
 var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(_ref) {
   var entries = _ref.entries, metricType = _ref.metricType, title = _ref.title, unit = _ref.unit, disabled = _ref.disabled;
+  var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND;
   var _a = useState({width:0,height:0}), box = _a[0], setBox = _a[1];
   var onLayout = useCallback(function(ev){
     var w=Math.floor(ev.nativeEvent.layout.width||0),h=Math.floor(ev.nativeEvent.layout.height||0);
@@ -1240,8 +1241,8 @@ var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(
   var displayTitle = title || config.title || '건강 데이터';
   var emptyText = config.emptyText || '데이터가 없습니다.';
   var healthLineRenderRule = useMemo(function() {
-    return resolveGraphRenderRule({ graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND });
-  }, []);
+    return resolveGraphRenderRule({ graphId: graphId });
+  }, [graphId]);
   var healthLineColors = healthLineRenderRule.colors;
   var healthLineLayout = healthLineRenderRule.layout;
   var cw = Math.max(1, box.width || 260), ch = Math.max(1, box.height || 120);
@@ -3498,7 +3499,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthStepsTrend" title="걸음 수 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="steps" title="걸음 수 추세" unit="보" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="steps" title="걸음 수 추세" unit="보" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3514,7 +3515,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthExerciseMinutesTrend" title="운동 시간 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="minutes" title="운동 시간 추세" unit="분" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="minutes" title="운동 시간 추세" unit="분" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_MINUTES_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3544,7 +3545,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthDistanceTrend" title="운동 거리 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="distance" title="운동 거리 추세" unit="km" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="distance" title="운동 거리 추세" unit="km" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3554,7 +3555,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthActiveCaloriesTrend" title="운동 칼로리">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="calories" title="운동 칼로리" unit="kcal" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="calories" title="운동 칼로리" unit="kcal" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_ACTIVE_CALORIES_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3563,7 +3564,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthSleepHoursTrend" title="수면 시간 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="sleepHours" title="수면 시간 추세" unit="시간" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="sleepHours" title="수면 시간 추세" unit="시간" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_HOURS_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3581,7 +3582,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthHeartRateTrend" title="평균 심박 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="heartRate" title="평균 심박 추세" unit="bpm" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="heartRate" title="평균 심박 추세" unit="bpm" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_HEART_RATE_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3590,7 +3591,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthWeightTrend" title="체중 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="weight" title="체중 추세" unit="kg" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="weight" title="체중 추세" unit="kg" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_WEIGHT_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3599,7 +3600,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthBodyFatTrend" title="체지방률 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="bodyFat" title="체지방률 추세" unit="%" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="bodyFat" title="체지방률 추세" unit="%" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_BODY_FAT_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3608,7 +3609,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthBmiTrend" title="BMI 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="bmi" title="BMI 추세" unit="BMI" disabled={isShare} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="bmi" title="BMI 추세" unit="BMI" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_BMI_TREND} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);

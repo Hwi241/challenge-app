@@ -1260,3 +1260,67 @@ GRAPH_RENDER_FAMILIES에 아래 family를 추가한다.
 - recordRoom 그래프 family 정리
 
 위 항목은 670-4 이후 단계에서 나눠서 진행한다.
+
+---
+
+## 19. 670-4 Health 추세형 line graphId 연결 완료 기준
+
+670-4 단계에서는 HealthLinkedRecordsLineWidget이 graphId prop을 받도록 하고, Health 추세형 line 카드들이 각자 고유 graphId로 resolveGraphRenderRule을 타도록 연결한다.
+
+이 단계는 나중에 byGraphId 색상 커스텀을 가능하게 만드는 작업이다.
+
+---
+
+### 19-1. 연결 대상
+
+아래 Health 추세형 line 카드들은 모두 line family를 사용하지만, graphId는 각각 고유해야 한다.
+
+| widgetKind | graphId | family |
+|---|---|---|
+| healthStepsTrend | health_steps_trend | line |
+| healthExerciseMinutesTrend | health_exercise_minutes_trend | line |
+| healthDistanceTrend | health_distance_trend | line |
+| healthActiveCaloriesTrend | health_active_calories_trend | line |
+| healthSleepHoursTrend | health_sleep_hours_trend | line |
+| healthHeartRateTrend | health_heart_rate_trend | line |
+| healthWeightTrend | health_weight_trend | line |
+| healthBodyFatTrend | health_body_fat_trend | line |
+| healthBmiTrend | health_bmi_trend | line |
+
+---
+
+### 19-2. 구현 기준
+
+HealthLinkedRecordsLineWidget은 아래 기준을 따른다.
+
+- graphId prop을 받는다.
+- graphId가 없으면 기존 호환을 위해 HEALTH_STEPS_TREND로 fallback한다.
+- resolveGraphRenderRule은 고정 HEALTH_STEPS_TREND가 아니라 전달받은 graphId를 사용한다.
+- useMemo dependency에 graphId를 포함한다.
+
+---
+
+### 19-3. 금지 기준
+
+이번 단계에서는 아래 작업을 하지 않는다.
+
+- constants/graphRenderRules.js 수정
+- progressBar 실제 연결
+- metricBar 실제 연결
+- stackedSegment 실제 연결
+- infoCard 실제 연결
+- HealthStepsGoalRateWidget 수정
+- HealthWeeklyMetricWidget 수정
+- HealthSleepRhythmWidget 수정
+- DashboardGoalWidget 수정
+- 색상 커스텀 UI 구현
+
+---
+
+### 19-4. 다음 단계
+
+670-5에서는 아래 신규 family 실제 렌더 연결을 진행한다.
+
+- progressBar (health_steps_goal_rate)
+- metricBar (health_steps_cumulative, health_exercise_weekly_minutes, health_distance_weekly, health_distance_cumulative)
+- stackedSegment (health_sleep_rhythm)

@@ -24,8 +24,8 @@ constants/graphPreviewRules.js
   = GraphPreviewIcon이 참조하는 작은 아이콘용 실행 기준
 
 constants/graphRenderRules.js
-  = 실제 대시보드 그래프는 어떻게 보일 것인가
-  = 이 문서의 다음 구현 대상
+  = 실제 대시보드 그래프가 실제 화면에서 어떻게 렌더링되는가
+  = EntryListScreen.js 실제 대시보드 카드 렌더링에 연결된 공식 기준
 
 docs/GRAPH_RENDER_RULE.md
   = 실제 그래프 렌더링 기준 설명 문서
@@ -103,7 +103,7 @@ constants/graphRenderRules.js는 아래 기본 역할을 가진다.
 
 이 값은 앱 디자인 기준과 같은 방향의 시작 숫자값이지만, styles/common.js를 직접 import하지 않는다.
 
-```
+```javascript
 GRAPH_RENDER_COLOR_ROLES = {
   primary: '#0A0A0A',
   secondary: '#525252',
@@ -115,40 +115,40 @@ GRAPH_RENDER_COLOR_ROLES = {
   empty: '#FAFAFA',
   inverse: '#FFFFFF',
   highlight: '#0A0A0A',
+  grassLevel0: '#F3F4F6',
+  grassLevel1: '#E5E7EB',
+  grassLevel2: '#A0A0A0',
+  grassLevel3: '#555555',
+  grassLevel4: '#111111',
+  grassMonthLabel: '#6B7280',
+  grassArrow: '#111111',
+  calendarCertified: '#111111',
+  calendarCertifiedText: '#FFFFFF',
+  calendarActiveDateText: '#111111',
+  calendarFutureDateText: '#777777',
+  calendarEmptyDateText: '#D1D5DB',
+  calendarTodayUncertifiedFill: '#D1D5DB',
+  calendarTodayUncertifiedText: '#000000',
+  calendarHighlight: '#FFD700',
+  overallProgressFill: '#111111',
+  overallProgressTrack: '#D1D5DB',
+  overallProgressCenterFill: '#111111',
+  overallProgressLabelText: '#FFFFFF',
 }
 ```
 
 역할 의미:
-
-- primary
-  = 가장 강한 그래프 색
-
-- secondary
-  = 보조 텍스트, 보조 그래프 요소
-
-- tertiary
-  = 약한 보조 텍스트, 오늘 빈 상태, 중간 단계
-
-- axis
-  = 축, 빈 점, 약한 막대, 비활성 점
-
-- track
-  = 진행률 배경, 빈 칸, 약한 배경
-
-- surface
-  = 카드/마커 내부 흰색
-
-- surfaceMuted
-  = 약한 배경
-
-- empty
-  = 가장 약한 빈 상태
-
-- inverse
-  = 어두운 배경 위 글씨
-
-- highlight
-  = 선택 강조, 오늘 강조, 사용자 강조색
+- primary = 가장 강한 그래프 색
+- secondary = 보조 텍스트, 보조 그래프 요소
+- tertiary = 약한 보조 텍스트, 오늘 빈 상태, 중간 단계
+- axis = 축, 빈 점, 약한 막대, 비활성 점
+- track = 진행률 배경, 빈 칸, 약한 배경
+- surface = 카드/마커 내부 흰색
+- surfaceMuted = 약한 배경
+- empty = 가장 약한 빈 상태
+- inverse = 어두운 배경 위 글씨
+- highlight = 선택 강조, 오늘 강조, 사용자 강조색
+- grass*, calendar*, overallProgress* = 기존 실제 화면 색상을 1:1 보존하기 위해 family별로 분리한 전용 기본 역할
 
 ---
 
@@ -236,106 +236,132 @@ durationBar: {
 
 ## 8. 전체 진행률 기준
 
-대상:
-
-- overall_progress
+대상: overall_progress
 
 사용자 편집 가능 색상 슬롯:
-
-```
+```javascript
 overallProgress: {
   progress: {
     label: '진행률',
-    defaultRole: 'primary',
+    defaultRole: 'overallProgressFill',
   },
   track: {
     label: '남은 영역',
-    defaultRole: 'track',
+    defaultRole: 'overallProgressTrack',
+  },
+  centerFill: {
+    label: '중앙 원',
+    defaultRole: 'overallProgressCenterFill',
   },
   label: {
     label: '숫자',
-    defaultRole: 'primary',
+    defaultRole: 'overallProgressLabelText',
   },
 }
 ```
 
 형태 기준:
-
-```
+```javascript
 overallProgress: {
+  bodyBaseHeight: 146,
   baseSize: 104,
   baseStroke: 11,
   minScale: 0.75,
   maxScale: 1.45,
+  safePadBase: 4,
+  safePadMin: 3,
+  safePadMax: 8,
+  minStroke: 3,
+  labelBaseFontSize: 20,
+  labelMinFontSize: 11,
+  labelMaxFontSize: 21,
+  labelLineGap: 2,
+  innerRadiusFactor: 1.25,
+  minInnerRadius: 2,
 }
 ```
 
 원칙:
-
-1. 진행률의 핵심 색은 progress 슬롯이다.
-
-2. 남은 원형 트랙은 track 슬롯이다.
-
-3. 숫자 텍스트는 기본적으로 label 슬롯을 따른다.
-
-4. 사용자가 진행률 색만 바꿔도 전체 진행률의 인상이 자연스럽게 바뀌어야 한다.
+- 진행률의 핵심 색은 progress 슬롯이다.
+- 남은 원형 트랙은 track 슬롯이다.
+- 숫자 뒤 중앙 원은 centerFill 슬롯이다.
+- 숫자 텍스트는 label 슬롯을 따른다.
+- 기존 도넛 화면 색상과 크기 기준을 유지하면서 graphRenderRules 기준으로 연결한다.
 
 ---
 
 ## 9. 달력 기준
 
-대상:
-
-- month_calendar
+대상: month_calendar
 
 사용자 편집 가능 색상 슬롯:
-
-```
+```javascript
 calendar: {
   certifiedDay: {
-    label: '인증일',
-    defaultRole: 'primary',
+    label: '인증일 배경',
+    defaultRole: 'calendarCertified',
   },
-  dateText: {
-    label: '날짜 글씨',
-    defaultRole: 'secondary',
+  certifiedText: {
+    label: '인증일 글씨',
+    defaultRole: 'calendarCertifiedText',
+  },
+  activeDateText: {
+    label: '활성 날짜 글씨',
+    defaultRole: 'calendarActiveDateText',
+  },
+  futureDateText: {
+    label: '미래 날짜 글씨',
+    defaultRole: 'calendarFutureDateText',
+  },
+  emptyDateText: {
+    label: '빈 날짜 글씨',
+    defaultRole: 'calendarEmptyDateText',
   },
   today: {
-    label: '오늘',
-    defaultRole: 'track',
+    label: '오늘 배경',
+    defaultRole: 'calendarTodayUncertifiedFill',
+  },
+  todayText: {
+    label: '오늘 글씨',
+    defaultRole: 'calendarTodayUncertifiedText',
   },
   highlight: {
     label: '선택 강조',
-    defaultRole: 'highlight',
+    defaultRole: 'calendarHighlight',
   },
 }
 ```
 
 내부 파생 역할:
-
-- futureDay = tertiary
-- emptyDay = axis 또는 track
-- certifiedText = inverse
-- todayText = primary
+- certifiedFill = certifiedDay
+- certifiedText = certifiedText
+- activeDateText = activeDateText
+- futureDay = futureDateText
+- emptyDay = emptyDateText
+- todayFill = today
+- todayText = todayText
+- activeTodayText = certifiedText
+- highlightBorder = highlight
 
 형태 기준:
-
-```
+```javascript
 calendar: {
+  bodyBaseHeight: 142,
+  dowHeight: 14,
+  dowFontSize: 10.5,
+  gridTopGap: 3,
+  bottomPad: 4,
   badgeRadius: 8,
+  highlightBorderWidth: 2,
   todayBorderWidth: 2,
 }
 ```
 
 원칙:
-
-1. 사용자는 인증일, 날짜 글씨, 오늘, 선택 강조 정도만 바꾸면 된다.
-
-2. 미래일, 빈칸, 인증일 내부 글씨는 기준에서 자동 파생한다.
-
-3. 하이라이트는 별도 슬롯으로 둔다.
-
-4. 현재의 노란 강조색 같은 값도 미래에는 highlight 슬롯으로 흡수한다.
+- 기존 월간 달력 실제 화면 색상을 1:1 보존한다.
+- 인증일, 인증일 글씨, 일반 날짜, 미래 날짜, 빈 날짜, 오늘, 선택 강조를 분리한다.
+- 오늘이 인증된 경우처럼 내부 상태에 따라 필요한 색은 internal color map에서 연결한다.
+- 하이라이트의 기존 노란색 기준은 calendarHighlight 역할로 분리한다.
 
 ---
 
@@ -461,121 +487,127 @@ line: {
 
 ## 12. 잔디그래프 기준
 
-대상:
-
-- grass_graph
+대상: grass_graph
 
 사용자 편집 가능 색상 슬롯:
-
-```
+```javascript
 grass: {
-  base: {
-    label: '기록 색',
-    defaultRole: 'primary',
-  },
-  empty: {
+  level0: {
     label: '빈 칸',
-    defaultRole: 'track',
+    defaultRole: 'grassLevel0',
   },
-  text: {
+  level1: {
+    label: '약한 칸',
+    defaultRole: 'grassLevel1',
+  },
+  level2: {
+    label: '기록 1단계',
+    defaultRole: 'grassLevel2',
+  },
+  level3: {
+    label: '기록 2단계',
+    defaultRole: 'grassLevel3',
+  },
+  level4: {
+    label: '기록 3단계',
+    defaultRole: 'grassLevel4',
+  },
+  monthLabel: {
     label: '월 글씨',
-    defaultRole: 'secondary',
+    defaultRole: 'grassMonthLabel',
   },
-  accent: {
-    label: '강조 효과',
-    defaultRole: 'primary',
+  arrow: {
+    label: '화살표',
+    defaultRole: 'grassArrow',
   },
 }
 ```
 
 형태 기준:
-
-```
+```javascript
 grass: {
+  baseHeight: 168,
   rows: 7,
+  topLabelHeight: 18,
+  topLabelGap: 4,
   minCellSize: 8,
   maxCellSize: 18,
   minCellGap: 2,
   maxCellGap: 4,
   cellRadius: 2,
   monthFontSize: 10.5,
+  monthLineHeight: 13,
+  arrowSize: 15,
+  waveWidth: 4,
+  waveSpeed: 0.02,
+  waveDiagonal: 0.6,
 }
 ```
 
 색상 단계 원칙:
-
-- level0 = empty
-- level1 = track
-- level2 = tertiary
-- level3 = secondary
-- level4 = base
+- level0 = 기존 빈 칸 색
+- level1 = 기존 약한 칸 색
+- level2 = 기존 기록 1단계 색
+- level3 = 기존 기록 2단계 색
+- level4 = 기존 기록 3단계 색
+- waveLow = level1
+- waveMid = level2
+- waveHigh = level3
+- wavePeak = level4
 
 원칙:
-
-1. 사용자가 5단계 색을 모두 직접 고르게 하지 않는다.
-
-2. 사용자는 기록 색인 base와 빈 칸인 empty 정도를 고른다.
-
-3. 중간 단계는 기준에서 자동 파생하거나 기본 역할을 사용한다.
-
-4. 웨이브 애니메이션은 accent와 단계 색상을 기준으로 움직인다.
+- 기존 잔디그래프의 단계별 색상 차이를 유지한다.
+- 초기 계획처럼 base/empty만 노출하면 기존 단계감이 무너질 수 있으므로 현재 구현은 level0~level4를 명시 슬롯으로 둔다.
+- 월 라벨과 화살표 색상도 실제 화면 기준에 맞춰 별도 슬롯으로 둔다.
+- 웨이브 애니메이션은 단계 색상을 기준으로 움직인다.
 
 ---
 
-## 13. graphRenderRules.js 예상 구조
+## 13. graphRenderRules.js 현재 구현 구조
 
-다음 구현 단계에서 만들 파일 구조는 아래를 기준으로 한다.
+현재 constants/graphRenderRules.js는 생성 예정 파일이 아니라 실제 화면 렌더링에 연결된 공식 기준 파일이다.
 
-```javascript
-export const GRAPH_RENDER_COLOR_ROLES = Object.freeze({
-  primary: '#0A0A0A',
-  secondary: '#525252',
-  tertiary: '#737373',
-  axis: '#D4D4D4',
-  track: '#E5E5E5',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F5F5F5',
-  empty: '#FAFAFA',
-  inverse: '#FFFFFF',
-  highlight: '#0A0A0A',
-});
+현재 구조:
+- GRAPH_RENDER_GRAPH_IDS
+- GRAPH_RENDER_FAMILIES
+- GRAPH_RENDER_GRAPH_FAMILY_BY_ID
+- GRAPH_RENDER_COLOR_ROLES
+- GRAPH_RENDER_EDITABLE_COLOR_SLOTS
+- GRAPH_RENDER_LAYOUT_RULES
+- GRAPH_RENDER_INTERNAL_COLOR_MAP
+- GRAPH_RENDER_COLOR_SETTING_PRIORITY
+- GRAPH_RENDER_COLOR_SETTING_STORAGE_KEY
+- getExplicitGraphRenderFamilyForGraphId()
+- isKnownGraphRenderGraphId()
+- getGraphRenderFamilyForGraphId()
+- shouldCreateNewGraphRenderFamily()
+- getGraphRenderEditableColorSlots()
+- getGraphRenderLayoutRules()
+- getGraphRenderRoleColor()
+- getGraphRenderSlotDefaultRole()
+- getGraphRenderSlotDefaultColor()
+- resolveGraphRenderColorSlot()
+- resolveGraphRenderColors()
+- resolveGraphRenderRule()
 
-export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
-  overallProgress: Object.freeze({
-    progress: Object.freeze({ label: '진행률', defaultRole: 'primary' }),
-    track: Object.freeze({ label: '남은 영역', defaultRole: 'track' }),
-    label: Object.freeze({ label: '숫자', defaultRole: 'primary' }),
-  }),
+현재 실제 화면 연결 상태:
+- line family: line_count_cumulative / line_minutes / health_steps_trend
+- weeklyBar family: weekly_bar / health_steps_weekly
+- grass family: grass_graph
+- calendar family: month_calendar
+- overallProgress family: overall_progress
 
-  calendar: Object.freeze({
-    certifiedDay: Object.freeze({ label: '인증일', defaultRole: 'primary' }),
-    dateText: Object.freeze({ label: '날짜 글씨', defaultRole: 'secondary' }),
-    today: Object.freeze({ label: '오늘', defaultRole: 'track' }),
-    highlight: Object.freeze({ label: '선택 강조', defaultRole: 'highlight' }),
-  }),
+현재 연결된 주요 실제 화면 컴포넌트:
+- DashboardLineChart / LineGradientChart / HealthLinkedRecordsLineWidget
+- WeekView / HealthStepsWeeklyWidget
+- GrassGraph
+- MonthCalendar
+- Donut / DashboardProgressWidget
 
-  weeklyBar: Object.freeze({
-    durationBar: Object.freeze({ label: '시간 막대', defaultRole: 'primary' }),
-    countBar: Object.freeze({ label: '횟수 막대', defaultRole: 'axis' }),
-    text: Object.freeze({ label: '글씨', defaultRole: 'secondary' }),
-    accent: Object.freeze({ label: '오늘/강조', defaultRole: 'primary' }),
-  }),
-
-  line: Object.freeze({
-    line: Object.freeze({ label: '선', defaultRole: 'primary' }),
-    marker: Object.freeze({ label: '점', defaultRole: 'primary' }),
-    text: Object.freeze({ label: '글씨', defaultRole: 'secondary' }),
-    tooltip: Object.freeze({ label: '선택 라벨', defaultRole: 'primary' }),
-  }),
-
-  grass: Object.freeze({
-    base: Object.freeze({ label: '기록 색', defaultRole: 'primary' }),
-    empty: Object.freeze({ label: '빈 칸', defaultRole: 'track' }),
-    text: Object.freeze({ label: '월 글씨', defaultRole: 'secondary' }),
-    accent: Object.freeze({ label: '강조 효과', defaultRole: 'primary' }),
-  }),
-});
-```
+주의:
+- 사용자 색상 커스텀 UI는 아직 연결하지 않았다.
+- graphRenderRules는 실제 화면 기준이고, graphPreviewRules는 상점/편집 미리보기 기준이다.
+- 두 기준은 직접 import로 묶지 않는다.
 
 ---
 
@@ -620,33 +652,23 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
 
 ---
 
-## 15. 적용 순서
+## 15. 669 적용 완료 상태
 
-안전한 적용 순서는 아래와 같다.
+669 단계에서 실제 화면 연결은 아래 순서로 완료됐다.
 
-- 669-1 = GRAPH_RENDER_RULE 문서 생성
-- 669-2 = constants/graphRenderRules.js 생성 (아직 화면 연결 없음)
-- 669-3 = 문서와 기준 JS 커밋/푸시
-- 669-4 = 새 그래프/family 확장 규칙 보강 (현재 추가 graphId 매핑, 아직 화면 연결 없음)
-- 669-5 = 선형그래프 family 기준 연결 (line_count_cumulative / line_minutes / health_steps_trend 계열)
-- 669-6 = 주간막대 family 기준 연결 (weekly_bar / health_steps_weekly 계열)
-- 669-7 = 잔디그래프 기준 연결
-- 669-8 = 달력 기준 연결
-- 669-9 = 전체 진행률 기준 연결
+- 669-7 = line family 실제 화면 연결 완료 = line_count_cumulative / line_minutes / health_steps_trend
+- 669-10 = weeklyBar family 실제 화면 연결 완료 = weekly_bar / health_steps_weekly
+- 669-13 = grass family 실제 화면 연결 완료 = grass_graph = 기존 잔디 색상 단계 1:1 복원 포함
+- 669-15 = calendar family 실제 화면 연결 완료 = month_calendar = 기존 달력 색상 1:1 보존
+- 669-17 = overallProgress family 실제 화면 연결 완료 = overall_progress = Donut / DashboardProgressWidget 연결 = donutSize 선언 전 참조 위험 제거
 
-원칙:
-
-1. 한 단계에서 한 그래프 family만 연결한다.
-
-2. 연결 전후 시각 변화가 크지 않게 기본값을 현재 앱 디자인 기준에 맞춘다.
-
-3. 사용자 색상 커스텀 기능은 아직 만들지 않는다.
-
-4. 하지만 모든 기준 이름은 미래 커스텀 기능에서 그대로 재사용할 수 있게 만든다.
-
-5. 새 그래프가 늘어나면 기존 family 재사용 가능 여부를 먼저 판단한다.
-
-6. 새 family가 필요하면 색상 슬롯, 레이아웃, 내부 색상 매핑을 세트로 추가한다.
+현재 원칙:
+- 실제 대시보드 그래프 5개 family는 graphRenderRules 기준으로 연결 완료됐다.
+- 연결 후 기본값은 기존 실제 화면과 최대한 같게 유지한다.
+- 사용자 색상 커스텀 기능은 아직 만들지 않는다.
+- 다음 단계에서 색상 커스텀 UI를 만들 경우 이 문서와 constants/graphRenderRules.js를 기준으로 진행한다.
+- 새 그래프가 늘어나면 기존 family 재사용 가능 여부를 먼저 판단한다.
+- 새 family가 필요하면 색상 슬롯, 레이아웃, 내부 색상 매핑을 세트로 추가한다.
 
 ---
 
@@ -675,4 +697,4 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
 6. docs/GRAPH_PREVIEW_RULE.md
 7. constants/graphPreviewRules.js
 
-constants/graphRenderRules.js가 아직 없다면 이 문서를 기준으로 먼저 생성한다.
+constants/graphRenderRules.js는 이미 생성되어 있으며, 실제 화면 연결 기준으로 유지 관리한다.

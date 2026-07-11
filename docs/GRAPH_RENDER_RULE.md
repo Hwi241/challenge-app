@@ -1324,3 +1324,89 @@ HealthLinkedRecordsLineWidget은 아래 기준을 따른다.
 - progressBar (health_steps_goal_rate)
 - metricBar (health_steps_cumulative, health_exercise_weekly_minutes, health_distance_weekly, health_distance_cumulative)
 - stackedSegment (health_sleep_rhythm)
+
+---
+
+## 20. 670-5 health_steps_goal_rate progressBar 연결 완료 기준
+
+670-5 단계에서는 health_steps_goal_rate 카드를 progressBar family 기준으로 실제 연결한다.
+
+이 단계는 목표 달성률 카드의 하드코딩 색상과 주요 크기 기준을 graphRenderRules 기준으로 교체하는 작업이다.
+
+---
+
+### 20-1. 연결 대상
+
+| widgetKind | graphId | family |
+|---|---|---|
+| healthStepsGoalRate | health_steps_goal_rate | progressBar |
+
+---
+
+### 20-2. 구현 기준
+
+HealthStepsGoalRateWidget은 아래 기준을 따른다.
+
+- graphId prop을 받는다.
+- graphId가 없으면 HEALTH_STEPS_GOAL_RATE로 fallback한다.
+- resolveGraphRenderRule({ graphId })를 사용한다.
+- useMemo dependency에 graphId를 포함한다.
+- progressRenderRule.colors를 사용한다.
+- progressRenderRule.layout을 사용한다.
+- 진행 바 채움색은 기본 상태에서 progressFill을 사용한다.
+- 목표 달성 상태에서는 successFill을 사용한다.
+- 진행 바 배경은 trackFill을 사용한다.
+- 큰 숫자는 valueText를 사용한다.
+- 보조 설명은 captionText를 사용한다.
+- 데이터 없음 문구는 emptyText를 사용한다.
+
+---
+
+### 20-3. 이번 단계에서 제거하는 하드코딩 기준
+
+HealthStepsGoalRateWidget 내부에서는 아래 직접 색상값을 사용하지 않는다.
+
+- #9CA3AF
+- #111111
+- #6B7280
+- #E5E7EB
+- #3B82F6
+
+주요 레이아웃 값은 progressBar layout rule에서 가져온다.
+
+- valueFontSize
+- captionFontSize
+- barHeight
+- barRadius
+- barWidthRatio
+- gapAfterValue
+- gapBeforeBar
+
+---
+
+### 20-4. 이번 단계에서 하지 않는 것
+
+670-5에서는 아래 작업을 하지 않는다.
+
+- constants/graphRenderRules.js 수정
+- HealthLinkedRecordsLineWidget 수정
+- HealthWeeklyMetricWidget 수정
+- HealthSleepRhythmWidget 수정
+- DashboardGoalWidget 수정
+- metricBar 실제 연결
+- stackedSegment 실제 연결
+- infoCard 실제 연결
+- 색상 커스텀 UI 구현
+
+---
+
+### 20-5. 다음 단계
+
+670-6에서는 Health 주간/누적 막대 카드들을 metricBar family 기준으로 연결한다.
+
+대상:
+
+- health_steps_cumulative
+- health_exercise_weekly_minutes
+- health_distance_weekly
+- health_distance_cumulative

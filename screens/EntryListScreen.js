@@ -3381,37 +3381,96 @@ export default function EntryListScreen({ route, navigation }) {
 
 /* ───────── 건강 목표 달성률 ───────── */
 const HealthStepsGoalRateWidget = memo(function HealthStepsGoalRateWidget(_ref) {
-  var entries = _ref.entries || [];
-  var disabled = _ref.disabled || false;
-  var todaySteps = useMemo(function() {
-    var today = keyOf(new Date());
-    var agg = aggregateHealthLinkedRecordsByDate(entries, 'steps');
-    var found = null;
-    for (var i = 0; i < agg.length; i++) {
-      if (agg[i].key === today) { found = agg[i]; break; }
-    }
-    return found ? Number(found.value) || 0 : 0;
-  }, [entries]);
-  var goal = 8000;
-  var rate = Math.min(100, Math.round((todaySteps / goal) * 100));
-  return React.createElement(DashboardWidgetShell, {
-    header: React.createElement(DashboardWidgetHeader, { title: '걸음 목표 달성률', hideSides: true })
-  }, React.createElement(View, { style: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 8, opacity: disabled ? 0.92 : 1 } },
-    !entries || !entries.length ?
-      React.createElement(Text, { style: { color: '#9CA3AF', fontSize: 11, fontWeight: '700' } }, '걸음 수 데이터가 없습니다.')
-    :
-      React.createElement(React.Fragment, null,
-        React.createElement(Text, { style: { color: '#111111', fontSize: 28, fontWeight: '900', includeFontPadding: false } },
-          rate + '%'
-        ),
-        React.createElement(Text, { style: { color: '#6B7280', fontSize: 10, fontWeight: '700', marginTop: 4 } },
-          '오늘 ' + todaySteps.toLocaleString('ko-KR') + ' / ' + goal.toLocaleString('ko-KR') + '보'
-        ),
-        React.createElement(View, { style: { width: '80%', height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, marginTop: 8, overflow: 'hidden' } },
-          React.createElement(View, { style: { width: rate + '%', height: '100%', backgroundColor: rate >= 100 ? '#111111' : '#3B82F6', borderRadius: 3 } })
-        )
-      )
-  ));
+ var entries = _ref.entries || [];
+ var disabled = _ref.disabled || false;
+ var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE;
+
+ var progressRenderRule = useMemo(function() {
+ return resolveGraphRenderRule({ graphId: graphId });
+ }, [graphId]);
+ var progressRenderColors = progressRenderRule.colors;
+ var progressRenderLayout = progressRenderRule.layout;
+
+ var todaySteps = useMemo(function() {
+ var today = keyOf(new Date());
+ var agg = aggregateHealthLinkedRecordsByDate(entries, 'steps');
+ var found = null;
+ for (var i = 0; i < agg.length; i++) {
+ if (agg[i].key === today) { found = agg[i]; break; }
+ }
+ return found ? Number(found.value) || 0 : 0;
+ }, [entries]);
+
+ var goal = 8000;
+ var rate = Math.min(100, Math.round((todaySteps / goal) * 100));
+ var barWidthRatio = Number(progressRenderLayout.barWidthRatio) || 0.8;
+ var barWidthPercent = Math.max(1, Math.min(100, Math.round(barWidthRatio * 100))) + '%';
+ var progressFillColor = rate >= 100
+ ? progressRenderColors.successFill
+ : progressRenderColors.progressFill;
+
+ return React.createElement(DashboardWidgetShell, {
+ header: React.createElement(DashboardWidgetHeader, { title: '걸음 목표 달성률', hideSides: true })
+ }, React.createElement(View, {
+ style: {
+ flex: 1,
+ justifyContent: 'center',
+ alignItems: 'center',
+ padding: 8,
+ opacity: disabled ? 0.92 : 1
+ }
+ },
+ !entries || !entries.length ?
+ React.createElement(Text, {
+ style: {
+ color: progressRenderColors.emptyText,
+ fontSize: progressRenderLayout.captionFontSize,
+ fontWeight: '700'
+ }
+ }, '걸음 수 데이터가 없습니다.')
+ :
+ React.createElement(React.Fragment, null,
+ React.createElement(Text, {
+ style: {
+ color: progressRenderColors.valueText,
+ fontSize: progressRenderLayout.valueFontSize,
+ fontWeight: '900',
+ includeFontPadding: false
+ }
+ },
+ rate + '%'
+ ),
+ React.createElement(Text, {
+ style: {
+ color: progressRenderColors.captionText,
+ fontSize: progressRenderLayout.captionFontSize,
+ fontWeight: '700',
+ marginTop: progressRenderLayout.gapAfterValue
+ }
+ },
+ '오늘 ' + todaySteps.toLocaleString('ko-KR') + ' / ' + goal.toLocaleString('ko-KR') + '보'
+ ),
+ React.createElement(View, {
+ style: {
+ width: barWidthPercent,
+ height: progressRenderLayout.barHeight,
+ backgroundColor: progressRenderColors.trackFill,
+ borderRadius: progressRenderLayout.barRadius,
+ marginTop: progressRenderLayout.gapBeforeBar,
+ overflow: 'hidden'
+ }
+ },
+ React.createElement(View, {
+ style: {
+ width: rate + '%',
+ height: '100%',
+ backgroundColor: progressFillColor,
+ borderRadius: progressRenderLayout.barRadius
+ }
+ })
+ )
+ )
+ ));
 });
 
 /* ───────── 주간 요약 막대 카드 (재사용) ───────── */
@@ -3480,7 +3539,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
     if (widgetKind === 'healthStepsGoalRate') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthStepsGoalRate" title="걸음 목표 달성률">
-            {React.createElement(HealthStepsGoalRateWidget, { entries: entries, disabled: isShare, key: widgetKind + '-' + id })}
+            {React.createElement(HealthStepsGoalRateWidget, { entries: entries, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE, key: widgetKind + '-' + id })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }

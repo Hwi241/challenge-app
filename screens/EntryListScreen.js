@@ -2030,154 +2030,200 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
 
 /* ───────── 주간 뷰 ───────── */
 const DashboardGoalWidget = memo(function DashboardGoalWidget({
-  rewardText,
+ rewardText,
+ graphId = GRAPH_RENDER_GRAPH_IDS.GOAL_BLACK_BOX,
 }) {
-  const [box, setBox] = useState({ width: 0, height: 0 });
-  const [measuredTextWidth, setMeasuredTextWidth] = useState(0);
-  const marqueeXRef = useRef(new Animated.Value(0));
-  const marqueeX = marqueeXRef.current;
+ const [box, setBox] = useState({ width: 0, height: 0 });
+ const [measuredTextWidth, setMeasuredTextWidth] = useState(0);
+ const marqueeXRef = useRef(new Animated.Value(0));
+ const marqueeX = marqueeXRef.current;
 
-  const GOAL_FONT_SIZE = 18;
-  const GOAL_LINE_HEIGHT = 22;
-  const GOAL_PADDING_V = 10;
-  const GOAL_PADDING_H = 16;
-  const GOAL_RADIUS = 12;
-  const GOAL_MARQUEE_GAP = 36;
+ const infoCardRenderRule = useMemo(
+ () => resolveGraphRenderRule({ graphId }),
+ [graphId]
+ );
+ const infoCardColors = infoCardRenderRule.colors;
+ const infoCardLayout = infoCardRenderRule.layout;
 
-  const goalText = String(rewardText ?? '—');
-  const estimatedTextWidth = Math.ceil(goalText.length * GOAL_FONT_SIZE * 0.9);
-  const effectiveTextWidth = Math.max(measuredTextWidth, estimatedTextWidth);
-  const textViewportWidth = Math.max(1, box.width - GOAL_PADDING_H * 2);
-  const shouldMarquee = effectiveTextWidth > textViewportWidth + 2;
+ const infoCardBodyBaseHeight = Number(infoCardLayout.bodyBaseHeight) || 72;
+ const infoCardTitleFontSize = Number(infoCardLayout.titleFontSize) || 13;
+ const infoCardBodyFontSize = Number(infoCardLayout.bodyFontSize) || 12;
+ const infoCardCaptionFontSize = Number(infoCardLayout.captionFontSize) || 10;
+ const infoCardTitleLineHeight = Number(infoCardLayout.titleLineHeight) || 17;
+ const infoCardBodyLineHeight = Number(infoCardLayout.bodyLineHeight) || 16;
+ const infoCardVerticalGap = Number(infoCardLayout.verticalGap) || 5;
+ const infoCardHorizontalPadding = Number(infoCardLayout.horizontalPadding) || 12;
 
-  const fixedGoalTextStyle = {
-    fontSize: GOAL_FONT_SIZE,
-    lineHeight: GOAL_LINE_HEIGHT,
-    includeFontPadding: false,
-    textAlign: 'center',
-  };
+ const GOAL_FONT_SIZE = Math.max(16, infoCardBodyFontSize + 4);
+ const GOAL_LINE_HEIGHT = Math.max(20, infoCardBodyLineHeight + 4);
+ const GOAL_LABEL_FONT_SIZE = Math.max(infoCardCaptionFontSize, infoCardTitleFontSize - 2);
+ const GOAL_LABEL_LINE_HEIGHT = Math.max(14, infoCardTitleLineHeight);
+ const GOAL_PADDING_V = Math.max(8, infoCardVerticalGap * 2);
+ const GOAL_PADDING_H = Math.max(12, infoCardHorizontalPadding);
+ const GOAL_RADIUS = 12;
+ const GOAL_MARQUEE_GAP = 36;
+ const GOAL_MIN_HEIGHT = Math.max(0, Math.min(infoCardBodyBaseHeight, 72));
 
-  const marqueeGoalTextStyle = {
-    ...fixedGoalTextStyle,
-    width: effectiveTextWidth,
-    textAlign: 'left',
-  };
+ const rawGoalText = String(rewardText ?? '').trim();
+ const hasGoalText = rawGoalText.length > 0 && rawGoalText !== '—';
+ const goalText = hasGoalText ? rawGoalText : '보상이 없습니다';
+ const goalLabel = hasGoalText ? '보상' : '보상 없음';
+ const goalLabelColor = hasGoalText ? infoCardColors.titleText : infoCardColors.captionText;
+ const goalTextColor = hasGoalText
+ ? (infoCardColors.accentText || infoCardColors.bodyText)
+ : infoCardColors.emptyText;
 
-  const onLayout = useCallback((event) => {
-    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
-    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
-    if (width > 0 && height > 0) {
-      setBox((prev) => (
-        prev.width === width && prev.height === height
-          ? prev
-          : { width, height }
-      ));
-    }
-  }, []);
+ const estimatedTextWidth = Math.ceil(goalText.length * GOAL_FONT_SIZE * 0.9);
+ const effectiveTextWidth = Math.max(measuredTextWidth, estimatedTextWidth);
+ const textViewportWidth = Math.max(1, box.width - GOAL_PADDING_H * 2);
+ const shouldMarquee = effectiveTextWidth > textViewportWidth + 2;
 
-  const handleGoalTextLayout = useCallback((event) => {
-    const layoutWidth = Math.ceil(event?.nativeEvent?.layout?.width || 0);
-    const lineWidth = Math.ceil(event?.nativeEvent?.lines?.[0]?.width || 0);
-    const nextWidth = Math.max(layoutWidth, lineWidth);
-    if (nextWidth > 0) {
-      setMeasuredTextWidth((prev) => (
-        Math.abs(prev - nextWidth) <= 1 ? prev : nextWidth
-      ));
-    }
-  }, []);
+ const fixedGoalTextStyle = {
+ color: goalTextColor,
+ fontSize: GOAL_FONT_SIZE,
+ lineHeight: GOAL_LINE_HEIGHT,
+ includeFontPadding: false,
+ textAlign: 'center',
+ };
 
-  useEffect(() => {
-    marqueeX.stopAnimation();
-    marqueeX.setValue(0);
+ const marqueeGoalTextStyle = {
+ ...fixedGoalTextStyle,
+ width: effectiveTextWidth,
+ textAlign: 'left',
+ };
 
-    if (!shouldMarquee || effectiveTextWidth <= 0) {
-      return undefined;
-    }
+ const onLayout = useCallback((event) => {
+ const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
+ const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
+ if (width > 0 && height > 0) {
+ setBox((prev) => (
+ prev.width === width && prev.height === height
+ ? prev
+ : { width, height }
+ ));
+ }
+ }, []);
 
-    const travelDistance = effectiveTextWidth + GOAL_MARQUEE_GAP;
-    const duration = Math.max(5200, Math.round(travelDistance * 36));
+ const handleGoalTextLayout = useCallback((event) => {
+ const layoutWidth = Math.ceil(event?.nativeEvent?.layout?.width || 0);
+ const lineWidth = Math.ceil(event?.nativeEvent?.lines?.[0]?.width || 0);
+ const nextWidth = Math.max(layoutWidth, lineWidth);
+ if (nextWidth > 0) {
+ setMeasuredTextWidth((prev) => (
+ Math.abs(prev - nextWidth) <= 1 ? prev : nextWidth
+ ));
+ }
+ }, []);
 
-    const animation = Animated.loop(
-      Animated.timing(marqueeX, {
-        toValue: -travelDistance,
-        duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-      { resetBeforeIteration: true }
-    );
+ useEffect(() => {
+ marqueeX.stopAnimation();
+ marqueeX.setValue(0);
 
-    animation.start();
+ if (!shouldMarquee || effectiveTextWidth <= 0) {
+ return undefined;
+ }
 
-    return () => {
-      animation.stop();
-      marqueeX.stopAnimation();
-      marqueeX.setValue(0);
-    };
-  }, [marqueeX, shouldMarquee, effectiveTextWidth]);
+ const travelDistance = effectiveTextWidth + GOAL_MARQUEE_GAP;
+ const duration = Math.max(5200, Math.round(travelDistance * 36));
 
-  return (
-    <View style={styles.goalWidgetArea} onLayout={onLayout}>
-      <View
-        style={[
-          styles.rewardBlackBox,
-          {
-            minHeight: 0,
-            borderRadius: GOAL_RADIUS,
-            paddingVertical: GOAL_PADDING_V,
-            paddingHorizontal: GOAL_PADDING_H,
-          },
-        ]}
-      >
-        <View
-          style={{
-            width: '100%',
-            overflow: 'hidden',
-            alignItems: shouldMarquee ? 'flex-start' : 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {shouldMarquee ? (
-            <Animated.View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                transform: [{ translateX: marqueeX }],
-              }}
-            >
-              <Text
-                onLayout={handleGoalTextLayout}
-                onTextLayout={handleGoalTextLayout}
-                numberOfLines={1}
-                ellipsizeMode="clip"
-                style={[styles.rewardBlackText, marqueeGoalTextStyle]}
-              >
-                {goalText}
-              </Text>
-              <View style={{ width: GOAL_MARQUEE_GAP }} />
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="clip"
-                style={[styles.rewardBlackText, marqueeGoalTextStyle]}
-              >
-                {goalText}
-              </Text>
-              <View style={{ width: GOAL_MARQUEE_GAP }} />
-            </Animated.View>
-          ) : (
-            <Text
-              onLayout={handleGoalTextLayout}
-              onTextLayout={handleGoalTextLayout}
-              numberOfLines={1}
-              style={[styles.rewardBlackText, fixedGoalTextStyle]}
-            >
-              {goalText}
-            </Text>
-          )}
-        </View>
-      </View>
-    </View>
-  );
+ const animation = Animated.loop(
+ Animated.timing(marqueeX, {
+ toValue: -travelDistance,
+ duration,
+ easing: Easing.linear,
+ useNativeDriver: true,
+ }),
+ { resetBeforeIteration: true }
+ );
+
+ animation.start();
+
+ return () => {
+ animation.stop();
+ marqueeX.stopAnimation();
+ marqueeX.setValue(0);
+ };
+ }, [marqueeX, shouldMarquee, effectiveTextWidth]);
+
+ return (
+ <View style={styles.goalWidgetArea} onLayout={onLayout}>
+ <View
+ style={[
+ styles.rewardBlackBox,
+ {
+ minHeight: GOAL_MIN_HEIGHT,
+ borderRadius: GOAL_RADIUS,
+ paddingVertical: GOAL_PADDING_V,
+ paddingHorizontal: GOAL_PADDING_H,
+ backgroundColor: infoCardColors.surfaceFill,
+ borderWidth: 1,
+ borderColor: infoCardColors.divider,
+ },
+ ]}
+ >
+ <Text
+ numberOfLines={1}
+ style={{
+ color: goalLabelColor,
+ fontSize: GOAL_LABEL_FONT_SIZE,
+ lineHeight: GOAL_LABEL_LINE_HEIGHT,
+ fontWeight: '800',
+ textAlign: 'center',
+ includeFontPadding: false,
+ marginBottom: infoCardVerticalGap,
+ }}
+ >
+ {goalLabel}</Text>
+
+ <View
+ style={{
+ width: '100%',
+ overflow: 'hidden',
+ alignItems: shouldMarquee ? 'flex-start' : 'center',
+ justifyContent: 'center',
+ }}
+ >
+ {shouldMarquee ? (
+ <Animated.View
+ style={{
+ flexDirection: 'row',
+ alignItems: 'center',
+ transform: [{ translateX: marqueeX }],
+ }}
+ >
+ <Text
+ onLayout={handleGoalTextLayout}
+ onTextLayout={handleGoalTextLayout}
+ numberOfLines={1}
+ ellipsizeMode="clip"
+ style={[styles.rewardBlackText, marqueeGoalTextStyle]}
+ >
+ {goalText}
+ </Text>
+ <View style={{ width: GOAL_MARQUEE_GAP }} />
+ <Text
+ numberOfLines={1}
+ ellipsizeMode="clip"
+ style={[styles.rewardBlackText, marqueeGoalTextStyle]}
+ >
+ {goalText}
+ </Text>
+ <View style={{ width: GOAL_MARQUEE_GAP }} />
+ </Animated.View>
+ ) : (
+ <Text
+ onLayout={handleGoalTextLayout}
+ onTextLayout={handleGoalTextLayout}
+ numberOfLines={1}
+ style={[styles.rewardBlackText, fixedGoalTextStyle]}
+ >
+ {goalText}
+ </Text>
+ )}
+ </View>
+ </View>
+ </View>
+ );
 });
 
 const WeekView = memo(function WeekView({
@@ -3477,6 +3523,7 @@ export default function EntryListScreen({ route, navigation }) {
       return (
         <DashboardGoalWidget
           rewardText={meta.rewardTitle ?? meta.reward}
+          graphId={GRAPH_RENDER_GRAPH_IDS.GOAL_BLACK_BOX}
         />
       );
     }

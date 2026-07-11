@@ -1576,3 +1576,81 @@ HealthSleepRhythmWidget 내부에서는 아래 직접 색상값을 사용하지 
 
 - goal_black_box
 - DashboardGoalWidget
+
+---
+
+## 23. 670-8 goal_black_box infoCard 연결 완료 기준
+
+670-8 단계에서는 goal_black_box 카드를 infoCard family 기준으로 실제 연결한다.
+
+이 단계는 DashboardGoalWidget의 보상/목표 정보 카드 색상과 주요 크기 기준을 graphRenderRules 기준으로 교체하는 작업이다.
+
+---
+
+### 23-1. 연결 대상
+
+| widgetKind | graphId | family |
+|---|---|---|
+| goal | goal_black_box | infoCard |
+
+---
+
+### 23-2. 구현 기준
+
+DashboardGoalWidget은 아래 기준을 따른다.
+
+- graphId prop을 받는다.
+- graphId가 없으면 GOAL_BLACK_BOX로 fallback한다.
+- resolveGraphRenderRule({ graphId })를 사용한다.
+- useMemo dependency에 graphId를 포함한다.
+- infoCardRenderRule.colors를 사용한다.
+- infoCardRenderRule.layout을 사용한다.
+- 카드 배경은 surfaceFill을 사용한다.
+- 카드 구분선/테두리는 divider를 사용한다.
+- 라벨 텍스트는 titleText 또는 captionText를 사용한다.
+- 보상 텍스트는 accentText 또는 bodyText를 사용한다.
+- 빈 보상 텍스트는 emptyText를 사용한다.
+
+---
+
+### 23-3. 이번 단계에서 rule 기준으로 연결하는 layout 값
+
+DashboardGoalWidget은 아래 layout 값을 사용한다.
+
+- bodyBaseHeight
+- titleFontSize
+- bodyFontSize
+- captionFontSize
+- titleLineHeight
+- bodyLineHeight
+- verticalGap
+- horizontalPadding
+
+---
+
+### 23-4. 이번 단계에서 하지 않는 것
+
+670-8에서는 아래 작업을 하지 않는다.
+
+- constants/graphRenderRules.js 수정
+- HealthStepsGoalRateWidget 수정
+- HealthWeeklyMetricWidget 수정
+- HealthSleepRhythmWidget 수정
+- HealthLinkedRecordsLineWidget 수정
+- progressBar 추가 연결
+- metricBar 추가 연결
+- stackedSegment 추가 연결
+- 색상 커스텀 UI 구현
+
+---
+
+### 23-5. 다음 단계
+
+670-9에서는 실제 색상 커스텀 UI 작업 전, graphRenderRules 연결 누락 여부를 재스캔한다.
+
+확인 대상:
+
+- 실제 대시보드 카드 graphId 전달 누락
+- family 연결 누락
+- constants/graphRenderRules.js와 docs/GRAPH_RENDER_RULE.md 불일치
+- EntryListScreen.js 내 임시 하드코딩 잔여

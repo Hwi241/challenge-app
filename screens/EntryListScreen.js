@@ -3475,67 +3475,164 @@ const HealthStepsGoalRateWidget = memo(function HealthStepsGoalRateWidget(_ref) 
 
 /* ───────── 주간 요약 막대 카드 (재사용) ───────── */
 const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
-  var entries = _ref2.entries || [];
-  var metricType = _ref2.metricType || 'steps';
-  var title = _ref2.title || '';
-  var unit = _ref2.unit || '';
-  var goalValue = _ref2.goalValue || 0;
-  var isCumulative = _ref2.isCumulative || false;
-  var disabled = _ref2.disabled || false;
-  var boxState = useState({ width: 0, height: 0 });
-  var box = boxState[0];
-  var setBox = boxState[1];
-  var onLayout = useCallback(function(e) {
-    var w = Math.floor(e?.nativeEvent?.layout?.width || 0);
-    var h = Math.floor(e?.nativeEvent?.layout?.height || 0);
-    if (w <= 0 || h <= 0) return;
-    setBox(function(p) { return (p.width === w && p.height === h) ? p : { width: w, height: h }; });
-  }, []);
-  var series = useMemo(function() {
-    var raw = aggregateHealthLinkedRecordsByDate(entries, metricType);
-    if (isCumulative) {
-      var cum = 0;
-      return raw.map(function(item) { cum += Number(item.value) || 0; return { key: item.key, value: cum, label: item.label }; });
-    }
-    return raw;
-  }, [entries, metricType, isCumulative]);
-  var latest = series.length > 0 ? series[series.length - 1] : null;
-  var maxVal = 1;
-  for (var i = 0; i < series.length; i++) {
-    var v = Number(series[i].value) || 0;
-    if (v > maxVal) maxVal = v;
-  }
-  if (goalValue > maxVal) maxVal = goalValue;
-  var bodyHeight = Math.max(1, Number(box.height) || 120);
-  var chartHeight = Math.max(40, bodyHeight - 40);
-  var displayVal = latest ? (metricType === 'steps' ? Math.round(Number(latest.value)).toLocaleString('ko-KR') : Number(latest.value).toFixed(1)) : '0';
-  return React.createElement(DashboardWidgetShell, {
-    header: React.createElement(DashboardWidgetHeader, { title: title, hideSides: true })
-  }, React.createElement(View, { onLayout: onLayout, style: { flex: 1, paddingHorizontal: 8, paddingBottom: 4, opacity: disabled ? 0.92 : 1 } },
-    !series.length ?
-      React.createElement(View, { style: { flex: 1, alignItems: 'center', justifyContent: 'center' } },
-        React.createElement(Text, { style: { color: '#9CA3AF', fontSize: 11, fontWeight: '700' } }, '데이터가 없습니다.')
-      )
-    :
-      React.createElement(React.Fragment, null,
-        React.createElement(View, { style: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: chartHeight, paddingTop: 4 } },
-          series.map(function(item, i) {
-            var v = Number(item.value) || 0;
-            var barH = Math.max(6, Math.round((v / maxVal) * (chartHeight - 8)));
-            var barW = isCumulative ? 20 : 14;
-            var isLatest = i === series.length - 1;
-            return React.createElement(View, { key: item.key, style: { flex: 1, alignItems: 'center', height: chartHeight, justifyContent: 'flex-end' } },
-              React.createElement(View, { style: { width: barW, height: barH, borderRadius: 4, backgroundColor: isLatest ? '#111111' : '#D1D5DB', opacity: v > 0 ? 1 : 0.3 } })
-            );
-          })
-        ),
-        React.createElement(View, { style: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 2 } },
-          React.createElement(Text, { style: { color: '#111111', fontSize: 10, fontWeight: '900' } }, '최신 ' + displayVal + unit)
-        )
-      )
-  ));
-});
+ var entries = _ref2.entries || [];
+ var metricType = _ref2.metricType || 'steps';
+ var title = _ref2.title || '';
+ var unit = _ref2.unit || '';
+ var goalValue = _ref2.goalValue || 0;
+ var isCumulative = _ref2.isCumulative || false;
+ var disabled = _ref2.disabled || false;
+ var graphId = _ref2.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE;
 
+ var metricBarRenderRule = useMemo(function() {
+ return resolveGraphRenderRule({ graphId: graphId });
+ }, [graphId]);
+ var metricBarColors = metricBarRenderRule.colors;
+ var metricBarLayout = metricBarRenderRule.layout;
+
+ var boxState = useState({ width: 0, height: 0 });
+ var box = boxState[0];
+ var setBox = boxState[1];
+
+ var onLayout = useCallback(function(e) {
+ var w = Math.floor(e?.nativeEvent?.layout?.width || 0);
+ var h = Math.floor(e?.nativeEvent?.layout?.height || 0);
+ if (w <= 0 || h <= 0) return;
+ setBox(function(p) {
+ return (p.width === w && p.height === h) ? p : { width: w, height: h };});
+ }, []);
+
+ var series = useMemo(function() {
+ var raw = aggregateHealthLinkedRecordsByDate(entries, metricType);
+ if (isCumulative) {
+ var cum = 0;
+ return raw.map(function(item) {
+ cum += Number(item.value) || 0;
+ return { key: item.key, value: cum, label: item.label };
+ });
+ }
+ return raw;
+ }, [entries, metricType, isCumulative]);
+
+ var latest = series.length > 0 ? series[series.length - 1] : null;
+
+ var maxVal = 1;
+ for (var i = 0; i < series.length; i++) {
+ var v = Number(series[i].value) || 0;
+ if (v > maxVal) maxVal = v;
+ }
+ if (goalValue > maxVal) maxVal = goalValue;
+
+ var bodyHeight = Math.max(1, Number(box.height) || metricBarLayout.bodyBaseHeight);
+ var chartHeight = Math.max(metricBarLayout.chartMinHeight, bodyHeight - metricBarLayout.chartBottomReserved);
+ var displayVal = latest
+ ? (metricType === 'steps'
+ ? Math.round(Number(latest.value)).toLocaleString('ko-KR')
+ : Number(latest.value).toFixed(1))
+ : '0';
+ var goalLineTop = goalValue > 0
+ ? Math.max(0, Math.min(chartHeight - 1, Math.round(chartHeight * (1 - (goalValue / maxVal)))))
+ : null;
+
+ return React.createElement(DashboardWidgetShell, {
+ header: React.createElement(DashboardWidgetHeader, { title: title, hideSides: true })
+ }, React.createElement(View, {
+ onLayout: onLayout,
+ style: {
+ flex: 1,
+ paddingHorizontal: 8,
+ paddingBottom: 4,
+ opacity: disabled ? 0.92 : 1
+ }
+ },
+ !series.length ?
+ React.createElement(View, {
+ style: {
+ flex: 1,
+ alignItems: 'center',
+ justifyContent: 'center'
+ }
+ },
+ React.createElement(Text, {
+ style: {
+ color: metricBarColors.emptyText,
+ fontSize: metricBarLayout.valueFontSize,
+ fontWeight: '700'
+ }
+ }, '데이터가 없습니다.')
+ )
+ :
+ React.createElement(React.Fragment, null,
+ React.createElement(View, {
+ style: {
+ position: 'relative',
+ flexDirection: 'row',
+ alignItems: 'flex-end',
+ justifyContent: 'space-between',
+ height: chartHeight,
+ paddingTop: 4
+ }
+ },
+ goalLineTop == null ? null : React.createElement(View, {
+ pointerEvents: 'none',
+ style: {
+ position: 'absolute',
+ left: 0,
+ right: 0,
+ top: goalLineTop,
+ height: 1,
+ backgroundColor: metricBarColors.goalLine,
+ opacity: 0.8
+ }
+ }),
+ series.map(function(item, i) {
+ var v = Number(item.value) || 0;
+ var barH = Math.max(
+ metricBarLayout.minBarHeight,
+ Math.round((v / maxVal) * (chartHeight - 8))
+ );
+ var barW = isCumulative
+ ? metricBarLayout.cumulativeBarWidth
+ : metricBarLayout.barWidth;
+ var isLatest = i === series.length - 1;
+ return React.createElement(View, {
+ key: item.key,
+ style: {
+ flex: 1,
+ alignItems: 'center',
+ height: chartHeight,
+ justifyContent: 'flex-end'
+ }
+ },
+ React.createElement(View, {
+ style: {
+ width: barW,
+ height: barH,
+ borderRadius: metricBarLayout.barRadius,
+ backgroundColor: isLatest ? metricBarColors.latestBarFill : metricBarColors.barFill,
+ opacity: v > 0 ? 1 : 0.3
+ }
+ })
+ );
+ })
+ ),
+ React.createElement(View, {
+ style: {
+ flexDirection: 'row',
+ justifyContent: 'flex-end',
+ marginTop: 2
+ }
+ },
+ React.createElement(Text, {
+ style: {
+ color: metricBarColors.valueText,
+ fontSize: metricBarLayout.valueFontSize,
+ fontWeight: '900'
+ }}, '최신 ' + displayVal + unit)
+ )
+ )
+ ));
+});
     if (widgetKind === 'healthStepsGoalRate') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthStepsGoalRate" title="걸음 목표 달성률">
@@ -3566,7 +3663,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
     if (widgetKind === 'healthStepsCumulative') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthStepsCumulative" title="누적 걸음수">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'steps', title: '누적 걸음수', unit: '보', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'steps', title: '누적 걸음수', unit: '보', isCumulative: true, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE, key: widgetKind + '-' + id })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }
@@ -3582,21 +3679,21 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
     if (widgetKind === 'healthExerciseWeeklyMinutes') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthExerciseWeeklyMinutes" title="주간 운동시간">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'minutes', title: '주간 운동시간', unit: '분', disabled: isShare, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'minutes', title: '주간 운동시간', unit: '분', disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_WEEKLY_MINUTES, key: widgetKind + '-' + id })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }
         if (widgetKind === 'healthDistanceWeekly') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthDistanceWeekly" title="주간 이동거리">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '주간 이동거리', unit: 'km', disabled: isShare, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '주간 이동거리', unit: 'km', disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_WEEKLY, key: widgetKind + '-' + id })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }
         if (widgetKind === 'healthDistanceCumulative') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthDistanceCumulative" title="누적 운동거리">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '누적 운동거리', unit: 'km', isCumulative: true, disabled: isShare, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '누적 운동거리', unit: 'km', isCumulative: true, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_CUMULATIVE, key: widgetKind + '-' + id })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }

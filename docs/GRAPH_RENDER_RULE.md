@@ -1410,3 +1410,83 @@ HealthStepsGoalRateWidget 내부에서는 아래 직접 색상값을 사용하�
 - health_exercise_weekly_minutes
 - health_distance_weekly
 - health_distance_cumulative
+
+---
+
+## 21. 670-6 Health metricBar 연결 완료 기준
+
+670-6 단계에서는 Health 주간/누적 막대 카드 4개를 metricBar family 기준으로 실제 연결한다.
+
+이 단계는 HealthWeeklyMetricWidget의 하드코딩 색상과 주요 크기 기준을 graphRenderRules 기준으로 교체하는 작업이다.
+
+---
+
+### 21-1. 연결 대상
+
+| widgetKind | graphId | family |
+|---|---|---|
+| healthStepsCumulative | health_steps_cumulative | metricBar |
+| healthExerciseWeeklyMinutes | health_exercise_weekly_minutes | metricBar |
+| healthDistanceWeekly | health_distance_weekly | metricBar |
+| healthDistanceCumulative | health_distance_cumulative | metricBar |
+
+---
+
+### 21-2. 구현 기준
+
+HealthWeeklyMetricWidget은 아래 기준을 따른다.
+
+- graphId prop을 받는다.
+- graphId가 없으면 HEALTH_STEPS_CUMULATIVE로 fallback한다.
+- resolveGraphRenderRule({ graphId })를 사용한다.
+- useMemo dependency에 graphId를 포함한다.
+- metricBarRenderRule.colors를 사용한다.
+- metricBarRenderRule.layout을 사용한다.
+- 일반 막대는 barFill을 사용한다.
+- 최신 막대는 latestBarFill을 사용한다.
+- 목표선이 있을 경우 goalLine을 사용한다.
+- 최신값 텍스트는 valueText를 사용한다.
+- 데이터 없음 문구는 emptyText를 사용한다.
+
+---
+
+### 21-3. 이번 단계에서 제거하는 하드코딩 기준
+
+HealthWeeklyMetricWidget 내부에서는 아래 직접 색상값을 사용하지 않는다.
+
+- #9CA3AF
+- #111111
+- #D1D5DB
+
+주요 레이아웃 값은 metricBar layout rule에서 가져온다.
+
+- bodyBaseHeight
+- chartMinHeight
+- chartBottomReserved
+- barWidth
+- cumulativeBarWidth
+- barRadius
+- minBarHeight
+- valueFontSize
+
+---
+
+### 21-4. 이번 단계에서 하지 않는 것
+
+670-6에서는 아래 작업을 하지 않는다.
+
+- constants/graphRenderRules.js 수정
+- HealthStepsGoalRateWidget 수정
+- HealthLinkedRecordsLineWidget 수정
+- HealthSleepRhythmWidget 수정
+- DashboardGoalWidget 수정
+- progressBar 추가 연결
+- stackedSegment 실제 연결
+- infoCard 실제 연결
+- 색상 커스텀 UI 구현
+
+---
+
+### 21-5. 다음 단계
+
+670-7에서는 health_sleep_rhythm을 stackedSegment family 기준으로 연결한다.

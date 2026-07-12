@@ -622,17 +622,9 @@ const DashboardWidgetShell = memo(function DashboardWidgetShell({
 });
 
 
-/* ───────── 건강 샘플 (HealthSteps) ───────── */
+/* ───────── 건강 실제 걸음수 주간 리듬 (HealthSteps) ───────── */
 const HEALTH_STEPS_WEEKLY_GOAL = 8000;
-const HEALTH_STEPS_WEEKLY_SAMPLE = Object.freeze([
-  { key: 'mon', label: '월', steps: 6420 },
-  { key: 'tue', label: '화', steps: 8120 },
-  { key: 'wed', label: '수', steps: 7340 },
-  { key: 'thu', label: '목', steps: 9650 },
-  { key: 'fri', label: '금', steps: 5280 },
-  { key: 'sat', label: '토', steps: 10420 },
-  { key: 'sun', label: '일', steps: 7860 },
-]);
+const HEALTH_STEPS_WEEKLY_LABELS = Object.freeze(['월', '화', '수', '목', '금', '토', '일']);
 
 const formatStepCount = (value) => {
   const numeric = Number(value) || 0;
@@ -640,7 +632,9 @@ const formatStepCount = (value) => {
 };
 
 const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
+  entries = [],
   disabled = false,
+  graphId = GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY,
 }) {
   const [box, setBox] = useState({ width: 0, height: 0 });
 
@@ -661,19 +655,48 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
   }, []);
 
   const weeklyRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY }),
-    []
+    () => resolveGraphRenderRule({ graphId }),
+    [graphId]
   );
   const weeklyRenderColors = weeklyRenderRule.colors;
   const weeklyRenderLayout = weeklyRenderRule.layout;
 
+  const weeklyStepItems = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - todayIndex);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const aggregated = aggregateHealthLinkedRecordsByDate(entries, 'steps');
+    const stepMap = new Map();
+    aggregated.forEach((item) => {
+      stepMap.set(item.key, Number(item.value) || 0);
+    });
+
+    return HEALTH_STEPS_WEEKLY_LABELS.map((label, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      const key = keyOf(date);
+      return {
+        key,
+        label,
+        date,
+        steps: stepMap.get(key) || 0,
+      };
+    });
+  }, [entries, todayIndex]);
+
+  const hasRealStepData = weeklyStepItems.some((item) => (Number(item.steps) || 0) > 0);
+
   const maxSteps = useMemo(() => (
     Math.max(
       HEALTH_STEPS_WEEKLY_GOAL,
-      ...HEALTH_STEPS_WEEKLY_SAMPLE.map((item) => Number(item.steps) || 0),
+      ...weeklyStepItems.map((item) => Number(item.steps) || 0),
       1,
     )
-  ), []);
+  ), [weeklyStepItems]);
 
   const bodyHeight = Math.max(1, Number(box.height) || 150);
   const isCompact = bodyHeight < 116;
@@ -686,7 +709,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
     )
   );
 
-  const todayItem = HEALTH_STEPS_WEEKLY_SAMPLE[todayIndex] || HEALTH_STEPS_WEEKLY_SAMPLE[0];
+  const todayItem = weeklyStepItems[todayIndex] || weeklyStepItems[0] || { steps: 0 };
 
   return (
     <DashboardWidgetShell
@@ -747,11 +770,13 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
               paddingTop: 4,
             }}
           >
-            {HEALTH_STEPS_WEEKLY_SAMPLE.map((item, index) => {
+            {weeklyStepItems.map((item, index) => {
               const steps = Number(item.steps) || 0;
               const isToday = index === todayIndex;
               const reached = steps >= HEALTH_STEPS_WEEKLY_GOAL;
-              const barHeight = Math.max(8, Math.round((steps / maxSteps) * (chartHeight - 12)));
+              const barHeight = hasRealStepData
+                ? Math.max(8, Math.round((steps / maxSteps) * (chartHeight - 12)))
+                : 8;
               const barWidth = isCompact ? Math.max(10, weeklyRenderLayout.barWidth - 4) : weeklyRenderLayout.barWidth;
 
               return (
@@ -805,7 +830,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
                 includeFontPadding: false,
               }}
             >
-              샘플 데이터
+              Health Connect
             </Text>
             <Text
               numberOfLines={1}
@@ -817,7 +842,7 @@ const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
                 includeFontPadding: false,
               }}
             >
-              오늘 {formatStepCount(todayItem.steps)}보
+              오늘 {hasRealStepData ? formatStepCount(todayItem.steps) : '0'}보
             </Text>
           </View>
         )}
@@ -3794,7 +3819,9 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
 
         <View style={styles.weeklyWidgetArea}>
           <HealthStepsWeeklyWidget
+            entries={entries}
             disabled={isShare}
+            graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY}
           />
         </View>
 

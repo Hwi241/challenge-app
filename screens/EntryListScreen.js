@@ -624,231 +624,101 @@ const DashboardWidgetShell = memo(function DashboardWidgetShell({
 
 /* ───────── 건강 실제 걸음수 주간 리듬 (HealthSteps) ───────── */
 const HEALTH_STEPS_WEEKLY_GOAL = 8000;
-const HEALTH_STEPS_WEEKLY_LABELS = Object.freeze(['월', '화', '수', '목', '금', '토', '일']);
+const HEALTH_STEPS_WEEKLY_LABELS = Object.freeze(['일', '월', '화', '수', '목', '금', '토']);
 
-const formatStepCount = (value) => {
-  const numeric = Number(value) || 0;
-  return numeric.toLocaleString('ko-KR');
+const formatStepCountCompact = (value) => {
+ const numeric = Math.max(0, Math.round(Number(value) || 0));
+ if (numeric >= 10000) {
+  return `${(numeric / 10000).toFixed(numeric >= 100000 ? 0 : 1).replace(/\.0$/, '')}만`;
+ }
+ if (numeric >= 1000) {
+  return `${Math.round(numeric / 1000)}천`;
+ }
+ return numeric.toLocaleString('ko-KR');
 };
 
 const HealthStepsWeeklyWidget = memo(function HealthStepsWeeklyWidget({
-  entries = [],
-  disabled = false,
-  graphId = GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY,
+ entries = [],
+ disabled = false,
+ graphId = GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY,
 }) {
-  const [box, setBox] = useState({ width: 0, height: 0 });
+ const todayIndex = useMemo(() => new Date().getDay(), []);
 
-  const onLayout = useCallback((event) => {
-    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
-    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
-    if (width <= 0 || height <= 0) return;
-    setBox((prev) => (
-      prev.width === width && prev.height === height
-        ? prev
-        : { width, height }
-    ));
-  }, []);
+ const healthWeeksData = useMemo(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  const todayIndex = useMemo(() => {
-    const day = new Date().getDay();
-    return day === 0 ? 6 : day - 1;
-  }, []);
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - todayIndex);
+  weekStart.setHours(0, 0, 0, 0);
 
-  const weeklyRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId }),
-    [graphId]
-  );
-  const weeklyRenderColors = weeklyRenderRule.colors;
-  const weeklyRenderLayout = weeklyRenderRule.layout;
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
 
-  const weeklyStepItems = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const aggregated = aggregateHealthLinkedRecordsByDate(entries, 'steps');
+  const stepMap = new Map();
 
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - todayIndex);
-    weekStart.setHours(0, 0, 0, 0);
+  aggregated.forEach((item) => {
+   stepMap.set(item.key, Number(item.value) || 0);
+  });
 
-    const aggregated = aggregateHealthLinkedRecordsByDate(entries, 'steps');
-    const stepMap = new Map();
-    aggregated.forEach((item) => {
-      stepMap.set(item.key, Number(item.value) || 0);
-    });
+  const dailyStats = HEALTH_STEPS_WEEKLY_LABELS.map((dayLabel, index) => {
+   const date = new Date(weekStart);
+   date.setDate(weekStart.getDate() + index);
+   date.setHours(0, 0, 0, 0);
 
-    return HEALTH_STEPS_WEEKLY_LABELS.map((label, index) => {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + index);
-      const key = keyOf(date);
-      return {
-        key,
-        label,
-        date,
-        steps: stepMap.get(key) || 0,
-      };
-    });
-  }, [entries, todayIndex]);
+   const key = keyOf(date);
+   const steps = stepMap.get(key) || 0;
 
-  const hasRealStepData = weeklyStepItems.some((item) => (Number(item.steps) || 0) > 0);
+   return {
+    date: `${date.getMonth() + 1}/${date.getDate()}`,
+    dayLabel,
+    duration: steps,
+    countTimed: steps > 0 ? 1 : 0,
+    totalCount: 0,
+    durations: steps > 0 ? [steps] : [],
+    steps,
+    isToday: index === todayIndex,
+   };
+  });
 
-  const maxSteps = useMemo(() => (
-    Math.max(
-      HEALTH_STEPS_WEEKLY_GOAL,
-      ...weeklyStepItems.map((item) => Number(item.steps) || 0),
-      1,
-    )
-  ), [weeklyStepItems]);
+  return [{
+   ws: weekStart,
+   we: weekEnd,
+   dailyStats,
+  }];
+ }, [entries, todayIndex]);
 
-  const bodyHeight = Math.max(1, Number(box.height) || 150);
-  const isCompact = bodyHeight < 116;
-  const chartHeight = Math.max(42, bodyHeight - (isCompact ? 38 : 50));
-  const goalLineTop = Math.max(
-    0,
-    Math.min(
-      chartHeight - 1,
-      Math.round(chartHeight * (1 - (HEALTH_STEPS_WEEKLY_GOAL / maxSteps)))
-    )
-  );
+ const formatHealthStepPrimaryValue = useCallback((value) => {
+  const numeric = Math.max(0, Math.round(Number(value) || 0));
+  if (numeric <= 0) return ' ';
+  return `${formatStepCountCompact(numeric)}보`;
+ }, []);
 
-  const todayItem = weeklyStepItems[todayIndex] || weeklyStepItems[0] || { steps: 0 };
+ const formatHealthStepSecondaryValue = useCallback((stat) => {
+  return stat?.isToday ? '오늘' : ' ';
+ }, []);
 
-  return (
-    <DashboardWidgetShell
-      header={
-        <DashboardWidgetHeader
-          title="걸음 리듬"
-          hideSides
-        />
-      }
-    >
-      <View
-        onLayout={onLayout}
-        style={{
-          flex: 1,
-          width: '100%',
-          paddingHorizontal: 10,
-          paddingTop: 6,
-          paddingBottom: 6,
-          opacity: disabled ? 0.92 : 1,
-        }}
-      >
-        <View style={{ position: 'relative', flex: 1, minHeight: chartHeight }}>
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: goalLineTop,
-              height: 1,
-              backgroundColor: weeklyRenderColors.countBarFill,
-              opacity: 0.75,
-            }}
-          />
-          {!isCompact && (
-            <Text
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: Math.max(0, goalLineTop - 14),
-                color: weeklyRenderColors.text,
-                fontSize: 9,
-                fontWeight: '800',
-                includeFontPadding: false,
-              }}
-            >
-              8,000
-            </Text>
-          )}
-
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              height: chartHeight,
-              paddingTop: 4,
-            }}
-          >
-            {weeklyStepItems.map((item, index) => {
-              const steps = Number(item.steps) || 0;
-              const isToday = index === todayIndex;
-              const reached = steps >= HEALTH_STEPS_WEEKLY_GOAL;
-              const barHeight = hasRealStepData
-                ? Math.max(8, Math.round((steps / maxSteps) * (chartHeight - 12)))
-                : 8;
-              const barWidth = isCompact ? Math.max(10, weeklyRenderLayout.barWidth - 4) : weeklyRenderLayout.barWidth;
-
-              return (
-                <View
-                  key={item.key}
-                  style={{
-                    flex: 1,
-                    height: chartHeight,
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                  }}
-                >
-                  <View
-                    style={{
-                      width: barWidth,
-                      height: barHeight,
-                      borderRadius: weeklyRenderLayout.barRadius,
-                      backgroundColor: reached ? weeklyRenderColors.durationBarFill : weeklyRenderColors.countBarFill,
-                      borderWidth: isToday ? 2 : 0,
-                      borderColor: isToday ? weeklyRenderColors.accent : 'transparent',
-                    }}
-                  />
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      marginTop: 3,
-                      color: isToday ? weeklyRenderColors.todayText : weeklyRenderColors.text,
-                      fontSize: isCompact ? 8 : 9,
-                      lineHeight: isCompact ? 10 : 12,
-                      fontWeight: isToday ? '900' : '700',
-                      includeFontPadding: false,
-                    }}
-                  >
-                    {item.label}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {!isCompact && (
-          <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text
-              numberOfLines={1}
-              style={{
-                color: weeklyRenderColors.text,
-                fontSize: 10,
-                lineHeight: 13,
-                fontWeight: '700',
-                includeFontPadding: false,
-              }}
-            >
-              Health Connect
-            </Text>
-            <Text
-              numberOfLines={1}
-              style={{
-                color: weeklyRenderColors.durationBarFill,
-                fontSize: 11,
-                lineHeight: 14,
-                fontWeight: '900',
-                includeFontPadding: false,
-              }}
-            >
-              오늘 {hasRealStepData ? formatStepCount(todayItem.steps) : '0'}보
-            </Text>
-          </View>
-        )}
-      </View>
-    </DashboardWidgetShell>
-  );
+ return (
+  <WeekView
+   weeksData={healthWeeksData}
+   currentIndex={0}
+   introProgress={1}
+   onIndexChange={undefined}
+   onPressDay={undefined}
+   onTapBar={undefined}
+   challengeStartDate={healthWeeksData[0]?.ws}
+   challengeEndDate={healthWeeksData[0]?.we}
+   graphId={graphId}
+   title="걸음 리듬"
+   goalValue={HEALTH_STEPS_WEEKLY_GOAL}
+   goalLabel="8,000보"
+   valueMode="steps"
+   formatPrimaryValue={formatHealthStepPrimaryValue}
+   formatSecondaryValue={formatHealthStepSecondaryValue}
+  />
+ );
 });
 
 /* ───────── 달력 ───────── */
@@ -1359,60 +1229,72 @@ var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(
   var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND;
   var _a = useState({width:0,height:0}), box = _a[0], setBox = _a[1];
   var onLayout = useCallback(function(ev){
-    var w=Math.floor(ev.nativeEvent.layout.width||0),h=Math.floor(ev.nativeEvent.layout.height||0);
+    var w=Math.floor(ev?.nativeEvent?.layout?.width||0),h=Math.floor(ev?.nativeEvent?.layout?.height||0);
     if(w>0&&h>0)setBox(function(p){return p.width===w&&p.height===h?p:{width:w,height:h};});
   },[]);
-  var series = useMemo(function(){return aggregateHealthLinkedRecordsByDate(entries, metricType);},[entries,metricType]);
-  var latest = series.length > 0 ? series[series.length-1] : null;
+
   var config = HEALTH_LINKED_TREND_CONFIG[metricType] || {};
   var displayTitle = title || config.title || '건강 데이터';
   var emptyText = config.emptyText || '데이터가 없습니다.';
+
   var healthLineRenderRule = useMemo(function() {
     return resolveGraphRenderRule({ graphId: graphId });
   }, [graphId]);
   var healthLineColors = healthLineRenderRule.colors;
   var healthLineLayout = healthLineRenderRule.layout;
-  var cw = Math.max(1, box.width || 260), ch = Math.max(1, box.height || 120);
-  var px = 18, tp = 18, bt = 34, uw = Math.max(1, cw-px*2), uh = Math.max(1, ch-tp-bt);
-  var points = useMemo(function(){
-    if (!series.length) return [];
-    var vals = series.map(function(s){return Number(s.value)||0;});
-    var mx = Math.max(1, Math.max.apply(null, vals)), mn = Math.min(0, Math.min.apply(null, vals)), rg = Math.max(1, mx-mn);
-    return series.map(function(s,i){
-      var x = series.length === 1 ? cw/2 : px + (i / Math.max(1, series.length-1)) * uw;
-      var y = tp + (1 - ((Number(s.value)||0)-mn)/rg) * uh;
-      return {x:x, y:y, value:s.value, date:s.date, key:s.key};
+
+  var series = useMemo(function(){
+    return aggregateHealthLinkedRecordsByDate(entries, metricType).map(function(item) {
+      return {
+        d: item.date,
+        v: Number(item.value) || 0,
+        key: item.key
+      };
     });
-  },[series, cw, uw, uh, tp]);
-  var pathD = useMemo(function(){
-    if (!points.length) return '';
-    return points.map(function(p,i){return (i===0?'M':'L')+' '+p.x+' '+p.y;}).join(' ');
-  },[points]);
+  },[entries,metricType]);
+
+  var chartStartDate = series.length ? series[0].d : new Date();
+  var chartWidth = Math.max(1, box.width || 260);
+  var chartHeight = Math.max(1, box.height || healthLineLayout.dashboardBaseHeight || 168);
+
+  var formatHealthLineLabel = useCallback(function(payload) {
+    var value = payload?.value ?? 0;
+    var d = payload?.date ? new Date(payload.date) : new Date();
+    return fmtHV(metricType, value) + ' ' + String(d.getFullYear()).slice(2) + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+  }, [metricType]);
+
   return (
     React.createElement(DashboardWidgetShell, {header: React.createElement(DashboardWidgetHeader, {title:displayTitle, hideSides:true})},
-      React.createElement(View, {onLayout:onLayout, style:{flex:1,width:'100%',paddingHorizontal:8,paddingTop:2,paddingBottom:6,opacity:disabled?0.92:1}},
+      React.createElement(View, {onLayout:onLayout, style:{flex:1,width:'100%',opacity:disabled?0.92:1}},
         series.length === 0 ?
           React.createElement(View, {style:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:8}},
-            React.createElement(Text, {numberOfLines:2, style:{color:'#9CA3AF',fontSize:11,lineHeight:15,fontWeight:'700',textAlign:'center'}}, emptyText),
-            React.createElement(Text, {numberOfLines:2, style:{marginTop:4,color:'#D1D5DB',fontSize:10,lineHeight:14,fontWeight:'700',textAlign:'center'}}, '선택한 데이터로 인증하면 표시됩니다.')
+            React.createElement(Text, {numberOfLines:2, style:{color:healthLineColors.labelText,fontSize:11,lineHeight:15,fontWeight:'700',textAlign:'center'}}, emptyText),
+            React.createElement(Text, {numberOfLines:2, style:{marginTop:4,color:healthLineColors.axisStroke,fontSize:10,lineHeight:14,fontWeight:'700',textAlign:'center'}}, '선택한 데이터로 인증하면 표시됩니다.')
           ) :
-          React.createElement(View, {style:{flex:1,width:'100%'}},
-            React.createElement(Svg, {width:'100%',height:'100%'},
-              React.createElement(Line, {x1:px,y1:ch-bt,x2:cw-px,y2:ch-bt,stroke:healthLineColors.axisStroke,strokeWidth:healthLineLayout.axisStrokeWidth}),
-              React.createElement(Path, {d:pathD,fill:'none',stroke:healthLineColors.lineStroke,strokeWidth:Math.max(2.2, healthLineLayout.strokeWidth),strokeLinecap:'round',strokeLinejoin:'round'}),
-              points.map(function(p,i){return React.createElement(Circle, {key:p.key+'-'+i,cx:p.x,cy:p.y,r:i===points.length-1?healthLineLayout.selectedMarkerRadius:Math.max(2.8, healthLineLayout.markerRadius-0.4),fill:i===points.length-1?healthLineColors.markerStroke:healthLineColors.markerFill,stroke:healthLineColors.markerStroke,strokeWidth:Math.max(1.8, healthLineLayout.markerStrokeWidth||1.8)});})
-            ),
-            React.createElement(View, {pointerEvents:'none',style:{position:'absolute',left:8,right:8,bottom:2,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}},
-              React.createElement(Text, {numberOfLines:1,style:{color:healthLineColors.labelText,fontSize:10,fontWeight:'700'}}, series.length+'일'),
-              React.createElement(Text, {numberOfLines:1,style:{color:healthLineColors.lineStroke,fontSize:11,fontWeight:'900'}}, latest ? fmtHV(metricType, latest.value) : ('0'+unit))
-            )
-          )
+          React.createElement(LineGradientChart, {
+            startDate: chartStartDate,
+            entries: [],
+            metric: 'health-' + String(metricType || 'value'),
+            width: chartWidth,
+            height: chartHeight,
+            introProgress: 1,
+            interactive: !disabled,
+            pagerIndex: 0,
+            onSelectPagerIndex: function(){},
+            showPager: false,
+            plotInset: 0,
+            plotTopInset: healthLineLayout.dashboardPlotTop,
+            plotBottomInset: healthLineLayout.dashboardPlotBottom,
+            scaleLayout: true,
+            layoutBaseHeight: healthLineLayout.dashboardBaseHeight,
+            graphId: graphId,
+            seriesOverride: series,
+            labelFormatter: formatHealthLineLabel
+          })
       )
     )
   );
 });
-
-
 /* ───────── 라인차트(횟수는 누적 그래프) ───────── */
 const LineGradientChart = memo(function LineGradientChart({
   startDate,
@@ -1432,6 +1314,8 @@ const LineGradientChart = memo(function LineGradientChart({
   scaleLayout=false,
   layoutBaseHeight=185,
   graphId=null,
+  seriesOverride=null,
+  labelFormatter=null,
 }){
   const lineBaseHeight = Math.max(1, Number(layoutBaseHeight) || 185);
   const lineScaleRaw = (Math.max(1, Number(height) || 185)) / lineBaseHeight;
@@ -1500,7 +1384,26 @@ const LineGradientChart = memo(function LineGradientChart({
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
 
+  const normalizedSeriesOverride = useMemo(() => {
+    if (!Array.isArray(seriesOverride)) return null;
+    return seriesOverride
+      .map((item) => {
+        const rawDate = item?.d || item?.date || item?.timestamp;
+        const d = new Date(rawDate);
+        if (isNaN(d.getTime())) return null;
+        d.setHours(0, 0, 0, 0);
+        const rawValue = item?.v ?? item?.value ?? 0;
+        return { d, v: Number(rawValue) || 0 };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.d - b.d);
+  }, [seriesOverride]);
+
+  const hasSeriesOverride = Array.isArray(normalizedSeriesOverride);
+
   const series = useMemo(()=>{
+    if (hasSeriesOverride) return normalizedSeriesOverride;
+
     const chartStart = startDate ? new Date(startDate) : (raw[0]?.date || today);
     chartStart.setHours(0,0,0,0);
 
@@ -1536,10 +1439,17 @@ const LineGradientChart = memo(function LineGradientChart({
     }
 
     return result;
-  }, [raw, metric, startDate, today]);
+  }, [hasSeriesOverride, normalizedSeriesOverride, raw, metric, startDate, today]);
 
   const start = useMemo(()=>startDate? new Date(new Date(startDate).setHours(0,0,0,0)) : (series[0]?.d || today), [startDate, series, today]);
-  const end = useMemo(()=> new Date(new Date().setHours(0,0,0,0)), []);
+  const end = useMemo(()=> {
+    if (hasSeriesOverride && series.length) {
+      const d = new Date(series[series.length - 1].d);
+      d.setHours(0,0,0,0);
+      return d;
+    }
+    return new Date(new Date().setHours(0,0,0,0));
+  }, [hasSeriesOverride, series]);
 
   const nodePts = useMemo(()=>{
     const n = series.length;
@@ -1549,7 +1459,7 @@ const LineGradientChart = memo(function LineGradientChart({
 
     // 기간 계산
     const firstDate = start;
-    const lastDate = end > today ? end : today;
+    const lastDate = hasSeriesOverride ? end : (end > today ? end : today);
     const totalDays = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
 
     if (n===1) {
@@ -1574,7 +1484,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const y = introBaselineY - (introBaselineY - finalY) * introProgress;
       return { x, y, v: p.v, d: p.d, sourceIdx: idx };
     });
-  }, [series, start, end, today, left, cw, top, ch, metric, introProgress, introBaselineY]);
+  }, [series, start, end, today, left, cw, top, ch, metric, introProgress, introBaselineY, hasSeriesOverride]);
 
 const safeNodePts = useMemo(() => {
  if (!Array.isArray(nodePts) || nodePts.length === 0) return [];
@@ -1662,16 +1572,30 @@ const safeNodePts = useMemo(() => {
     return d;
   }, [pts, baselineY]);
 
+  const formatLineLabel = useCallback((point, index) => {
+    if (!point) return null;
+    if (typeof labelFormatter === 'function') {
+      return labelFormatter({
+        value: point.v,
+        date: point.d,
+        point,
+        metric,
+        index,
+      });
+    }
+    const v = point.v;
+    const d = point.d;
+    return `${metric==='count'? `${v}회(누적)` : `${v}분`} ${String(d.getFullYear()).slice(2)}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  }, [labelFormatter, metric]);
+
   const defaultLabel = useMemo(()=>{
     if(series.length===0) return null;
     const base = series[series.length-1];
-    const v = base.v;
-    const d = base.d;
-    return `${metric==='count'? `${v}회(누적)` : `${v}분`} ${String(d.getFullYear()).slice(2)}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  }, [series, metric]);
+    return formatLineLabel(base, series.length - 1);
+  }, [series, formatLineLabel]);
 
   const [selectedIdx, setSelectedIdx] = useState(null);
-  useEffect(()=>{ setSelectedIdx(null); }, [entries, metric]);
+  useEffect(()=>{ setSelectedIdx(null); }, [entries, metric, seriesOverride]);
 
   const labelDims = (txt='')=>{
     const w = Math.max(
@@ -1741,10 +1665,8 @@ const safeNodePts = useMemo(() => {
 
   const selectedLabel = useMemo(()=>{
     if (selectedIdx==null || !series[selectedIdx]) return null;
-    const v = series[selectedIdx].v;
-    const d = series[selectedIdx].d;
-    return `${metric==='count'? `${v}회(누적)` : `${v}분`} ${String(d.getFullYear()).slice(2)}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  }, [selectedIdx, series, metric]);
+    return formatLineLabel(series[selectedIdx], selectedIdx);
+  }, [selectedIdx, series, formatLineLabel]);
 
   const selPoint = useMemo(()=>{
     if (selectedIdx==null) return null;
@@ -2261,6 +2183,12 @@ const WeekView = memo(function WeekView({
   challengeStartDate,
   challengeEndDate,
   graphId = GRAPH_RENDER_GRAPH_IDS.WEEKLY_BAR,
+  valueMode = 'challenge',
+  formatPrimaryValue = null,
+  formatSecondaryValue = null,
+  title = null,
+  goalValue = null,
+  goalLabel = null,
 }) {
   const scrollRef = useRef(null);
   const scrollXRef = useRef(new Animated.Value(0));
@@ -2292,6 +2220,21 @@ const WeekView = memo(function WeekView({
   );
   const weeklyRenderColors = weeklyRenderRule.colors;
   const weeklyRenderLayout = weeklyRenderRule.layout;
+
+  const normalizedTitle = typeof title === 'string' ? title.trim() : '';
+  const normalizedGoalValue = Number(goalValue);
+  const hasGoalLine = (
+   valueMode === 'steps' &&
+   Number.isFinite(normalizedGoalValue) &&
+   normalizedGoalValue > 0
+  );
+  const normalizedGoalLabel = (
+   typeof goalLabel === 'string' && goalLabel.trim()
+   ? goalLabel.trim()
+   : hasGoalLine
+   ? `${Math.round(normalizedGoalValue).toLocaleString('ko-KR')}보`
+   : ''
+  );
 
    const PADDING_H = 0;
   const WEEK_BAR_W = weeklyRenderLayout.barWidth;
@@ -2398,9 +2341,15 @@ const WeekView = memo(function WeekView({
   const WEEK_DAY_LINE_H = Math.round(scaleWeek(12.5, 10.5, 17));
   const WEEK_DATE_DAY_GAP = Math.round(scaleWeek(2, 1, 5));
   const WEEK_DATE_ROW_HEIGHT = WEEK_DATE_LINE_H + WEEK_DATE_DAY_GAP + WEEK_DAY_LINE_H;
+  const WEEK_TITLE_FONT_SIZE = scaleWeek(11, 10, 12);
+  const WEEK_TITLE_LINE_H = Math.round(scaleWeek(14, 12, 17));
+  const WEEK_TITLE_BOTTOM_GAP = Math.round(scaleWeek(2, 1, 4));
+  const WEEK_TITLE_BLOCK_HEIGHT = normalizedTitle
+   ? WEEK_TITLE_LINE_H + WEEK_TITLE_BOTTOM_GAP
+   : 0;
   const WEEK_HEADER_SLOT_HEIGHT = Math.max(
     DASHBOARD_WIDGET_HEADER_HEIGHT,
-    WEEK_DATE_ROW_HEIGHT
+    WEEK_DATE_ROW_HEIGHT + WEEK_TITLE_BLOCK_HEIGHT
   );
 
   const WEEK_BAR_TOP_GAP = Math.round(scaleWeek(6, 4, 12));
@@ -2466,11 +2415,47 @@ const WEEK_TODAY_TEXT_STYLE = {
 
   const renderWeekHeader = useCallback(() => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) {
-      return <View style={{ height: WEEK_HEADER_SLOT_HEIGHT }} />;
+return (
+      <View style={{ height: WEEK_HEADER_SLOT_HEIGHT, alignItems: 'center' }}>
+       {normalizedTitle ? (
+        <Text
+         numberOfLines={1}
+         style={{
+          color: weeklyRenderColors.text,
+          fontSize: WEEK_TITLE_FONT_SIZE,
+          lineHeight: WEEK_TITLE_LINE_H,
+          fontWeight: '900',
+          textAlign: 'center',
+          includeFontPadding: false,
+         }}
+        >
+         {normalizedTitle}
+        </Text>
+       ) : null}
+      </View>
+      );
     }
 
     return (
       <View style={{ width: '100%', height: WEEK_HEADER_SLOT_HEIGHT, overflow: 'hidden', justifyContent: 'flex-start' }}>
+      {normalizedTitle ? (
+       <Text
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        style={{
+         color: weeklyRenderColors.text,
+         fontSize: WEEK_TITLE_FONT_SIZE,
+         lineHeight: WEEK_TITLE_LINE_H,
+         fontWeight: '900',
+         textAlign: 'center',
+         includeFontPadding: false,
+         marginBottom: WEEK_TITLE_BOTTOM_GAP,
+        }}
+       >
+        {normalizedTitle}
+       </Text>
+      ) : null}
+
         <Animated.View
           style={{
             flexDirection: 'row',
@@ -2577,15 +2562,43 @@ const WEEK_TODAY_TEXT_STYLE = {
   ]);
 
 const renderWeek = useCallback(({ dailyStats }, idx) => {
-    const maxTime = Math.max(...dailyStats.map(s => s.duration || 0), 1);
+    const isStepValueMode = valueMode === 'steps';
+    const primaryValueOf = (stat) => Math.max(
+     0,
+     Number(isStepValueMode ? stat?.steps : stat?.duration) || 0
+    );
+    const maxTime = Math.max(
+     ...dailyStats.map(s => primaryValueOf(s)),
+     hasGoalLine ? normalizedGoalValue : 0,
+     1
+    );
     const maxCount = Math.max(...dailyStats.map(s => s.totalCount || 0), 1);
+
+    const weeklyGoalBarHeight = hasGoalLine
+     ? Math.min(
+      (normalizedGoalValue / maxTime) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
+      WEEK_BAR_VALUE_MAX_H
+     ) * introProgress
+     : 0;
+
+    const weeklyGoalLineTop = (
+     WEEK_BAR_TOP_GAP +
+     Math.max(
+      0,
+      WEEK_BAR_ROW_HEIGHT -
+      WEEK_COUNT_LINE_H -
+      WEEK_BAR_VERTICAL_GAP -
+      weeklyGoalBarHeight
+     )
+    );
 
     return (
       <View key={idx} style={{ width: pageW, paddingHorizontal: PADDING_H, marginBottom: WEEK_GRAPH_BOTTOM_GAP }}>
         <TouchableOpacity onPress={onTapBar} activeOpacity={0.85} style={{ flexDirection:'row', width: ROW_W, marginLeft: ROW_OFFSET_X, alignItems:'flex-end', height: WEEK_BAR_ROW_HEIGHT, marginTop: WEEK_BAR_TOP_GAP }}>
           {dailyStats.map((stat, i) => {
-            const hasTime = (stat.duration || 0) > 0;
-            const hasCount = (stat.totalCount || 0) > 0;
+            const primaryValue = primaryValueOf(stat);
+            const hasTime = primaryValue > 0;
+            const hasCount = !isStepValueMode && (stat.totalCount || 0) > 0;
             const weekStart = weeksData[idx]?.ws ? new Date(weeksData[idx].ws) : null;
             if (weekStart) weekStart.setHours(0, 0, 0, 0);
             const actualDate = weekStart ? new Date(weekStart) : null;
@@ -2610,7 +2623,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
 
             const hTime = hasTime
               ? Math.min(
-                (stat.duration / maxTime) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
+                (primaryValue / maxTime) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
                 WEEK_BAR_VALUE_MAX_H
               ) * introProgress
               : 0;
@@ -2622,12 +2635,20 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
               : 0;
 
             if (hasTime) {
-              const segDurations = Array.isArray(stat.durations) ? stat.durations : [];
+              const segDurations = isStepValueMode
+               ? (primaryValue > 0 ? [primaryValue] : [])
+               : (Array.isArray(stat.durations) ? stat.durations : []);
               const totalSegDur = segDurations.reduce((a, b) => a + b, 0);
+              const primaryLabel = typeof formatPrimaryValue === 'function'
+               ? formatPrimaryValue(primaryValue, stat, i)
+               : `${primaryValue}분`;
+              const secondaryLabel = typeof formatSecondaryValue === 'function'
+               ? formatSecondaryValue(stat, i)
+               : ((stat.totalCount || 0) > 0 ? `${stat.totalCount}회` : '—');
 
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
-                  <Text style={[styles.barText, { fontSize: WEEK_BAR_TEXT_FONT_SIZE, lineHeight: WEEK_BAR_TEXT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{`${stat.duration}분`}</Text>
+                  <Text style={[styles.barText, { fontSize: WEEK_BAR_TEXT_FONT_SIZE, lineHeight: WEEK_BAR_TEXT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{primaryLabel}</Text>
                   <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
                     {(() => {
                       if (segDurations.length <= 1) {
@@ -2648,7 +2669,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
                       });
                     })()}
                   </View>
-                  <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }, isTodayBar && hasCount && WEEK_TODAY_TEXT_STYLE]}>{(stat.totalCount || 0) > 0 ? `${stat.totalCount}회` : '—'}</Text>
+                  <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{secondaryLabel}</Text>
                 </View>
               );
             }
@@ -2676,9 +2697,41 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
             );
           })}
         </TouchableOpacity>
+
+        {hasGoalLine ? (
+         <View
+          pointerEvents="none"
+          style={{
+           position: 'absolute',
+           left: ROW_OFFSET_X,
+           top: weeklyGoalLineTop,
+           width: ROW_W,
+           height: 1,
+           backgroundColor: weeklyRenderColors.countBarFill,
+           opacity: 0.78,
+          }}
+         >
+          <Text
+           numberOfLines={1}
+           style={{
+            position: 'absolute',
+            right: 0,
+            top: -13,
+            color: weeklyRenderColors.text,
+            fontSize: scaleWeek(9, 8.5, 10),
+            lineHeight: 12,
+            fontWeight: '800',
+            textAlign: 'right',
+            includeFontPadding: false,
+           }}
+          >
+           {normalizedGoalLabel}
+          </Text>
+         </View>
+        ) : null}
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE, weeklyRenderColors, weeklyRenderLayout, WEEK_BAR_W]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE, weeklyRenderColors, weeklyRenderLayout, WEEK_BAR_W, valueMode, formatPrimaryValue, formatSecondaryValue, hasGoalLine, normalizedGoalValue, normalizedGoalLabel]);
 
   useEffect(() => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;

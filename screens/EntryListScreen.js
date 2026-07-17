@@ -969,9 +969,15 @@ function aggregateByDate(entries){
 
 /* ───────── Health Connect linkedRecords 그래프 ───────── */
 const HEALTH_LINKED_TREND_CONFIG = Object.freeze({
-  steps: Object.freeze({ title: '걸음 수 추세', unit: '보', emptyText: '걸음 수 데이터가 없습니다.' }),
-  minutes: Object.freeze({ title: '운동 시간 추세', unit: '분', emptyText: '운동 시간 데이터가 없습니다.' }),
-  distance: Object.freeze({ title: '운동 거리 추세', unit: 'km', emptyText: '운동 거리 데이터가 없습니다.' }),
+ steps: Object.freeze({ title: '걸음 수 추세', unit: '보' }),
+ minutes: Object.freeze({ title: '운동 시간 추세', unit: '분' }),
+ distance: Object.freeze({ title: '운동 거리 추세', unit: 'km' }),
+ calories: Object.freeze({ title: '운동 칼로리', unit: 'kcal' }),
+ sleepHours: Object.freeze({ title: '수면 시간 추세', unit: '시간' }),
+ heartRate: Object.freeze({ title: '평균 심박 추세', unit: 'bpm' }),
+ weight: Object.freeze({ title: '체중 추세', unit: 'kg' }),
+ bodyFat: Object.freeze({ title: '체지방률 추세', unit: '%' }),
+ bmi: Object.freeze({ title: 'BMI 추세', unit: 'BMI' }),
 });
 
 function getHealthLinkedRecordDateKey(entry) {
@@ -1224,80 +1230,92 @@ var HealthSleepRhythmWidget = memo(function HealthSleepRhythmWidget(_ref) {
 });
 
 
-var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(_ref) {
-  var entries = _ref.entries, metricType = _ref.metricType, title = _ref.title, unit = _ref.unit, disabled = _ref.disabled;
-  var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND;
-  var _a = useState({width:0,height:0}), box = _a[0], setBox = _a[1];
-  var onLayout = useCallback(function(ev){
-    var w=Math.floor(ev?.nativeEvent?.layout?.width||0),h=Math.floor(ev?.nativeEvent?.layout?.height||0);
-    if(w>0&&h>0)setBox(function(p){return p.width===w&&p.height===h?p:{width:w,height:h};});
-  },[]);
-
-  var config = HEALTH_LINKED_TREND_CONFIG[metricType] || {};
-  var displayTitle = title || config.title || '건강 데이터';
-  var emptyText = config.emptyText || '데이터가 없습니다.';
-
-  var healthLineRenderRule = useMemo(function() {
-    return resolveGraphRenderRule({ graphId: graphId });
-  }, [graphId]);
-  var healthLineColors = healthLineRenderRule.colors;
-  var healthLineLayout = healthLineRenderRule.layout;
-
-  var series = useMemo(function(){
-    return aggregateHealthLinkedRecordsByDate(entries, metricType).map(function(item) {
-      return {
-        d: item.date,
-        v: Number(item.value) || 0,
-        key: item.key
-      };
-    });
-  },[entries,metricType]);
-
-  var chartStartDate = series.length ? series[0].d : new Date();
-  var chartWidth = Math.max(1, box.width || 260);
-  var chartHeight = Math.max(1, box.height || healthLineLayout.dashboardBaseHeight || 168);
-
-  var formatHealthLineLabel = useCallback(function(payload) {
-    var value = payload?.value ?? 0;
-    var d = payload?.date ? new Date(payload.date) : new Date();
-    return fmtHV(metricType, value) + ' ' + String(d.getFullYear()).slice(2) + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
-  }, [metricType]);
-
+const formatLineAxisDate = (value) => {
+  const d = value instanceof Date ? new Date(value) : new Date(value);
+  if (isNaN(d.getTime())) return '';
+  d.setHours(0, 0, 0, 0);
   return (
-    React.createElement(DashboardWidgetShell, {header: React.createElement(DashboardWidgetHeader, {title:displayTitle, hideSides:true})},
-      React.createElement(View, {onLayout:onLayout, style:{flex:1,width:'100%',opacity:disabled?0.92:1}},
-        series.length === 0 ?
-          React.createElement(View, {style:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:8}},
-            React.createElement(Text, {numberOfLines:2, style:{color:healthLineColors.labelText,fontSize:11,lineHeight:15,fontWeight:'700',textAlign:'center'}}, emptyText),
-            React.createElement(Text, {numberOfLines:2, style:{marginTop:4,color:healthLineColors.axisStroke,fontSize:10,lineHeight:14,fontWeight:'700',textAlign:'center'}}, '선택한 데이터로 인증하면 표시됩니다.')
-          ) :
-          React.createElement(LineGradientChart, {
-            startDate: chartStartDate,
-            entries: [],
-            metric: 'health-' + String(metricType || 'value'),
-            width: chartWidth,
-            height: chartHeight,
-            introProgress: 1,
-            interactive: !disabled,
-            pagerIndex: 0,
-            onSelectPagerIndex: function(){},
-            showPager: false,
-            plotInset: 0,
-            plotTopInset: healthLineLayout.dashboardPlotTop,
-            plotBottomInset: healthLineLayout.dashboardPlotBottom,
-            scaleLayout: true,
-            layoutBaseHeight: healthLineLayout.dashboardBaseHeight,
-            graphId: graphId,
-            seriesOverride: series,
-            labelFormatter: formatHealthLineLabel
-          })
-      )
-    )
+   String(d.getFullYear()).slice(2) +
+   '-' +
+   pad2(d.getMonth() + 1) +
+   '-' +
+   pad2(d.getDate())
   );
+};
+
+var HealthLinkedRecordsLineWidget = memo(function HealthLinkedRecordsLineWidget(_ref) {
+ var entries = _ref.entries;
+ var metricType = _ref.metricType;
+ var startDate = _ref.startDate;
+ var disabled = _ref.disabled;
+ var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND;
+
+ var config = HEALTH_LINKED_TREND_CONFIG[metricType] || {};
+ var displayTitle = config.title || '건강 데이터 추세';
+
+ var series = useMemo(function() {
+ return aggregateHealthLinkedRecordsByDate(entries, metricType).map(function(item) {
+ return {
+ d: item.date,
+ v: Number(item.value) || 0,
+ key: item.key
+ };
+ });
+ }, [entries, metricType]);
+
+ var today = new Date();
+ today.setHours(0, 0, 0, 0);
+
+ var chartStartDate = startDate
+ ? new Date(startDate)
+ : (series.length ? new Date(series[0].d) : new Date(today));
+
+ if (isNaN(chartStartDate.getTime())) {
+ chartStartDate = new Date(today);
+ }
+
+ chartStartDate.setHours(0, 0, 0, 0);
+
+ var healthAxisStartLabel = formatLineAxisDate(chartStartDate);
+ var healthAxisEndLabel = 'Today ' + formatLineAxisDate(today);
+
+ var formatHealthLineLabel = useCallback(function(payload) {
+ var value = payload?.value ?? 0;
+ var d = payload?.date ? new Date(payload.date) : new Date();
+
+ return (
+ fmtHV(metricType, value) +
+ ' ' +
+ formatLineAxisDate(d)
+ );
+ }, [metricType]);
+
+ return React.createElement(LineFamilyCard, {
+ title: displayTitle,
+ startDate: chartStartDate,
+ rangeEndDate: today,
+ entries: [],
+ metric: 'health-' + String(metricType || 'value'),
+ graphId: graphId,
+ seriesOverride: series,
+ labelFormatter: formatHealthLineLabel,
+ axisStartLabel: healthAxisStartLabel,
+ axisEndLabel: healthAxisEndLabel,
+ isEmpty: series.length === 0,
+ emptyText: '데이터 없음',
+ disabled: disabled,
+ introProgress: 1,
+ interactive: !disabled,
+ pagerIndex: 0,
+ onSelectPagerIndex: function() {},
+ showPager: false
+ });
 });
+
 /* ───────── 라인차트(횟수는 누적 그래프) ───────── */
 const LineGradientChart = memo(function LineGradientChart({
   startDate,
+  rangeEndDate=null,
   entries,
   metric='count',
   width=SCREEN_WIDTH - EDGE*2 - GRAPH_SIDE_PAD*2 - 8,
@@ -1316,6 +1334,8 @@ const LineGradientChart = memo(function LineGradientChart({
   graphId=null,
   seriesOverride=null,
   labelFormatter=null,
+  axisStartLabel=undefined,
+  axisEndLabel=undefined,
 }){
   const lineBaseHeight = Math.max(1, Number(layoutBaseHeight) || 185);
   const lineScaleRaw = (Math.max(1, Number(height) || 185)) / lineBaseHeight;
@@ -1442,14 +1462,55 @@ const LineGradientChart = memo(function LineGradientChart({
   }, [hasSeriesOverride, normalizedSeriesOverride, raw, metric, startDate, today]);
 
   const start = useMemo(()=>startDate? new Date(new Date(startDate).setHours(0,0,0,0)) : (series[0]?.d || today), [startDate, series, today]);
-  const end = useMemo(()=> {
-    if (hasSeriesOverride && series.length) {
-      const d = new Date(series[series.length - 1].d);
-      d.setHours(0,0,0,0);
-      return d;
+  const end = useMemo(() => {
+    const fallbackToday = new Date(today);
+    fallbackToday.setHours(0, 0, 0, 0);
+
+    if (!rangeEndDate) {
+      return fallbackToday;
     }
-    return new Date(new Date().setHours(0,0,0,0));
-  }, [hasSeriesOverride, series]);
+
+    const d = new Date(rangeEndDate);
+
+    if (isNaN(d.getTime())) {
+      return fallbackToday;
+    }
+
+    d.setHours(0, 0, 0, 0);
+
+    return d;
+  }, [rangeEndDate, today]);
+
+  const resolvedAxisStartLabel = useMemo(() => {
+    if (axisStartLabel !== undefined && axisStartLabel !== null) {
+      return String(axisStartLabel);
+    }
+    const d = new Date(start);
+    if (isNaN(d.getTime())) return '';
+    return (
+     String(d.getFullYear()).slice(2) +
+     '-' +
+     pad2(d.getMonth() + 1) +
+     '-' +
+     pad2(d.getDate())
+    );
+  }, [axisStartLabel, start]);
+
+  const resolvedAxisEndLabel = useMemo(() => {
+    if (axisEndLabel !== undefined && axisEndLabel !== null) {
+      return String(axisEndLabel);
+    }
+    const d = new Date(today);
+    if (isNaN(d.getTime())) return '';
+    return (
+     'Today ' +
+     String(d.getFullYear()).slice(2) +
+     '-' +
+     pad2(d.getMonth() + 1) +
+     '-' +
+     pad2(d.getDate())
+    );
+  }, [axisEndLabel, today]);
 
   const nodePts = useMemo(()=>{
     const n = series.length;
@@ -1457,9 +1518,9 @@ const LineGradientChart = memo(function LineGradientChart({
     const BOTTOM_PADDING_RATIO = 0.15;
     const usableCh = ch * (1 - BOTTOM_PADDING_RATIO);
 
-    // 기간 계산
+    // 기간 계산: 전체 기간은 도전 시작일~오늘 (데이터 유무와 관계없이 고정)
     const firstDate = start;
-    const lastDate = hasSeriesOverride ? end : (end > today ? end : today);
+    const lastDate = end;
     const totalDays = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
 
     if (n===1) {
@@ -1701,13 +1762,32 @@ const safeNodePts = useMemo(() => {
         {/* X축 */}
         <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={lineRenderColors.axisStroke} strokeWidth={LINE_AXIS_STROKE_W} />
 
-        {/* 좌/우 라벨 */}
-        <SvgText x={left+4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={lineRenderColors.labelText} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="start">
-          {`${String(new Date(start).getFullYear()).slice(2)}-${pad2(new Date(start).getMonth()+1)}-${pad2(new Date(start).getDate())}`}
-        </SvgText>
-        <SvgText x={left+cw-4} y={top + ch + LINE_AXIS_LABEL_Y_OFFSET} fill={lineRenderColors.labelText} fontSize={LINE_AXIS_LABEL_FONT_SIZE} fontWeight="700" textAnchor="end">
-          {`Today ${String((new Date()).getFullYear()).slice(2)}-${pad2((new Date()).getMonth()+1)}-${pad2((new Date()).getDate())}`}
-        </SvgText>
+        {/* 좌/우 축 정보 슬롯 */}
+        {resolvedAxisStartLabel ? (
+         <SvgText
+          x={left + 4}
+          y={top + ch + LINE_AXIS_LABEL_Y_OFFSET}
+          fill={lineRenderColors.labelText}
+          fontSize={LINE_AXIS_LABEL_FONT_SIZE}
+          fontWeight="700"
+          textAnchor="start"
+         >
+          {resolvedAxisStartLabel}
+         </SvgText>
+        ) : null}
+
+        {resolvedAxisEndLabel ? (
+         <SvgText
+          x={left + cw - 4}
+          y={top + ch + LINE_AXIS_LABEL_Y_OFFSET}
+          fill={lineRenderColors.labelText}
+          fontSize={LINE_AXIS_LABEL_FONT_SIZE}
+          fontWeight="700"
+          textAnchor="end"
+         >
+          {resolvedAxisEndLabel}
+         </SvgText>
+        ) : null}
 
         {/* 마커/라벨 */}
         {!selPoint && safeEndNode && (
@@ -1825,67 +1905,204 @@ const LineChartsPager = memo(function LineChartsPager({ startDate, entries, intr
   );
 });
 
-const DashboardLineChart = memo(function DashboardLineChart({
-  startDate,
-  entries,
-  metric,
-  introProgress=1,
-  interactive=true,
+const LineFamilyCard = memo(function LineFamilyCard({
+ title = null,
+ startDate,
+ rangeEndDate = null,
+ entries = [],
+ metric = 'count',
+ graphId = null,
+ seriesOverride = null,
+ labelFormatter = null,
+ axisStartLabel = undefined,
+ axisEndLabel = undefined,
+ isEmpty = false,
+ emptyText = '데이터 없음',
+ disabled = false,
+ introProgress = 1,
+ interactive = true,
+ pagerIndex = 0,
+ onSelectPagerIndex = () => {},
+ showPager = false,
 }) {
-  const [chartBox, setChartBox] = useState({ width: 0, height: 0 });
+ const [chartBox, setChartBox] = useState({ width: 0, height: 0 });
 
-  const onLayout = useCallback((event) => {
-    const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
-    const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
-    if (width > 0 && height > 0) {
-      setChartBox((prev) => (
-        prev.width === width && prev.height === height
-          ? prev
-          : { width, height }
-      ));
-    }
-  }, []);
+ const onLayout = useCallback((event) => {
+ const width = Math.floor(event?.nativeEvent?.layout?.width || 0);
+ const height = Math.floor(event?.nativeEvent?.layout?.height || 0);
 
-  const chartWidth = Math.max(1, chartBox.width);
-  const chartHeight = Math.max(1, chartBox.height);
-  const lineDashboardRule = useMemo(
-    () => resolveGraphRenderRule({
-      graphId: metric === 'minutes'
-        ? GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES
-        : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE,
-    }),
-    [metric]
-  );
-  const DASHBOARD_LINE_PLOT_TOP = lineDashboardRule.layout.dashboardPlotTop;
-  const DASHBOARD_LINE_PLOT_BOTTOM = lineDashboardRule.layout.dashboardPlotBottom;
-  const DASHBOARD_LINE_BASE_HEIGHT = lineDashboardRule.layout.dashboardBaseHeight;
+ if (width > 0 && height > 0) {
+ setChartBox((prev) => (
+ prev.width === width && prev.height === height
+ ? prev
+ : { width, height }
+ ));
+ }
+ }, []);
 
-  return (
-    <View style={styles.lineWidgetArea} onLayout={onLayout}>
-      {chartBox.width > 0 && chartBox.height > 0 ? (
-        <LineGradientChart
-          startDate={startDate}
-          entries={entries}
-          metric={metric}
-          width={chartWidth}
-          height={chartHeight}
-          introProgress={introProgress}
-          interactive={interactive}
-          pagerIndex={metric === 'minutes' ? 1 : 0}
-          showPager={false}
-          plotInset={0}
-          plotTopInset={DASHBOARD_LINE_PLOT_TOP}
-          plotBottomInset={DASHBOARD_LINE_PLOT_BOTTOM}
-          scaleLayout
-          graphId={metric === 'minutes' ? GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE}
-          layoutBaseHeight={DASHBOARD_LINE_BASE_HEIGHT}
-        />
-      ) : (
-        <View style={{ flex: 1, width: '100%' }} />
-      )}
-    </View>
-  );
+ const resolvedGraphId = graphId || (
+ metric === 'minutes'
+ ? GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES
+ : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE
+ );
+
+ const lineFamilyRule = useMemo(
+ () => resolveGraphRenderRule({ graphId: resolvedGraphId }),
+ [resolvedGraphId]
+ );
+
+ const lineFamilyColors = lineFamilyRule.colors;
+ const lineFamilyLayout = lineFamilyRule.layout;
+
+ const normalizedTitle = (
+ typeof title === 'string' ? title.trim() : ''
+ );
+
+ const normalizedEmptyText = (
+ typeof emptyText === 'string' && emptyText.trim()
+ ? emptyText.trim()
+ : '데이터 없음'
+ );
+
+ const isLayoutReady = chartBox.width > 0 && chartBox.height > 0;
+ const chartWidth = Math.max(1, chartBox.width);
+ const chartHeight = Math.max(1, chartBox.height);
+
+ return (
+ <DashboardWidgetShell
+ header={
+ normalizedTitle ? (
+ <DashboardWidgetHeader
+ title={normalizedTitle}
+ hideSides
+ />
+ ) : null
+ }
+ >
+ <View
+ style={[
+ styles.lineWidgetArea,
+ {
+ opacity: disabled ? 0.92 : 1,
+ position: 'relative',
+ },
+ ]}
+ onLayout={onLayout}
+ >
+ {isLayoutReady ? (
+ <LineGradientChart
+ startDate={startDate}
+ rangeEndDate={rangeEndDate}
+ entries={entries}
+ metric={metric}
+ width={chartWidth}
+ height={chartHeight}
+ introProgress={introProgress}
+ interactive={!isEmpty && interactive && !disabled}
+ pagerIndex={pagerIndex}
+ onSelectPagerIndex={onSelectPagerIndex}
+ showPager={!isEmpty && showPager}
+ plotInset={0}
+ plotTopInset={lineFamilyLayout.dashboardPlotTop}
+ plotBottomInset={lineFamilyLayout.dashboardPlotBottom}
+ scaleLayout
+ layoutBaseHeight={lineFamilyLayout.dashboardBaseHeight}
+ graphId={resolvedGraphId}
+ seriesOverride={isEmpty ? [] : seriesOverride}
+ labelFormatter={labelFormatter}
+ axisStartLabel={axisStartLabel}
+ axisEndLabel={axisEndLabel}
+ />
+ ) : (
+ <View style={{ flex: 1, width: '100%' }} />
+ )}
+
+ {isEmpty ? (
+ <View
+ pointerEvents="none"
+ style={[
+ StyleSheet.absoluteFill,
+ {
+ alignItems: 'center',
+ justifyContent: 'center',
+ paddingHorizontal: 8,
+ paddingBottom: lineFamilyLayout.dashboardPlotBottom,
+ },
+ ]}
+ >
+ <Text
+ numberOfLines={1}
+ style={{
+ color: lineFamilyColors.emptyText,
+ fontSize: lineFamilyLayout.emptyTextFontSize,
+ lineHeight: lineFamilyLayout.emptyTextLineHeight,
+ fontWeight: '700',
+ textAlign: 'center',
+ includeFontPadding: false,
+ }}
+ >
+ {normalizedEmptyText}
+ </Text>
+ </View>
+ ) : null}
+ </View>
+ </DashboardWidgetShell>
+ );
 });
+
+
+const DashboardLineChart = memo(function DashboardLineChart({
+ startDate,
+ entries,
+ metric,
+ introProgress = 1,
+ interactive = true,
+}) {
+ const isMinutes = metric === 'minutes';
+
+ const graphId = isMinutes
+ ? GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES
+ : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE;
+
+ const title = isMinutes
+ ? '시간 선형'
+ : '누적 선형';
+
+ const isEmpty = !Array.isArray(entries) || entries.length === 0;
+
+ const today = new Date();
+ today.setHours(0, 0, 0, 0);
+
+ const normalizedStartDate = startDate
+ ? new Date(startDate)
+ : new Date(today);
+
+ if (isNaN(normalizedStartDate.getTime())) {
+ normalizedStartDate.setTime(today.getTime());
+ }
+
+ normalizedStartDate.setHours(0, 0, 0, 0);
+
+ return (
+ <LineFamilyCard
+ title={title}
+ startDate={normalizedStartDate}
+ rangeEndDate={today}
+ entries={entries}
+ metric={metric}
+ graphId={graphId}
+ axisStartLabel={formatLineAxisDate(normalizedStartDate)}
+ axisEndLabel={'Today ' + formatLineAxisDate(today)}
+ isEmpty={isEmpty}
+ emptyText="데이터 없음"
+ introProgress={introProgress}
+ interactive={interactive}
+ pagerIndex={isMinutes ? 1 : 0}
+ showPager={false}
+ />
+ );
+});
+
 
 const DashboardProgressWidget = memo(function DashboardProgressWidget({
   overallPct,
@@ -3884,7 +4101,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthStepsTrend" title="걸음 수 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="steps" title="걸음 수 추세" unit="보" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="steps" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3900,7 +4117,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthExerciseMinutesTrend" title="운동 시간 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="minutes" title="운동 시간 추세" unit="분" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_MINUTES_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="minutes" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_MINUTES_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3930,7 +4147,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthDistanceTrend" title="운동 거리 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="distance" title="운동 거리 추세" unit="km" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="distance" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3940,7 +4157,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthActiveCaloriesTrend" title="운동 칼로리">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="calories" title="운동 칼로리" unit="kcal" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_ACTIVE_CALORIES_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="calories" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_ACTIVE_CALORIES_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3949,7 +4166,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthSleepHoursTrend" title="수면 시간 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="sleepHours" title="수면 시간 추세" unit="시간" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_HOURS_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="sleepHours" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_HOURS_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3967,7 +4184,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthHeartRateTrend" title="평균 심박 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="heartRate" title="평균 심박 추세" unit="bpm" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_HEART_RATE_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="heartRate" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_HEART_RATE_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3976,7 +4193,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthWeightTrend" title="체중 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="weight" title="체중 추세" unit="kg" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_WEIGHT_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="weight" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_WEIGHT_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3985,7 +4202,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthBodyFatTrend" title="체지방률 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="bodyFat" title="체지방률 추세" unit="%" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_BODY_FAT_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="bodyFat" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_BODY_FAT_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);
@@ -3994,7 +4211,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       return (<HealthDashboardWidgetErrorBoundary widgetId="healthBmiTrend" title="BMI 추세">
 
         <View style={styles.lineWidgetArea}>
-          <HealthLinkedRecordsLineWidget entries={entries} metricType="bmi" title="BMI 추세" unit="BMI" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_BMI_TREND} />
+          <HealthLinkedRecordsLineWidget entries={entries} metricType="bmi" disabled={isShare} graphId={GRAPH_RENDER_GRAPH_IDS.HEALTH_BMI_TREND}  startDate={meta.startDate} />
         </View>
 
           </HealthDashboardWidgetErrorBoundary>);

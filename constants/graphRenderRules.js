@@ -99,6 +99,7 @@ export const GRAPH_RENDER_COLOR_ROLES = Object.freeze({
   surface: '#FFFFFF',
   surfaceMuted: '#F5F5F5',
   empty: '#FAFAFA',
+  lineEmptyText: '#9CA3AF',
   inverse: '#FFFFFF',
   highlight: '#0A0A0A',
   grassLevel0: '#F3F4F6',
@@ -264,6 +265,11 @@ export const GRAPH_RENDER_EDITABLE_COLOR_SLOTS = Object.freeze({
       label: '선택 라벨',
       defaultRole: 'primary',
       description: '선택된 값 라벨의 배경 색입니다.',
+    }),
+    emptyText: Object.freeze({
+      label: '빈 상태',
+      defaultRole: 'lineEmptyText',
+      description: '선형그래프에 데이터가 없을 때 중앙에 표시하는 텍스트 색입니다.',
     }),
   }),
 
@@ -556,6 +562,8 @@ export const GRAPH_RENDER_LAYOUT_RULES = Object.freeze({
     pagerDotYOffset: 14,
     pagerDotXGap: 10,
     touchRadius: 16,
+    emptyTextFontSize: 11,
+    emptyTextLineHeight: 15,
   }),
 
   [GRAPH_RENDER_FAMILIES.GRASS]: Object.freeze({
@@ -661,6 +669,7 @@ export const GRAPH_RENDER_INTERNAL_COLOR_MAP = Object.freeze({
     markerStroke: 'marker',
     tooltipFill: 'tooltip',
     tooltipText: 'inverse',
+    emptyText: 'emptyText',
     pagerActive: 'line',
     pagerInactive: 'axis',
   }),

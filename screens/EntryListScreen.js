@@ -2008,7 +2008,7 @@ const LineFamilyCard = memo(function LineFamilyCard({
  scaleLayout
  layoutBaseHeight={lineFamilyLayout.dashboardBaseHeight}
  graphId={resolvedGraphId}
- seriesOverride={isEmpty ? [] : seriesOverride}
+ seriesOverride={seriesOverride}
  labelFormatter={labelFormatter}
  axisStartLabel={axisStartLabel}
  axisEndLabel={axisEndLabel}
@@ -2027,6 +2027,8 @@ const LineFamilyCard = memo(function LineFamilyCard({
  justifyContent: 'center',
  paddingHorizontal: 8,
  paddingBottom: lineFamilyLayout.dashboardPlotBottom,
+ zIndex: 10,
+ elevation: 10,
  },
  ]}
  >
@@ -2068,7 +2070,9 @@ const DashboardLineChart = memo(function DashboardLineChart({
  ? '시간 선형'
  : '누적 선형';
 
- const isEmpty = !Array.isArray(entries) || entries.length === 0;
+ const hasEntries = Array.isArray(entries) && entries.length > 0;
+ const hasDurationEntries = hasEntries && aggregateByDate(entries).some((item) => item.minutes > 0);
+ const isEmpty = isMinutes ? !hasDurationEntries : !hasEntries;
 
  const today = new Date();
  today.setHours(0, 0, 0, 0);

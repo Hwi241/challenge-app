@@ -31,6 +31,238 @@ export const GRAPH_RENDER_GRAPH_IDS = Object.freeze({
   HEALTH_BMI_TREND: 'health_bmi_trend',
 });
 
+export const GRAPH_FAMILY_STANDARD_VERSION = 2;
+
+/**
+ * 공식 그래프 family.
+ *
+ * 최초 6개 그래프는 디자인 기준을 추출하기 위한 referenceGraph이고,
+ * 실제 source of truth는 GRAPH_FAMILY_STANDARDS이다.
+ * 새 그래프는 원본 그래프 컴포넌트가 아니라 해당 family 기준에 연결한다.
+ */
+export const GRAPH_FAMILIES = Object.freeze({
+ DONUT: 'donut',
+ BAR: 'bar',
+ LINE: 'line',
+ INFO_CARD: 'infoCard',
+ CALENDAR: 'calendar',
+ GRASS: 'grass',
+});
+
+export const GRAPH_VARIANTS = Object.freeze({
+ DONUT_PROGRESS: 'progress',
+
+ BAR_WEEKLY: 'weekly',
+ BAR_WEEKLY_STEPS: 'weeklySteps',
+ BAR_PROGRESS: 'progress',
+ BAR_METRIC_WEEKLY: 'metricWeekly',
+ BAR_METRIC_CUMULATIVE: 'metricCumulative',
+ BAR_STACKED: 'stacked',
+
+ LINE_COUNT_CUMULATIVE: 'countCumulative',
+ LINE_MINUTES: 'minutes',
+ LINE_HEALTH_TREND: 'healthTrend',
+
+ INFO_CARD_GOAL: 'goal',
+ CALENDAR_MONTH: 'month',
+ GRASS_CONTRIBUTION: 'contribution',
+});
+
+export const GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY = Object.freeze({
+ [GRAPH_FAMILIES.DONUT]: GRAPH_RENDER_GRAPH_IDS.OVERALL_PROGRESS,
+ [GRAPH_FAMILIES.BAR]: GRAPH_RENDER_GRAPH_IDS.WEEKLY_BAR,
+ [GRAPH_FAMILIES.LINE]: GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE,
+ [GRAPH_FAMILIES.INFO_CARD]: GRAPH_RENDER_GRAPH_IDS.GOAL_BLACK_BOX,
+ [GRAPH_FAMILIES.CALENDAR]: GRAPH_RENDER_GRAPH_IDS.MONTH_CALENDAR,
+ [GRAPH_FAMILIES.GRASS]: GRAPH_RENDER_GRAPH_IDS.GRASS_GRAPH,
+});
+
+export const GRAPH_FAMILY_SHARED_STANDARD_KEYS = Object.freeze([
+ 'colorRoles',
+ 'sizeAndRatio',
+ 'innerSpacing',
+ 'titleTypography',
+ 'familyGeometry',
+ 'axisAndLabels',
+ 'emptyState',
+ 'animation',
+ 'interaction',
+ 'commonLayout',
+]);
+
+export const GRAPH_VARIANT_ALLOWED_KEYS = Object.freeze([
+ 'data',
+ 'title',
+ 'unit',
+ 'goalLine',
+ 'cumulative',
+ 'valueFormat',
+ 'auxiliaryElements',
+]);
+
+export const GRAPH_VARIANT_FORBIDDEN_KEYS = Object.freeze([
+ 'familyColorRoleNames',
+ 'familySizeAndRatio',
+ 'familyInnerSpacing',
+ 'familyTypography',
+ 'familyGeometry',
+ 'familyStrokeOrBarShape',
+ 'familyAxisAndLabelStyle',
+ 'familyEmptyState',
+ 'familyAnimation',
+ 'familyInteraction',
+]);
+
+export const GRAPH_FAMILY_STANDARD_POLICY = Object.freeze({
+ sourceOfTruth: 'GRAPH_FAMILY_STANDARDS',
+ referenceGraphRole: 'designReferenceOnly',
+ newGraphConnectionTarget: 'familyStandard',
+ requireRegisteredFamilyAndVariant: true,
+ unknownGraphIdBehavior: 'error',
+ topLevelFamilyCount: 6,
+ allowImplicitTopLevelFamilyCreation: false,
+});
+
+export const GRAPH_FAMILY_GRAPH_META_BY_ID = Object.freeze({
+ [GRAPH_RENDER_GRAPH_IDS.OVERALL_PROGRESS]: Object.freeze({
+ family: GRAPH_FAMILIES.DONUT,
+ variant: GRAPH_VARIANTS.DONUT_PROGRESS,
+ isReferenceGraph: true,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.GOAL_BLACK_BOX]: Object.freeze({
+ family: GRAPH_FAMILIES.INFO_CARD,
+ variant: GRAPH_VARIANTS.INFO_CARD_GOAL,
+ isReferenceGraph: true,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.MONTH_CALENDAR]: Object.freeze({
+ family: GRAPH_FAMILIES.CALENDAR,
+ variant: GRAPH_VARIANTS.CALENDAR_MONTH,
+ isReferenceGraph: true,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.WEEKLY_BAR]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_WEEKLY,
+ isReferenceGraph: true,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_COUNT_CUMULATIVE,
+ isReferenceGraph: true,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.LINE_MINUTES]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_MINUTES,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.GRASS_GRAPH]: Object.freeze({
+ family: GRAPH_FAMILIES.GRASS,
+ variant: GRAPH_VARIANTS.GRASS_CONTRIBUTION,
+ isReferenceGraph: true,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_WEEKLY_STEPS,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_MINUTES_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_ACTIVE_CALORIES_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_HOURS_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_HEART_RATE_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_WEIGHT_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_BODY_FAT_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_BMI_TREND]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ variant: GRAPH_VARIANTS.LINE_HEALTH_TREND,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_PROGRESS,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_METRIC_CUMULATIVE,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_WEEKLY_MINUTES]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_METRIC_WEEKLY,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_WEEKLY]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_METRIC_WEEKLY,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_CUMULATIVE]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_METRIC_CUMULATIVE,
+ isReferenceGraph: false,
+ }),
+
+ [GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_RHYTHM]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ variant: GRAPH_VARIANTS.BAR_STACKED,
+ isReferenceGraph: false,
+ }),
+});
+
 export const GRAPH_RENDER_FAMILIES = Object.freeze({
   OVERALL_PROGRESS: 'overallProgress',
   CALENDAR: 'calendar',
@@ -728,6 +960,321 @@ export const GRAPH_RENDER_INTERNAL_COLOR_MAP = Object.freeze({
   }),
 });
 
+/**
+ * 공식 family 기준.
+ *
+ * referenceGraphId는 최초 디자인을 확인하기 위한 기준 샘플일 뿐이다.
+ * editableColorSlots, layout, internalColorMap이 실제 공용 기준 코드이며
+ * 원본과 파생 그래프는 이후 이 객체를 동등하게 참조해야 한다.
+ */
+export const GRAPH_BAR_VARIANT_STANDARD_VERSION = 1;
+
+export const GRAPH_BAR_VARIANT_FORBIDDEN_OVERRIDE_KEYS = Object.freeze([
+ 'familyColorRoleNames',
+ 'familySizeAndRatio',
+ 'familyInnerSpacing',
+ 'familyTypography',
+ 'familyStrokeOrBarShape',
+ 'familyAxisAndLabelStyle',
+ 'familyEmptyState',
+ 'familyAnimation',
+ 'familyInteraction',
+]);
+
+function createGraphBarVariantStandard({
+ variant,
+ graphIds,
+ legacyRenderFamily,
+ geometry,
+ dataShape,
+ interaction,
+ allowedElements,
+ connectionStatus,
+}) {
+ return Object.freeze({
+ version: GRAPH_BAR_VARIANT_STANDARD_VERSION,
+ family: GRAPH_FAMILIES.BAR,
+ variant,
+ familyReferenceGraphId:
+ GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY[GRAPH_FAMILIES.BAR],
+ inheritsFamilyStandard: GRAPH_FAMILIES.BAR,
+ legacyRenderFamily,
+ graphIds: Object.freeze([...graphIds]),
+ geometry,
+ dataShape,
+ interaction,
+ allowedElements: Object.freeze([...allowedElements]),
+ forbiddenOverrides: GRAPH_BAR_VARIANT_FORBIDDEN_OVERRIDE_KEYS,
+ editableColorSlots:
+ GRAPH_RENDER_EDITABLE_COLOR_SLOTS[legacyRenderFamily],
+ layout:
+ GRAPH_RENDER_LAYOUT_RULES[legacyRenderFamily],
+ internalColorMap:
+ GRAPH_RENDER_INTERNAL_COLOR_MAP[legacyRenderFamily],
+ connectionStatus,
+ sourceOfTruth:
+ 'GRAPH_FAMILY_STANDARDS.bar.variantStandards',
+ });
+}
+
+export const GRAPH_BAR_VARIANT_STANDARDS = Object.freeze({
+ [GRAPH_VARIANTS.BAR_WEEKLY]: createGraphBarVariantStandard({
+ variant: GRAPH_VARIANTS.BAR_WEEKLY,
+ graphIds: [
+ GRAPH_RENDER_GRAPH_IDS.WEEKLY_BAR,
+ ],
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.WEEKLY_BAR,
+ geometry: 'weeklyVerticalBars',
+ dataShape: 'sevenDayChallengeSummary',
+ interaction: 'pagedWeekNavigation',
+ allowedElements: [
+ 'data',
+ 'title',
+ 'unit',
+ 'dateLabels',
+ 'dayLabels',
+ 'currentDayEmphasis',
+ 'pager',
+ 'valueFormat',
+ 'auxiliaryElements',
+ ],
+ connectionStatus: 'connected',
+ }),
+
+ [GRAPH_VARIANTS.BAR_WEEKLY_STEPS]: createGraphBarVariantStandard({
+ variant: GRAPH_VARIANTS.BAR_WEEKLY_STEPS,
+ graphIds: [
+ GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_WEEKLY,
+ ],
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.WEEKLY_BAR,
+ geometry: 'weeklyVerticalBarsWithGoalLine',
+ dataShape: 'sevenDayHealthStepSummary',
+ interaction: 'singleWeekDisplay',
+ allowedElements: [
+ 'data',
+ 'title',
+ 'unit',
+ 'dateLabels',
+ 'dayLabels',
+ 'currentDayEmphasis',
+ 'goalLine',
+ 'goalLabel',
+ 'valueFormat',
+ 'auxiliaryElements',
+ ],
+ connectionStatus: 'connected',
+ }),
+
+ [GRAPH_VARIANTS.BAR_PROGRESS]: createGraphBarVariantStandard({
+ variant: GRAPH_VARIANTS.BAR_PROGRESS,
+ graphIds: [
+ GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE,
+ ],
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.PROGRESS_BAR,
+ geometry: 'singleHorizontalProgressBar',
+ dataShape: 'currentValueAndGoalRatio',
+ interaction: 'displayOnly',
+ allowedElements: [
+ 'data',
+ 'title',
+ 'unit',
+ 'goalValue',
+ 'valueFormat',
+ 'successState',
+ 'caption',
+ 'emptyState',
+ 'auxiliaryElements',
+ ],
+ connectionStatus: 'connected',
+ }),
+
+ [GRAPH_VARIANTS.BAR_METRIC_WEEKLY]: createGraphBarVariantStandard({
+ variant: GRAPH_VARIANTS.BAR_METRIC_WEEKLY,
+ graphIds: [
+ GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_WEEKLY_MINUTES,GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_WEEKLY,
+ ],
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.METRIC_BAR,
+ geometry: 'weeklyMetricBars',
+ dataShape: 'periodMetricValues',
+ interaction: 'displayOnly',
+ allowedElements: [
+ 'data',
+ 'title',
+ 'unit',
+ 'period',
+ 'valueFormat',
+ 'latestEmphasis',
+ 'goalLine',
+ 'caption',
+ 'emptyState',
+ 'auxiliaryElements',
+ ],
+ connectionStatus: 'connected',
+ }),
+
+ [GRAPH_VARIANTS.BAR_METRIC_CUMULATIVE]: createGraphBarVariantStandard({
+ variant: GRAPH_VARIANTS.BAR_METRIC_CUMULATIVE,
+ graphIds: [
+ GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE,
+ GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_CUMULATIVE,
+ ],
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.METRIC_BAR,
+ geometry: 'cumulativeMetricBars',
+ dataShape: 'cumulativeMetricValues',
+ interaction: 'displayOnly',
+ allowedElements: [
+ 'data',
+ 'title',
+ 'unit',
+ 'cumulative',
+ 'valueFormat',
+ 'latestEmphasis',
+ 'goalLine',
+ 'caption',
+ 'emptyState',
+ 'auxiliaryElements',
+ ],
+ connectionStatus: 'connected',
+ }),
+
+ [GRAPH_VARIANTS.BAR_STACKED]: createGraphBarVariantStandard({
+ variant: GRAPH_VARIANTS.BAR_STACKED,
+ graphIds: [
+ GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_RHYTHM,
+ ],
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.STACKED_SEGMENT,
+ geometry: 'stackedSegmentBar',
+ dataShape: 'labeledSegmentRatios',
+ interaction: 'displayOnly',
+ allowedElements: [
+ 'data',
+ 'title',
+ 'unit',
+ 'segments',
+ 'legend',
+ 'valueFormat',
+ 'caption',
+ 'emptyState',
+ 'auxiliaryElements',
+ ],
+ connectionStatus: 'connected',
+ }),
+});
+
+export function getGraphBarVariantStandard(variant) {
+ return GRAPH_BAR_VARIANT_STANDARDS[variant] || null;
+}
+
+export function getGraphFamilyVariantStandard(graphId) {
+ const meta = GRAPH_FAMILY_GRAPH_META_BY_ID[graphId];
+
+ if (!meta || meta.family !== GRAPH_FAMILIES.BAR) {
+ return null;
+ }
+
+ return getGraphBarVariantStandard(meta.variant);
+}
+
+
+export const GRAPH_FAMILY_STANDARDS = Object.freeze({
+ [GRAPH_FAMILIES.DONUT]: Object.freeze({
+ family: GRAPH_FAMILIES.DONUT,
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS,
+ referenceGraphId: GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY[GRAPH_FAMILIES.DONUT],
+ geometry: 'circularProgress',
+ managedRuleKeys: GRAPH_FAMILY_SHARED_STANDARD_KEYS,
+ variantAllowedKeys: GRAPH_VARIANT_ALLOWED_KEYS,
+ variantForbiddenKeys: GRAPH_VARIANT_FORBIDDEN_KEYS,
+ editableColorSlots: GRAPH_RENDER_EDITABLE_COLOR_SLOTS[GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS],
+ layout: GRAPH_RENDER_LAYOUT_RULES[GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS],
+ internalColorMap: GRAPH_RENDER_INTERNAL_COLOR_MAP[GRAPH_RENDER_FAMILIES.OVERALL_PROGRESS],
+ }),
+
+ [GRAPH_FAMILIES.BAR]: Object.freeze({
+ family: GRAPH_FAMILIES.BAR,
+ legacyRenderFamily: GRAPH_RENDER_FAMILIES.WEEKLY_BAR,
+ referenceGraphId: GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY[GRAPH_FAMILIES.BAR],
+ variantStandards: GRAPH_BAR_VARIANT_STANDARDS,
+ geometry: 'bar',
+ managedRuleKeys: GRAPH_FAMILY_SHARED_STANDARD_KEYS,
+ variantAllowedKeys: GRAPH_VARIANT_ALLOWED_KEYS,
+ variantForbiddenKeys: GRAPH_VARIANT_FORBIDDEN_KEYS,
+ editableColorSlots: GRAPH_RENDER_EDITABLE_COLOR_SLOTS[GRAPH_RENDER_FAMILIES.WEEKLY_BAR],
+ layout: GRAPH_RENDER_LAYOUT_RULES[GRAPH_RENDER_FAMILIES.WEEKLY_BAR],
+ internalColorMap: GRAPH_RENDER_INTERNAL_COLOR_MAP[GRAPH_RENDER_FAMILIES.WEEKLY_BAR],
+ }),
+
+ [GRAPH_FAMILIES.LINE]: Object.freeze({
+ family: GRAPH_FAMILIES.LINE,
+ referenceGraphId: GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY[GRAPH_FAMILIES.LINE],
+ geometry: 'continuousLine',
+ managedRuleKeys: GRAPH_FAMILY_SHARED_STANDARD_KEYS,
+ variantAllowedKeys: GRAPH_VARIANT_ALLOWED_KEYS,
+ variantForbiddenKeys: GRAPH_VARIANT_FORBIDDEN_KEYS,
+ editableColorSlots: GRAPH_RENDER_EDITABLE_COLOR_SLOTS[GRAPH_RENDER_FAMILIES.LINE],
+ layout: GRAPH_RENDER_LAYOUT_RULES[GRAPH_RENDER_FAMILIES.LINE],
+ internalColorMap: GRAPH_RENDER_INTERNAL_COLOR_MAP[GRAPH_RENDER_FAMILIES.LINE],
+ }),
+
+ [GRAPH_FAMILIES.INFO_CARD]: Object.freeze({
+ family: GRAPH_FAMILIES.INFO_CARD,
+ referenceGraphId: GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY[GRAPH_FAMILIES.INFO_CARD],
+ geometry: 'informationCard',
+ managedRuleKeys: GRAPH_FAMILY_SHARED_STANDARD_KEYS,
+ variantAllowedKeys: GRAPH_VARIANT_ALLOWED_KEYS,
+ variantForbiddenKeys: GRAPH_VARIANT_FORBIDDEN_KEYS,
+ editableColorSlots: GRAPH_RENDER_EDITABLE_COLOR_SLOTS[GRAPH_RENDER_FAMILIES.INFO_CARD],
+ layout: GRAPH_RENDER_LAYOUT_RULES[GRAPH_RENDER_FAMILIES.INFO_CARD],
+ internalColorMap: GRAPH_RENDER_INTERNAL_COLOR_MAP[GRAPH_RENDER_FAMILIES.INFO_CARD],
+ }),
+
+ [GRAPH_FAMILIES.CALENDAR]: Object.freeze({
+ family: GRAPH_FAMILIES.CALENDAR,
+ referenceGraphId: GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY[GRAPH_FAMILIES.CALENDAR],
+ geometry: 'monthGrid',
+ managedRuleKeys: GRAPH_FAMILY_SHARED_STANDARD_KEYS,
+ variantAllowedKeys: GRAPH_VARIANT_ALLOWED_KEYS,
+ variantForbiddenKeys: GRAPH_VARIANT_FORBIDDEN_KEYS,
+ editableColorSlots: GRAPH_RENDER_EDITABLE_COLOR_SLOTS[GRAPH_RENDER_FAMILIES.CALENDAR],
+ layout: GRAPH_RENDER_LAYOUT_RULES[GRAPH_RENDER_FAMILIES.CALENDAR],
+ internalColorMap: GRAPH_RENDER_INTERNAL_COLOR_MAP[GRAPH_RENDER_FAMILIES.CALENDAR],
+ }),
+
+ [GRAPH_FAMILIES.GRASS]: Object.freeze({
+ family: GRAPH_FAMILIES.GRASS,
+ referenceGraphId: GRAPH_FAMILY_REFERENCE_GRAPH_ID_BY_FAMILY[GRAPH_FAMILIES.GRASS],
+ geometry: 'contributionGrid',
+ managedRuleKeys: GRAPH_FAMILY_SHARED_STANDARD_KEYS,
+ variantAllowedKeys: GRAPH_VARIANT_ALLOWED_KEYS,
+ variantForbiddenKeys: GRAPH_VARIANT_FORBIDDEN_KEYS,
+ editableColorSlots: GRAPH_RENDER_EDITABLE_COLOR_SLOTS[GRAPH_RENDER_FAMILIES.GRASS],
+ layout: GRAPH_RENDER_LAYOUT_RULES[GRAPH_RENDER_FAMILIES.GRASS],
+ internalColorMap: GRAPH_RENDER_INTERNAL_COLOR_MAP[GRAPH_RENDER_FAMILIES.GRASS],
+ }),
+});
+
+export function getGraphFamilyMeta(graphId) {
+ return GRAPH_FAMILY_GRAPH_META_BY_ID[graphId] || null;
+}
+
+export function getGraphFamilyStandard(family) {
+ return GRAPH_FAMILY_STANDARDS[family] || null;
+}
+
+export function isOfficialGraphFamily(family) {
+ return !!getGraphFamilyStandard(family);
+}
+
+export function assertRegisteredGraphFamilyMeta(graphId) {
+ const meta = getGraphFamilyMeta(graphId);
+
+ if (!meta) {
+ throw new Error(`[graph-family] Unregistered graphId: ${String(graphId)}`);
+ }
+
+ return meta;
+}
+
 export const GRAPH_RENDER_COLOR_SETTING_PRIORITY = Object.freeze([
   'byInstanceId',
   'byGraphId',
@@ -876,4 +1423,264 @@ export function resolveGraphRenderRule({
     layout: getGraphRenderLayoutRules(resolvedFamily),
     editableColorSlots: getGraphRenderEditableColorSlots(resolvedFamily),
   });
+}
+
+/**
+ * 공식 6개 family 기준을 실제 그래프에 전달한다.
+ *
+ * 원본 그래프 컴포넌트를 참조하지 않고 GRAPH_FAMILY_STANDARDS를
+ * source of truth로 사용한다.
+ */
+export function resolveGraphFamilyStandardRule({
+ graphId,
+ instanceId,
+ colorSettings,
+}) {
+ const meta = assertRegisteredGraphFamilyMeta(graphId);
+ const standard = getGraphFamilyStandard(meta.family);
+
+ if (!standard) {
+ throw new Error(
+ `[graph-family] Missing official family standard: ${String(meta.family)}`
+ );
+ }
+
+ const editableColorSlots = standard.editableColorSlots || Object.freeze({});
+ const internalColorMap = standard.internalColorMap || Object.freeze({});
+ const resolvedColors = {};
+
+ const resolveStandardSlotColor = (slot) => {
+ const slotRule = editableColorSlots[slot];
+ const defaultRole = slotRule?.defaultRole || 'primary';
+ const defaultColor = getGraphRenderRoleColor(defaultRole);
+
+ if (!slot || !isObject(colorSettings)) {
+ return defaultColor;
+ }
+
+ const byInstanceColor =
+ instanceId &&
+ cleanColor(colorSettings.byInstanceId?.[instanceId]?.[slot]);
+
+ if (byInstanceColor) {
+ return byInstanceColor;
+ }
+
+ const byGraphColor =
+ graphId &&
+ cleanColor(colorSettings.byGraphId?.[graphId]?.[slot]);
+
+ if (byGraphColor) {
+ return byGraphColor;
+ }
+
+ const byOfficialFamilyColor =
+ meta.family &&
+ cleanColor(colorSettings.byFamily?.[meta.family]?.[slot]);
+
+ if (byOfficialFamilyColor) {
+ return byOfficialFamilyColor;
+ }
+
+ const legacyRenderFamily = standard.legacyRenderFamily;
+
+ const byLegacyFamilyColor =
+ legacyRenderFamily &&
+ legacyRenderFamily !== meta.family &&
+ cleanColor(colorSettings.byFamily?.[legacyRenderFamily]?.[slot]);
+
+ if (byLegacyFamilyColor) {
+ return byLegacyFamilyColor;
+ }
+
+ const globalSlotColor = cleanColor(colorSettings.global?.[slot]);
+
+ if (globalSlotColor) {
+ return globalSlotColor;
+ }
+
+ const globalRoleColor = cleanColor(colorSettings.global?.[defaultRole]);
+
+ if (globalRoleColor) {
+ return globalRoleColor;
+ }
+
+ return defaultColor;
+ };
+
+ Object.keys(editableColorSlots).forEach((slot) => {
+ resolvedColors[slot] = resolveStandardSlotColor(slot);
+ });
+
+ Object.keys(internalColorMap).forEach((key) => {
+ const mappedSlotOrRole = internalColorMap[key];
+
+ resolvedColors[key] =
+ resolvedColors[mappedSlotOrRole] ||
+ getGraphRenderRoleColor(mappedSlotOrRole);
+ });
+
+ return Object.freeze({
+ version: GRAPH_RENDER_RULE_VERSION,
+ familyStandardVersion: GRAPH_FAMILY_STANDARD_VERSION,
+ family: meta.family,
+ variant: meta.variant,
+ graphId,
+ instanceId: instanceId || null,
+ referenceGraphId: standard.referenceGraphId,
+ isReferenceGraph: meta.isReferenceGraph,
+ sourceOfTruth: GRAPH_FAMILY_STANDARD_POLICY.sourceOfTruth,
+ colors: Object.freeze(resolvedColors),
+ layout: standard.layout,
+ editableColorSlots,
+ managedRuleKeys: standard.managedRuleKeys,
+ variantAllowedKeys: standard.variantAllowedKeys,
+ variantForbiddenKeys: standard.variantForbiddenKeys,
+ });
+}
+
+function resolveGraphFamilyVariantColorSlot({
+ variantStandard,
+ graphId,
+ instanceId,
+ slot,
+ colorSettings,
+}) {
+ const slotRule = variantStandard.editableColorSlots?.[slot];
+ const defaultRole = slotRule?.defaultRole || 'primary';
+ const defaultColor = getGraphRenderRoleColor(defaultRole);
+
+ if (!slot) return defaultColor;
+ if (!isObject(colorSettings)) return defaultColor;
+
+ const byInstanceColor = (
+ instanceId &&
+ cleanColor(colorSettings.byInstanceId?.[instanceId]?.[slot])
+ );
+
+ if (byInstanceColor) return byInstanceColor;
+
+ const byGraphColor = (
+ graphId &&
+ cleanColor(colorSettings.byGraphId?.[graphId]?.[slot])
+ );
+
+ if (byGraphColor) return byGraphColor;
+
+ const byOfficialFamilyColor = cleanColor(
+ colorSettings.byFamily?.[GRAPH_FAMILIES.BAR]?.[slot]
+ );
+
+ if (byOfficialFamilyColor) return byOfficialFamilyColor;
+
+ const byLegacyFamilyColor = cleanColor(
+ colorSettings.byFamily?.[
+ variantStandard.legacyRenderFamily
+ ]?.[slot]
+ );
+
+ if (byLegacyFamilyColor) return byLegacyFamilyColor;
+
+ const globalSlotColor = cleanColor(
+ colorSettings.global?.[slot]
+ );
+
+ if (globalSlotColor) return globalSlotColor;
+
+ const globalRoleColor = cleanColor(
+ colorSettings.global?.[defaultRole]
+ );
+
+ if (globalRoleColor) return globalRoleColor;
+
+ return defaultColor;
+}
+
+function resolveGraphFamilyVariantColors({
+ variantStandard,
+ graphId,
+ instanceId,
+ colorSettings,
+}) {
+ const result = {};
+ const slots = variantStandard.editableColorSlots || {};
+
+ Object.keys(slots).forEach((slot) => {
+ result[slot] = resolveGraphFamilyVariantColorSlot({
+ variantStandard,
+ graphId,
+ instanceId,
+ slot,
+ colorSettings,
+ });
+ });
+
+ const internalColorMap =
+ variantStandard.internalColorMap || {};
+
+ Object.keys(internalColorMap).forEach((internalKey) => {
+ const mappedSlotOrRole =
+ internalColorMap[internalKey];
+
+ result[internalKey] = (
+ result[mappedSlotOrRole] ||
+ getGraphRenderRoleColor(mappedSlotOrRole)
+ );
+ });
+
+ return Object.freeze(result);
+}
+
+export function resolveGraphFamilyVariantStandardRule({
+ graphId,
+ instanceId,
+ colorSettings,
+}) {
+ assertRegisteredGraphFamilyMeta(graphId);
+
+ const meta = getGraphFamilyMeta(graphId);
+
+ if (!meta || meta.family !== GRAPH_FAMILIES.BAR) {
+ throw new Error(
+ `[graphFamily] ${String(graphId)} is not an official BAR graph`
+ );
+ }
+
+ const variantStandard =
+ getGraphFamilyVariantStandard(graphId);
+
+ if (!variantStandard) {
+ throw new Error(
+ `[graphFamily] BAR variant standard missing: ${String(graphId)}`
+ );
+ }
+
+ return Object.freeze({
+ version: GRAPH_RENDER_RULE_VERSION,
+ familyStandardVersion: GRAPH_FAMILY_STANDARD_VERSION,
+ variantStandardVersion: variantStandard.version,
+ family: meta.family,
+ variant: meta.variant,
+ graphId: graphId || null,
+ instanceId: instanceId || null,
+ referenceGraphId: variantStandard.familyReferenceGraphId,
+ isReferenceGraph: Boolean(meta.isReferenceGraph),
+ sourceOfTruth: variantStandard.sourceOfTruth,
+ legacyRenderFamily: variantStandard.legacyRenderFamily,
+ connectionStatus: variantStandard.connectionStatus,
+ geometry: variantStandard.geometry,
+ dataShape: variantStandard.dataShape,
+ interaction: variantStandard.interaction,
+ allowedElements: variantStandard.allowedElements,
+ forbiddenOverrides: variantStandard.forbiddenOverrides,
+ colors: resolveGraphFamilyVariantColors({
+ variantStandard,
+ graphId,
+ instanceId,
+ colorSettings,
+ }),
+ layout: variantStandard.layout,
+ editableColorSlots: variantStandard.editableColorSlots,
+ internalColorMap: variantStandard.internalColorMap,
+ });
 }

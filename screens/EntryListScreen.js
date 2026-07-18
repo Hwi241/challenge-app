@@ -69,6 +69,8 @@ import { colors, radius, spacing } from '../styles/common';
 import {
   GRAPH_RENDER_GRAPH_IDS,
   resolveGraphRenderRule,
+  resolveGraphFamilyStandardRule,
+ resolveGraphFamilyVariantStandardRule,
 } from '../constants/graphRenderRules';
 
 
@@ -260,7 +262,7 @@ const Donut = memo(function Donut({
   graphId = GRAPH_RENDER_GRAPH_IDS.OVERALL_PROGRESS,
 }) {
   const overallRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId }),
+    () => resolveGraphFamilyStandardRule({ graphId }),
     [graphId]
   );
   const overallRenderColors = overallRenderRule.colors;
@@ -740,7 +742,7 @@ const MonthCalendar = memo(function MonthCalendar({
   }, []);
 
   const calendarRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId }),
+    () => resolveGraphFamilyStandardRule({ graphId }),
     [graphId]
   );
   const calendarRenderColors = calendarRenderRule.colors;
@@ -1094,7 +1096,7 @@ var HealthSleepRhythmWidget = memo(function HealthSleepRhythmWidget(_ref) {
  var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_SLEEP_RHYTHM;
 
  var stackedSegmentRenderRule = useMemo(function() {
- return resolveGraphRenderRule({ graphId: graphId });
+ return resolveGraphFamilyVariantStandardRule({ graphId });
  }, [graphId]);
  var stackedSegmentColors = stackedSegmentRenderRule.colors;
  var stackedSegmentLayout = stackedSegmentRenderRule.layout;
@@ -1351,7 +1353,7 @@ const LineGradientChart = memo(function LineGradientChart({
       : GRAPH_RENDER_GRAPH_IDS.LINE_COUNT_CUMULATIVE
   );
   const lineRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId: resolvedLineGraphId }),
+    () => resolveGraphFamilyStandardRule({ graphId: resolvedLineGraphId }),
     [resolvedLineGraphId]
   );
   const lineRenderColors = lineRenderRule.colors;
@@ -2130,7 +2132,7 @@ const DashboardProgressWidget = memo(function DashboardProgressWidget({
   }, []);
 
   const overallRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId }),
+    () => resolveGraphFamilyStandardRule({ graphId }),
     [graphId]
   );
   const overallRenderLayout = overallRenderRule.layout;
@@ -2207,7 +2209,7 @@ const DashboardGoalWidget = memo(function DashboardGoalWidget({
  const marqueeX = marqueeXRef.current;
 
  const infoCardRenderRule = useMemo(
- () => resolveGraphRenderRule({ graphId }),
+ () => resolveGraphFamilyStandardRule({ graphId }),
  [graphId]
  );
  const infoCardColors = infoCardRenderRule.colors;
@@ -2436,7 +2438,7 @@ const WeekView = memo(function WeekView({
   }, [pageW, viewH]);
 
  const weeklyRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId }),
+    () => resolveGraphFamilyStandardRule({ graphId }),
     [graphId]
   );
   const weeklyRenderColors = weeklyRenderRule.colors;
@@ -3105,7 +3107,7 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   }, []);
 
   const grassRenderRule = useMemo(
-    () => resolveGraphRenderRule({ graphId }),
+    () => resolveGraphFamilyStandardRule({ graphId }),
     [graphId]
   );
   const grassRenderColors = grassRenderRule.colors;
@@ -3834,7 +3836,7 @@ const HealthStepsGoalRateWidget = memo(function HealthStepsGoalRateWidget(_ref) 
  var graphId = _ref.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE;
 
  var progressRenderRule = useMemo(function() {
- return resolveGraphRenderRule({ graphId: graphId });
+ return resolveGraphFamilyVariantStandardRule({ graphId });
  }, [graphId]);
  var progressRenderColors = progressRenderRule.colors;
  var progressRenderLayout = progressRenderRule.layout;
@@ -3933,7 +3935,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
  var graphId = _ref2.graphId || GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE;
 
  var metricBarRenderRule = useMemo(function() {
- return resolveGraphRenderRule({ graphId: graphId });
+ return resolveGraphFamilyVariantStandardRule({ graphId });
  }, [graphId]);
  var metricBarColors = metricBarRenderRule.colors;
  var metricBarLayout = metricBarRenderRule.layout;

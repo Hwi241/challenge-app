@@ -66,6 +66,10 @@ export const GRAPH_PREVIEW_FAMILIES = {
   BAR: 'bar',
   DISTRIBUTION: 'distribution',
   NETWORK: 'network',
+  CALENDAR: 'calendar',
+  INFO_CARD: 'infoCard',
+  PROGRESS: 'progress',
+  GRASS: 'grass',
 };
 
 export const GRAPH_TIER_UNLOCK_REQUIREMENT = 3;
@@ -116,9 +120,9 @@ export const GRAPH_CATALOG = [
  supports: ['습관', '도전'],
  metricTypes: [GRAPH_METRIC_TYPES.COUNT, GRAPH_METRIC_TYPES.DATE],
  preview: {
- family: GRAPH_PREVIEW_FAMILIES.DISTRIBUTION,
- variant: 'heatmap',
- metricType: GRAPH_METRIC_TYPES.COUNT,
+ family: GRAPH_PREVIEW_FAMILIES.CALENDAR,
+ variant: 'calendar',
+ metricType: GRAPH_METRIC_TYPES.DATE,
  seed: 102,
  features: ['기본 제공', '달력', '월간'],
  },
@@ -142,11 +146,11 @@ export const GRAPH_CATALOG = [
  supports: ['도전'],
  metricTypes: [GRAPH_METRIC_TYPES.SCORE],
  preview: {
- family: GRAPH_PREVIEW_FAMILIES.PIE,
- variant: 'donut',
+ family: GRAPH_PREVIEW_FAMILIES.INFO_CARD,
+ variant: 'infoCard',
  metricType: GRAPH_METRIC_TYPES.SCORE,
  seed: 103,
- features: ['도전 전용', '목표', '25별'],
+ features: ['도전 전용', '목표', '보상'],
  },
  },
  {
@@ -169,8 +173,8 @@ export const GRAPH_CATALOG = [
  metricTypes: [GRAPH_METRIC_TYPES.COUNT, GRAPH_METRIC_TYPES.DATE],
  preview: {
  family: GRAPH_PREVIEW_FAMILIES.BAR,
- variant: 'solidBars',
- metricType: GRAPH_METRIC_TYPES.COUNT,
+ variant: 'weeklyGoal',
+ metricType: GRAPH_METRIC_TYPES.STEPS,
  seed: 501,
  features: ['Health Connect', '걸음 수', '8,000보 목표'],
  },
@@ -272,9 +276,9 @@ export const GRAPH_CATALOG = [
  supports: ['습관', '도전'],
  metricTypes: [GRAPH_METRIC_TYPES.COUNT, GRAPH_METRIC_TYPES.PERCENT],
  preview: {
- family: GRAPH_PREVIEW_FAMILIES.BAR,
- variant: 'solidBars',
- metricType: GRAPH_METRIC_TYPES.COUNT,
+ family: GRAPH_PREVIEW_FAMILIES.PROGRESS,
+ variant: 'horizontalProgress',
+ metricType: GRAPH_METRIC_TYPES.PERCENT,
  seed: 505,
  features: ['Health Connect', '목표 달성률', '8,000보'],
  },
@@ -298,10 +302,10 @@ export const GRAPH_CATALOG = [
  metricTypes: [GRAPH_METRIC_TYPES.COUNT],
  preview: {
  family: GRAPH_PREVIEW_FAMILIES.BAR,
- variant: 'solidBars',
- metricType: GRAPH_METRIC_TYPES.COUNT,
+ variant: 'cumulativeBars',
+ metricType: GRAPH_METRIC_TYPES.STEPS,
  seed: 506,
- features: ['Health Connect', '누적 걸음', '막대'],
+ features: ['Health Connect', '누적 걸음', '누적 막대'],
  },
  },
  {
@@ -373,10 +377,10 @@ export const GRAPH_CATALOG = [
  metricTypes: [GRAPH_METRIC_TYPES.DISTANCE],
  preview: {
  family: GRAPH_PREVIEW_FAMILIES.BAR,
- variant: 'solidBars',
+ variant: 'cumulativeBars',
  metricType: GRAPH_METRIC_TYPES.DISTANCE,
  seed: 509,
- features: ['Health Connect', '누적 거리', '막대'],
+ features: ['Health Connect', '누적 거리', '누적 막대'],
  },
  },
 
@@ -411,7 +415,13 @@ export const GRAPH_CATALOG = [
  minSize: { w: 4, h: 2 }, maxSize: { w: 6, h: 6 }, recommendedSize: { w: 6, h: 4 },
  supports: ['습관', '도전'],
  metricTypes: [GRAPH_METRIC_TYPES.SLEEP, GRAPH_METRIC_TYPES.DATE],
- preview: { family: GRAPH_PREVIEW_FAMILIES.BAR, variant: 'solidBars', metricType: GRAPH_METRIC_TYPES.SLEEP, seed: 512, features: ['Health Connect', '수면 단계', '리듬'] },
+ preview: {
+ family: GRAPH_PREVIEW_FAMILIES.BAR,
+ variant: 'stackedSegment',
+ metricType: GRAPH_METRIC_TYPES.SLEEP,
+ seed: 512,
+ features: ['Health Connect', '수면 단계', '누적 세그먼트'],
+ },
  },
  {
  id: 'health_heart_rate_trend',
@@ -554,8 +564,8 @@ export const GRAPH_CATALOG = [
  supports: ['습관', '도전'],
  metricTypes: [GRAPH_METRIC_TYPES.COUNT, GRAPH_METRIC_TYPES.DATE],
  preview: {
- family: GRAPH_PREVIEW_FAMILIES.DISTRIBUTION,
- variant: 'heatmap',
+ family: GRAPH_PREVIEW_FAMILIES.GRASS,
+ variant: 'grassGrid',
  metricType: GRAPH_METRIC_TYPES.COUNT,
  seed: 402,
  features: ['잔디', '밀도', '연속 기록'],

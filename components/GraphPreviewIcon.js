@@ -22,16 +22,23 @@ import Svg, {
 } from 'react-native-svg';
 import {
  GRAPH_PREVIEW_BAR,
+ GRAPH_PREVIEW_CALENDAR,
  GRAPH_PREVIEW_COLORS,
+ GRAPH_PREVIEW_CUMULATIVE_BAR,
  GRAPH_PREVIEW_DEFAULT_SIZE,
  GRAPH_PREVIEW_DISTRIBUTION,
  GRAPH_PREVIEW_FALLBACK,
  GRAPH_PREVIEW_FRAME,
+ GRAPH_PREVIEW_GRASS,
+ GRAPH_PREVIEW_HORIZONTAL_PROGRESS,
+ GRAPH_PREVIEW_INFO_CARD,
  GRAPH_PREVIEW_LINE,
  GRAPH_PREVIEW_METRIC_TAG,
  GRAPH_PREVIEW_NETWORK,
  GRAPH_PREVIEW_PIE,
+ GRAPH_PREVIEW_STACKED_SEGMENT,
  GRAPH_PREVIEW_VIEW_BOX,
+ GRAPH_PREVIEW_WEEKLY_GOAL,
  getGraphPreviewMetricLabel,
 } from '../constants/graphPreviewRules';
 
@@ -44,6 +51,10 @@ const FAMILY = {
   BAR: 'bar',
   DISTRIBUTION: 'distribution',
   NETWORK: 'network',
+  CALENDAR: 'calendar',
+  INFO_CARD: 'infoCard',
+  PROGRESS: 'progress',
+  GRASS: 'grass',
 };
 
 
@@ -286,7 +297,192 @@ function LinePreview({ preview }) {
  );
 }
 
+function WeeklyGoalBarPreview({ preview }) {
+ const barRule = GRAPH_PREVIEW_BAR;
+ const goalRule = GRAPH_PREVIEW_WEEKLY_GOAL;
+ const colors = GRAPH_PREVIEW_COLORS;
+ const values = makeSeries(
+ preview.seed,
+ barRule.barCount,
+ barRule.minValue,
+ barRule.maxValue,
+ );
+
+ return (
+ <PreviewFrame>
+ <Line
+ x1={barRule.axisStartX}
+ y1={barRule.baselineY}
+ x2={barRule.axisEndX}
+ y2={barRule.baselineY}
+ stroke={colors.axis}
+ strokeWidth={barRule.axisStrokeWidth}
+ />
+ {values.map((value, index) => {
+ const x = barRule.startX + index * barRule.stepX;
+ const height = value * barRule.yScale;
+ const y = barRule.baselineY - height;
+
+ return (
+ <Rect
+ key={`weekly-goal-${index}`}
+ x={x + barRule.barXOffset}
+ y={y}
+ width={barRule.barWidth}
+ height={height}
+ rx={barRule.radius}
+ fill={colors.primary}
+ />
+ );
+ })}
+ <Line
+ x1={barRule.axisStartX}
+ y1={goalRule.goalLineY}
+ x2={barRule.axisEndX}
+ y2={goalRule.goalLineY}
+ stroke={colors.tertiary}
+ strokeWidth={goalRule.goalLineStrokeWidth}
+ strokeDasharray={goalRule.goalLineDasharray}
+ />
+ <SvgText
+ x={goalRule.goalLabelX}
+ y={goalRule.goalLabelY}
+ fontSize={goalRule.goalLabelFontSize}
+ fontWeight={goalRule.goalLabelFontWeight}
+ fill={colors.secondary}
+ textAnchor="end"
+ >
+ {goalRule.goalLabel}</SvgText>
+ <MetricTag metricType={preview.metricType} />
+ </PreviewFrame>
+ );
+}
+
+function CumulativeBarPreview({ preview }) {
+ const barRule = GRAPH_PREVIEW_BAR;
+ const cumulativeRule = GRAPH_PREVIEW_CUMULATIVE_BAR;
+ const colors = GRAPH_PREVIEW_COLORS;
+
+ return (
+ <PreviewFrame>
+ <Line
+ x1={barRule.axisStartX}
+ y1={barRule.baselineY}
+ x2={barRule.axisEndX}
+ y2={barRule.baselineY}
+ stroke={colors.axis}
+ strokeWidth={barRule.axisStrokeWidth}
+ />
+ {cumulativeRule.values.map((value, index) => {
+ const x = barRule.startX + index * barRule.stepX;
+ const height = value * barRule.yScale;
+ const y = barRule.baselineY - height;
+ const isLatest = index === cumulativeRule.values.length - 1;
+
+ return (
+ <Rect
+ key={`cumulative-bar-${index}`}
+ x={x + barRule.barXOffset}
+ y={y}
+ width={barRule.barWidth}
+ height={height}
+ rx={barRule.radius}
+ fill={colors.primary}
+ opacity={
+ isLatest
+ ? 1
+ : cumulativeRule.opacityStart
+ + index * cumulativeRule.opacityStep
+ }
+ stroke={isLatest ? colors.secondary : 'none'}
+ strokeWidth={
+ isLatest
+ ? cumulativeRule.latestStrokeWidth
+ : 0
+ }
+ />
+ );
+ })}
+ <MetricTag metricType={preview.metricType} />
+ </PreviewFrame>
+ );
+}
+
+function StackedSegmentPreview({ preview }) {
+ const rule = GRAPH_PREVIEW_STACKED_SEGMENT;
+ const colors = GRAPH_PREVIEW_COLORS;
+
+ let cursorX = rule.x;
+ const segments = rule.segments.map((segment, index) => {
+ const isLast = index === rule.segments.length - 1;
+ const width = isLast
+ ? rule.x + rule.width - cursorX
+ : rule.width * segment.ratio;
+ const item = {
+ ...segment,
+ x: cursorX,
+ width,
+ };
+ cursorX += width;
+ return item;
+ });
+
+ return (
+ <PreviewFrame>
+ <Rect
+ x={rule.x}
+ y={rule.y}
+ width={rule.width}
+ height={rule.height}
+ rx={rule.radius}
+ fill={colors.border}
+ />
+ {segments.map((segment, index) => (
+ <Rect
+ key={`stacked-segment-${index}`}
+ x={segment.x}
+ y={rule.y}
+ width={segment.width}
+ height={rule.height}
+ rx={
+ index === 0 || index === segments.length - 1
+ ? rule.radius
+ : 0
+ }
+ fill={colors[segment.colorKey] || colors.primary}
+ />
+ ))}
+ {rule.segments.map((segment, index) => (
+ <Circle
+ key={`stacked-legend-${index}`}
+ cx={rule.legendStartX + index * rule.legendStepX}
+ cy={rule.legendY}
+ r={rule.legendDotRadius}
+ fill={colors[segment.colorKey] || colors.primary}
+ />
+ ))}
+ <MetricTag
+ metricType={preview.metricType}
+ x={rule.metricTagX}
+ y={rule.metricTagY}
+ />
+ </PreviewFrame>
+ );
+}
+
 function BarPreview({ preview }) {
+ if (preview.variant === 'weeklyGoal') {
+ return <WeeklyGoalBarPreview preview={preview} />;
+ }
+
+ if (preview.variant === 'cumulativeBars') {
+ return <CumulativeBarPreview preview={preview} />;
+ }
+
+ if (preview.variant === 'stackedSegment') {
+ return <StackedSegmentPreview preview={preview} />;
+ }
+
  const barRule = GRAPH_PREVIEW_BAR;
  const colors = GRAPH_PREVIEW_COLORS;
  const values = makeSeries(
@@ -604,6 +800,232 @@ function NetworkPreview({ preview }) {
   );
 }
 
+function CalendarPreview({ preview }) {
+ const rule = GRAPH_PREVIEW_CALENDAR;
+ const colors = GRAPH_PREVIEW_COLORS;
+ const active = new Set(rule.activeIndices);
+ const totalCells = rule.columns * rule.rows;
+
+ return (
+ <PreviewFrame>
+ {rule.weekdays.map((weekday, index) => (
+ <SvgText
+ key={`weekday-${index}`}
+ x={
+ rule.startX
+ + index * rule.stepX
+ + rule.cellSize / 2
+ }
+ y={rule.weekdayY}
+ fontSize={rule.weekdayFontSize}
+ fontWeight={rule.weekdayFontWeight}
+ fill={colors.tertiary}
+ textAnchor="middle"
+ >
+ {weekday}
+ </SvgText>
+ ))}
+ {Array.from({ length: totalCells }, (_, index) => {
+ const column = index % rule.columns;
+ const row = Math.floor(index / rule.columns);
+ const isActive = active.has(index);
+ const isToday = index === rule.todayIndex;
+
+ return (
+ <Rect
+ key={`calendar-cell-${index}`}
+ x={rule.startX + column * rule.stepX}
+ y={rule.startY + row * rule.stepY}
+ width={rule.cellSize}
+ height={rule.cellSize}
+ rx={rule.radius}
+ fill={isActive ? colors.primary : colors.border}
+ stroke={isToday ? colors.secondary : 'none'}
+ strokeWidth={isToday ? rule.todayStrokeWidth : 0}
+ />
+ );
+ })}
+ <MetricTag
+ metricType={preview.metricType}
+ x={rule.metricTagX}
+ y={rule.metricTagY}
+ />
+ </PreviewFrame>
+ );
+}
+
+function InfoCardPreview({ preview }) {
+ const rule = GRAPH_PREVIEW_INFO_CARD;
+ const colors = GRAPH_PREVIEW_COLORS;
+
+ return (
+ <PreviewFrame>
+ <Rect
+ x={rule.x}
+ y={rule.y}
+ width={rule.width}
+ height={rule.height}
+ rx={rule.radius}
+ fill={colors.surface}
+ stroke={colors.primary}
+ strokeWidth={rule.borderWidth}
+ />
+ <Rect
+ x={rule.titleLine.x}
+ y={rule.titleLine.y}
+ width={rule.titleLine.width}
+ height={rule.titleLine.height}
+ rx={rule.titleLine.radius}
+ fill={colors.primary}
+ />
+ <Rect
+ x={rule.subtitleLine.x}
+ y={rule.subtitleLine.y}
+ width={rule.subtitleLine.width}
+ height={rule.subtitleLine.height}
+ rx={rule.subtitleLine.radius}
+ fill={colors.tertiary}
+ />
+ <Line
+ x1={rule.divider.x1}
+ y1={rule.divider.y1}
+ x2={rule.divider.x2}
+ y2={rule.divider.y2}
+ stroke={colors.border}
+ strokeWidth={rule.divider.strokeWidth}
+ />
+ <Rect
+ x={rule.valueBox.x}
+ y={rule.valueBox.y}
+ width={rule.valueBox.width}
+ height={rule.valueBox.height}
+ rx={rule.valueBox.radius}
+ fill={colors.primary}
+ />
+ <SvgText
+ x={rule.valueTextX}
+ y={rule.valueTextY}
+ fontSize={rule.valueFontSize}
+ fontWeight={rule.valueFontWeight}
+ fill={colors.white}
+ textAnchor="middle"
+ >
+ {rule.valueText}
+ </SvgText>
+ <Rect
+ x={rule.rewardLine.x}
+ y={rule.rewardLine.y}
+ width={rule.rewardLine.width}
+ height={rule.rewardLine.height}
+ rx={rule.rewardLine.radius}
+ fill={colors.secondary}
+ />
+ <Rect
+ x={rule.rewardLineShort.x}
+ y={rule.rewardLineShort.y}
+ width={rule.rewardLineShort.width}
+ height={rule.rewardLineShort.height}
+ rx={rule.rewardLineShort.radius}
+ fill={colors.axis}
+ />
+ <MetricTag
+ metricType={preview.metricType}
+ x={rule.metricTagX}
+ y={rule.metricTagY}
+ />
+ </PreviewFrame>
+ );
+}
+
+function HorizontalProgressPreview({ preview }) {
+ const rule = GRAPH_PREVIEW_HORIZONTAL_PROGRESS;
+ const colors = GRAPH_PREVIEW_COLORS;
+
+ return (
+ <PreviewFrame>
+ <SvgText
+ x={rule.labelX}
+ y={rule.labelY}
+ fontSize={rule.labelFontSize}
+ fontWeight={rule.labelFontWeight}
+ fill={colors.primary}
+ textAnchor="middle"
+ >
+ {rule.labelText}
+ </SvgText>
+ <Rect
+ x={rule.trackX}
+ y={rule.trackY}
+ width={rule.trackWidth}
+ height={rule.trackHeight}
+ rx={rule.radius}
+ fill={colors.axis}
+ />
+ <Rect
+ x={rule.trackX}
+ y={rule.trackY}
+ width={rule.trackWidth * rule.fillRatio}
+ height={rule.trackHeight}
+ rx={rule.radius}
+ fill={colors.primary}
+ />
+ <Rect
+ x={rule.captionLineX}
+ y={rule.captionY}
+ width={rule.captionLineWidth}
+ height={rule.captionLineHeight}
+ rx={rule.captionLineRadius}
+ fill={colors.tertiary}
+ />
+ <MetricTag
+ metricType={preview.metricType}
+ x={rule.metricTagX}
+ y={rule.metricTagY}
+ />
+ </PreviewFrame>
+ );
+}
+
+function GrassPreview({ preview }) {
+ const rule = GRAPH_PREVIEW_GRASS;
+ const colors = GRAPH_PREVIEW_COLORS;
+ const base = hashSeed(preview.seed);
+ const totalCells = rule.columns * rule.rows;
+
+ return (
+ <PreviewFrame>
+ {Array.from({ length: totalCells }, (_, index) => {
+ const column = index % rule.columns;
+ const row = Math.floor(index / rule.columns);
+ const level =
+ (base + index * 7 + row * 3) %
+ rule.levelColorKeys.length;
+ const colorKey = rule.levelColorKeys[level];
+ const isToday = index === rule.todayIndex;
+
+ return (
+ <Rect
+ key={`grass-cell-${index}`}
+ x={rule.startX + column * rule.stepX}
+ y={rule.startY + row * rule.stepY}
+ width={rule.cellSize}
+ height={rule.cellSize}
+ rx={rule.radius}
+ fill={colors[colorKey] || colors.border}
+ stroke={isToday ? colors.primary : 'none'}
+ strokeWidth={isToday ? rule.todayStrokeWidth : 0}
+ />
+ );
+ })}
+ <MetricTag
+ metricType={preview.metricType}
+ x={rule.metricTagX}
+ y={rule.metricTagY}
+ />
+ </PreviewFrame>
+ );
+}
+
 function FallbackPreview({ preview }) {
   const fallbackRule = GRAPH_PREVIEW_FALLBACK;
   const colors = GRAPH_PREVIEW_COLORS;
@@ -640,6 +1062,14 @@ function GraphPreviewIcon({
         return <DistributionPreview preview={normalizedPreview} />;
       case FAMILY.NETWORK:
         return <NetworkPreview preview={normalizedPreview} />;
+      case FAMILY.CALENDAR:
+        return <CalendarPreview preview={normalizedPreview} />;
+      case FAMILY.INFO_CARD:
+        return <InfoCardPreview preview={normalizedPreview} />;
+      case FAMILY.PROGRESS:
+        return <HorizontalProgressPreview preview={normalizedPreview} />;
+      case FAMILY.GRASS:
+        return <GrassPreview preview={normalizedPreview} />;
       default:
         return <FallbackPreview preview={normalizedPreview} />;
     }

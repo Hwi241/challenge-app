@@ -1,12 +1,12 @@
 // OFFICIAL_GRAPH_PREVIEW_RULE: docs/GRAPH_PREVIEW_RULE.md
-// DashboardWidgetPreview is a temporary/legacy bridge.
-// Final direction: wrap GraphPreviewIcon and use graphCatalog.preview metadata.
+// Actual graph widgets use graphCatalog.preview through GraphPreviewIcon.
+// Non-graph widgets keep the legacy dashboard preview renderers below.
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import GraphPreviewIcon from '../GraphPreviewIcon';
-import { GRAPH_PREVIEW_FAMILIES, GRAPH_METRIC_TYPES } from '../../constants/graphCatalog';
+import { getGraphById } from '../../constants/graphCatalog';
 
 /**
  * Dashboard widget preview — pure graph visual
@@ -19,10 +19,10 @@ import { GRAPH_PREVIEW_FAMILIES, GRAPH_METRIC_TYPES } from '../../constants/grap
  * - board: 복합 보드  - theme: 테마          - pulse: 리듬/펄스
  * - placeholder: 준비중
  *
- * bar / line / donut / heatmap:
- *   → GraphPreviewIcon에 위임 (공식 기준)
+ * graphCatalog에 등록된 실제 그래프 위젯:
+ *   → graphCatalog.preview를 GraphPreviewIcon에 전달
  *
- * 그 외 family:
+ * graphCatalog에 없는 비그래프 위젯:
  *   → 기존 DashboardWidgetPreview 자체 렌더링 유지
  */
 
@@ -61,69 +61,6 @@ const KIND_TO_FAMILY = {
   theme: 'theme',
 };
 
-/**
- * Dashboard preview family → GraphPreviewIcon graph family 매핑.
- */
-const GRAPH_PREVIEW_FAMILY_TO_ICON = {
-  line: GRAPH_PREVIEW_FAMILIES.LINE,
-  bar: GRAPH_PREVIEW_FAMILIES.BAR,
-  donut: GRAPH_PREVIEW_FAMILIES.PIE,
-  heatmap: GRAPH_PREVIEW_FAMILIES.DISTRIBUTION,
-};
-
-const LEGACY_FAMILIES = new Set([
-  'kpi', 'progress', 'goal', 'calendar',
-  'profile', 'battery', 'connect', 'memo',
-  'board', 'theme', 'pulse', 'placeholder',
-]);
-
-/**
- * previewFamily + widgetId/kind/title로 GraphPreviewIcon용 preview 객체를 만든다.
- */
-const inferGraphMetricType = ({ widgetId, title, family }) => {
-  const id = String(widgetId || '').toLowerCase();
-  const t = String(title || '').toLowerCase();
-
-  if (family === 'donut') return GRAPH_METRIC_TYPES.PERCENT;
-  if (family === 'heatmap') return GRAPH_METRIC_TYPES.COUNT;
-  if (id.includes('minute') || t.includes('시간') || t.includes('분')) return GRAPH_METRIC_TYPES.MINUTE;
-  if (id.includes('score') || t.includes('점수')) return GRAPH_METRIC_TYPES.SCORE;
-  if (id.includes('duration') || t.includes('기간')) return GRAPH_METRIC_TYPES.DURATION;
-  if (id.includes('ratio') || t.includes('비율') || t.includes('퍼센트')) return GRAPH_METRIC_TYPES.PERCENT;
-  return GRAPH_METRIC_TYPES.COUNT;
-};
-
-const inferGraphVariant = ({ widgetId, family }) => {
-  const id = String(widgetId || '').toLowerCase();
-
-  if (family === 'bar') return id.includes('monthly') ? 'solidBars' : 'solidBars';
-  if (family === 'line') return id.includes('cumulative') ? 'smoothLine' : 'dotLine';
-  if (family === 'donut') return 'donut';
-  if (family === 'heatmap') return 'heatmap';
-  return 'basic';
-};
-
-const makeGraphPreviewSeed = ({ widgetId, kind, previewFamily, title }) => {
-  const raw = `${widgetId || ''}:${kind || ''}:${previewFamily || ''}:${title || ''}` || 'dashboard-preview';
-  let hash = 0;
-  for (let index = 0; index < raw.length; index += 1) {
-    hash = (hash * 31 + raw.charCodeAt(index)) % 9973;
-  }
-  return hash || 1;
-};
-
-const buildGraphPreviewFromDashboardPreview = ({ family, widgetId, kind, title, previewFamily }) => {
-  const graphFamily = GRAPH_PREVIEW_FAMILY_TO_ICON[family];
-  if (!graphFamily) return null;
-
-  return {
-    family: graphFamily,
-    variant: inferGraphVariant({ widgetId, family }),
-    metricType: inferGraphMetricType({ widgetId, title, family }),
-    seed: makeGraphPreviewSeed({ widgetId, kind, previewFamily, title }),
-  };
-};
-
 const DASHBOARD_WIDGET_PREVIEW_COLORS = Object.freeze({
   primary: '#111111',
   surface: '#F3F4F6',
@@ -133,6 +70,14 @@ const DASHBOARD_WIDGET_PREVIEW_COLORS = Object.freeze({
 });
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || min));
+
+export const resolveDashboardGraphCatalogItem = (widgetId) => {
+ const safeGraphId = String(widgetId || '').trim();
+ if (!safeGraphId) return null;
+
+ const graph = getGraphById(safeGraphId);
+ return graph?.preview ? graph : null;
+};
 
 export const resolveWidgetPreviewFamily = ({ previewFamily, widgetId, kind, title, placeholder }) => {
   if (previewFamily && PREVIEW_FAMILY_RULES[previewFamily]) return previewFamily;
@@ -330,8 +275,8 @@ const PlaceholderVisual = ({ compact }) => (
 
 /**
  * 렌더링 분기:
- * - bar / line / donut / heatmap → default export에서 GraphPreviewIcon으로 위임
- * - 그 외 (kpi / progress / goal / calendar / profile / battery / connect / memo / board / theme / pulse / placeholder) → 기존 전용 컴포넌트
+ * - graphCatalog에 등록된 graphId → GraphPreviewIcon
+ * - 그 외 비그래프 위젯 → 기존 전용 컴포넌트
  */
 const renderVisual = ({ family, compact, widgetId }) => {
   if (family === 'kpi') return <KpiVisual compact={compact} />;
@@ -364,18 +309,19 @@ export default function DashboardWidgetPreview({
   const rule = PREVIEW_FAMILY_RULES[family] || PREVIEW_FAMILY_RULES.placeholder;
   const compact = safeW <= 2 || safeH <= 2;
   const tiny = safeH <= 1;
-  const graphPreview = buildGraphPreviewFromDashboardPreview({
-    family,
-    widgetId,
-    kind,
-    title,
-    previewFamily,
-  });
-  const graphPreviewSize = tiny ? 24 : compact ? 42 : Math.min(88, Math.max(68, rule.maxHeight || 82));
-  const isDelegated = !!graphPreview;
-  const visual = graphPreview ? (
+  const catalogGraph = resolveDashboardGraphCatalogItem(widgetId);
+  const graphPreviewSize = tiny
+    ? 24
+    : compact
+      ? 42
+      : Math.min(
+          88,
+          Math.max(68, rule.maxHeight || 82),
+        );
+  const isDelegated = !!catalogGraph;
+  const visual = catalogGraph ? (
     <GraphPreviewIcon
-      preview={graphPreview}
+      graph={catalogGraph}
       size={graphPreviewSize}
       muted={isResizeActive}
     />

@@ -11,7 +11,17 @@ import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
 
 
-import { buttonStyles, spacing, radius, colors } from '../styles/common';
+import {
+ buttonStyles,
+ color,
+ control as canonicalControlStyles,
+ input as canonicalInputStyles,
+ layout as canonicalLayoutStyles,
+ modal as canonicalModalStyles,
+ spacing,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 
 const pad2 = (n)=>String(n).padStart(2,'0');
 const fmtHHMM = (d)=>`${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
@@ -316,21 +326,23 @@ export default function FullRangeNotificationScreen(){
 
   if(!start || !end){
     return (
-      <View style={{flex:1,alignItems:'center',justifyContent:'center', padding:spacing.lg, backgroundColor: colors.background}}>
-        <Text style={{color: colors.textPrimary, fontWeight:'800', fontSize:16, textAlign:'center'}}>시작일과 종료일을 먼저 선택해주세요.</Text>
+      <View style={[canonicalSurfaceStyles.screen, canonicalLayoutStyles.centeredContent]}>
+        <Text style={[canonicalTextStyles.sectionTitle, canonicalTextStyles.center]}>
+          시작일과 종료일을 먼저 선택해주세요.
+        </Text>
       </View>
     );
   }
-  if (start > end) return <View style={{flex:1, backgroundColor: colors.background}} />;
+  if (start > end) return <View style={canonicalSurfaceStyles.screen} />;
 
   return (
-    <View style={{flex:1, backgroundColor: colors.background}}>
+    <View style={canonicalSurfaceStyles.screen}>
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: 160 /* 고정 바 높이만큼 여백 */ }}
+        contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: 160 /* 고정 바 높이만큼 여백 */ }]}
       >
         
         <BackButton title="전체 일정 알림 설정" onPress={handleBackPress} />
-      <Text style={styles.desc}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
+      <Text style={[canonicalTextStyles.bodySmallMuted, styles.descLayout]}>{startStr} ~ {endStr} 범위에서 날짜별로 시간을 추가하세요. (하루 최대 {MAX_PER_DATE}개)</Text>
 
         {months.map(({y,mi})=>{
           const first = new Date(y,mi,1);
@@ -344,14 +356,14 @@ export default function FullRangeNotificationScreen(){
           for(let i=0;i<cells.length;i+=7) rows.push(cells.slice(i,i+7));
 
           return (
-            <View key={`${y}-${mi}`} style={{marginBottom:10}}>
-              <Text style={styles.monthTitle}>{y}.{pad2(mi+1)}</Text>
+            <View key={`${y}-${mi}`} style={styles.monthSpacing}>
+              <Text style={[canonicalTextStyles.metaStrongMuted, styles.monthTitleLayout]}>{y}.{pad2(mi+1)}</Text>
 
               {/* 요일 헤더 */}
               <View style={styles.weekHeaderRow}>
                 {['일','월','화','수','목','금','토'].map((w,idx)=>(
                   <View key={w} style={[styles.weekHeaderCell, idx<6 && styles.weekHeaderCellDivider]}>
-                    <Text style={styles.weekHeaderText}>{w}</Text>
+                    <Text style={canonicalTextStyles.captionStrongMuted}>{w}</Text>
                   </View>
                 ))}
               </View>
@@ -368,20 +380,20 @@ export default function FullRangeNotificationScreen(){
                         <View key={`c-${y}-${mi}-${rIdx}-${cIdx}`} style={[styles.cell, cIdx<6 && styles.cellDivider]}>
                           {d ? (
                             <>
-                              <Text style={[styles.dateText, !inR && {opacity:0.25}]}>{d}</Text>
+                              <Text style={[canonicalTextStyles.captionStrongMuted, styles.dateTextLayout, !inR && {opacity:0.25}]}>{d}</Text>
                               {inR && (
                                 <View style={styles.timesWrap}>
                                   {times.map(t=>(
-                                    <View key={`${key}-${t}`} style={styles.chip}>
-                                      <Text style={styles.chipText} numberOfLines={1} allowFontScaling={false}>{t}</Text>
+                                    <View key={`${key}-${t}`} style={canonicalControlStyles.chipUltraDense}>
+                                      <Text style={canonicalControlStyles.chipUltraDenseText} numberOfLines={1} allowFontScaling={false}>{t}</Text>
                                       <TouchableOpacity onPress={()=>removeOne(key,t)}>
-                                        <Text style={styles.chipRemove}>×</Text>
+                                        <Text style={canonicalControlStyles.chipRemoveCompact}>×</Text>
                                       </TouchableOpacity>
                                     </View>
                                   ))}
                                   {canAdd && (
-                                    <TouchableOpacity style={styles.addBtn} onPress={()=>openPicker(y,mi,d)}>
-                                      <Text style={styles.addBtnPlus}>＋</Text>
+                                    <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={()=>openPicker(y,mi,d)}>
+                                      <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                                     </TouchableOpacity>
                                   )}
                                 </View>
@@ -400,10 +412,10 @@ export default function FullRangeNotificationScreen(){
       </ScrollView>
 
       {/* ▼ 하단 고정 바 */}
-      <View style={[styles.fixedBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]} pointerEvents="box-none">
-        <View style={styles.fixedTopRow}>
-          <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
-            <Text style={styles.resetBtnText}>초기화</Text>
+      <View style={[canonicalLayoutStyles.fixedBottomBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]} pointerEvents="box-none">
+        <View style={[canonicalLayoutStyles.row, styles.fixedTopRowSpacing]}>
+          <TouchableOpacity style={buttonStyles.compactSecondary.container} onPress={clearAll}>
+            <Text style={buttonStyles.compactSecondary.label}>초기화</Text>
           </TouchableOpacity>
           <View style={{flex:1}} />
           <TouchableOpacity style={[buttonStyles.primary.container, { paddingHorizontal: 14 }]} onPress={openBulk}>
@@ -433,9 +445,9 @@ export default function FullRangeNotificationScreen(){
         animationType="fade"
         onRequestClose={()=>setBulkVisible(false)}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>일괄 시간 적용</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheetWide}>
+            <Text style={canonicalModalStyles.title}>일괄 시간 적용</Text>
 
             {/* 범위 선택 */}
             <View style={styles.scopeWrap}>
@@ -447,14 +459,14 @@ export default function FullRangeNotificationScreen(){
               ].map(opt=>(
                 <TouchableOpacity
                   key={opt.key}
-                  style={[styles.radioRow, bulkScope===opt.key && styles.radioRowActive]}
+                  style={[canonicalControlStyles.radioRow, bulkScope===opt.key && canonicalControlStyles.radioRowActive]}
                   onPress={()=>onChangeScope(opt.key)}
                   activeOpacity={0.9}
                 >
-                  <View style={[styles.radioOuter, bulkScope===opt.key && styles.radioOuterOn]}>
-                    {bulkScope===opt.key ? <View style={styles.radioInner}/> : null}
+                  <View style={[canonicalControlStyles.radioOuter, bulkScope===opt.key && canonicalControlStyles.radioOuterOn]}>
+                    {bulkScope===opt.key ? <View style={canonicalControlStyles.radioInner}/> : null}
                   </View>
-                  <Text style={styles.radioLabel}>{opt.label}</Text>
+                  <Text style={canonicalControlStyles.radioLabel}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -462,47 +474,47 @@ export default function FullRangeNotificationScreen(){
             {/* 날짜 직접 입력 */}
             {bulkScope === 'custom' && (
               <View style={styles.customInputWrap}>
-                <View style={styles.customRow}>
-                  <Text style={styles.customInputLabel}>시작</Text>
+                <View style={[canonicalLayoutStyles.row, styles.customRowSpacing]}>
+                  <Text style={[canonicalTextStyles.bodyStrongMuted, styles.customInputLabelLayout]}>시작</Text>
                   <TextInput
                     value={customStartStr}
                     onChangeText={setCustomStartStr}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.gray400}
-                    style={styles.customInput}
+                    placeholderTextColor={color.textDisabled}
+                    style={[canonicalInputStyles.compact, styles.customInputFlex]}
                     inputMode="numeric"
                   />
                 </View>
-                <View style={styles.customRow}>
-                  <Text style={styles.customInputLabel}>종료</Text>
+                <View style={[canonicalLayoutStyles.row, styles.customRowSpacing]}>
+                  <Text style={[canonicalTextStyles.bodyStrongMuted, styles.customInputLabelLayout]}>종료</Text>
                   <TextInput
                     value={customEndStr}
                     onChangeText={setCustomEndStr}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.gray400}
-                    style={styles.customInput}
+                    placeholderTextColor={color.textDisabled}
+                    style={[canonicalInputStyles.compact, styles.customInputFlex]}
                     inputMode="numeric"
                   />
                 </View>
-                <Text style={styles.customHint}>설정 가능한 범위: {startStr} ~ {endStr}</Text>
+                <Text style={[canonicalTextStyles.captionMuted, styles.customHintLayout]}>설정 가능한 범위: {startStr} ~ {endStr}</Text>
               </View>
             )}
 
             {/* 시간 추가 */}
             <View style={{ marginTop: spacing.md }}>
-              <Text style={styles.sectionLabel}>적용할 시간</Text>
-              <View style={styles.timesEditRow}>
-                <TouchableOpacity style={styles.addBtn} onPress={()=>setBulkTimePickerVisible(true)}>
-                  <Text style={styles.addBtnPlus}>＋</Text>
+              <Text style={canonicalTextStyles.bodySmallStrong}>적용할 시간</Text>
+              <View style={[canonicalLayoutStyles.row, styles.timesEditRowSpacing]}>
+                <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={()=>setBulkTimePickerVisible(true)}>
+                  <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                 </TouchableOpacity>
                 <View style={{flex:1}} />
               </View>
               <View style={[styles.timesWrap, { marginTop: spacing.sm }]}>
                 {bulkTimes.map(t=>(
-                  <View key={t} style={styles.chip}>
-                    <Text style={styles.chipText}>{t}</Text>
+                  <View key={t} style={canonicalControlStyles.chipUltraDense}>
+                    <Text style={canonicalControlStyles.chipUltraDenseText}>{t}</Text>
                     <TouchableOpacity onPress={()=>setBulkTimes(prev=>prev.filter(x=>x!==t))}>
-                      <Text style={styles.chipRemove}>×</Text>
+                      <Text style={canonicalControlStyles.chipRemoveCompact}>×</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -510,12 +522,12 @@ export default function FullRangeNotificationScreen(){
             </View>
 
             {/* 하단 행동 버튼 */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalGhost]} onPress={()=>setBulkVisible(false)}>
-                <Text style={styles.modalGhostText}>취소</Text>
+            <View style={canonicalModalStyles.actionRow}>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionGhost]} onPress={()=>setBulkVisible(false)}>
+                <Text style={canonicalModalStyles.actionGhostText}>취소</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalPrimary]} onPress={applyBulk}>
-                <Text style={styles.modalPrimaryText}>적용</Text>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionPrimary]} onPress={applyBulk}>
+                <Text style={canonicalModalStyles.actionPrimaryText}>적용</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -535,119 +547,105 @@ export default function FullRangeNotificationScreen(){
 }
 
 const styles = StyleSheet.create({
-  title:{ fontSize:20, fontWeight:'800', color: colors.textPrimary, textAlign:'center' },
-  desc:{ color: colors.textSecondary, marginTop:4, marginBottom: spacing.md, fontSize:13, textAlign:'center' },
+ descLayout: {
+ marginTop: spacing.xxs,
+ marginBottom: spacing.md,
+ textAlign: 'center',
+ },
 
-  monthTitle:{ fontSize:12, fontWeight:'800', color: colors.textSecondary, marginBottom:4, textAlign:'center' },
+ monthSpacing: {
+ marginBottom: 10,
+ },
 
-  weekHeaderRow:{ flexDirection:'row', marginBottom: spacing.xxs },
-  weekHeaderCell:{ flex:1, alignItems:'center' },
-  weekHeaderCellDivider:{ borderRightWidth:1, borderRightColor: colors.border },
-  weekHeaderText:{ fontSize:11, fontWeight:'800', color: colors.textSecondary },
+ monthTitleLayout: {
+ marginBottom: spacing.xxs,
+ textAlign: 'center',
+ },
 
-  gridOuter:{ borderTopWidth:1, borderTopColor: colors.border },
-  row:{ flexDirection:'row' },
-  rowDivider:{ borderBottomWidth:1, borderBottomColor: colors.border },
-  cell:{ flex:1, padding: spacing.xs },
-  cellDivider:{ borderRightWidth:1, borderRightColor: colors.border },
-  dateText:{ fontSize:11, fontWeight:'800', color: colors.textSecondary, textAlign:'right' },
+ weekHeaderRow: {
+ flexDirection: 'row',
+ marginBottom: spacing.xxs,
+ },
 
-  
-    // 시간 토큰 컨테이너 (간격 살짝 축소)
-  timesWrap:{ marginTop:2, gap:4, flexDirection:'row', flexWrap:'wrap' },
-  // 토큰(시간 + ×)
-  chip:{
-    flexDirection:'row',
-    alignItems:'center',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.pill,
-    paddingVertical: 2,         // 3 → 2
-    paddingHorizontal: 4,       // 6 → 4
-    maxWidth: '100%',
-  },
-  chipText:{
-    color: colors.textPrimary,
-    fontSize: 11,               // 12 → 11
-    lineHeight: 13,             // 고정 라인 높이로 세로 정렬 안정화
-    marginRight: 4,             // 6 → 4 (×와의 간격 축소)
-    includeFontPadding: false,  // 안드로이드 내장 패딩 제거
-  },
-  chipRemove:{
-    color: colors.textTertiary,
-    fontSize: 12,               // 14 → 12
-    fontWeight: '800',
-    // 여백 없애서 칸 안에서 깔끔하게
-    // (필요시 hitSlop은 개별 요소에서 유지)
-  },
+ weekHeaderCell: {
+ flex: 1,
+ alignItems: 'center',
+ },
 
-  // + 버튼은 그대로 두되, 칸이 좁을 때를 대비해 유지
-  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor: colors.gray300, backgroundColor: colors.surface, alignItems:'center', justifyContent:'center' },
-  addBtnPlus:{ color: colors.textSecondary, fontSize:16, fontWeight:'800', lineHeight:16 },
+ weekHeaderCellDivider: {
+ borderRightWidth: 1,
+ borderRightColor: color.border,
+ },
 
-  /* 하단 고정 바 */
-  fixedBar:{
-    position:'absolute',
-    left:0, right:0, bottom:0,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    backgroundColor: colors.background,
-    borderTopWidth: 0,
-    borderTopColor: colors.border,
-  },
-  fixedTopRow:{ flexDirection:'row', alignItems:'center', marginBottom: spacing.sm },
-  fixedSave:{ marginTop: spacing.sm },
+ gridOuter: {
+ borderTopWidth: 1,
+ borderTopColor: color.border,
+ },
 
-  // 고정 바 안 버튼들
-  resetBtn:{ backgroundColor: colors.surface, borderWidth:1, borderColor: colors.gray300, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  resetBtnText:{ color: colors.textSecondary, fontSize: 14, fontWeight:'600' },
+ row: {
+ flexDirection: 'row',
+ },
 
-  /* 모달(정중앙) */
-  modalBackdrop:{
-    flex:1,
-    backgroundColor: colors.overlay,
-    alignItems:'center',
-    justifyContent:'center',
-    padding: spacing.lg
-  },
-  modalCard:{
-    width:'92%',
-    maxWidth: 460,
-    backgroundColor: colors.surface,
-    borderWidth:1, borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-  },
-  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.textPrimary, textAlign:'center', marginBottom: spacing.md },
+ rowDivider: {
+ borderBottomWidth: 1,
+ borderBottomColor: color.border,
+ },
 
-  scopeWrap:{ marginBottom: spacing.md },
-  radioRow:{ flexDirection:'row', alignItems:'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radius.md },
-  radioRowActive:{ backgroundColor: colors.surfaceMuted },
-  radioOuter:{ width:18, height:18, borderRadius:9, borderWidth:2, borderColor: colors.primary, alignItems:'center', justifyContent:'center', marginRight:10 },
-  radioOuterOn:{ borderColor: colors.primary },
-  radioInner:{ width:8, height:8, borderRadius:4, backgroundColor: colors.primary },
-  radioLabel:{ color: colors.textPrimary, fontWeight:'700' },
+ cell: {
+ flex: 1,
+ padding: spacing.xs,
+ },
 
-  // 날짜 직접 입력
-  customInputWrap:{ marginTop: spacing.sm },
-  customRow:{ flexDirection:'row', alignItems:'center', marginBottom: spacing.sm },
-  customInputLabel:{ width:36, color: colors.textSecondary, fontWeight:'700' },
-  customInput:{
-    flex:1,
-    backgroundColor: colors.surface,
-    borderWidth:1, borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal:12, paddingVertical:10,
-    fontSize:14, color: colors.textPrimary
-  },
-  customHint:{ marginTop:4, fontSize:11, color: colors.textSecondary, textAlign:'right' },
+ cellDivider: {
+ borderRightWidth: 1,
+ borderRightColor: color.border,
+ },
 
-  sectionLabel:{ fontSize:13, fontWeight:'800', color: colors.textPrimary },
-  timesEditRow:{ flexDirection:'row', alignItems:'center', marginTop: spacing.xs },
+ dateTextLayout: {
+ textAlign: 'right',
+ },
 
-  modalActions:{ flexDirection:'row', gap: spacing.sm, marginTop: spacing.lg },
-  modalBtn:{ flex:1, paddingVertical:10, borderRadius: radius.md, alignItems:'center' },
-  modalGhost:{ backgroundColor: colors.surfaceMuted },
-  modalGhostText:{ color: colors.textPrimary, fontWeight:'800' },
-  modalPrimary:{ backgroundColor: colors.primary },
-  modalPrimaryText:{ color: colors.textInverse, fontWeight:'800' },
+ timesWrap: {
+ marginTop: 2,
+ gap: 4,
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ },
+
+ fixedTopRowSpacing: {
+ marginBottom: spacing.sm,
+ },
+
+ fixedSave: {
+ marginTop: spacing.sm,
+ },
+
+ scopeWrap: {
+ marginBottom: spacing.md,
+ },
+
+ customInputWrap: {
+ marginTop: spacing.sm,
+ },
+
+ customRowSpacing: {
+ marginBottom: spacing.sm,
+ },
+
+ customInputLabelLayout: {
+ width: 36,
+ },
+
+ customInputFlex: {
+ flex: 1,
+ },
+
+ customHintLayout: {
+ marginTop: spacing.xxs,
+ textAlign: 'right',
+ },
+
+ timesEditRowSpacing: {
+ marginTop: spacing.xs,
+ },
 });

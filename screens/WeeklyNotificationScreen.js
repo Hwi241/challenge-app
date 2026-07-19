@@ -3,7 +3,16 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { buttonStyles, spacing, radius, colors } from '../styles/common';
+import {
+ buttonStyles,
+ card as canonicalCardStyles,
+ control as canonicalControlStyles,
+ layout as canonicalLayoutStyles,
+ modal as canonicalModalStyles,
+ spacing,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
@@ -253,37 +262,37 @@ export default function WeeklyNotificationScreen(){
   const scopeIsCustom = useMemo(()=>bulkScope==='custom', [bulkScope]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen} edges={['top', 'bottom']}>
       <BackButton title="주간 알림 설정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
+      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
-      <Text style={styles.desc}>각 요일 최대 10개</Text>
+      <Text style={[canonicalTextStyles.help, styles.descLayout]}>각 요일 최대 10개</Text>
 
       <View style={{ marginTop: spacing.sm }}>
         {WEEK.map(day=>{
           const times = map.get(day)||[];
           const canAdd = times.length < MAX_PER_DAY;
           return (
-            <View key={day} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.dayTitle}>{day}</Text>
+            <View key={day} style={[canonicalCardStyles.notification, styles.cardSpacing]}>
+              <View style={canonicalLayoutStyles.rowBetween}>
+                <Text style={canonicalTextStyles.bodyStrong}>{day}</Text>
                 {canAdd ? (
-                  <TouchableOpacity style={styles.addBtn} onPress={()=>openPicker(day)} accessibilityLabel={`${day} 시간 추가`}>
-                    <Text style={styles.addBtnPlus}>＋</Text>
+                  <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={()=>openPicker(day)} accessibilityLabel={`${day} 시간 추가`}>
+                    <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                   </TouchableOpacity>
                 ) : (
-                  <View style={[styles.addBtn,{opacity:0.35}]}>
-                    <Text style={styles.addBtnPlus}>＋</Text>
+                  <View style={[canonicalControlStyles.addCircle,{opacity:0.35}]}>
+                    <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                   </View>
                 )}
               </View>
 
               <View style={styles.timeChips}>
                 {times.map(t=>(
-                  <View key={`${day}-${t}`} style={styles.chip}>
-                    <Text style={styles.chipText} numberOfLines={1}>{t}</Text>
+                  <View key={`${day}-${t}`} style={[canonicalControlStyles.chip, canonicalControlStyles.chipFlowItem]}>
+                    <Text style={canonicalControlStyles.chipText} numberOfLines={1}>{t}</Text>
                     <TouchableOpacity onPress={()=>removeOne(day,t)} accessibilityLabel={`${t} 삭제`}>
-                      <Text style={styles.chipRemove}>×</Text>
+                      <Text style={canonicalControlStyles.chipRemove}>×</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -294,8 +303,8 @@ export default function WeeklyNotificationScreen(){
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
-          <Text style={styles.resetBtnText}>초기화</Text>
+        <TouchableOpacity style={buttonStyles.compactSecondary.container} onPress={clearAll}>
+          <Text style={buttonStyles.compactSecondary.label}>초기화</Text>
         </TouchableOpacity>
         <View style={{flex:1}} />
         <TouchableOpacity
@@ -321,35 +330,35 @@ export default function WeeklyNotificationScreen(){
 
       {/* 일괄 적용 모달 */}
       <Modal visible={showBulkModal} transparent animationType="fade" onRequestClose={()=>setShowBulkModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>일괄 시간 적용</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheet}>
+            <Text style={canonicalModalStyles.title}>일괄 시간 적용</Text>
 
             {/* 범위 선택 */}
             <View style={styles.scopeRow}>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='all' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='all' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('all')}
               >
-                <Text style={[styles.scopeText, bulkScope==='all' && styles.scopeTextOn]}>모든 요일</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='all' && canonicalControlStyles.pillTextActive]}>모든 요일</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='weekday' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='weekday' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('weekday')}
               >
-                <Text style={[styles.scopeText, bulkScope==='weekday' && styles.scopeTextOn]}>평일</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='weekday' && canonicalControlStyles.pillTextActive]}>평일</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='weekend' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='weekend' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('weekend')}
               >
-                <Text style={[styles.scopeText, bulkScope==='weekend' && styles.scopeTextOn]}>주말</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='weekend' && canonicalControlStyles.pillTextActive]}>주말</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='custom' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='custom' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('custom')}
               >
-                <Text style={[styles.scopeText, bulkScope==='custom' && styles.scopeTextOn]}>요일 지정</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='custom' && canonicalControlStyles.pillTextActive]}>요일 지정</Text>
               </TouchableOpacity>
             </View>
 
@@ -360,48 +369,48 @@ export default function WeeklyNotificationScreen(){
                 return (
                   <TouchableOpacity
                     key={`b-${d}`}
-                    style={[styles.dayCircle, on ? styles.dayCircleOn : styles.dayCircleOff]}
+                    style={[canonicalControlStyles.selectCircle28, on ? canonicalControlStyles.selectCircleOn : canonicalControlStyles.selectCircleOff]}
                     onPress={()=>toggleBulkDay(d)}
                     activeOpacity={0.9}
                     accessibilityLabel={`${d} 선택`}
                   >
-                    <Text style={[styles.dayCircleText, on && styles.dayCircleTextOn]}>{d}</Text>
+                    <Text style={[canonicalControlStyles.selectCircleText, on && canonicalControlStyles.selectCircleTextOn]}>{d}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
             {/* 선택된 시간 리스트 */}
-            <View style={styles.bulkTimesBox}>
-              <View style={styles.bulkTimesHeader}>
-                <Text style={styles.bulkTimesTitle}>시간 ({bulkTimes.length}/10)</Text>
-                <TouchableOpacity style={styles.addBtn} onPress={openBulkTimePicker} accessibilityLabel="시간 추가">
-                  <Text style={styles.addBtnPlus}>＋</Text>
+            <View style={canonicalCardStyles.inset}>
+              <View style={canonicalLayoutStyles.rowBetween}>
+                <Text style={canonicalTextStyles.labelStrong}>시간 ({bulkTimes.length}/10)</Text>
+                <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={openBulkTimePicker} accessibilityLabel="시간 추가">
+                  <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.timeChips}>
                 {bulkTimes.map(t=>(
-                  <View key={`bt-${t}`} style={styles.chip}>
-                    <Text style={styles.chipText} numberOfLines={1}>{t}</Text>
+                  <View key={`bt-${t}`} style={[canonicalControlStyles.chip, canonicalControlStyles.chipFlowItem]}>
+                    <Text style={canonicalControlStyles.chipText} numberOfLines={1}>{t}</Text>
                     <TouchableOpacity onPress={()=>removeBulkTime(t)} accessibilityLabel={`${t} 삭제`}>
-                      <Text style={styles.chipRemove}>×</Text>
+                      <Text style={canonicalControlStyles.chipRemove}>×</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
                 {bulkTimes.length===0 && (
-                  <Text style={styles.bulkEmptyHint}>시간 + 버튼으로 시간을 추가하세요.</Text>
+                  <Text style={canonicalTextStyles.metaTertiary}>시간 + 버튼으로 시간을 추가하세요.</Text>
                 )}
               </View>
             </View>
 
             {/* 하단 액션 */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={()=>setShowBulkModal(false)}>
-                <Text style={styles.modalBtnGhostText}>취소</Text>
+            <View style={canonicalModalStyles.actionRow}>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionGhost]} onPress={()=>setShowBulkModal(false)}>
+                <Text style={canonicalModalStyles.actionGhostText}>취소</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={confirmBulkApply}>
-                <Text style={styles.modalBtnPrimaryText}>확인</Text>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionPrimary]} onPress={confirmBulkApply}>
+                <Text style={canonicalModalStyles.actionPrimaryText}>확인</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -422,58 +431,37 @@ export default function WeeklyNotificationScreen(){
 }
 
 const styles = StyleSheet.create({
-  container:{ padding: spacing.lg, backgroundColor: colors.background },
-  title:{ fontSize:20, fontWeight:'800', color: colors.textPrimary, textAlign:'center' },
-  desc:{ color: colors.textSecondary, marginTop:4, marginBottom: spacing.md, fontSize:12, textAlign:'center' },
+ descLayout: {
+ marginTop: spacing.xxs,
+ marginBottom: spacing.md,
+ textAlign: 'center',
+ },
 
-  card:{ backgroundColor: colors.surface, borderWidth:1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
-  cardHeader:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
-  dayTitle:{ fontSize:14, fontWeight:'800', color: colors.textPrimary },
+ cardSpacing: { marginBottom: spacing.sm,
+ },
 
-  timeChips:{ flexDirection:'row', flexWrap:'wrap', marginTop: spacing.sm },
-  chip:{ flexDirection:'row', alignItems:'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical:3, paddingHorizontal:6, marginRight:6, marginBottom:6 },
-  chipText:{ color: colors.textPrimary, fontSize:12, marginRight:6 },
-  chipRemove:{ color: colors.textTertiary, fontSize:14, fontWeight:'800' },
+ timeChips: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ marginTop: spacing.sm,
+ },
 
-  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor: colors.gray300, backgroundColor: colors.surface, alignItems:'center', justifyContent:'center' },
-  addBtnPlus:{ color: colors.textSecondary, fontSize:16, fontWeight:'800', lineHeight:16 },
+ actions: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ marginTop: spacing.lg,
+ },
 
-  actions:{ flexDirection:'row', alignItems:'center', marginTop: spacing.lg },
-  resetBtn:{ backgroundColor: colors.surface, borderWidth:1, borderColor: colors.gray300, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  resetBtnText:{ color: colors.textSecondary, fontSize: 14, fontWeight:'600' },
+ scopeRow: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ gap: spacing.sm,
+ justifyContent: 'center',
+ },
 
-  // ==== 일괄 모달 ====
-  modalBackdrop:{ flex:1, backgroundColor: colors.overlay, alignItems:'center', justifyContent:'center', padding: spacing.lg },
-  modalCard:{ width:'100%', backgroundColor: colors.surface, borderWidth:1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg },
-
-  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.textPrimary, textAlign:'center', marginBottom: spacing.md },
-
-  scopeRow:{ flexDirection:'row', flexWrap:'wrap', gap: spacing.sm, justifyContent:'center' },
-  scopeBtn:{ paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
-  scopeBtnOn:{ backgroundColor: colors.primary },
-  scopeText:{ color: colors.textPrimary, fontWeight:'800' },
-  scopeTextOn:{ color: colors.textInverse },
-
-  bulkDaysRow:{ flexDirection:'row', justifyContent:'space-between', marginTop: spacing.md },
-  dayCircle:{
-    width:28, height:28, borderRadius:14, alignItems:'center', justifyContent:'center',
-    borderWidth:1,
-  },
-  dayCircleOff:{ backgroundColor: colors.surface, borderColor: colors.gray300 },
-  dayCircleOn:{ backgroundColor: colors.primary, borderColor: colors.primary },
-  dayCircleText:{ fontSize:12, fontWeight:'800', color: colors.textSecondary },
-  dayCircleTextOn:{ color: colors.textInverse },
-
-  bulkTimesBox:{ marginTop: spacing.md, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md, borderWidth:1, borderColor: colors.border },
-  bulkTimesHeader:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
-  bulkTimesTitle:{ fontSize:13, fontWeight:'800', color: colors.textSecondary },
-
-  bulkEmptyHint:{ color: colors.textTertiary, fontSize:12 },
-
-  modalActions:{ flexDirection:'row', gap: 8, marginTop: spacing.lg },
-  modalBtn:{ flex:1, alignItems:'center', paddingVertical:10, borderRadius: radius.md },
-  modalBtnGhost:{ backgroundColor: colors.surfaceMuted },
-  modalBtnPrimary:{ backgroundColor: colors.primary },
-  modalBtnGhostText:{ color: colors.textPrimary, fontWeight:'800' },
-  modalBtnPrimaryText:{ color: colors.textInverse, fontWeight:'800' },
+ bulkDaysRow: {
+ flexDirection: 'row',
+ justifyContent: 'space-between',
+ marginTop: spacing.md,
+ },
 });

@@ -36,11 +36,15 @@ export const APP_DESIGN_SYSTEM_POLICY = Object.freeze({
  ]),
  officialComponentExports: Object.freeze([
   'surface',
+  'layout',
   'buttonStyles',
   'text',
   'card',
   'input',
+  'modal',
+  'control',
   'badge',
+  'appHeader',
   'header',
  ]),
  compatibilityExports: Object.freeze([
@@ -521,6 +525,79 @@ export const buttonStyles = {
  color: color.primary,
  },
  },
+
+ smallPrimary: {
+ container: {
+ minWidth: 52,
+ minHeight: 34,
+ paddingVertical: spacing.xs,
+ paddingHorizontal: 10,
+ borderRadius: radius.pill,
+ borderWidth: 1,
+ borderColor: color.primary,
+ backgroundColor: color.primary,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ label: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: color.textInverse,
+ },
+ },
+
+ smallOutline: {
+ container: {
+ minWidth: 52,
+ minHeight: 34,
+ paddingVertical: spacing.xs,
+ paddingHorizontal: 10,
+ borderRadius: radius.pill,
+ borderWidth: 1,
+ borderColor: color.border,
+ backgroundColor: color.surface,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ label: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
+ },
+
+ compactSecondary: {
+ container: {
+ backgroundColor: color.surface,
+ borderWidth: 1,
+ borderColor: primitive.neutral[300],
+ borderRadius: radius.md,
+ paddingVertical: spacing.sm,
+ paddingHorizontal: spacing.md,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ label: {
+ color: color.textSecondary,
+ fontSize: font.size.body,
+ fontWeight: font.weight.semibold,
+ },
+ },
+
+ formSave: {
+ container: {
+ marginTop: spacing.xl,
+ backgroundColor: color.primary,
+ borderRadius: radius.md,
+ paddingVertical: spacing.md,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ label: {
+ color: color.textInverse,
+ fontWeight: font.weight.heavy,
+ },
+ },
 };
 
 export const text = StyleSheet.create({
@@ -564,6 +641,115 @@ export const text = StyleSheet.create({
  fontWeight: font.weight.regular,
  color: color.textTertiary,
  },
+
+ screenTitleCompact: {
+ fontSize: font.size.title,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ textAlign: 'center',
+ },
+
+ headerTitle: {
+ fontSize: 18,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ textAlign: 'center',
+ },
+
+ sectionTitle: {
+ fontSize: font.size.bodyLarge,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
+
+ sectionTitleSpaced: {
+ fontSize: font.size.bodyLarge,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ marginBottom: spacing.md,
+ },
+
+ label: {
+ fontSize: font.size.bodySmall,
+ fontWeight: font.weight.regular,
+ color: color.textSecondary,
+ },
+
+ help: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.regular,
+ color: color.textSecondary,
+ },
+
+ value: {
+ fontSize: 15,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
+
+ bodyStrong: {
+ fontSize: font.size.body,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
+
+ labelStrong: {
+ fontSize: font.size.bodySmall,
+ fontWeight: font.weight.heavy,
+ color: color.textSecondary,
+ },
+
+ metaTertiary: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.regular,
+ color: color.textTertiary,
+ },
+
+ metaStrong: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
+
+ center: {
+ textAlign: 'center',
+ },
+
+ bodySmallMuted: {
+ fontSize: font.size.bodySmall,
+ fontWeight: font.weight.regular,
+ color: color.textSecondary,
+ },
+
+ metaStrongMuted: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: color.textSecondary,
+ },
+
+ captionStrongMuted: {
+ fontSize: font.size.caption,
+ fontWeight: font.weight.heavy,
+ color: color.textSecondary,
+ },
+
+ bodyStrongMuted: {
+ fontSize: font.size.body,
+ fontWeight: font.weight.bold,
+ color: color.textSecondary,
+ },
+
+ captionMuted: {
+ fontSize: font.size.caption,
+ fontWeight: font.weight.regular,
+ color: color.textSecondary,
+ },
+
+ bodySmallStrong: {
+ fontSize: font.size.bodySmall,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
 });
 
 export const card = StyleSheet.create({
@@ -588,6 +774,49 @@ export const card = StyleSheet.create({
  borderRadius: radius.card,
  padding: spacing.md,
  },
+
+ titleBox: {
+ backgroundColor: color.surface,
+ borderColor: color.border,
+ borderWidth: 1,
+ borderRadius: radius.md,
+ paddingVertical: spacing.md,
+ paddingHorizontal: spacing.lg,
+ },
+
+ list: {
+ backgroundColor: color.surface,
+ borderColor: color.border,
+ borderWidth: 1,
+ borderRadius: radius.lg,
+ paddingHorizontal: spacing.lg,
+ paddingVertical: spacing.md,
+ },
+
+ notification: {
+ backgroundColor: color.surface,
+ borderColor: color.border,
+ borderWidth: 1,
+ borderRadius: radius.lg,
+ padding: spacing.md,
+ },
+
+ preview: {
+ backgroundColor: color.backgroundMuted,
+ borderColor: color.borderMuted,
+ borderWidth: 1,
+ borderRadius: radius.sm,
+ padding: spacing.md,
+ },
+
+ inset: {
+ backgroundColor: color.background,
+ borderColor: color.border,
+ borderWidth: 1,
+ borderRadius: radius.md,
+ padding: spacing.md,
+ },
+
  elevated: {
  backgroundColor: color.surface,
  borderColor: color.border,
@@ -617,6 +846,514 @@ export const input = StyleSheet.create({
  multiline: {
  minHeight: 120,
  textAlignVertical: 'top',
+ },
+
+ compact: {
+ borderRadius: radius.md,
+ borderWidth: 1,
+ borderColor: color.border,
+ backgroundColor: color.surface,
+ paddingHorizontal: spacing.md,
+ paddingVertical: 10,
+ fontSize: font.size.body,
+ color: color.textPrimary,
+ },
+
+ multilineCompact: {
+ minHeight: 96,
+ lineHeight: 20,
+ textAlignVertical: 'top',
+ },
+
+ searchContainer: {
+ height: 48,
+ borderRadius: radius.lg,
+ backgroundColor: color.surfaceMuted,
+ paddingHorizontal: spacing.md,
+ flexDirection: 'row',
+ alignItems: 'center',
+ },
+
+ searchField: {
+ flex: 1,
+ height: 48,
+ color: color.textPrimary,
+ fontSize: font.size.body,
+ paddingVertical: 0,
+ },
+
+ compactStrongCentered: {
+ backgroundColor: color.surface,
+ borderWidth: 1,
+ borderColor: primitive.neutral[300],
+ borderRadius: radius.md,
+ paddingHorizontal: spacing.md,
+ paddingVertical: 10,
+ fontSize: font.size.body,
+ color: color.textPrimary,
+ textAlign: 'center',
+ },
+});
+
+export const layout = StyleSheet.create({
+ screenContent: {
+ padding: spacing.lg,
+ backgroundColor: color.background,
+ },
+
+ screenContentMuted: {
+ padding: spacing.lg,
+ backgroundColor: color.backgroundMuted,
+ },
+
+ row: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ },
+
+ rowBetween: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'space-between',
+ },
+
+ divider: {
+ height: 1,
+ backgroundColor: color.divider,
+ },
+
+ bottomActionRow: {
+ flexDirection: 'row',
+ gap: spacing.sm,
+ marginTop: spacing.lg,
+ },
+
+ centeredContent: {
+ alignItems: 'center',
+ justifyContent: 'center',
+ padding: spacing.lg,
+ },
+
+ fixedBottomBar: {
+ position: 'absolute',
+ left: 0,
+ right: 0,
+ bottom: 0,
+ paddingHorizontal: spacing.lg,
+ paddingTop: spacing.sm,
+ backgroundColor: color.background,
+ borderTopWidth: 0,
+ borderTopColor: color.border,
+ },
+});
+
+export const modal = StyleSheet.create({
+ backdrop: {
+ flex: 1,
+ backgroundColor: color.overlay,
+ alignItems: 'center',
+ justifyContent: 'center',
+ padding: spacing.lg,
+ },
+
+ sheet: {
+ width: '100%',
+ backgroundColor: color.surface,
+ borderColor: color.border,
+ borderWidth: 1,
+ borderRadius: radius.lg,
+ padding: spacing.lg,
+ },
+
+ sheetBorderless: {
+ width: '100%',
+ backgroundColor: color.surface,
+ borderRadius: radius.lg,
+ padding: spacing.lg,
+ },
+
+ sheetWide: {
+ width: '92%',
+ maxWidth: 460,
+ backgroundColor: color.surface,
+ borderColor: color.border,
+ borderWidth: 1,
+ borderRadius: radius.lg,
+ padding: spacing.lg,
+ },
+
+ title: {
+ fontSize: font.size.bodyLarge,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ textAlign: 'center',
+ marginBottom: spacing.md,
+ },
+
+ actionRow: {
+ flexDirection: 'row',
+ gap: spacing.sm,
+ marginTop: spacing.lg,
+ },
+
+ actionButton: {
+ flex: 1,
+ minHeight: 44,
+ paddingVertical: 10,
+ borderRadius: radius.md,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ actionButtonCompact: {
+ flex: 1,
+ paddingVertical: 10,
+ borderRadius: radius.md,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ actionGhost: {
+ backgroundColor: color.surfaceMuted,
+ },
+
+ actionPrimary: {
+ backgroundColor: color.primary,
+ },
+
+ actionGhostText: {
+ color: color.textPrimary,
+ fontWeight: font.weight.heavy,
+ },
+
+ actionPrimaryText: {
+ color: color.textInverse,
+ fontWeight: font.weight.heavy,
+ },
+
+ closePill: {
+ marginTop: spacing.md,
+ alignSelf: 'center',
+ paddingVertical: 6,
+ paddingHorizontal: 12,
+ borderRadius: radius.pill,
+ backgroundColor: color.primary,
+ },
+
+ closePillText: {
+ color: color.textInverse,
+ fontWeight: font.weight.bold,
+ fontSize: font.size.meta,
+ },
+});
+
+export const control = StyleSheet.create({
+ pill: {
+ paddingVertical: 6,
+ paddingHorizontal: 10,
+ borderRadius: radius.pill,
+ borderWidth: 1,
+ borderColor: primitive.neutral[300],
+ backgroundColor: color.surface,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ pillActive: {
+ borderColor: color.primary,
+ backgroundColor: color.primary,
+ },
+
+ pillText: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
+
+ pillTextActive: {
+ color: color.textInverse,
+ },
+
+ scopePill: {
+ paddingVertical: spacing.sm,
+ paddingHorizontal: spacing.md,
+ borderRadius: radius.pill,
+ backgroundColor: color.surfaceMuted,
+ },
+
+ scopePillActive: {
+ backgroundColor: color.primary,
+ },
+
+ optionRow: {
+ paddingVertical: 10,
+ paddingHorizontal: spacing.md,
+ borderWidth: 1,
+ borderColor: color.border,
+ borderRadius: radius.md,
+ },
+
+ optionRowActive: {
+ backgroundColor: color.primary,
+ borderColor: color.primary,
+ },
+
+ optionText: {
+ color: color.textPrimary,
+ fontWeight: font.weight.bold,
+ },
+
+ optionTextActive: {
+ color: color.textInverse,
+ },
+
+ radioRow: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ paddingVertical: spacing.sm,
+ paddingHorizontal: spacing.sm,
+ borderRadius: radius.md,
+ },
+
+ radioRowActive: {
+ backgroundColor: color.surfaceMuted,
+ },
+
+ radioOuter: {
+ width: 18,
+ height: 18,
+ borderRadius: 9,
+ borderWidth: 2,
+ borderColor: color.primary,
+ alignItems: 'center',
+ justifyContent: 'center',
+ marginRight: 10,
+ },
+
+ radioOuterOn: {
+ borderColor: color.primary,
+ },
+
+ radioInner: {
+ width: 8,
+ height: 8,
+ borderRadius: 4,
+ backgroundColor: color.primary,
+ },
+
+ radioLabel: {
+ color: color.textPrimary,
+ fontWeight: font.weight.bold,
+ },
+
+ chip: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ backgroundColor: color.surfaceMuted,
+ borderRadius: radius.pill,
+ paddingVertical: 3,
+ paddingHorizontal: 6,
+ },
+
+ chipFlowItem: {
+ marginRight: spacing.xs,
+ marginBottom: spacing.xs,
+ },
+
+ chipDense: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ backgroundColor: color.surfaceMuted,
+ borderRadius: radius.pill,
+ paddingVertical: 3,
+ paddingHorizontal: 5,
+ marginRight: spacing.xs,
+ marginBottom: spacing.xs,
+ },
+
+ chipDenseText: {
+ color: color.textPrimary,
+ fontSize: font.size.caption,
+ lineHeight: 13,
+ marginRight: spacing.xs,
+ includeFontPadding: false,
+ },
+
+ chipUltraDense: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ backgroundColor: color.surfaceMuted,
+ borderRadius: radius.pill,
+ paddingVertical: 2,
+ paddingHorizontal: 4,
+ maxWidth: '100%',
+ },
+
+ chipUltraDenseText: {
+ color: color.textPrimary,
+ fontSize: font.size.caption,
+ lineHeight: 13,
+ marginRight: 4,
+ includeFontPadding: false,
+ },
+
+ chipRemoveCompact: {
+ color: color.textTertiary,
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ },
+
+ chipText: {
+ color: color.textPrimary,
+ fontSize: font.size.meta,
+ marginRight: spacing.xs,
+ },
+
+ chipRemove: {
+ color: color.textTertiary,
+ fontSize: 14,
+ fontWeight: font.weight.heavy,
+ },
+
+ addCircle: {
+ width: 28,
+ height: 28,
+ borderRadius: 14,
+ borderWidth: 1,
+ borderColor: primitive.neutral[300],
+ backgroundColor: color.surface,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ addCircleText: {
+ color: color.textSecondary,
+ fontSize: font.size.bodyLarge,
+ fontWeight: font.weight.heavy,
+ lineHeight: 16,
+ },
+
+ selectCircle28: {
+ width: 28,
+ height: 28,
+ borderRadius: 14,
+ borderWidth: 1,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ selectCircle36: {
+ width: 36,
+ height: 36,
+ borderRadius: 18,
+ borderWidth: 1,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ selectCircle40: {
+ width: 40,
+ height: 40,
+ borderRadius: 20,
+ borderWidth: 2,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ selectCircle40Thin: {
+ width: 40,
+ height: 40,
+ borderRadius: 20,
+ borderWidth: 1,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ selectCircleOff: {
+ borderColor: primitive.neutral[300],
+ backgroundColor: color.surface,
+ },
+
+ selectCircleOn: {
+ borderColor: color.primary,
+ backgroundColor: color.primary,
+ },
+
+ selectCircleText: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: color.textSecondary,
+ includeFontPadding: false,
+ textAlign: 'center',
+ },
+
+ selectCircleTextOn: {
+ color: color.textInverse,
+ },
+
+ radioRowCompact: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ paddingVertical: 10,
+ paddingHorizontal: spacing.sm,
+ borderRadius: radius.md,
+ },
+
+ radioOuterNeutral: {
+ width: 18,
+ height: 18,
+ borderRadius: 9,
+ borderWidth: 2,
+ borderColor: color.primary,
+ alignItems: 'center',
+ justifyContent: 'center',
+ marginRight: 10,
+ },
+
+ radioOuterInfoOn: {
+ borderColor: color.info,
+ },
+
+ radioInnerInfo: {
+ width: 8,
+ height: 8,
+ borderRadius: 4,
+ backgroundColor: color.info,
+ },
+
+ choiceWrap: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ gap: spacing.sm,
+ marginTop: spacing.md,
+ },
+
+ choicePill: {
+ paddingVertical: spacing.sm,
+ paddingHorizontal: spacing.md,
+ borderRadius: radius.pill,
+ backgroundColor: color.surfaceMuted,
+ },
+
+ choicePillOutline: {
+ borderWidth: 1,
+ borderColor: color.primary,
+ backgroundColor: color.surface,
+ },
+
+ choicePillActive: {
+ backgroundColor: color.primary,
+ borderColor: color.primary,
+ },
+
+ choiceText: {
+ color: color.textPrimary,
+ fontSize: font.size.body,
+ fontWeight: font.weight.heavy,
+ },
+
+ choiceTextActive: {
+ color: color.textInverse,
  },
 });
 
@@ -653,6 +1390,71 @@ export const badge = StyleSheet.create({
  },
 });
 
+export const appHeader = StyleSheet.create({
+ standardContainer: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ paddingHorizontal: spacing.lg,
+ paddingVertical: spacing.md,
+ backgroundColor: 'transparent',
+ },
+
+ compactContainer: {
+ minHeight: 58,
+ paddingHorizontal: spacing.lg,
+ paddingTop: spacing.sm,
+ paddingBottom: 10,
+ flexDirection: 'row',
+ alignItems: 'center',
+ justifyContent: 'space-between',
+ backgroundColor: color.background,
+ },
+
+ backButton: {
+ width: 38,
+ height: 38,
+ alignItems: 'center',
+ justifyContent: 'center',
+ zIndex: 2,
+ },
+
+ backIcon: {
+ fontSize: 32,
+ fontWeight: '300',
+ lineHeight: 32,
+ includeFontPadding: false,
+ marginTop: -8,
+ color: color.textPrimary,
+ },
+
+ title: {
+ position: 'absolute',
+ left: 0,
+ right: 0,
+ textAlign: 'center',
+ fontSize: font.size.title,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ zIndex: -1,
+ },
+
+ compactTitle: {
+ position: 'absolute',
+ left: 0,
+ right: 0,
+ textAlign: 'center',
+ fontSize: 18,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ zIndex: 1,
+ },
+
+ spacer: {
+ width: 38,
+ height: 38,
+ },
+});
+
 export const header = {
  titleAlign: 'center',
  headerStyle: { backgroundColor: color.background },
@@ -683,11 +1485,15 @@ export const APP_DESIGN_SYSTEM_STANDARD = Object.freeze({
  }),
  components: Object.freeze({
   surface,
+  layout,
   buttonStyles,
   text,
   card,
   input,
+  modal,
+  control,
   badge,
+  appHeader,
   header,
  }),
  compatibility: Object.freeze({

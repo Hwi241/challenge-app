@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { buttonStyles, colors, spacing, radius, card as cardStyles } from '../styles/common';
+import { buttonStyles, card as canonicalCardStyles, control as canonicalControlStyles, layout as canonicalLayoutStyles, modal as canonicalModalStyles, spacing, surface as canonicalSurfaceStyles, text as canonicalTextStyles } from '../styles/common';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
@@ -206,30 +206,30 @@ export default function SimpleNotificationScreen() {
   }, [confirmSave, markAsSaved, navigation, returnTo, route.params?.onDone, selectedDays, times, weeks]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen} edges={['top', 'bottom']}>
       <BackButton title="간단 알림 설정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
+      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
 
       {/* 요일 선택 */}
-      <View style={cardStyles.base}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.cardTitle}>요일 선택</Text>
+      <View style={canonicalCardStyles.base}>
+        <View style={canonicalLayoutStyles.rowBetween}>
+          <Text style={canonicalTextStyles.sectionTitle}>요일 선택</Text>
           <View style={{ flexDirection: 'row', columnGap: 8 }}>
             <TouchableOpacity
               onPress={toggleDaily}
               activeOpacity={0.9}
-              style={[styles.toggleBtn, isDaily && styles.toggleBtnOn]}
+              style={[canonicalControlStyles.pill, isDaily && canonicalControlStyles.pillActive]}
             >
-              <Text style={[styles.toggleBtnText, isDaily && styles.toggleBtnTextOn]}>매일 반복</Text>
+              <Text style={[canonicalControlStyles.pillText, isDaily && canonicalControlStyles.pillTextActive]}>매일 반복</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setWeekModal(true)}
               activeOpacity={0.9}
-              style={[styles.toggleBtn, styles.toggleBtnOn /* 기본 검정 */]}
+              style={[canonicalControlStyles.pill, canonicalControlStyles.pillActive /* 기본 검정 */]}
             >
-              <Text style={[styles.toggleBtnText, styles.toggleBtnTextOn]} numberOfLines={1}>
+              <Text style={[canonicalControlStyles.pillText, canonicalControlStyles.pillTextActive]} numberOfLines={1}>
                 {weekLabel}
               </Text>
             </TouchableOpacity>
@@ -242,12 +242,12 @@ export default function SimpleNotificationScreen() {
             return (
               <TouchableOpacity
                 key={d}
-                style={[styles.dayCircle, active ? styles.dayCircleOn : styles.dayCircleOff]}
+                style={[canonicalControlStyles.selectCircle40, active ? canonicalControlStyles.selectCircleOn : canonicalControlStyles.selectCircleOff]}
                 onPress={() => toggleDay(d)}
                 activeOpacity={0.9}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
-                <Text allowFontScaling={false} style={[styles.dayText, active && styles.dayTextOn]}>
+                <Text allowFontScaling={false} style={[canonicalControlStyles.selectCircleText, active && canonicalControlStyles.selectCircleTextOn]}>
                   {d}
                 </Text>
               </TouchableOpacity>
@@ -257,26 +257,26 @@ export default function SimpleNotificationScreen() {
       </View>
 
       {/* 시간 선택 */}
-      <View style={[cardStyles.base, { marginTop: spacing.lg }]}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.cardTitle}>알림 시간</Text>
-          <Text style={styles.helpText}>최대 {MAX_TIMES}개</Text>
+      <View style={[canonicalCardStyles.base, { marginTop: spacing.lg }]}>
+        <View style={canonicalLayoutStyles.rowBetween}>
+          <Text style={canonicalTextStyles.sectionTitle}>알림 시간</Text>
+          <Text style={[canonicalTextStyles.help, { marginTop: spacing.xxs }]}>최대 {MAX_TIMES}개</Text>
         </View>
 
         <View style={styles.timeChips}>
           {times.map((t) => (
-            <View key={t} style={styles.chip}>
-              <Text style={styles.chipText} numberOfLines={1} allowFontScaling={false}>
+            <View key={t} style={canonicalControlStyles.chip}>
+              <Text style={canonicalControlStyles.chipText} numberOfLines={1} allowFontScaling={false}>
                 {t}
               </Text>
               <TouchableOpacity onPress={() => removeTime(t)}>
-                <Text style={styles.chipRemove}>×</Text>
+                <Text style={canonicalControlStyles.chipRemove}>×</Text>
               </TouchableOpacity>
             </View>
           ))}
           {times.length < MAX_TIMES && (
-            <TouchableOpacity style={styles.addBtn} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.addBtnPlus}>＋</Text>
+            <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={() => setShowTimePicker(true)}>
+              <Text style={canonicalControlStyles.addCircleText}>＋</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -302,32 +302,32 @@ export default function SimpleNotificationScreen() {
 
       {/* 주차 선택 모달 */}
       <Modal visible={weekModal} transparent animationType="fade" onRequestClose={() => setWeekModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>반복 주차 선택</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheetBorderless}>
+            <Text style={canonicalModalStyles.title}>반복 주차 선택</Text>
             <View style={{ rowGap: 8 }}>
               {[1, 2, 3, 4, 5].map((n) => {
                 const active = Array.isArray(weeks) && weeks.includes(n);
                 return (
                   <TouchableOpacity
                     key={n}
-                    style={[styles.modalRow, active && styles.modalRowOn]}
+                    style={[canonicalControlStyles.optionRow, active && canonicalControlStyles.optionRowActive]}
                     onPress={() => toggleWeek(n)}
                   >
-                    <Text style={[styles.modalRowText, active && styles.modalRowTextOn]}>{n}번째 주</Text>
+                    <Text style={[canonicalControlStyles.optionText, active && canonicalControlStyles.optionTextActive]}>{n}번째 주</Text>
                   </TouchableOpacity>
                 );
               })}
               <TouchableOpacity
-                style={[styles.modalRow, weeks === 'every' && styles.modalRowOn]}
+                style={[canonicalControlStyles.optionRow, weeks === 'every' && canonicalControlStyles.optionRowActive]}
                 onPress={() => toggleWeek('every')}
               >
-                <Text style={[styles.modalRowText, weeks === 'every' && styles.modalRowTextOn]}>매주</Text>
+                <Text style={[canonicalControlStyles.optionText, weeks === 'every' && canonicalControlStyles.optionTextActive]}>매주</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.modalClose} onPress={() => setWeekModal(false)}>
-              <Text style={styles.modalCloseText}>확인</Text>
+            <TouchableOpacity style={canonicalModalStyles.closePill} onPress={() => setWeekModal(false)}>
+              <Text style={canonicalModalStyles.closePillText}>확인</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -338,41 +338,16 @@ export default function SimpleNotificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: colors.background },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.lg, textAlign: 'center' },
+ daysWrap: {
+ marginTop: spacing.md,
+ flexDirection: 'row',
+ justifyContent: 'space-between',
+ },
 
-  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  helpText: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
-
-  daysWrap: { marginTop: spacing.md, flexDirection: 'row', justifyContent: 'space-between' },
-
-  // 원 컨테이너 자체에서 중앙 정렬
-  dayCircle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  dayCircleOff: { borderColor: colors.gray300, backgroundColor: colors.surface },
-  dayCircleOn: { borderColor: colors.primary, backgroundColor: colors.primary },
-  dayText: { fontSize: 12, fontWeight: '800', color: colors.textSecondary, includeFontPadding: false, textAlign: 'center' }, // 작게
-  dayTextOn: { color: colors.textInverse },
-
-  toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.surface },
-  toggleBtnOn: { borderColor: colors.primary, backgroundColor: colors.primary },
-  toggleBtnText: { fontSize: 12, fontWeight: '800', color: colors.textPrimary },
-  toggleBtnTextOn: { color: colors.textInverse },
-
-  timeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
-  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 6 },
-  chipText: { color: colors.textPrimary, fontSize: 12, marginRight: 6 },
-  chipRemove: { color: colors.textTertiary, fontSize: 14, fontWeight: '800' },
-  addBtn: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  addBtnPlus: { color: colors.textSecondary, fontSize: 16, fontWeight: '800', lineHeight: 16 },
-
-  modalBackdrop: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' },
-  modalRow: { paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
-  modalRowOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  modalRowText: { color: colors.textPrimary, fontWeight: '700' },
-  modalRowTextOn: { color: colors.textInverse },
-  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.pill, backgroundColor: colors.primary },
-  modalCloseText: { color: colors.textInverse, fontWeight: '700', fontSize: 12 },
+ timeChips: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ gap: spacing.xs,
+ marginTop: spacing.sm,
+ },
 });

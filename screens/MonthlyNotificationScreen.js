@@ -3,7 +3,18 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { buttonStyles, spacing, radius, colors } from '../styles/common';
+import {
+ buttonStyles,
+ card as canonicalCardStyles,
+ color,
+ control as canonicalControlStyles,
+ layout as canonicalLayoutStyles,
+ modal as canonicalModalStyles,
+ radius,
+ spacing,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
@@ -290,13 +301,13 @@ const onChangeScope = useCallback((scope)=>{
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen} edges={['top', 'bottom']}>
       <BackButton title="월간 알림 설정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
+      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
       
-      <Text style={styles.desc}>각 날짜 최대 {MAX_PER_DATE}개</Text>
+      <Text style={[canonicalTextStyles.help, styles.descLayout]}>각 날짜 최대 {MAX_PER_DATE}개</Text>
       {/* 추가 설명 문구 */}
-      <Text style={styles.desc}>매월 같은 날 알람 설정</Text>
+      <Text style={[canonicalTextStyles.help, styles.descLayout]}>매월 같은 날 알람 설정</Text>
 
       <View style={styles.grid}>
         {cells.map(cell => {
@@ -307,28 +318,28 @@ const onChangeScope = useCallback((scope)=>{
 
           return (
             <View key={cell.key} style={styles.cell}>
-              <Text style={styles.dateBadge}>{d}</Text>
+              <Text style={[canonicalTextStyles.metaStrong, styles.dateBadgeLayout]}>{d}</Text>
 
               <View style={styles.chipsArea}>
                 {arr.map(x => (
-                  <View key={`${d}-${x.time}`} style={styles.chip}>
-                    <Text style={styles.chipText} numberOfLines={1} allowFontScaling={false}>{x.time}</Text>
+                  <View key={`${d}-${x.time}`} style={canonicalControlStyles.chipDense}>
+                    <Text style={canonicalControlStyles.chipDenseText} numberOfLines={1} allowFontScaling={false}>{x.time}</Text>
                     <TouchableOpacity
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       onPress={() => removeOne(d, x.time)}
                     >
-                      <Text style={styles.chipRemove}>×</Text>
+                      <Text style={canonicalControlStyles.chipRemove}>×</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
 
                 {canAdd ? (
-                  <TouchableOpacity style={styles.addChip} onPress={() => tryAddTime(d)}>
-                    <Text style={styles.addChipPlus}>＋</Text>
+                  <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={() => tryAddTime(d)}>
+                    <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                   </TouchableOpacity>
                 ) : (
-                  <View style={[styles.addChip,{opacity:0.35}]}>
-                    <Text style={styles.addChipPlus}>＋</Text>
+                  <View style={[canonicalControlStyles.addCircle,{opacity:0.35}]}>
+                    <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                   </View>
                 )}
               </View>
@@ -338,8 +349,8 @@ const onChangeScope = useCallback((scope)=>{
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
-          <Text style={styles.resetBtnText}>초기화</Text>
+        <TouchableOpacity style={buttonStyles.compactSecondary.container} onPress={clearAll}>
+          <Text style={buttonStyles.compactSecondary.label}>초기화</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         <TouchableOpacity
@@ -368,35 +379,35 @@ const onChangeScope = useCallback((scope)=>{
 
       {/* ==== 일괄 적용 모달 ==== */}
       <Modal visible={showBulkModal} transparent animationType="fade" onRequestClose={()=>setShowBulkModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>일괄 시간 적용</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheet}>
+            <Text style={canonicalModalStyles.title}>일괄 시간 적용</Text>
 
             {/* 범위 선택 */}
             <View style={styles.scopeRow}>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='all' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='all' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('all')}
               >
-                <Text style={[styles.scopeText, bulkScope==='all' && styles.scopeTextOn]}>모든 날짜</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='all' && canonicalControlStyles.pillTextActive]}>모든 날짜</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='even' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='even' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('even')}
               >
-                <Text style={[styles.scopeText, bulkScope==='even' && styles.scopeTextOn]}>짝수</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='even' && canonicalControlStyles.pillTextActive]}>짝수</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='odd' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='odd' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('odd')}
               >
-                <Text style={[styles.scopeText, bulkScope==='odd' && styles.scopeTextOn]}>홀수</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='odd' && canonicalControlStyles.pillTextActive]}>홀수</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.scopeBtn, bulkScope==='custom' && styles.scopeBtnOn]}
+                style={[canonicalControlStyles.scopePill, bulkScope==='custom' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('custom')}
               >
-                <Text style={[styles.scopeText, bulkScope==='custom' && styles.scopeTextOn]}>날짜 지정</Text>
+                <Text style={[canonicalControlStyles.pillText, bulkScope==='custom' && canonicalControlStyles.pillTextActive]}>날짜 지정</Text>
               </TouchableOpacity>
             </View>
 
@@ -414,8 +425,8 @@ const onChangeScope = useCallback((scope)=>{
             {exists ? (
               <TouchableOpacity
                 style={[
-                  styles.dateCircle,
-                  on ? styles.dateCircleOn : styles.dateCircleOff,
+                  canonicalControlStyles.selectCircle40Thin,
+                  on ? canonicalControlStyles.selectCircleOn : canonicalControlStyles.selectCircleOff,
                 ]}
                 onPress={() => {
                   // 누르면 '날짜 지정' 모드로 전환 + 토글
@@ -426,7 +437,7 @@ const onChangeScope = useCallback((scope)=>{
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel={`${d}일 선택`}
               >
-                <Text style={[styles.dateCircleText, on && styles.dateCircleTextOn]}>{d}</Text>
+                <Text style={[canonicalControlStyles.selectCircleText, on && canonicalControlStyles.selectCircleTextOn]}>{d}</Text>
               </TouchableOpacity>
             ) : (
               // 자리 유지용 플레이스홀더(동일 크기, 투명)
@@ -440,36 +451,36 @@ const onChangeScope = useCallback((scope)=>{
 </View>
 
             {/* 선택된 시간 리스트 + 추가 */}
-            <View style={styles.bulkTimesBox}>
-              <View style={styles.bulkTimesHeader}>
-                <Text style={styles.bulkTimesTitle}>시간 ({bulkTimes.length}/10)</Text>
-                <TouchableOpacity style={styles.addBtn} onPress={openBulkTimePicker} accessibilityLabel="시간 추가">
-                  <Text style={styles.addBtnPlus}>＋</Text>
+            <View style={canonicalCardStyles.inset}>
+              <View style={canonicalLayoutStyles.rowBetween}>
+                <Text style={canonicalTextStyles.labelStrong}>시간 ({bulkTimes.length}/10)</Text>
+                <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={openBulkTimePicker} accessibilityLabel="시간 추가">
+                  <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.timeChips}>
                 {bulkTimes.map(t=>(
-                  <View key={`bt-${t}`} style={styles.chip}>
-                    <Text style={styles.chipText} numberOfLines={1}>{t}</Text>
+                  <View key={`bt-${t}`} style={canonicalControlStyles.chipDense}>
+                    <Text style={canonicalControlStyles.chipDenseText} numberOfLines={1}>{t}</Text>
                     <TouchableOpacity onPress={()=>removeBulkTime(t)} accessibilityLabel={`${t} 삭제`}>
-                      <Text style={styles.chipRemove}>×</Text>
+                      <Text style={canonicalControlStyles.chipRemove}>×</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
                 {bulkTimes.length===0 && (
-                  <Text style={styles.bulkEmptyHint}>시간 + 버튼으로 시간을 추가하세요.</Text>
+                  <Text style={canonicalTextStyles.metaTertiary}>시간 + 버튼으로 시간을 추가하세요.</Text>
                 )}
               </View>
             </View>
 
             {/* 하단 액션 */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={()=>setShowBulkModal(false)}>
-                <Text style={styles.modalBtnGhostText}>취소</Text>
+            <View style={canonicalModalStyles.actionRow}>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionGhost]} onPress={()=>setShowBulkModal(false)}>
+                <Text style={canonicalModalStyles.actionGhostText}>취소</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={confirmBulkApply}>
-                <Text style={styles.modalBtnPrimaryText}>확인</Text>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionPrimary]} onPress={confirmBulkApply}>
+                <Text style={canonicalModalStyles.actionPrimaryText}>확인</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -492,111 +503,82 @@ const onChangeScope = useCallback((scope)=>{
 const CELL = 48;
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: colors.background },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, textAlign:'center' },
-  desc: { color: colors.textSecondary, marginTop: spacing.xxs, marginBottom: spacing.md, fontSize: 12, textAlign:'center' },
+ descLayout: {
+ marginTop: spacing.xxs,
+ marginBottom: spacing.md,
+ textAlign: 'center',
+ },
 
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    borderTopWidth: 1, borderTopColor: colors.border,
-    borderLeftWidth: 1, borderLeftColor: colors.border,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: colors.surface
-  },
-  cell: {
-    width: `${100/7}%`,
-    minHeight: CELL + 36,
-    padding: spacing.xs,
-    borderRightWidth: 1, borderRightColor: colors.border,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  dateBadge: { fontSize: 12, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.xxs, textAlign: 'right' },
+ grid: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ borderTopWidth: 1,
+ borderTopColor: color.border,
+ borderLeftWidth: 1,
+ borderLeftColor: color.border,
+ borderRadius: radius.lg,
+ overflow: 'hidden',
+ backgroundColor: color.surface,
+ },
 
-  chipsArea: { flexDirection:'row', flexWrap:'wrap' },
-  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 5, marginRight: spacing.xs, marginBottom: spacing.xs },
-  chipText: { color: colors.textPrimary, fontSize: 11, lineHeight: 13, marginRight: spacing.xs, includeFontPadding: false },
-  chipRemove: { color: colors.textTertiary, fontSize: 14, fontWeight: '800' },
+ cell: {
+ width: `${100 / 7}%`,
+ minHeight: CELL + 36,
+ padding: spacing.xs,
+ borderRightWidth: 1,
+ borderRightColor: color.border,
+ borderBottomWidth: 1,
+ borderBottomColor: color.border,
+ },
 
-  addChip: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1, borderColor: colors.gray300,
-    backgroundColor: colors.surface,
-    alignItems:'center', justifyContent:'center'
-  },
-  addChipPlus: { color: colors.textSecondary, fontSize: 16, fontWeight: '800', lineHeight: 16 },
+ dateBadgeLayout: {
+ marginBottom: spacing.xxs,
+ textAlign: 'right',
+ },
 
-  actions: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg },
-  resetBtn: { backgroundColor: colors.surface, borderWidth:1, borderColor: colors.gray300, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  resetBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight:'600' },
+ chipsArea: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ },
 
-  // ===== 모달 =====
-  modalBackdrop:{ flex:1, backgroundColor: colors.overlay, alignItems:'center', justifyContent:'center', padding: spacing.lg },
-  modalCard:{ width:'100%', backgroundColor: colors.surface, borderWidth:1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg },
+ actions: {
+ flexDirection: 'row',
+ alignItems: 'center',
+ marginTop: spacing.lg,
+ },
 
-  modalTitle:{ fontSize:16, fontWeight:'800', color: colors.textPrimary, textAlign:'center', marginBottom: spacing.md },
+ scopeRow: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ gap: spacing.sm,
+ justifyContent: 'center',
+ },
 
-  scopeRow:{ flexDirection:'row', flexWrap:'wrap', gap: spacing.sm, justifyContent:'center' },
-  scopeBtn:{ paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
-  scopeBtnOn:{ backgroundColor: colors.primary },
-  scopeText:{ color: colors.textPrimary, fontWeight:'800' },
-  scopeTextOn:{ color: colors.textInverse },
-bulkGridWrap: {
-  marginTop: spacing.md,
-},
-bulkRow: {
-  flexDirection: 'row',
-  // 행 간격(세로 간격)
-  marginBottom: BULK_GAP,
-},
-bulkCell: {
-  flex: 1, // 7등분
-  alignItems: 'center',
-  // 열 간격(가로 간격)
-  paddingHorizontal: BULK_GAP / 2,
-},
-dateCircle: {
-  width: BULK_ITEM,
-  height: BULK_ITEM,
-  borderRadius: BULK_ITEM / 2,
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderWidth: 1,
-},
-dateCircleOff: {
-  backgroundColor: colors.surface,
-  borderColor: colors.gray300,
-},
-dateCircleOn: {
-  backgroundColor: colors.primary,
-  borderColor: colors.primary,
-},
-dateCircleText: { fontSize: 12, fontWeight: '800', color: colors.textSecondary },
-dateCircleTextOn: { color: colors.textInverse },
+ bulkGridWrap: {
+ marginTop: spacing.md,
+ },
 
-// 마지막 줄 빈 칸도 동일한 폭/높이로 자리를 차지해 칼럼 정렬 유지
-dateCirclePlaceholder: {
-  width: BULK_ITEM,
-  height: BULK_ITEM,
-  borderRadius: BULK_ITEM / 2,
-  opacity: 0,
-},
+ bulkRow: {
+ flexDirection: 'row',
+ marginBottom: BULK_GAP,
+ },
 
-  bulkTimesBox:{ marginTop: spacing.md, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md, borderWidth:1, borderColor: colors.border },
-  bulkTimesHeader:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
-  bulkTimesTitle:{ fontSize:13, fontWeight:'800', color: colors.textSecondary },
-  bulkEmptyHint:{ color: colors.textTertiary, fontSize:12 },
+ bulkCell: {
+ flex: 1,
+ alignItems: 'center',
+ paddingHorizontal: BULK_GAP / 2,
+ },
 
-  addBtn:{ width:28, height:28, borderRadius:14, borderWidth:1, borderColor: colors.gray300, backgroundColor: colors.surface, alignItems:'center', justifyContent:'center' },
-  addBtnPlus:{ color: colors.textSecondary, fontSize:16, fontWeight:'800', lineHeight:16 },
+ dateCirclePlaceholder: {
+ width: BULK_ITEM,
+ height: BULK_ITEM,
+ borderRadius: BULK_ITEM / 2,
+ opacity: 0,
+ },
 
-  timeChips:{ flexDirection:'row', flexWrap:'wrap', marginTop: spacing.sm },
-
-  modalActions:{ flexDirection:'row', gap: spacing.sm, marginTop: spacing.lg },
-  modalBtn:{ flex:1, alignItems:'center', paddingVertical:10, borderRadius: radius.md },
-  modalBtnGhost:{ backgroundColor: colors.surfaceMuted },
-  modalBtnPrimary:{ backgroundColor: colors.primary },
-  modalBtnGhostText:{ color: colors.textPrimary, fontWeight:'800' },
-  modalBtnPrimaryText:{ color: colors.textInverse, fontWeight:'800' },
+ timeChips: {
+ flexDirection: 'row',
+ flexWrap: 'wrap',
+ marginTop: spacing.sm,
+ },
 });

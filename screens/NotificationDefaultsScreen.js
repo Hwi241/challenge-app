@@ -1,11 +1,23 @@
 // screens/NotificationDefaultsScreen.js
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Switch, Modal, TextInput, Alert, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, Modal, TextInput, Alert, ScrollView, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
-import { colors as PALETTE, radius, spacing } from '../styles/common';
+import {
+ buttonStyles,
+ card as canonicalCardStyles,
+ color,
+ control as canonicalControlStyles,
+ input as canonicalInputStyles,
+ layout as canonicalLayoutStyles,
+ modal as canonicalModalStyles,
+ primitive,
+ spacing,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 
 const STORAGE_KEY = 'notification_defaults';
 // defaults shape: { sound: 'system'|'silent'|'vibrate', snooze: { enabled: boolean, minutes: number } }
@@ -120,64 +132,64 @@ export default function NotificationDefaultsScreen() {
 
   const SoundOption = ({value, label})=>(
     <TouchableOpacity
-      style={[styles.radioRow, sound===value && styles.radioRowActive]}
+      style={[canonicalControlStyles.radioRowCompact, sound===value && canonicalControlStyles.radioRowActive]}
       onPress={()=>setSound(value)}
       activeOpacity={0.9}
     >
-      <View style={[styles.radioOuter, sound===value && styles.radioOuterOn]}>
-        {sound===value ? <View style={styles.radioInner}/> : null}
+      <View style={[canonicalControlStyles.radioOuterNeutral, sound===value && canonicalControlStyles.radioOuterInfoOn]}>
+        {sound===value ? <View style={canonicalControlStyles.radioInnerInfo}/> : null}
       </View>
-      <Text style={styles.radioLabel}>{label}</Text>
+      <Text style={canonicalControlStyles.radioLabel}>{label}</Text>
     </TouchableOpacity>
   );
 
   const isCustomSelected = !PRESETS.includes(snoozeMinutes);
 
     return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.gray50 }}>
+    <SafeAreaView style={canonicalSurfaceStyles.screenMuted}>
       <BackButton title="알림 기본 설정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={canonicalLayoutStyles.screenContent}>
       
 
       {/* 알림음 */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>알림음 선택</Text>
+      <View style={canonicalCardStyles.base}>
+        <Text style={canonicalTextStyles.sectionTitleSpaced}>알림음 선택</Text>
         <SoundOption value="system" label="시스템 기본" />
         <SoundOption value="silent" label="무음(배너만)" />
         <SoundOption value="vibrate" label="진동" />
       </View>
 
       {/* 스누즈 */}
-      <View style={[styles.card, {marginTop: spacing.lg}]}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.cardTitle}>스누즈</Text>
+      <View style={[canonicalCardStyles.base, {marginTop: spacing.lg}]}>
+        <View style={canonicalLayoutStyles.rowBetween}>
+          <Text style={canonicalTextStyles.sectionTitleSpaced}>스누즈</Text>
           <Switch
   value={snoozeEnabled}
   onValueChange={setSnoozeEnabled}
-  trackColor={{ false: PALETTE.gray300, true: PALETTE.gray600 }}
-  thumbColor={snoozeEnabled ? PALETTE.gray800 : PALETTE.white}
-  ios_backgroundColor={PALETTE.gray300}
+  trackColor={{ false: primitive.neutral[300], true: primitive.neutral[600] }}
+  thumbColor={snoozeEnabled ? color.primary : primitive.white}
+  ios_backgroundColor={primitive.neutral[300]}
 />
         </View>
 
         {snoozeEnabled && (
-          <View style={styles.choicesWrap}>
+          <View style={canonicalControlStyles.choiceWrap}>
             {PRESETS.map(min=>(
               <TouchableOpacity
                 key={min}
-                style={[styles.choiceBtn, snoozeMinutes===min && styles.choiceBtnOn]}
+                style={[canonicalControlStyles.choicePill, snoozeMinutes===min && canonicalControlStyles.choicePillActive]}
                 onPress={()=>setSnoozeMinutes(min)}
                 activeOpacity={0.9}
               >
-                <Text style={[styles.choiceText, snoozeMinutes===min && styles.choiceTextOn]}>{min}분</Text>
+                <Text style={[canonicalControlStyles.choiceText, snoozeMinutes===min && canonicalControlStyles.choiceTextActive]}>{min}분</Text>
               </TouchableOpacity>
             ))}
             <TouchableOpacity
-              style={[styles.choiceBtn, styles.choiceBtnOutline, isCustomSelected && styles.choiceBtnOn]}
+              style={[canonicalControlStyles.choicePill, canonicalControlStyles.choicePillOutline, isCustomSelected && canonicalControlStyles.choicePillActive]}
               onPress={onPickCustom}
               activeOpacity={0.9}
             >
-              <Text style={[styles.choiceText, isCustomSelected && styles.choiceTextOn]}>
+              <Text style={[canonicalControlStyles.choiceText, isCustomSelected && canonicalControlStyles.choiceTextActive]}>
                 {isCustomSelected ? `${snoozeMinutes}분` : '사용자 지정'}
               </Text>
             </TouchableOpacity>
@@ -185,30 +197,30 @@ export default function NotificationDefaultsScreen() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={saveAndBack} activeOpacity={0.9}>
-        <Text style={styles.saveBtnText}>저장</Text>
+      <TouchableOpacity style={buttonStyles.formSave.container} onPress={saveAndBack} activeOpacity={0.9}>
+        <Text style={buttonStyles.formSave.label}>저장</Text>
       </TouchableOpacity>
 
       {/* 사용자 지정 분수 입력 모달 */}
       <Modal visible={showCustomModal} transparent animationType="fade" onRequestClose={()=>setShowCustomModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>스누즈 분(1~240)</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheet}>
+            <Text style={canonicalModalStyles.title}>스누즈 분(1~240)</Text>
             <TextInput
               value={customInput}
               onChangeText={t=>setCustomInput((t||'').replace(/[^\d]/g,''))}
               inputMode="numeric"
               keyboardType="number-pad"
-              style={styles.modalInput}
+              style={canonicalInputStyles.compactStrongCentered}
               placeholder="분 단위 숫자"
-              placeholderTextColor={PALETTE.gray400}
+              placeholderTextColor={color.textDisabled}
             />
-            <View style={styles.modalRow}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={()=>setShowCustomModal(false)}>
-                <Text style={[styles.modalBtnText, {color: PALETTE.gray800}]}>취소</Text>
+            <View style={canonicalModalStyles.actionRow}>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionGhost]} onPress={()=>setShowCustomModal(false)}>
+                <Text style={canonicalModalStyles.actionGhostText}>취소</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={onConfirmCustom}>
-                <Text style={[styles.modalBtnText, {color: PALETTE.white}]}>확인</Text>
+              <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionPrimary]} onPress={onConfirmCustom}>
+                <Text style={canonicalModalStyles.actionPrimaryText}>확인</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -218,67 +230,3 @@ export default function NotificationDefaultsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: spacing.lg },
-  title: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign:'center' },
-
-  card: {
-    backgroundColor: PALETTE.white,
-    borderWidth: 1, borderColor: PALETTE.gray200,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
-
-  // radio
-  radioRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 10, paddingHorizontal: 8,
-    borderRadius: radius.md,
-  },
-  radioRowActive: { backgroundColor: PALETTE.gray100 },
-  radioOuter: {
-    width: 18, height: 18, borderRadius: 9,
-    borderWidth: 2, borderColor: PALETTE.gray800,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 10,
-  },
-  radioOuterOn: { borderColor: PALETTE.blue600 },
-  radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: PALETTE.blue600 },
-  radioLabel: { color: PALETTE.gray800, fontWeight:'700' },
-
-  // snooze choices
-  rowBetween: { flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
-  choicesWrap: { flexDirection:'row', flexWrap:'wrap', gap: 8, marginTop: spacing.md },
-  choiceBtn: {
-    paddingVertical: 8, paddingHorizontal: 12,
-    borderRadius: 999, backgroundColor: PALETTE.gray100,
-  },
-  choiceBtnOutline: { borderWidth: 1, borderColor: PALETTE.gray800, backgroundColor: PALETTE.white },
-  choiceBtnOn: { backgroundColor: PALETTE.black, borderColor: PALETTE.black },
-  choiceText: { color: PALETTE.gray800, fontWeight: '800' },
-  choiceTextOn: { color: PALETTE.white },
-
-  // save
-  saveBtn: {
-    marginTop: spacing.xl,
-    backgroundColor: PALETTE.black, borderRadius: radius.md,
-    paddingVertical: 12, alignItems:'center'
-  },
-  saveBtnText: { color: PALETTE.white, fontWeight:'800' },
-
-  // modal
-  modalBackdrop: { flex:1, backgroundColor: PALETTE.overlay, alignItems:'center', justifyContent:'center', padding: spacing.lg },
-  modalCard: { width:'100%', backgroundColor:PALETTE.white, borderRadius:radius.lg, padding:spacing.lg, borderWidth:1, borderColor:PALETTE.gray200 },
-  modalTitle: { fontSize:16, fontWeight:'800', color:PALETTE.gray800, marginBottom:spacing.md, textAlign:'center' },
-  modalInput: {
-    backgroundColor:PALETTE.white, borderWidth:1, borderColor:PALETTE.gray300,
-    borderRadius: radius.md, paddingHorizontal:12, paddingVertical:10, fontSize:14, color:PALETTE.gray800, textAlign:'center'
-  },
-  modalRow: { flexDirection:'row', gap: 8, marginTop: spacing.lg },
-  modalBtn: { flex:1, paddingVertical:10, borderRadius:radius.md, alignItems:'center' },
-  modalBtnGhost: { backgroundColor: PALETTE.gray100 },
-  modalBtnPrimary: { backgroundColor: PALETTE.black },
-  modalBtnText: { fontWeight:'800' },
-});

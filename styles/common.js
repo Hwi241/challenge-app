@@ -11,6 +11,49 @@ import { StyleSheet } from 'react-native';
  * - 기존 export 이름은 유지해서 기존 화면을 깨지 않게 한다.
  */
 
+export const APP_DESIGN_SYSTEM_VERSION = 1;
+
+/**
+ * 앱 전체 공용 디자인 시스템 정책.
+ *
+ * styles/common.js가 앱 전체 일반 UI의 canonical source of truth다.
+ * colors와 spacing은 기존 화면 호환을 위한 adapter이며,
+ * 새 공용 UI 기준은 color와 space를 우선 사용한다.
+ */
+export const APP_DESIGN_SYSTEM_POLICY = Object.freeze({
+ sourceOfTruth: 'styles/common.js',
+ canonicalFlow: Object.freeze([
+  'primitive',
+  'semantic',
+  'component',
+ ]),
+ officialTokenExports: Object.freeze([
+  'primitive',
+  'color',
+  'space',
+  'radius',
+  'font',
+ ]),
+ officialComponentExports: Object.freeze([
+  'surface',
+  'buttonStyles',
+  'text',
+  'card',
+  'input',
+  'badge',
+  'header',
+ ]),
+ compatibilityExports: Object.freeze([
+  'colors',
+  'spacing',
+ ]),
+ preserveExistingVisualValues: true,
+ allowScreenSpecificValues:
+  'onlyWhenNotGeneralReusableUi',
+ rawValueMigrationRule:
+  'generalReusableUiMustReferenceStylesCommon',
+});
+
 /* -------------------------------------------------------------------------- */
 /* Primitive tokens */
 /* -------------------------------------------------------------------------- */
@@ -531,6 +574,13 @@ export const card = StyleSheet.create({
  borderRadius: radius.card,
  padding: spacing.lg,
  },
+ form: {
+ backgroundColor: color.surface,
+ borderColor: color.border,
+ borderWidth: 1,
+ borderRadius: radius.md,
+ padding: spacing.lg,
+ },
  compact: {
  backgroundColor: color.surface,
  borderColor: color.border,
@@ -609,3 +659,40 @@ export const header = {
  headerTintColor: color.primary,
  headerShadowVisible: false,
 };
+
+/**
+ * 앱 전체 공용 디자인 canonical registry.
+ *
+ * 기존 export 객체를 복제하지 않고 같은 identity로 참조한다.
+ * 화면별 전환 작업은 이 registry의 공식 token과 component를
+ * 기준으로 순차 진행한다.
+ */
+export const APP_DESIGN_SYSTEM_STANDARD = Object.freeze({
+ version: APP_DESIGN_SYSTEM_VERSION,
+ name: 'THE_PUSH',
+ sourceOfTruth:
+  APP_DESIGN_SYSTEM_POLICY.sourceOfTruth,
+ policy:
+  APP_DESIGN_SYSTEM_POLICY,
+ tokens: Object.freeze({
+  primitive,
+  color,
+  space,
+  radius,
+  font,
+ }),
+ components: Object.freeze({
+  surface,
+  buttonStyles,
+  text,
+  card,
+  input,
+  badge,
+  header,
+ }),
+ compatibility: Object.freeze({
+  colors,
+  spacing,
+ }),
+ canonical: true,
+});

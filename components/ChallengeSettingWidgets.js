@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { colors, spacing, radius, font } from '../styles/common';
+import { card as canonicalCardStyles, colors, spacing, radius, font } from '../styles/common';
 
 const WEEK_DAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -24,7 +24,7 @@ export function SettingSectionCard({
   style,
 }) {
   return (
-    <View style={[styles.card, style]}>
+    <View style={[canonicalCardStyles.base, style]}>
       <View style={styles.cardHeaderRow}>
         <Text style={styles.cardTitleInline}>{title}</Text>
         <View style={styles.headerActionRow}>
@@ -282,13 +282,6 @@ export function NotificationPreview({ notification, startDate, endDate }) {
 }
 
 const styles = StyleSheet.create({
- card: {
- backgroundColor: colors.surface,
- borderWidth: 1,
- borderColor: colors.border,
- borderRadius: radius.card,
- padding: spacing.lg,
- },
  cardHeaderRow: {
  flexDirection: 'row',
  alignItems: 'center',

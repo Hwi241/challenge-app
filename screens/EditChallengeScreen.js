@@ -12,7 +12,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
-import { buttonStyles, spacing, radius, colors as PALETTE } from '../styles/common';
+import { buttonStyles, card as canonicalCardStyles, spacing, radius, colors as PALETTE } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import BackButton from '../components/BackButton';
@@ -575,7 +575,7 @@ export default function EditChallengeScreen(){
       
 
       {/* 기본 정보 */}
-      <View style={styles.card}>
+      <View style={canonicalCardStyles.form}>
         <Text style={styles.cardTitle}>기본 정보</Text>
 
         <Text style={styles.label}>도전 제목</Text>
@@ -642,7 +642,7 @@ export default function EditChallengeScreen(){
 
       {/* 보상 - 도전 전용 */}
       {!isHabit && (
-        <View style={[styles.card, { marginTop: spacing.lg }]}>
+        <View style={[canonicalCardStyles.form, { marginTop: spacing.lg }]}>
         <Text style={styles.cardTitle}>보상</Text>
         <Text style={styles.label}>보상 내용</Text>
         <TextInput
@@ -908,13 +908,7 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
   screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign: 'center', alignSelf: 'center' },
 
-  card: {
-    backgroundColor: PALETTE.white,
-    borderWidth: 1,
-    borderColor: PALETTE.gray200,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-  },
+
   cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
 
   label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },

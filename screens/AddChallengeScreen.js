@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
 
-import { buttonStyles, spacing, radius, colors as PALETTE } from '../styles/common';
+import { buttonStyles, card as canonicalCardStyles, spacing, radius, colors as PALETTE } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
@@ -419,7 +419,7 @@ const handleGoalChange = useCallback((txt)=>{
         }}
         scrollEventThrottle={16}
       >
-        <View style={styles.card}>
+        <View style={canonicalCardStyles.form}>
           <Text style={styles.cardTitle}>기본 정보</Text>
           <Text style={styles.label}>{habitMode ? '습관 제목' : '도전 제목'}</Text>
           <TextInput value={title} onChangeText={setTitle} placeholder={habitMode ? '습관의 제목을 입력하세요' : '도전의 제목을 입력하세요'} style={styles.input} />
@@ -465,7 +465,7 @@ const handleGoalChange = useCallback((txt)=>{
           </SettingSectionCard>
 
         ) : (
-          <View style={[styles.card, { marginTop: 20 }]}>
+          <View style={[canonicalCardStyles.form, { marginTop: 20 }]}>
             <Text style={styles.cardTitle}>보상</Text>
             <TextInput ref={rewardInputRef} value={reward} onChangeText={setReward} placeholder="보상을 입력하세요" style={styles.input} onFocus={() => scrollToFocusedInput(rewardInputRef, 48)} />
           </View>
@@ -650,8 +650,7 @@ const handleGoalChange = useCallback((txt)=>{
 }
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, paddingBottom: spacing.xl * 3, backgroundColor: PALETTE.gray50 },
-  card: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md, padding: spacing.lg },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
+   cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
   label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },
   input: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: PALETTE.gray800 },
   textarea: { minHeight: 96, lineHeight: 20 },

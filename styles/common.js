@@ -375,6 +375,9 @@ export const surface = StyleSheet.create({
  flex: 1,
  backgroundColor: color.background,
  },
+ navigationContent: {
+ backgroundColor: color.background,
+ },
  screenMuted: {
  flex: 1,
  backgroundColor: color.backgroundMuted,
@@ -1397,6 +1400,11 @@ export const appHeader = StyleSheet.create({
  paddingHorizontal: spacing.lg,
  paddingVertical: spacing.md,
  backgroundColor: 'transparent',
+ },
+
+ standardBackButton: {
+ padding: spacing.xxs,
+ marginRight: spacing.xxs,
  },
 
  compactContainer: {

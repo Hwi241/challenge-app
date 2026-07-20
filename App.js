@@ -27,7 +27,7 @@ import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
 import MyGraphScreen from './screens/MyGraphScreen';
 
-import { colors } from './styles/common';
+import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
 import { cleanExpiredTrash } from './utils/trash';
 import { initializeNotificationsAsync } from './utils/notificationScheduler';
@@ -72,7 +72,7 @@ const linking = {
 
 function StartupScreen() {
   return (
-    <View style={styles.startupWrap}>
+    <View style={[canonicalSurfaceStyles.screen, styles.startupWrap]}>
       <Image
         source={require('./assets/startup.png')}
         style={styles.startupImage}
@@ -124,15 +124,15 @@ export default function App() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar translucent={false} backgroundColor={colors.background} barStyle="dark-content" />
+    <GestureHandlerRootView style={canonicalSurfaceStyles.screen}>
+      <StatusBar translucent={false} backgroundColor={color.background} barStyle="dark-content" />
       <SafeAreaProvider>
         <NavigationContainer linking={linking}>
           <Stack.Navigator
             initialRouteName={showStartup ? 'Startup' : 'ChallengeList'}
             screenOptions={{
               headerShown: false,
-              contentStyle: { backgroundColor: colors.background },
+              contentStyle: canonicalSurfaceStyles.navigationContent,
             }}
           >
             {/* 스타트업 */}
@@ -189,8 +189,6 @@ export default function App() {
 
 const styles = StyleSheet.create({
   startupWrap: {
-    flex: 1,
-    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },

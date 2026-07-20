@@ -1,6 +1,15 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { card as canonicalCardStyles, colors, spacing, radius, font } from '../styles/common';
+import {
+ buttonStyles,
+ card as canonicalCardStyles,
+ color,
+ control as canonicalControlStyles,
+ font,
+ layout as canonicalLayoutStyles,
+ space,
+ text as canonicalTextStyles,
+} from '../styles/common';
 
 const WEEK_DAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -25,30 +34,30 @@ export function SettingSectionCard({
 }) {
   return (
     <View style={[canonicalCardStyles.base, style]}>
-      <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitleInline}>{title}</Text>
-        <View style={styles.headerActionRow}>
+      <View style={[canonicalLayoutStyles.rowBetween, styles.cardHeaderSpacing]}>
+        <Text style={canonicalTextStyles.sectionTitle}>{title}</Text>
+        <View style={[canonicalLayoutStyles.row, styles.headerActionGap]}>
           {!!onClear && (
             <TouchableOpacity
-              style={styles.clearCircleBtn}
+              style={canonicalControlStyles.clearCircleCompact}
               onPress={onClear}
               activeOpacity={0.85}
               accessibilityLabel={clearAccessibilityLabel}
             >
-              <Text style={styles.clearCircleText}>×</Text>
+              <Text style={canonicalControlStyles.clearCircleCompactText}>×</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={styles.headerSmallBtn}
+            style={buttonStyles.inlinePrimaryCompact.container}
             onPress={onActionPress}
             activeOpacity={0.9}
           >
-            <Text style={styles.headerSmallBtnText}>{actionLabel}</Text>
+            <Text style={buttonStyles.inlinePrimaryCompact.label}>{actionLabel}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.previewBox}>
+      <View style={canonicalCardStyles.preview}>
         {children}
       </View>
     </View>
@@ -57,7 +66,7 @@ export function SettingSectionCard({
 
 export function GoalCyclePreview({ cycle }) {
   if (!cycle) {
-    return <Text style={styles.previewText}>주기 없음</Text>;
+    return <Text style={canonicalTextStyles.previewCentered}>주기 없음</Text>;
   }
 
   if (cycle.type === 'weekly') {
@@ -68,13 +77,21 @@ export function GoalCyclePreview({ cycle }) {
           {WEEK_DAYS_KO.map((d) => {
             const on = selected.includes(d);
             return (
-              <View key={d} style={[styles.dayCircle, on ? styles.dayCircleOn : styles.dayCircleOff]}>
-                <Text style={[styles.dayCircleText, on && styles.dayCircleTextOn]}>{d}</Text>
+              <View key={d} style={[
+ canonicalControlStyles.previewDayCircle,
+ on
+ ? canonicalControlStyles.previewDayCircleOn
+ : canonicalControlStyles.previewDayCircleOff,
+ ]}>
+                <Text style={[
+ canonicalControlStyles.previewDayCircleText,
+ on && canonicalControlStyles.previewDayCircleTextOn,
+ ]}>{d}</Text>
               </View>
             );
           })}
         </View>
-        <Text style={styles.previewText}>
+        <Text style={canonicalTextStyles.previewCentered}>
           {selected.length ? `${selected.join(', ')} 반복` : '요일 미선택'}
         </Text>
       </View>
@@ -88,21 +105,21 @@ export function GoalCyclePreview({ cycle }) {
       .sort((a, b) => a - b);
 
     if (!dates.length) {
-      return <Text style={styles.previewText}>날짜 미선택</Text>;
+      return <Text style={canonicalTextStyles.previewCentered}>날짜 미선택</Text>;
     }
 
     return (
-      <View style={styles.dateChipWrap}>
+      <View style={styles.chipWrap}>
         {dates.map((d) => (
-          <View key={d} style={styles.dateChip}>
-            <Text style={styles.dateChipText}>{d}일</Text>
+          <View key={d} style={canonicalControlStyles.previewDateChip}>
+            <Text style={canonicalControlStyles.previewDateChipText}>{d}일</Text>
           </View>
         ))}
       </View>
     );
   }
 
-  return <Text style={styles.previewText}>주기 없음</Text>;
+  return <Text style={canonicalTextStyles.previewCentered}>주기 없음</Text>;
 }
 
 const SimpleNotificationPreview = ({ days = [], times = [], time }) => {
@@ -113,13 +130,21 @@ const SimpleNotificationPreview = ({ days = [], times = [], time }) => {
         {WEEK_DAYS_KO.map((d) => {
           const on = days.includes(d);
           return (
-            <View key={d} style={[styles.dayCircle, on ? styles.dayCircleOn : styles.dayCircleOff]}>
-              <Text style={[styles.dayCircleText, on && styles.dayCircleTextOn]}>{d}</Text>
+            <View key={d} style={[
+ canonicalControlStyles.previewDayCircle,
+ on
+ ? canonicalControlStyles.previewDayCircleOn
+ : canonicalControlStyles.previewDayCircleOff,
+ ]}>
+              <Text style={[
+ canonicalControlStyles.previewDayCircleText,
+ on && canonicalControlStyles.previewDayCircleTextOn,
+ ]}>{d}</Text>
             </View>
           );
         })}
       </View>
-      <Text style={styles.previewText}>{toShow.length ? toShow.join(' ') : '시간 미설정'}</Text>
+      <Text style={canonicalTextStyles.previewCentered}>{toShow.length ? toShow.join(' ') : '시간 미설정'}</Text>
     </View>
   );
 };
@@ -186,7 +211,7 @@ const FullRangeNotificationPreview = ({ payload = {}, startDate, endDate }) => {
   const endDateObj = normalizeDate(endDate);
 
   if (!start || !endDateObj) {
-    return <Text style={styles.previewText}>기간이 설정되지 않았습니다.</Text>;
+    return <Text style={canonicalTextStyles.previewCentered}>기간이 설정되지 않았습니다.</Text>;
   }
   const byDate = payload.byDate || {};
   const months = [];
@@ -216,7 +241,7 @@ const FullRangeNotificationPreview = ({ payload = {}, startDate, endDate }) => {
           while (cells.length % 7 !== 0) cells.push(null);
 
           return (
-            <View key={`${y}-${mi}`} style={{ marginBottom: spacing.sm }}>
+            <View key={`${y}-${mi}`} style={{ marginBottom: space.xs }}>
               <Text style={styles.fullRangeMonthTitle}>{y}.{pad2(mi + 1)}</Text>
               <View style={styles.fullRangeWeekRow}>
                 {['일', '월', '화', '수', '목', '금', '토'].map((w, i) => (
@@ -260,7 +285,7 @@ const FullRangeNotificationPreview = ({ payload = {}, startDate, endDate }) => {
 
 export function NotificationPreview({ notification, startDate, endDate }) {
   if (!notification?.mode) {
-    return <Text style={styles.previewText}>알림 없음</Text>;
+    return <Text style={canonicalTextStyles.previewCentered}>알림 없음</Text>;
   }
 
   const { mode, payload = {} } = notification;
@@ -278,181 +303,106 @@ export function NotificationPreview({ notification, startDate, endDate }) {
     return <FullRangeNotificationPreview payload={payload} startDate={startDate} endDate={endDate} />;
   }
 
-  return <Text style={styles.previewText}>알림 없음</Text>;
+  return <Text style={canonicalTextStyles.previewCentered}>알림 없음</Text>;
 }
 
 const styles = StyleSheet.create({
- cardHeaderRow: {
- flexDirection: 'row',
- alignItems: 'center',
- justifyContent: 'space-between',
- marginBottom: spacing.md,
+ cardHeaderSpacing: {
+ marginBottom: space.sm,
  },
- cardTitleInline: {
- fontSize: font.size.bodyLarge,
- fontWeight: font.weight.heavy,
- color: colors.textPrimary,
+
+ headerActionGap: {
+ columnGap: space.xs,
  },
- headerActionRow: {
- flexDirection: 'row',
- alignItems: 'center',
- columnGap: spacing.sm,
- },
- clearCircleBtn: {
- width: 22.4,
- height: 22.4,
- borderRadius: 11.2,
- backgroundColor: colors.surface,
- borderWidth: 1,
- borderColor: colors.gray700,
- alignItems: 'center',
- justifyContent: 'center',
- },
- clearCircleText: {
- color: colors.gray700,
- fontSize: 14.4,
- fontWeight: font.weight.heavy,
- lineHeight: 14.4,
- includeFontPadding: false,
- },
- headerSmallBtn: {
- minWidth: 52,
- paddingVertical: spacing.xs,
- paddingHorizontal: 10,
- borderRadius: radius.pill,
- backgroundColor: colors.primary,
- alignItems: 'center',
- justifyContent: 'center',
- },
- headerSmallBtnText: {
- color: colors.textInverse,
- fontSize: font.size.meta,
- fontWeight: font.weight.heavy,
- },
- previewBox: {
- backgroundColor: colors.backgroundMuted,
- borderRadius: radius.sm,
- padding: spacing.md,
- borderWidth: 1,
- borderColor: colors.borderMuted,
- },
- previewText: {
- fontSize: font.size.meta,
- color: colors.textPrimary,
- textAlign: 'center',
- },
+
  daysRow: {
  flexDirection: 'row',
  justifyContent: 'space-between',
- marginBottom: spacing.xs,
+ marginBottom: space.xxs + 2,
  },
- dayCircle: {
- width: 22,
- height: 22,
- borderRadius: 11,
- alignItems: 'center',
- justifyContent: 'center',
- borderWidth: 1,
- },
- dayCircleOff: {
- borderColor: colors.gray300,
- backgroundColor: colors.surface,
- },
- dayCircleOn: {
- borderColor: colors.primary,
- backgroundColor: colors.primary,
- },
- dayCircleText: {
- fontSize: font.size.caption,
- fontWeight: font.weight.heavy,
- color: colors.textPrimary,
- },
- dayCircleTextOn: {
- color: colors.textInverse,
- },
- dateChipWrap: {
+
+ chipWrap: {
  flexDirection: 'row',
  flexWrap: 'wrap',
  justifyContent: 'center',
  },
- dateChip: {
- minWidth: 28,
- height: 24,
- borderRadius: 12,
- alignItems: 'center',
- justifyContent: 'center',
- backgroundColor: colors.primary,
- paddingHorizontal: spacing.sm,
- marginRight: spacing.xs,
- marginBottom: spacing.xs,
- },
- dateChipText: {
- fontSize: font.size.caption,
- fontWeight: font.weight.heavy,
- color: colors.textInverse,
- },
+
  weekGrid: {
  flexDirection: 'row',
  },
+
  weekCol: {
  flex: 1,
- paddingHorizontal: spacing.xxs,
+ paddingHorizontal: space.xxs,
  },
+
  weekColDivider: {
  borderRightWidth: 1,
- borderRightColor: colors.border,
+ borderRightColor: color.border,
  },
+
  weekDayLabel: {
  fontSize: font.size.meta,
  fontWeight: font.weight.heavy,
- color: colors.textSecondary,
+ color: color.textSecondary,
  textAlign: 'center',
  marginBottom: 2,
  },
+
  weekTimeText: {
  fontSize: font.size.caption,
  textAlign: 'center',
- color: colors.textPrimary,
+ color: color.textPrimary,
  },
+
  monthOuter: {
  borderTopWidth: 1,
- borderTopColor: colors.border,
+ borderTopColor: color.border,
  },
+
  monthRow: {
  flexDirection: 'row',
  },
+
  monthRowDivider: {
  borderBottomWidth: 1,
- borderBottomColor: colors.border,
+ borderBottomColor: color.border,
  },
+
  monthCell: {
  flex: 1,
- padding: spacing.xxs,
+ padding: space.xxs,
  },
+
  monthCellDivider: {
  borderRightWidth: 1,
- borderRightColor: colors.border,
+ borderRightColor: color.border,
  },
+
  monthDateText: {
  fontSize: font.size.caption,
  fontWeight: font.weight.heavy,
- color: colors.textSecondary,
+ color: color.textSecondary,
  textAlign: 'right',
  },
+
  monthTimeText: {
  fontSize: font.size.caption,
- color: colors.textPrimary,
+ color: color.textPrimary,
  },
+
  fullRangeMonthTitle: {
  fontSize: font.size.meta,
  fontWeight: font.weight.heavy,
- color: colors.textSecondary,
+ color: color.textSecondary,
  textAlign: 'center',
  },
+
  fullRangeWeekRow: {
  flexDirection: 'row',
- marginBottom: spacing.xxs,
+ marginBottom: space.xxs,
  },
+
  fullRangeWeekCell: {
  flex: 1,
  alignItems: 'center',

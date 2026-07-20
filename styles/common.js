@@ -549,6 +549,23 @@ export const buttonStyles = {
  },
  },
 
+ inlinePrimaryCompact: {
+ container: {
+ minWidth: 52,
+ paddingVertical: space.xxs + 2,
+ paddingHorizontal: space.xs + 2,
+ borderRadius: radius.pill,
+ backgroundColor: color.primary,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+ label: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.heavy,
+ color: color.textInverse,
+ },
+ },
+
  smallOutline: {
  container: {
  minWidth: 52,
@@ -752,6 +769,13 @@ export const text = StyleSheet.create({
  fontSize: font.size.bodySmall,
  fontWeight: font.weight.heavy,
  color: color.textPrimary,
+ },
+
+ previewCentered: {
+ fontSize: font.size.meta,
+ fontWeight: font.weight.regular,
+ color: color.textPrimary,
+ textAlign: 'center',
  },
 });
 
@@ -1291,6 +1315,72 @@ export const control = StyleSheet.create({
  },
 
  selectCircleTextOn: {
+ color: color.textInverse,
+ },
+
+ clearCircleCompact: {
+ width: 22.4,
+ height: 22.4,
+ borderRadius: 11.2,
+ backgroundColor: color.surface,
+ borderWidth: 1,
+ borderColor: primitive.neutral[700],
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ clearCircleCompactText: {
+ color: primitive.neutral[700],
+ fontSize: 14.4,
+ fontWeight: font.weight.heavy,
+ lineHeight: 14.4,
+ includeFontPadding: false,
+ },
+
+ previewDayCircle: {
+ width: 22,
+ height: 22,
+ borderRadius: 11,
+ alignItems: 'center',
+ justifyContent: 'center',
+ borderWidth: 1,
+ },
+
+ previewDayCircleOff: {
+ borderColor: primitive.neutral[300],
+ backgroundColor: color.surface,
+ },
+
+ previewDayCircleOn: {
+ borderColor: color.primary,
+ backgroundColor: color.primary,
+ },
+
+ previewDayCircleText: {
+ fontSize: font.size.caption,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
+ },
+
+ previewDayCircleTextOn: {
+ color: color.textInverse,
+ },
+
+ previewDateChip: {
+ minWidth: 28,
+ height: 24,
+ borderRadius: 12,
+ alignItems: 'center',
+ justifyContent: 'center',
+ backgroundColor: color.primary,
+ paddingHorizontal: space.xs,
+ marginRight: space.xxs + 2,
+ marginBottom: space.xxs + 2,
+ },
+
+ previewDateChipText: {
+ fontSize: font.size.caption,
+ fontWeight: font.weight.heavy,
  color: color.textInverse,
  },
 

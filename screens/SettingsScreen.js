@@ -13,7 +13,16 @@ import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 
-import { colors, spacing, radius, font, buttonStyles, card as cardTokens, text as textTokens } from '../styles/common';
+import {
+ buttonStyles,
+ card as canonicalCardStyles,
+ font,
+ layout as canonicalLayoutStyles,
+ primitive,
+ space,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 import BackButton from '../components/BackButton';
 import { getNotificationsEnabled, setNotificationsEnabled } from '../utils/appSettings';
 
@@ -186,31 +195,31 @@ export default function SettingsScreen() {
   }, [openStorePage]);
 
     return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <BackButton title="설정" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={canonicalLayoutStyles.screenContent}>
       {/* 알림 토글 */}
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <Text style={styles.label}>알림</Text>
+      <View style={canonicalCardStyles.base}>
+        <View style={canonicalLayoutStyles.rowBetween}>
+          <Text style={canonicalTextStyles.cardTitle}>알림</Text>
           <Switch
             value={enabled}
             onValueChange={toggleNotifications}
             disabled={loading}
-            thumbColor={colors.black}
-            trackColor={{ false: colors.gray400, true: colors.gray600 }}
-            ios_backgroundColor={colors.gray400}
+            thumbColor={primitive.black}
+            trackColor={{ false: primitive.neutral[400], true: primitive.neutral[600] }}
+            ios_backgroundColor={primitive.neutral[400]}
           />
         </View>
-        <Text style={styles.hint}>
+        <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
           앱 전체 알림을 켜거나 끕니다. 상세 스케줄은 각 도전에서 설정하세요.
         </Text>
       </View>
 
             {/* 데이터 연동 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <Text style={[styles.label, { marginBottom: spacing.sm }]}>데이터 연동</Text>
-        <Text style={[styles.hint, { marginTop: 0, marginBottom: spacing.md }]}>
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>데이터 연동</Text>
+        <Text style={[canonicalTextStyles.bodyMuted, styles.descriptionSpacing]}>
           Health Connect와 이후 추가될 외부 데이터 출처를 관리합니다. 연결된 데이터만 인증에 사용할 수 있어요.
         </Text>
         <TouchableOpacity
@@ -223,8 +232,8 @@ export default function SettingsScreen() {
       </View>
 
 {/* 개선의견 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <Text style={[styles.label, { marginBottom: spacing.sm }]}>피드백</Text>
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>피드백</Text>
         <TouchableOpacity
           style={buttonStyles.primary.container}
           onPress={sendFeedback}
@@ -235,8 +244,8 @@ export default function SettingsScreen() {
       </View>
 
       {/* 앱 리뷰 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <Text style={[styles.label, { marginBottom: spacing.sm }]}>리뷰</Text>
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>리뷰</Text>
         <TouchableOpacity
           style={buttonStyles.primary.container}
           onPress={requestStoreReview}
@@ -247,8 +256,8 @@ export default function SettingsScreen() {
       </View>
 
       {/* 데이터 백업/복원 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <Text style={[styles.label, { marginBottom: spacing.sm }]}>데이터</Text>
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>데이터</Text>
         <TouchableOpacity
           style={buttonStyles.outlineSoft.container}
           onPress={() => navigation.navigate('Backup')}
@@ -259,8 +268,8 @@ export default function SettingsScreen() {
       </View>
 
       {/* 휴지통 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <Text style={[styles.label, { marginBottom: spacing.sm }]}>휴지통</Text>
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>휴지통</Text>
         <TouchableOpacity
           style={buttonStyles.outlineSoft.container}
           onPress={() => navigation.navigate('Trash')}
@@ -271,15 +280,15 @@ export default function SettingsScreen() {
       </View>
 
       {/* 버전 정보 */}
-      <View style={[styles.card, { marginTop: spacing.lg }]}>
-        <Text style={[styles.label, { marginBottom: spacing.sm }]}>버전 정보</Text>
-        <View style={styles.kvRow}>
-          <Text style={styles.kKey}>앱 버전</Text>
-          <Text style={styles.kVal}>{version}</Text>
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>버전 정보</Text>
+        <View style={[canonicalLayoutStyles.rowBetween, styles.infoRowPadding]}>
+          <Text style={canonicalTextStyles.bodyMuted}>앱 버전</Text>
+          <Text style={styles.valueText}>{version}</Text>
         </View>
-        <View style={styles.kvRow}>
-          <Text style={styles.kKey}>빌드 번호</Text>
-          <Text style={styles.kVal}>{build}</Text>
+        <View style={[canonicalLayoutStyles.rowBetween, styles.infoRowPadding]}>
+          <Text style={canonicalTextStyles.bodyMuted}>빌드 번호</Text>
+          <Text style={styles.valueText}>{build}</Text>
         </View>
       </View>
           </ScrollView>
@@ -288,36 +297,28 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
- container: { padding: spacing.lg },
-
- card: {
- ...cardTokens.base,
+ sectionSpacing: {
+ marginTop: space.md,
  },
 
- row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-
- label: {
- ...textTokens.cardTitle,
- },
- hint: {
- ...textTokens.bodyMuted,
- marginTop: spacing.sm,
+ sectionTitleMargin: {
+ marginBottom: space.xs,
  },
 
- kvRow: {
- flexDirection: 'row',
- alignItems: 'center',
- justifyContent: 'space-between',
- paddingVertical: spacing.sm,
+ topSpacer: {
+ marginTop: space.xs,
  },
- kKey: {
- fontSize: font.size.body,
- fontWeight: font.weight.regular,
- color: colors.textSecondary,
+
+ descriptionSpacing: {
+ marginBottom: space.sm,
  },
- kVal: {
- fontSize: font.size.body,
+
+ infoRowPadding: {
+ paddingVertical: space.xs,
+ },
+
+ valueText: {
+ ...canonicalTextStyles.body,
  fontWeight: font.weight.bold,
- color: colors.textPrimary,
  },
 });

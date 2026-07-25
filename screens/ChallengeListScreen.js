@@ -6,7 +6,18 @@ import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/n
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
-import { buttonStyles, colors, spacing, radius } from '../styles/common';
+import {
+  buttonStyles,
+  card as canonicalCardStyles,
+  color,
+  font,
+  layout as canonicalLayoutStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+  text as canonicalTextStyles,
+} from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import { moveToTrash } from '../utils/trash';
@@ -18,7 +29,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 /* ---------- 상수 ---------- */
 const EDGE = 8;
-const CARD_BORDER = colors.border;
+const CARD_BORDER = color.border;
 const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
 const CONTROLS_H = 44;
@@ -411,14 +422,18 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
   );
 
   return (
-    <View style={styles.cardHeaderRow}>
+    <View style={canonicalLayoutStyles.rowBetween}>
       <Text
-        style={[styles.title, isCompactVariant && styles.titleCompact, { flex: 1, marginRight: 8 }]}
+        style={[
+            canonicalTextStyles.sectionTitle,
+            styles.titleFlex,
+            isCompactVariant && styles.titleCompact,
+          ]}
         numberOfLines={isCompactVariant ? 1 : 2}
       >
         {item.title ?? '(제목 없음)'}
       </Text>
-      <View style={styles.cardHeaderRight}>
+      <View style={canonicalLayoutStyles.row}>
         {showCollapseToggle && (
           <TouchableOpacity
             style={styles.cardCollapseToggleBtn}
@@ -441,14 +456,29 @@ const ChallengeCardMeta = memo(function ChallengeCardMeta({
 }) {
   return (
     <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
-      <Text style={styles.meta}>
+      <Text
+          style={[
+            canonicalTextStyles.meta,
+            styles.meta,
+          ]}
+        >
         기간 {item.startDate ?? '-'}{item.endDate ? ` ~ ${item.endDate}` : ''}
       </Text>
       {item.type === 'habit' ? (
         <>
-          <Text style={styles.meta}>총 기록 {item.currentScore ?? 0}회</Text>
+          <Text
+          style={[
+            canonicalTextStyles.meta,
+            styles.meta,
+          ]}
+        >총 기록 {item.currentScore ?? 0}회</Text>
           {item.habitCycle && (
-            <Text style={styles.meta}>
+            <Text
+          style={[
+            canonicalTextStyles.meta,
+            styles.meta,
+          ]}
+        >
               주기 {item.habitCycle.type === 'weekly'
                 ? (item.habitCycle.days || []).join(', ')
                 : '매월 ' + (item.habitCycle.dates || []).sort((a, b) => a - b).join(', ') + '일'
@@ -458,9 +488,19 @@ const ChallengeCardMeta = memo(function ChallengeCardMeta({
         </>
       ) : (
         <>
-          <Text style={styles.meta}>진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
+          <Text
+          style={[
+            canonicalTextStyles.meta,
+            styles.meta,
+          ]}
+        >진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
           {!!(item.rewardTitle || item.reward) && (
-            <Text style={styles.meta}>보상 {item.rewardTitle ?? item.reward}</Text>
+            <Text
+          style={[
+            canonicalTextStyles.meta,
+            styles.meta,
+          ]}
+        >보상 {item.rewardTitle ?? item.reward}</Text>
           )}
         </>
       )}
@@ -480,8 +520,20 @@ const ChallengeCardReorderControls = memo(function ChallengeCardReorderControls(
   onPressDelete,
 }) {
   return (
-    <View style={[styles.controlsRow, isCompactVariant && styles.controlsRowCompact]}>
-      <View style={[styles.arrowsInline, !showControls && { opacity: 0 }]}>
+    <View
+            style={[
+              canonicalLayoutStyles.rowBetween,
+              styles.controlsRow,
+              isCompactVariant && styles.controlsRowCompact,
+            ]}
+          >
+      <View
+            style={[
+              canonicalLayoutStyles.row,
+              styles.arrowsInline,
+              !showControls && { opacity: 0 },
+            ]}
+          >
         <TouchableOpacity
           onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'up' }) : undefined}
           activeOpacity={0.9}
@@ -499,7 +551,13 @@ const ChallengeCardReorderControls = memo(function ChallengeCardReorderControls(
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.actionsRight, !showControls && { opacity: 0 }]}>
+      <View
+            style={[
+              canonicalLayoutStyles.row,
+              styles.actionsRight,
+              !showControls && { opacity: 0 },
+            ]}
+          >
         <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
           <Text style={styles.actionDarkText}>수정</Text>
         </TouchableOpacity>
@@ -622,7 +680,12 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
   };
 
   return (
-    <View style={styles.compactCardRow}>
+    <View
+          style={[
+            canonicalLayoutStyles.row,
+            styles.compactCardRow,
+          ]}
+        >
       <Text style={styles.compactCardTitle} numberOfLines={1}>
         {item.title ?? '(제목 없음)'}
       </Text>
@@ -736,7 +799,7 @@ const CardBody = React.forwardRef(function CardBody({
         onLongPress={!isDone ? onLongPress : undefined}
         delayLongPress={160}
         style={[
-          styles.card,
+          canonicalCardStyles.list,
           styles.cardCompact,
         ]}
       >
@@ -762,9 +825,9 @@ const CardBody = React.forwardRef(function CardBody({
       onLongPress={(!showControls && !isDone) ? onLongPress : undefined}
       delayLongPress={160}
       style={[
-        styles.card,
+        canonicalCardStyles.list,
         isFloatingVariant && styles.cardFloating,
-        showControls && styles.selectedCard
+        showControls && styles.selectedCard,
       ]}
     >
       {Content}
@@ -1371,7 +1434,7 @@ export default function ChallengeListScreen() {
   }, [data, sortMode]);
 
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
-  const listBottomPad = spacing.xxl + Math.max(insets.bottom, 12);
+  const listBottomPad = (space.xxl + space.xxs) + Math.max(insets.bottom, 12);
   const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
   const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
   const layoutWidth = listFrameWidth || windowWidth;
@@ -1509,9 +1572,14 @@ export default function ChallengeListScreen() {
   const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       {/* 헤더 */}
-      <View style={styles.header}>
+      <View
+        style={[
+          canonicalLayoutStyles.rowBetween,
+          styles.header,
+        ]}
+      >
         <TouchableOpacity
           style={styles.hamburgerBtn}
           onPress={() => navigationRef.current.navigate('Settings')}
@@ -1521,7 +1589,14 @@ export default function ChallengeListScreen() {
         >
           <Text style={styles.hamburgerIcon}>☰</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>THE - PUSH</Text>
+        <Text
+        style={[
+          canonicalTextStyles.headerTitle,
+          styles.headerTitleLayout,
+        ]}
+      >
+        THE - PUSH
+      </Text>
         <TouchableOpacity
           style={[buttonStyles.compactRight, styles.hofBtn]}
           onPress={() => navigationRef.current.navigate('HallOfFameScreen')}
@@ -1535,7 +1610,10 @@ export default function ChallengeListScreen() {
 
       {/* 정렬 버튼 행 */}
       <TouchableOpacity
-        style={styles.sortBarBtn}
+        style={[
+          canonicalLayoutStyles.row,
+          styles.sortBarBtn,
+        ]}
         onPress={() => setShowSortModal(true)}
         activeOpacity={0.8}
         disabled={reorderActive}
@@ -1683,8 +1761,21 @@ export default function ChallengeListScreen() {
         <TouchableWithoutFeedback onPress={() => setShowSortModal(false)}>
           <View style={styles.sortModalBackdrop} />
         </TouchableWithoutFeedback>
-        <View style={styles.sortModalCard}>
-          <Text style={styles.sortModalTitle}>정렬 / 필터</Text>
+        <View
+        style={[
+          canonicalCardStyles.base,
+          styles.sortModalCard,
+        ]}
+      >
+          <Text
+          style={[
+            canonicalTextStyles.value,
+            canonicalTextStyles.center,
+            styles.sortModalTitle,
+          ]}
+        >
+          정렬 / 필터
+        </Text>
           {[
             { key: 'newest', label: '최신순' },
             { key: 'oldest', label: '오래된순' },
@@ -1693,7 +1784,11 @@ export default function ChallengeListScreen() {
           ].map(opt => (
             <TouchableOpacity
               key={opt.key}
-              style={[styles.sortOption, sortMode === opt.key && styles.sortOptionOn]}
+              style={[
+            canonicalLayoutStyles.rowBetween,
+            styles.sortOption,
+            sortMode === opt.key && styles.sortOptionOn,
+          ]}
               onPress={() => applySortMode(opt.key)}
               activeOpacity={0.9}
             >
@@ -1712,53 +1807,73 @@ export default function ChallengeListScreen() {
 
 /* ---------- 스타일 ---------- */
 const styles = StyleSheet.create({
-  sortBarBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 6, marginBottom: 4 },
-  sortBarText: { fontSize: 12, color: colors.gray600, fontWeight: '700' },
-  sortBarArrow: { fontSize: 10, color: colors.gray400, marginLeft: 4 },
-  sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay },
-  sortModalCard: { position: 'absolute', top: 100, left: spacing.lg, right: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, elevation: 8 },
-  sortModalTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' },
-  sortOption: { paddingVertical: 12, paddingHorizontal: spacing.md, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sortOptionOn: { backgroundColor: colors.surfaceMuted },
-  sortOptionText: { fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
-  sortOptionTextOn: { fontWeight: '800', color: colors.textPrimary },
-  sortOptionCheck: { fontSize: 14, color: colors.textPrimary, fontWeight: '900' },
-  container: { flex: 1, backgroundColor: colors.background },
-
-  header: {
+  sortBarBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: 6,
+    marginBottom: 4,
+  },
+  sortBarText: {
+    fontSize: font.size.meta,
+    color: color.textSecondary,
+    fontWeight: font.weight.bold,
+  },
+  sortBarArrow: { fontSize: 10, color: color.textDisabled, marginLeft: 4 },
+  sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: color.overlay },
+  sortModalCard: {
+    position: 'absolute',
+    top: 100,
+    left: space.md,
+    right: space.md,
+    elevation: 8,
+  },
+  sortModalTitle: {
+    marginBottom: space.sm,
+  },
+  sortOption: {
+    paddingVertical: 12,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.md,
+  },
+  sortOptionOn: { backgroundColor: color.surfaceMuted },
+  sortOptionText: {
+    fontSize: font.size.body,
+    color: color.textPrimary,
+    fontWeight: font.weight.semibold,
+  },
+  sortOptionTextOn: {
+    fontWeight: font.weight.heavy,
+    color: color.textPrimary,
+  },
+  sortOptionCheck: { fontSize: 14, color: color.textPrimary, fontWeight: '900' },
+  header: {
+    paddingHorizontal: space.md,
+    paddingTop: space.md,
+    paddingBottom: space.xs,
     zIndex: 0,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.gray800,
+  headerTitleLayout: {
     position: 'absolute',
     left: 0,
     right: 0,
-    textAlign: 'center',
     zIndex: -1,
   },
-  headerRight: { position: 'absolute', right: spacing.lg, top: '50%', transform: [{ translateY: -12 }] },
+  headerRight: { position: 'absolute', right: space.md, top: '50%', transform: [{ translateY: -12 }] },
   hofBtn: { paddingVertical: 4, paddingHorizontal: 10 },
   hofBtnText: { fontSize: 13, fontWeight: '700' },
 
   /* 카드 */
-  cardWrap: { marginTop: spacing.md },
+  cardWrap: { marginTop: space.sm },
   cardWrapWide: {
     paddingHorizontal: 4,
   },
   challengeListContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: space.md,
     paddingBottom: 0,
   },
   challengeListWideContent: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: space.sm,
     paddingBottom: 0,
   },
   challengeListMasonryRow: {
@@ -1773,15 +1888,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   cardContentCompact: {},
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+
   cardCollapseToggleBtn: {
     width: 22,
     height: 24,
@@ -1793,26 +1900,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 15,
     fontWeight: '700',
-    color: colors.gray500,
+    color: color.textTertiary,
     includeFontPadding: false,
   },
   compactCardRow: {
     minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   compactCardTitle: {
     maxWidth: '38%',
     flexShrink: 1,
     fontSize: 14,
     fontWeight: '800',
-    color: colors.gray800,
+    color: color.textPrimary,
     marginRight: 8,
   },
   compactProgressText: {
     fontSize: 12,
     fontWeight: '800',
-    color: colors.gray600,
+    color: color.textSecondary,
   },
   compactSpacer: {
     flex: 1,
@@ -1829,7 +1934,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 15,
     fontWeight: '700',
-    color: colors.gray500,
+    color: color.textTertiary,
     includeFontPadding: false,
   },
   compactPctText: {
@@ -1837,7 +1942,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '900',
-    color: colors.textPrimary,
+    color: color.textPrimary,
     marginLeft: 4,
   },
   compactHabitIndicator: {
@@ -1850,29 +1955,29 @@ const styles = StyleSheet.create({
     width: 52,
     paddingHorizontal: 0,
     borderRadius: radius.md,
-    backgroundColor: colors.primary,
+    backgroundColor: color.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 4,
   },
   compactRewardBtn: {
-    backgroundColor: colors.surface,
+    backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: color.primary,
   },
   compactActionBtnDisabled: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: color.border,
   },
   compactActionText: {
-    color: colors.textInverse,
+    color: color.textInverse,
     fontSize: 12,
     fontWeight: '900',
     includeFontPadding: false,
   },
   compactActionTextDisabled: {
-    color: colors.textDisabled,
+    color: primitive.black,
   },
   titleCompact: {
     fontSize: 14,
@@ -1881,7 +1986,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   controlsRowCompact: {
-    marginTop: spacing.xs,
+    marginTop: (space.xxs + 2),
     minHeight: 0,
   },
   uploadNowBtnCompact: {
@@ -1896,84 +2001,89 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: CARD_BORDER,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-  },
   cardContent: { },
   dimmedContent: { opacity: 0.55 },
 
   pctCircleWrap: { alignItems:'center', justifyContent:'center', position:'relative', width:26, height:26 },
-  pctCircleLabel: { position:'absolute', fontSize:6, fontWeight:'800', color: colors.textPrimary, textAlign:'center', includeFontPadding:false },
+  pctCircleLabel: { position:'absolute', fontSize:6, fontWeight:'800', color: color.textPrimary, textAlign:'center', includeFontPadding:false },
 
   uploadNowBtn: {
     marginTop: 10, height: 48, borderRadius: radius.lg,
-    backgroundColor: colors.primary, alignItems:'center', justifyContent:'center',
+    backgroundColor: color.primary, alignItems:'center', justifyContent:'center',
   },
-  uploadNowText: { fontSize:16, fontWeight:'800', color: colors.textInverse },
+  uploadNowText: { fontSize:16, fontWeight:'800', color: color.textInverse },
 
   selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },
-  title: { fontSize: 16, fontWeight: '800', color: colors.gray800 },
+  titleFlex: {
+    flex: 1,
+    marginRight: 8,
+  },
   metaWrap: { marginTop: 6 },
-  meta: { fontSize: 12, color: colors.gray600, marginTop: 2 },
+  meta: { marginTop: 2 },
 
-  controlsRow: { marginTop: spacing.sm, minHeight: CONTROLS_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  controlsRow: {
+    marginTop: space.xs,
+    minHeight: CONTROLS_H,
+  },
 
-  arrowsInline: { flexDirection: 'row', alignItems: 'center', height: CONTROLS_H },
+  arrowsInline: {
+    height: CONTROLS_H,
+  },
   circleArrowSmall: {
     width: ARROW_SIZE, height: ARROW_SIZE, borderRadius: 20,
-    backgroundColor: colors.black, borderWidth: 1, borderColor: colors.black,
+    backgroundColor: primitive.black, borderWidth: 1, borderColor: primitive.black,
     alignItems: 'center', justifyContent: 'center',
-    elevation: 3, shadowColor: colors.black, shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 2 },
+    elevation: 3, shadowColor: primitive.black, shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 2 },
   },
-  circleArrowTxt: { color: colors.background, fontSize: 18, fontWeight: '900', lineHeight: 18, includeFontPadding: false },
+  circleArrowTxt: { color: color.background, fontSize: 18, fontWeight: '900', lineHeight: 18, includeFontPadding: false },
 
-  actionsRight: { flexDirection: 'row', alignItems: 'center', columnGap: 8, height: CONTROLS_H },
+  actionsRight: {
+    columnGap: 8,
+    height: CONTROLS_H,
+  },
   actionDarkBtn: {
-    backgroundColor: colors.black, borderWidth: 1, borderColor: colors.black,
+    backgroundColor: primitive.black, borderWidth: 1, borderColor: primitive.black,
     paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md,
   },
-  actionDarkText: { color: colors.background, fontSize: 12, fontWeight: '800' },
+  actionDarkText: { color: color.background, fontSize: 12, fontWeight: '800' },
 
-  bigActionBtn: { marginTop: spacing.sm, alignSelf: 'stretch', paddingVertical: 14, borderRadius: radius.lg },
+  bigActionBtn: { marginTop: space.xs, alignSelf: 'stretch', paddingVertical: 14, borderRadius: radius.lg },
   bigActionText: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
   disabledBig: { opacity: 0.5 },
 
   outlineBigBtn: {
-    backgroundColor: colors.background,
-    borderWidth: 2, borderColor: colors.primary,
-    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: spacing.sm,
+    backgroundColor: color.background,
+    borderWidth: 2, borderColor: color.primary,
+    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: space.xs,
   },
-  outlineBigText: { color: colors.primary, fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  outlineBigText: { color: color.primary, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   expiredBtn: {
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: spacing.sm,
+    backgroundColor: color.surfaceMuted,
+    borderWidth: 1, borderColor: color.border,
+    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: space.xs,
   },
-  expiredBtnText: { color: colors.textDisabled, fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  expiredBtnText: { color: primitive.black, fontSize: 16, fontWeight: '800', textAlign: 'center' },
 
   /* 빈 상태 */
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
-  emptyText: { fontSize: 14, color: colors.gray400 },
+  emptyText: { fontSize: 14, color: color.textDisabled },
 
   /* 플로팅 버튼들 */
-  addFloatingWrap: { position: 'absolute', right: spacing.lg },
+  addFloatingWrap: { position: 'absolute', right: space.md },
   addFab: {
     width: 50, height: 50, borderRadius: 25,
-    backgroundColor: colors.black,
+    backgroundColor: primitive.black,
     alignItems: 'center', justifyContent: 'center',
-    elevation: 6, shadowColor: colors.black, shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
+    elevation: 6, shadowColor: primitive.black, shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
   },
-  addFabPlus: { color: colors.background, fontSize: 25, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
+  addFabPlus: { color: color.background, fontSize: 25, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
 
   hamburgerBtn: { paddingHorizontal: 4, paddingVertical: 4 },
-  hamburgerIcon: { fontSize: 22, color: colors.gray800, fontWeight: '400' },
+  hamburgerIcon: { fontSize: 22, color: color.textPrimary, fontWeight: '400' },
 
   profileFloatingBtn: {
     position: 'absolute', left: 12,
-    backgroundColor: colors.primary, borderRadius: radius.md,
+    backgroundColor: color.primary, borderRadius: radius.md,
     width: 52, height: 42,
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
@@ -1985,7 +2095,7 @@ const styles = StyleSheet.create({
   profileIconHead: {
     width: 8, height: 8,
     borderRadius: radius.xs,
-    backgroundColor: colors.textInverse,
+    backgroundColor: color.textInverse,
     marginBottom: 2,
   },
   profileIconBody: {
@@ -1994,22 +2104,22 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.sm,
     borderBottomLeftRadius: radius.xs,
     borderBottomRightRadius: radius.xs,
-    backgroundColor: colors.textInverse,
+    backgroundColor: color.textInverse,
   },
   addFloatingBtn: {
     position: 'absolute', right: 12,
-    backgroundColor: colors.primary, borderRadius: radius.lg,
+    backgroundColor: color.primary, borderRadius: radius.lg,
     width: 52, height: 42,
     alignItems: 'center', justifyContent: 'center',
     elevation: 3,
   },
-  addFloatingText: { color: colors.textInverse, fontWeight: '800', fontSize: 25, lineHeight: 27, includeFontPadding: false },
+  addFloatingText: { color: color.textInverse, fontWeight: '800', fontSize: 25, lineHeight: 27, includeFontPadding: false },
 
   /* 정렬 스크림 */
-  fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayStrong, zIndex: 2 },
+  fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: color.overlayStrong, zIndex: 2 },
 
   /* 선택 카드 복제본 */
-  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: colors.black, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
+  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: primitive.black, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
   reorderFloatingMeasureProbe: {
     position: 'absolute',
     left: 0,

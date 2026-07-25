@@ -6,7 +6,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
 
-import { buttonStyles, card as canonicalCardStyles, spacing, radius, colors as PALETTE } from '../styles/common';
+import {
+  buttonStyles,
+  card as canonicalCardStyles,
+  color,
+  font,
+  input as canonicalInputStyles,
+  layout as canonicalLayoutStyles,
+  modal as canonicalModalStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+  text as canonicalTextStyles,
+} from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
@@ -391,9 +404,9 @@ const handleGoalChange = useCallback((txt)=>{
   }, [busy, title, description, habitMode, startDate, endDate, habitCycle, notification, goalScore, reward, saveAndSchedule, syncWidgetChallengeList, markAsSaved, navigation]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
@@ -409,8 +422,13 @@ const handleGoalChange = useCallback((txt)=>{
       <ScrollView
         ref={formScrollRef}
         contentContainerStyle={[
-          styles.container,
-          { paddingBottom: Math.max(spacing.xl * 3, keyboardBottomInset + spacing.xl * 2) },
+          canonicalLayoutStyles.screenContentMuted,
+          {
+            paddingBottom: Math.max(
+              space.xl * 3,
+              keyboardBottomInset + space.xl * 2
+            ),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -420,26 +438,56 @@ const handleGoalChange = useCallback((txt)=>{
         scrollEventThrottle={16}
       >
         <View style={canonicalCardStyles.form}>
-          <Text style={styles.cardTitle}>기본 정보</Text>
-          <Text style={styles.label}>{habitMode ? '습관 제목' : '도전 제목'}</Text>
-          <TextInput value={title} onChangeText={setTitle} placeholder={habitMode ? '습관의 제목을 입력하세요' : '도전의 제목을 입력하세요'} style={styles.input} />
+          <Text style={canonicalTextStyles.sectionTitleSpaced}>기본 정보</Text>
+          <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+          ]}
+        >{habitMode ? '습관 제목' : '도전 제목'}</Text>
+          <TextInput value={title} onChangeText={setTitle} placeholder={habitMode ? '습관의 제목을 입력하세요' : '도전의 제목을 입력하세요'} style={canonicalInputStyles.compact} />
           {!habitMode && (
             <>
-              <Text style={[styles.label, { marginTop: 15 }]}>목표 점수 혹은 횟수</Text>
-              <TextInput value={goalScore} onChangeText={handleGoalChange} placeholder="숫자만 입력" style={styles.input} keyboardType="numeric" inputMode="numeric" maxLength={4} />
+              <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+            styles.fieldSpacing,
+          ]}
+        >목표 점수 혹은 횟수</Text>
+              <TextInput value={goalScore} onChangeText={handleGoalChange} placeholder="숫자만 입력" style={canonicalInputStyles.compact} keyboardType="numeric" inputMode="numeric" maxLength={4} />
             </>
           )}
-          <Text style={[styles.label, { marginTop: 15 }]}>{habitMode ? '습관 내용' : '도전 내용'}</Text>
-          <TextInput ref={descriptionInputRef} value={description} onChangeText={setDescription} placeholder="도전의 구체적인 내용을 적어주세요" style={[styles.input, styles.textarea]} multiline textAlignVertical="top" maxLength={LIMITS.description} onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)} />
+          <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+            styles.fieldSpacing,
+          ]}
+        >{habitMode ? '습관 내용' : '도전 내용'}</Text>
+          <TextInput ref={descriptionInputRef} value={description} onChangeText={setDescription} placeholder="도전의 구체적인 내용을 적어주세요" style={[
+            canonicalInputStyles.compact,
+            canonicalInputStyles.multilineCompact,
+          ]} multiline textAlignVertical="top" maxLength={LIMITS.description} onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)} />
           <View style={styles.row}>
             <View style={styles.col}>
-              <Text style={styles.label}>시작일</Text>
+              <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+          ]}
+        >시작일</Text>
               <TouchableOpacity onPress={() => { setShowStartPicker(true); lastChangedRef.current='start'; }} style={buttonStyles.compactRight}>
                 <Text style={buttonStyles.compactRightText}>{startDate ? fmtDate(startDate) : '날짜 선택'}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.col}>
-              <Text style={styles.label}>종료일</Text>
+              <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+          ]}
+        >종료일</Text>
               <TouchableOpacity onPress={() => { setShowEndPicker(true); lastChangedRef.current='end'; }} style={buttonStyles.compactRight}>
                 <Text style={buttonStyles.compactRightText}>{endDate ? fmtDate(endDate) : '날짜 선택'}</Text>
               </TouchableOpacity>
@@ -459,15 +507,20 @@ const handleGoalChange = useCallback((txt)=>{
               setCycleMonthScope('custom');
             } : undefined}
             clearAccessibilityLabel="목표 주기 삭제"
-            style={{ marginTop: 20 }}
+            style={styles.sectionSpacing}
           >
             <SettingGoalCyclePreview cycle={habitCycle} />
           </SettingSectionCard>
 
         ) : (
-          <View style={[canonicalCardStyles.form, { marginTop: 20 }]}>
-            <Text style={styles.cardTitle}>보상</Text>
-            <TextInput ref={rewardInputRef} value={reward} onChangeText={setReward} placeholder="보상을 입력하세요" style={styles.input} onFocus={() => scrollToFocusedInput(rewardInputRef, 48)} />
+          <View
+          style={[
+            canonicalCardStyles.form,
+            styles.sectionSpacing,
+          ]}
+        >
+            <Text style={canonicalTextStyles.sectionTitleSpaced}>보상</Text>
+            <TextInput ref={rewardInputRef} value={reward} onChangeText={setReward} placeholder="보상을 입력하세요" style={canonicalInputStyles.compact} onFocus={() => scrollToFocusedInput(rewardInputRef, 48)} />
           </View>
         )}
         <SettingSectionCard
@@ -479,19 +532,27 @@ const handleGoalChange = useCallback((txt)=>{
             else setChallengeNotification({ mode: null, payload: null });
           } : undefined}
           clearAccessibilityLabel="알림 삭제"
-          style={{ marginTop: 20 }}
+          style={styles.sectionSpacing}
         >
           <SettingNotificationPreview notification={notification} startDate={startDate} endDate={endDate} />
         </SettingSectionCard>
-      <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: 30, opacity: busy ? 0.6 : 1 }]} onPress={onSave} disabled={busy}>
+      <TouchableOpacity
+          style={[
+            buttonStyles.primary.container,
+            styles.saveButton,
+            busy && styles.busy,
+          ]}
+          onPress={onSave}
+          disabled={busy}
+        >
           <Text style={buttonStyles.primary.label}>저장하기</Text>
         </TouchableOpacity>
       </ScrollView>
 
       <Modal visible={showCycleModal} transparent animationType="fade" onRequestClose={() => setShowCycleModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>목표 주기 설정</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheetBorderless}>
+            <Text style={canonicalModalStyles.title}>목표 주기 설정</Text>
             
             <View style={styles.cycleTabRow}>
               {['weekly', 'monthly'].map(t => (
@@ -502,7 +563,7 @@ const handleGoalChange = useCallback((txt)=>{
             </View>
 
             {/* 범위 빠른 선택 */}
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+            <View style={styles.scopeRow}>
               {cycleTab === 'weekly' ? (
                 ['all', 'weekday', 'weekend', 'custom'].map(s => (
                   <TouchableOpacity key={s} onPress={() => {
@@ -511,8 +572,14 @@ const handleGoalChange = useCallback((txt)=>{
                     else if (s === 'weekday') setCycleDays(new Set(['월','화','수','목','금']));
                     else if (s === 'weekend') setCycleDays(new Set(['토','일']));
                     else if (s === 'custom') setCycleDays(new Set());
-                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleWeekScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleWeekScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                  }} style={[
+                styles.scopeButton,
+                cycleWeekScope === s && styles.scopeButtonOn,
+              ]}>
+                    <Text style={[
+                  styles.scopeButtonText,
+                  cycleWeekScope === s && styles.scopeButtonTextOn,
+                ]}>
                       {{ all: '매일', weekday: '평일', weekend: '주말', custom: '직접' }[s]}
                     </Text>
                   </TouchableOpacity>
@@ -525,8 +592,14 @@ const handleGoalChange = useCallback((txt)=>{
                     else if (s === 'even') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2===0)));
                     else if (s === 'odd') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2!==0)));
                     else if (s === 'custom') setCycleDates(new Set());
-                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleMonthScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleMonthScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                  }} style={[
+                styles.scopeButton,
+                cycleMonthScope === s && styles.scopeButtonOn,
+              ]}>
+                    <Text style={[
+                  styles.scopeButtonText,
+                  cycleMonthScope === s && styles.scopeButtonTextOn,
+                ]}>
                       {{ all: '매일', even: '짝수', odd: '홀수', custom: '직접' }[s]}
                     </Text>
                   </TouchableOpacity>
@@ -536,7 +609,12 @@ const handleGoalChange = useCallback((txt)=>{
 
             {/* 그리드 영역 */}
             {cycleTab === 'weekly' ? (
-              <View style={[styles.cycleDaysRow, { marginBottom: 20 }]}>
+              <View
+              style={[
+                styles.cycleDaysRow,
+                styles.cycleGridSpacing,
+              ]}
+            >
                 {['월','화','수','목','금','토','일'].map(d => (
                   <TouchableOpacity key={d} onPress={() => {
                     const next = new Set(cycleDays);
@@ -549,12 +627,19 @@ const handleGoalChange = useCallback((txt)=>{
                 ))}
               </View>
             ) : (
-              <View style={{ marginBottom: 20 }}>
+              <View style={styles.cycleGridSpacing}>
                 {Array.from({ length: 5 }).map((_, row) => (
-                  <View key={row} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                  <View key={row} style={styles.monthGridRow}>
                     {Array.from({ length: 7 }).map((__, col) => {
                       const d = row * 7 + col + 1;
-                      if (d > 31) return <View key={col} style={{ flex: 1 }} />;
+                      if (d > 31) {
+              return (
+                <View
+                  key={col}
+                  style={styles.monthGridBlank}
+                />
+              );
+            }
                       const on = cycleDates.has(d);
                       return (
                         <TouchableOpacity key={col} onPress={() => {
@@ -562,8 +647,18 @@ const handleGoalChange = useCallback((txt)=>{
                           if (next.has(d)) next.delete(d); else next.add(d);
                           setCycleDates(next);
                           setCycleMonthScope('custom');
-                        }} style={[{ flex: 1, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 4, backgroundColor: on ? PALETTE.black : PALETTE.gray50, margin: 2 }]}>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: on ? PALETTE.white : PALETTE.gray700 }}>{d}</Text>
+                        }} style={[
+                  styles.monthGridCell,
+                  on && styles.monthGridCellOn,
+                ]}>
+                          <Text
+                  style={[
+                    styles.monthGridText,
+                    on && styles.monthGridTextOn,
+                  ]}
+                >
+                  {d}
+                </Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -572,11 +667,30 @@ const handleGoalChange = useCallback((txt)=>{
               </View>
             )}
 
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity style={[buttonStyles.primary.container, { flex: 1, backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.black }]} onPress={() => setShowCycleModal(false)}>
-                <Text style={[buttonStyles.primary.label, { color: PALETTE.black }]}>취소</Text>
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={[
+                  buttonStyles.primary.container,
+                  styles.actionFlex,
+                  styles.cancelButton,
+                ]}
+                onPress={() => setShowCycleModal(false)}
+              >
+                <Text
+                  style={[
+                    buttonStyles.primary.label,
+                    styles.cancelButtonText,
+                  ]}
+                >
+                  취소
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[buttonStyles.primary.container, { flex: 1 }]} onPress={() => {
+              <TouchableOpacity
+                style={[
+                  buttonStyles.primary.container,
+                  styles.actionFlex,
+                ]}
+                onPress={() => {
                 if (cycleTab === 'weekly') {
                   setHabitCycle(cycleDays.size ? { type: 'weekly', days: Array.from(cycleDays) } : null);
                 } else {
@@ -592,21 +706,33 @@ const handleGoalChange = useCallback((txt)=>{
       </Modal>
 
       <Modal visible={showNotifPicker} transparent animationType="fade" onRequestClose={() => setShowNotifPicker(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>알림 방식 선택</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheetBorderless}>
+            <Text style={canonicalModalStyles.title}>알림 방식 선택</Text>
 
-            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { setShowNotifPicker(false); navigation.navigate('SimpleNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
+            <TouchableOpacity style={[
+                    buttonStyles.primary.container,
+                    styles.modalButton,
+                  ]} onPress={() => { setShowNotifPicker(false); navigation.navigate('SimpleNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>간단 알림</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { setShowNotifPicker(false); navigation.navigate('WeeklyNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
+            <TouchableOpacity style={[
+                    buttonStyles.primary.container,
+                    styles.modalButton,
+                  ]} onPress={() => { setShowNotifPicker(false); navigation.navigate('WeeklyNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>주간 알림</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.sm }]} onPress={() => { setShowNotifPicker(false); navigation.navigate('MonthlyNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
+            <TouchableOpacity style={[
+                    buttonStyles.primary.container,
+                    styles.modalButton,
+                  ]} onPress={() => { setShowNotifPicker(false); navigation.navigate('MonthlyNotification', { onDone: (res) => { if(habitMode) setHabitNotification(res); else setChallengeNotification(res); }, returnTo: 'AddChallenge' }); }} activeOpacity={0.9}>
               <Text style={buttonStyles.primary.label}>월간 알림</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[buttonStyles.primary.container, { marginTop: spacing.sm }]}
+              style={[
+                    buttonStyles.primary.container,
+                    styles.modalButton,
+                  ]}
               onPress={() => {
                 if (!startDate || !endDate) return Alert.alert('확인', '날짜를 먼저 선택하세요.');
                 const initial = notification?.mode === 'fullrange' ? (notification.payload ?? null) : null;
@@ -627,17 +753,42 @@ const handleGoalChange = useCallback((txt)=>{
               <Text style={buttonStyles.primary.label}>전체 일정 세부 알림</Text>
             </TouchableOpacity>
 
-            <View style={{ marginTop: spacing.md, height: 1, backgroundColor: PALETTE.gray200, opacity: 0.5 }} />
+            <View style={styles.modalDivider} />
 
             <TouchableOpacity
-              style={[buttonStyles.primary.container, { marginTop: spacing.md, backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.black }]}
+              style={[
+                  buttonStyles.primary.container,
+                  styles.basicButton,
+                ]}
               onPress={() => { setShowNotifPicker(false); navigation.navigate('NotificationDefaults', { returnTo: 'AddChallenge' }); }}
               activeOpacity={0.9}
             >
-              <Text style={[buttonStyles.primary.label, { color: PALETTE.black }]}>알림 기본 설정</Text>
+              <Text
+                  style={[
+                    buttonStyles.primary.label,
+                    styles.basicButtonText,
+                  ]}
+                >
+                  알림 기본 설정
+                </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setShowNotifPicker(false)} style={styles.modalClose}><Text style={styles.modalCloseText}>닫기</Text></TouchableOpacity>
+            <TouchableOpacity
+                    onPress={() => setShowNotifPicker(false)}
+                    style={[
+                      canonicalModalStyles.closePill,
+                      styles.modalCloseColor,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        canonicalModalStyles.closePillText,
+                        styles.modalCloseTextColor,
+                      ]}
+                    >
+                      닫기
+                    </Text>
+                  </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -649,36 +800,243 @@ const handleGoalChange = useCallback((txt)=>{
   );
 }
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, paddingBottom: spacing.xl * 3, backgroundColor: PALETTE.gray50 },
-   cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
-  label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },
-  input: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: PALETTE.gray800 },
-  textarea: { minHeight: 96, lineHeight: 20 },
-  row: { flexDirection: 'row', marginTop: spacing.md, gap: 10 },
-  col: { flex: 1 },
-  tabWrap: { flexDirection: 'row', marginHorizontal: spacing.lg, marginTop: spacing.sm, borderBottomWidth: 1, borderBottomColor: PALETTE.gray200 },
-  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabBtnActive: { borderBottomColor: PALETTE.black },
-  tabText: { fontSize: 14, fontWeight: '700', color: PALETTE.gray400 },
-  tabTextActive: { color: PALETTE.black },
-  previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray50, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: PALETTE.gray100 },
-  modalBackdrop: { flex: 1, backgroundColor: PALETTE.overlay, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
-  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
-  modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },
-  cycleTabRow: { flexDirection: 'row', marginBottom: spacing.md, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: PALETTE.gray200 },
-  cycleTabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', backgroundColor: PALETTE.gray100 },
-  cycleTabBtnOn: { backgroundColor: PALETTE.black },
-  cycleTabText: { fontSize: 13, fontWeight: '800', color: PALETTE.gray600 },
-  cycleTabTextOn: { color: PALETTE.white },
-  cycleDaysRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
-  cycleDayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: PALETTE.gray300, backgroundColor: PALETTE.white },
-  cycleDayCircleOn: { backgroundColor: PALETTE.black, borderColor: PALETTE.black },
-  cycleDayText: { fontSize: 12, fontWeight: '800', color: PALETTE.gray700 },
-  cycleDayTextOn: { color: PALETTE.white },
-  cycleDateCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: PALETTE.gray100 },
-  cycleDateCircleOn: { backgroundColor: PALETTE.black },
-  cycleDateText: { fontSize: 12, fontWeight: '700', color: PALETTE.gray700 },
-  cycleDateTextOn: { color: PALETTE.white },
+  flex: {
+    flex: 1,
+  },
+
+  fieldLabelSpacing: {
+    marginBottom: space.xxs + 2,
+  },
+
+  fieldSpacing: {
+    marginTop: space.md - 1,
+  },
+
+  row: {
+    flexDirection: 'row',
+    marginTop: space.sm,
+    gap: 10,
+  },
+
+  col: {
+    flex: 1,
+  },
+
+  sectionSpacing: {
+    marginTop: space.lg,
+  },
+
+  tabWrap: {
+    flexDirection: 'row',
+    marginHorizontal: space.md,
+    marginTop: space.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: color.border,
+  },
+
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+
+  tabBtnActive: {
+    borderBottomColor: primitive.black,
+  },
+
+  tabText: {
+    fontSize: font.size.body,
+    fontWeight: font.weight.bold,
+    color: color.textDisabled,
+  },
+
+  tabTextActive: {
+    color: primitive.black,
+  },
+
+  saveButton: {
+    marginTop: space.xxl - 2,
+  },
+
+  busy: {
+    opacity: 0.6,
+  },
+
+  cycleTabRow: {
+    flexDirection: 'row',
+    marginBottom: space.sm,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: color.border,
+  },
+
+  cycleTabBtn: {
+    flex: 1,
+    paddingVertical: space.xs,
+    alignItems: 'center',
+    backgroundColor: color.surfaceMuted,
+  },
+
+  cycleTabBtnOn: {
+    backgroundColor: primitive.black,
+  },
+
+  cycleTabText: {
+    fontSize: font.size.bodySmall,
+    fontWeight: font.weight.heavy,
+    color: color.textSecondary,
+  },
+
+  cycleTabTextOn: {
+    color: primitive.white,
+  },
+
+  scopeRow: {
+    flexDirection: 'row',
+    gap: space.xxs + 2,
+    marginBottom: space.sm,
+  },
+
+  scopeButton: {
+    flex: 1,
+    paddingVertical: space.xxs + 2,
+    borderRadius: radius.sm - 2,
+    backgroundColor: color.surfaceMuted,
+    alignItems: 'center',
+  },
+
+  scopeButtonOn: {
+    backgroundColor: primitive.black,
+  },
+
+  scopeButtonText: {
+    fontSize: font.size.caption,
+    fontWeight: font.weight.bold,
+    color: color.textSecondary,
+  },
+
+  scopeButtonTextOn: {
+    color: primitive.white,
+  },
+
+  cycleDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: space.xs,
+  },
+
+  cycleGridSpacing: {
+    marginBottom: space.lg,
+  },
+
+  cycleDayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: primitive.neutral[300],
+    backgroundColor: primitive.white,
+  },
+
+  cycleDayCircleOn: {
+    backgroundColor: primitive.black,
+    borderColor: primitive.black,
+  },
+
+  cycleDayText: {
+    fontSize: font.size.meta,
+    fontWeight: font.weight.heavy,
+    color: primitive.neutral[700],
+  },
+
+  cycleDayTextOn: {
+    color: primitive.white,
+  },
+
+  monthGridRow: {
+    flexDirection: 'row',
+    marginBottom: space.xxs,
+  },
+
+  monthGridBlank: {
+    flex: 1,
+  },
+
+  monthGridCell: {
+    flex: 1,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.xs,
+    backgroundColor: color.backgroundMuted,
+    margin: space.xxs / 2,
+  },
+
+  monthGridCellOn: {
+    backgroundColor: primitive.black,
+  },
+
+  monthGridText: {
+    fontSize: font.size.caption,
+    fontWeight: font.weight.bold,
+    color: primitive.neutral[700],
+  },
+
+  monthGridTextOn: {
+    color: primitive.white,
+  },
+
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: space.xs,
+  },
+
+  actionFlex: {
+    flex: 1,
+  },
+
+  cancelButton: {
+    backgroundColor: primitive.white,
+    borderWidth: 1,
+    borderColor: primitive.black,
+  },
+
+  cancelButtonText: {
+    color: primitive.black,
+  },
+
+  modalButton: {
+    marginTop: space.xs,
+  },
+
+  modalDivider: {
+    marginTop: space.sm,
+    height: 1,
+    backgroundColor: color.border,
+    opacity: 0.5,
+  },
+
+  basicButton: {
+    marginTop: space.sm,
+    backgroundColor: primitive.white,
+    borderWidth: 1,
+    borderColor: primitive.black,
+  },
+
+  basicButtonText: {
+    color: primitive.black,
+  },
+
+  modalCloseColor: {
+    backgroundColor: primitive.black,
+  },
+
+  modalCloseTextColor: {
+    color: primitive.white,
+  },
 });

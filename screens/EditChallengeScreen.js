@@ -12,7 +12,20 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
-import { buttonStyles, card as canonicalCardStyles, spacing, radius, colors as PALETTE } from '../styles/common';
+import {
+  buttonStyles,
+  card as canonicalCardStyles,
+  color,
+  font,
+  input as canonicalInputStyles,
+  layout as canonicalLayoutStyles,
+  modal as canonicalModalStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+  text as canonicalTextStyles,
+} from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import BackButton from '../components/BackButton';
@@ -545,16 +558,23 @@ export default function EditChallengeScreen(){
 
   if(loading){
     return (
-      <ScrollView contentContainerStyle={[styles.container,{alignItems:'center', justifyContent:'center'}]}>
-        <Text style={{ color: PALETTE.gray600 }}>불러오는 중…</Text>
+      <ScrollView
+          contentContainerStyle={[
+            canonicalLayoutStyles.screenContentMuted,
+            styles.loadingContent,
+          ]}
+        >
+          <Text style={canonicalTextStyles.bodyMuted}>
+            불러오는 중…
+          </Text>
       </ScrollView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
@@ -562,8 +582,13 @@ export default function EditChallengeScreen(){
       <ScrollView
         ref={formScrollRef}
         contentContainerStyle={[
-          styles.container,
-          { paddingBottom: Math.max(spacing.xl * 3, keyboardBottomInset + spacing.xl * 2) },
+          canonicalLayoutStyles.screenContentMuted,
+          {
+            paddingBottom: Math.max(
+              space.xl * 3,
+              keyboardBottomInset + space.xl * 2
+            ),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -576,46 +601,79 @@ export default function EditChallengeScreen(){
 
       {/* 기본 정보 */}
       <View style={canonicalCardStyles.form}>
-        <Text style={styles.cardTitle}>기본 정보</Text>
+        <Text style={canonicalTextStyles.sectionTitleSpaced}>기본 정보</Text>
 
-        <Text style={styles.label}>도전 제목</Text>
+        <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+          ]}
+        >도전 제목</Text>
         <TextInput
           value={title}
           onChangeText={handleTitleChange} // ← 50자 제한
           placeholder="도전 제목"
-          style={styles.input}
-          placeholderTextColor={PALETTE.gray400}
+          style={canonicalInputStyles.compact}
+          placeholderTextColor={color.textDisabled}
         />
 
-        {!isHabit && <Text style={[styles.label, { marginTop: spacing.md }]}>목표 점수</Text>}
+        {!isHabit && <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+            styles.fieldSpacing,
+          ]}
+        >목표 점수</Text>}
         {!isHabit && <TextInput
           value={goalScore}
           onChangeText={handleGoalChange} // ← 숫자만 + 최대 1000
           placeholder="숫자만 입력(비우면 기존값 유지)"
-          style={styles.input}
-          placeholderTextColor={PALETTE.gray400}
+          style={canonicalInputStyles.compact}
+          placeholderTextColor={color.textDisabled}
           {...numericInputProps}
         />}
 
         {/* 도전 내용 */}
-        <Text style={[styles.label, { marginTop: spacing.md }]}>도전 내용</Text>
+        <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+            styles.fieldSpacing,
+          ]}
+        >도전 내용</Text>
         <TextInput
           ref={descriptionInputRef}
           value={description}
           onChangeText={handleDescChange} // ← 500자 제한
           placeholder="도전의 구체적인 내용을 적어주세요"
-          style={[styles.input, styles.textarea]}
-          placeholderTextColor={PALETTE.gray400}
+          style={[
+            canonicalInputStyles.compact,
+            canonicalInputStyles.multilineCompact,
+          ]}
+          placeholderTextColor={color.textDisabled}
           multiline
           textAlignVertical="top"
           onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)}
         />
 
         <View style={styles.row}>
-          <View style={[styles.col, { marginRight: spacing.sm }]}>
-            <Text style={styles.label}>시작일</Text>
+          <View
+          style={[
+            styles.col,
+            styles.dateStartColumn,
+          ]}
+        >
+            <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+          ]}
+        >시작일</Text>
             <TouchableOpacity
-              style={[buttonStyles.compactRight, { alignSelf: 'flex-start' }]}
+              style={[
+              buttonStyles.compactRight,
+              styles.dateButtonAlign,
+            ]}
               onPress={()=>setShowStartPicker(true)}
               activeOpacity={0.9}
             >
@@ -625,10 +683,23 @@ export default function EditChallengeScreen(){
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.col, { marginLeft: spacing.sm }]}>
-            <Text style={styles.label}>종료일</Text>
+          <View
+          style={[
+            styles.col,
+            styles.dateEndColumn,
+          ]}
+        >
+            <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+          ]}
+        >종료일</Text>
             <TouchableOpacity
-              style={[buttonStyles.compactRight, { alignSelf: 'flex-start' }]}
+              style={[
+              buttonStyles.compactRight,
+              styles.dateButtonAlign,
+            ]}
               onPress={()=>setShowEndPicker(true)}
               activeOpacity={0.9}
             >
@@ -642,16 +713,26 @@ export default function EditChallengeScreen(){
 
       {/* 보상 - 도전 전용 */}
       {!isHabit && (
-        <View style={[canonicalCardStyles.form, { marginTop: spacing.lg }]}>
-        <Text style={styles.cardTitle}>보상</Text>
-        <Text style={styles.label}>보상 내용</Text>
+        <View
+          style={[
+            canonicalCardStyles.form,
+            styles.sectionSpacing,
+          ]}
+        >
+        <Text style={canonicalTextStyles.sectionTitleSpaced}>보상</Text>
+        <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.fieldLabelSpacing,
+          ]}
+        >보상 내용</Text>
         <TextInput
           ref={rewardInputRef}
           value={reward}
           onChangeText={handleRewardChange} // ← 50자 제한
           placeholder="원하는 보상을 입력하세요!"
-          style={styles.input}
-          placeholderTextColor={PALETTE.gray400}
+          style={canonicalInputStyles.compact}
+          placeholderTextColor={color.textDisabled}
           onFocus={() => scrollToFocusedInput(rewardInputRef, 48)}
         />
               </View>
@@ -671,7 +752,7 @@ export default function EditChallengeScreen(){
             setCycleMonthScope('custom');
           } : undefined}
           clearAccessibilityLabel="목표 주기 삭제"
-          style={{ marginTop: spacing.lg }}
+          style={styles.sectionSpacing}
         >
           <SettingGoalCyclePreview cycle={habitCycle} />
         </SettingSectionCard>
@@ -684,16 +765,16 @@ export default function EditChallengeScreen(){
         onActionPress={() => setShowNotifPicker(true)}
         onClear={notification?.mode ? () => setNotification({ mode: null, payload: null }) : undefined}
         clearAccessibilityLabel="알림 삭제"
-        style={{ marginTop: spacing.lg }}
+        style={styles.sectionSpacing}
       >
         <SettingNotificationPreview notification={notification} startDate={startDate} endDate={endDate} />
       </SettingSectionCard>
 
       {/* 목표 주기 모달 - 습관 전용 */}
       <Modal visible={showCycleModal} transparent animationType="fade" onRequestClose={() => setShowCycleModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>목표 주기 설정</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheet}>
+            <Text style={canonicalModalStyles.title}>목표 주기 설정</Text>
             
             <View style={styles.cycleTabRow}>
               {['weekly', 'monthly'].map(t => (
@@ -703,7 +784,7 @@ export default function EditChallengeScreen(){
               ))}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+            <View style={styles.scopeRow}>
               {cycleTab === 'weekly' ? (
                 ['all', 'weekday', 'weekend', 'custom'].map(s => (
                   <TouchableOpacity key={s} onPress={() => {
@@ -712,8 +793,14 @@ export default function EditChallengeScreen(){
                     else if (s === 'weekday') setCycleDays(new Set(['월','화','수','목','금']));
                     else if (s === 'weekend') setCycleDays(new Set(['토','일']));
                     else if (s === 'custom') setCycleDays(new Set());
-                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleWeekScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleWeekScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                  }} style={[
+                styles.scopeButton,
+                cycleWeekScope === s && styles.scopeButtonOn,
+              ]}>
+                    <Text style={[
+                  styles.scopeButtonText,
+                  cycleWeekScope === s && styles.scopeButtonTextOn,
+                ]}>
                       {{ all: '매일', weekday: '평일', weekend: '주말', custom: '직접' }[s]}
                     </Text>
                   </TouchableOpacity>
@@ -726,8 +813,14 @@ export default function EditChallengeScreen(){
                     else if (s === 'even') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2===0)));
                     else if (s === 'odd') setCycleDates(new Set(Array.from({length:31}, (_,i)=>i+1).filter(n=>n%2!==0)));
                     else if (s === 'custom') setCycleDates(new Set());
-                  }} style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: cycleMonthScope === s ? PALETTE.black : PALETTE.gray100, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: cycleMonthScope === s ? PALETTE.white : PALETTE.gray600 }}>
+                  }} style={[
+                styles.scopeButton,
+                cycleMonthScope === s && styles.scopeButtonOn,
+              ]}>
+                    <Text style={[
+                  styles.scopeButtonText,
+                  cycleMonthScope === s && styles.scopeButtonTextOn,
+                ]}>
                       {{ all: '매일', even: '짝수', odd: '홀수', custom: '직접' }[s]}
                     </Text>
                   </TouchableOpacity>
@@ -736,7 +829,12 @@ export default function EditChallengeScreen(){
             </View>
 
             {cycleTab === 'weekly' ? (
-              <View style={[styles.cycleDaysRow, { marginBottom: 20 }]}>
+              <View
+              style={[
+                styles.cycleDaysRow,
+                styles.cycleGridSpacing,
+              ]}
+            >
                 {['월','화','수','목','금','토','일'].map(d => (
                   <TouchableOpacity key={d} onPress={() => {
                     const next = new Set(cycleDays);
@@ -749,12 +847,19 @@ export default function EditChallengeScreen(){
                 ))}
               </View>
             ) : (
-              <View style={{ marginBottom: 20 }}>
+              <View style={styles.cycleGridSpacing}>
                 {Array.from({ length: 5 }).map((_, row) => (
-                  <View key={row} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                  <View key={row} style={styles.monthGridRow}>
                     {Array.from({ length: 7 }).map((__, col) => {
                       const d = row * 7 + col + 1;
-                      if (d > 31) return <View key={col} style={{ flex: 1 }} />;
+                      if (d > 31) {
+              return (
+                <View
+                  key={col}
+                  style={styles.monthGridBlank}
+                />
+              );
+            }
                       const on = cycleDates.has(d);
                       return (
                         <TouchableOpacity key={col} onPress={() => {
@@ -762,8 +867,18 @@ export default function EditChallengeScreen(){
                           if (next.has(d)) next.delete(d); else next.add(d);
                           setCycleDates(next);
                           setCycleMonthScope('custom');
-                        }} style={[{ flex: 1, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 4, backgroundColor: on ? PALETTE.black : PALETTE.gray50, margin: 2 }]}>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: on ? PALETTE.white : PALETTE.gray700 }}>{d}</Text>
+                        }} style={[
+                  styles.monthGridCell,
+                  on && styles.monthGridCellOn,
+                ]}>
+                          <Text
+                  style={[
+                    styles.monthGridText,
+                    on && styles.monthGridTextOn,
+                  ]}
+                >
+                  {d}
+                </Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -772,11 +887,21 @@ export default function EditChallengeScreen(){
               </View>
             )}
 
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.black }} onPress={() => setShowCycleModal(false)}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: PALETTE.black }}>취소</Text>
+            <View style={styles.cycleActionRow}>
+              <TouchableOpacity
+              style={styles.cycleActionButton}
+              onPress={() => setShowCycleModal(false)}
+            >
+                <Text style={styles.cycleActionText}>
+              취소
+            </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: PALETTE.black }} onPress={() => {
+              <TouchableOpacity
+              style={[
+                styles.cycleActionButton,
+                styles.cycleActionButtonPrimary,
+              ]}
+              onPress={() => {
                 if (cycleTab === 'weekly') {
                   setHabitCycle(cycleDays.size ? { type: 'weekly', days: Array.from(cycleDays), dates: [] } : null);
                 } else {
@@ -784,14 +909,28 @@ export default function EditChallengeScreen(){
                 }
                 setShowCycleModal(false);
               }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: PALETTE.white }}>저장</Text>
+                <Text
+              style={[
+                styles.cycleActionText,
+                styles.cycleActionTextPrimary,
+              ]}
+            >
+              저장
+            </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      <TouchableOpacity style={[buttonStyles.primary.container, { marginTop: spacing.xl }]} onPress={onSave} activeOpacity={0.9}>
+      <TouchableOpacity
+          style={[
+            buttonStyles.primary.container,
+            styles.saveButton,
+          ]}
+          onPress={onSave}
+          activeOpacity={0.9}
+        >
         <Text style={buttonStyles.primary.label}>저장</Text>
       </TouchableOpacity>
 
@@ -813,9 +952,9 @@ export default function EditChallengeScreen(){
 
       {/* 알림 방식 선택 모달 */}
       <Modal visible={showNotifPicker} transparent animationType="fade" onRequestClose={()=>setShowNotifPicker(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>알림 방식 선택</Text>
+        <View style={canonicalModalStyles.backdrop}>
+          <View style={canonicalModalStyles.sheet}>
+            <Text style={canonicalModalStyles.title}>알림 방식 선택</Text>
 
             {/* ① 간단 알림 — onDone/returnTo 추가 */}
             <TouchableOpacity style={[buttonStyles.primary.container, styles.modalButton]} onPress={()=>{
@@ -892,9 +1031,22 @@ export default function EditChallengeScreen(){
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.modalClose} onPress={()=>setShowNotifPicker(false)}>
-              <Text style={styles.modalCloseText}>닫기</Text>
-            </TouchableOpacity>
+            <TouchableOpacity
+                    style={[
+                      canonicalModalStyles.closePill,
+                      styles.modalCloseColor,
+                    ]}
+                    onPress={() => setShowNotifPicker(false)}
+                  >
+                    <Text
+                      style={[
+                        canonicalModalStyles.closePillText,
+                        styles.modalCloseTextColor,
+                      ]}
+                    >
+                      닫기
+                    </Text>
+                  </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -905,99 +1057,395 @@ export default function EditChallengeScreen(){
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: PALETTE.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign: 'center', alignSelf: 'center' },
-
-
-  cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md },
-
-  label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },
-  input: {
-    backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200,
-    borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: PALETTE.gray800,
+  flex: {
+    flex: 1,
   },
-  textarea: { minHeight: 96, lineHeight: 20 },
 
-  row: { flexDirection: 'row', marginTop: spacing.md },
-  col: { flex: 1 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-
-  rightBtnGroup: { flexDirection: 'row', alignItems: 'center', columnGap: spacing.sm },
-
-  // 기존 텍스트형 삭제 버튼(안씀, 호환 위해 유지)
-  deleteBtn: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray300, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },
-  deleteBtnText: { color: PALETTE.black, fontWeight: '800', fontSize: 12 },
-
-  // [추가] 원형 X 삭제 버튼 스타일
-  notifDeleteCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: PALETTE.white,
-    borderWidth: 1, borderColor: PALETTE.gray800,
+  loadingContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  notifDeleteX: { color: PALETTE.gray800, fontSize: 18, lineHeight: 18, fontWeight: '800' },
 
-  previewBox: { marginTop: spacing.md, backgroundColor: PALETTE.gray100, borderRadius: radius.md, padding: spacing.md },
-  previewText: { color: PALETTE.gray800 },
-  previewTextSmall: { color: PALETTE.gray800, fontSize: 12, marginTop: 6 },
-  previewNoteText: { color: PALETTE.gray600, fontSize: 11, marginTop: 2 },
+  fieldLabelSpacing: {
+    marginBottom: space.xxs + 2,
+  },
 
-  // 간단
-  simpleDaysRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  simpleCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  simpleCircleOff: { borderColor: PALETTE.gray300, backgroundColor: PALETTE.white },
-  simpleCircleOn: { borderColor: PALETTE.black, backgroundColor: PALETTE.black },
-  simpleCircleText: { fontSize: 12, fontWeight: '800', color: PALETTE.gray700, includeFontPadding: false },
-  simpleCircleTextOn: { color: PALETTE.white },
+  fieldSpacing: {
+    marginTop: space.sm,
+  },
 
-  // 주간
-  weekGrid: { flexDirection: 'row' },
-  weekCol: { flex: 1, paddingHorizontal: 6 },
-  weekColDivider: { borderRightWidth: 1, borderRightColor: PALETTE.gray200 },
-  weekDayLabel: { textAlign: 'center', fontSize: 12, fontWeight: '800', color: PALETTE.gray700, marginBottom: 4 },
-  weekTimesWrap: { alignItems: 'center' },
-  weekTimeText: { fontSize: 11, color: PALETTE.gray800, lineHeight: 14 },
+  row: {
+    flexDirection: 'row',
+    marginTop: space.sm,
+  },
 
-  // 월간/전체일정 공통
-  monthOuter: { borderTopWidth: 1, borderTopColor: PALETTE.gray200 },
-  monthRow: { flexDirection: 'row' },
-  monthRowDivider: { borderBottomWidth: 1, borderBottomColor: PALETTE.gray200 },
-  monthCell: { flex: 1, padding: 6 },
-  monthCellDivider: { borderRightWidth: 1, borderRightColor: PALETTE.gray200 },
-  monthDateText: { fontSize: 11, fontWeight: '800', color: PALETTE.gray700, textAlign: 'right' },
-  monthTimesWrap: { marginTop: 2 },
-  monthTimeText: { fontSize: 11, color: PALETTE.gray800, lineHeight: 14 },
+  col: {
+    flex: 1,
+  },
 
-  fullRangeMonthTitle: { fontSize: 12, fontWeight: '800', color: PALETTE.gray700, marginBottom: 4, textAlign: 'center' },
-  weekHeaderRow: { flexDirection: 'row', marginBottom: 4 },
-  weekHeaderCell: { flex: 1, alignItems: 'center' },
-  weekHeaderCellDivider: { borderRightWidth: 1, borderRightColor: PALETTE.gray200 },
-  weekHeaderText: { fontSize: 11, fontWeight: '800', color: PALETTE.gray700 },
+  dateStartColumn: {
+    marginRight: space.xs,
+  },
 
-  // 모달
-  modalBackdrop: { flex: 1, backgroundColor: PALETTE.overlay, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', backgroundColor: PALETTE.white, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: PALETTE.gray200 },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.md, textAlign: 'center' },
-  modalButton: { marginTop: spacing.sm },
+  dateEndColumn: {
+    marginLeft: space.xs,
+  },
 
-  // [추가] 모달 가는 얇은 검은 라인 + 기본설정 버튼
+  dateButtonAlign: {
+    alignSelf: 'flex-start',
+  },
+
+  sectionSpacing: {
+    marginTop: space.md,
+  },
+
+  saveButton: {
+    marginTop: space.xl,
+  },
+
+  previewBox: {
+    marginTop: space.sm,
+    backgroundColor: color.surfaceMuted,
+    borderRadius: radius.md,
+    padding: space.sm,
+  },
+
+  previewText: {
+    color: color.textPrimary,
+  },
+
+  previewTextSmall: {
+    color: color.textPrimary,
+    fontSize: font.size.meta,
+    marginTop: space.xxs + 2,
+  },
+
+  previewNoteText: {
+    color: color.textSecondary,
+    fontSize: font.size.caption,
+    marginTop: space.xxs / 2,
+  },
+
+  simpleDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: space.xxs + 2,
+  },
+
+  simpleCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+
+  simpleCircleOff: {
+    borderColor: primitive.neutral[300],
+    backgroundColor: primitive.white,
+  },
+
+  simpleCircleOn: {
+    borderColor: primitive.black,
+    backgroundColor: primitive.black,
+  },
+
+  simpleCircleText: {
+    fontSize: font.size.meta,
+    fontWeight: font.weight.heavy,
+    color: primitive.neutral[700],
+    includeFontPadding: false,
+  },
+
+  simpleCircleTextOn: {
+    color: primitive.white,
+  },
+
+  weekGrid: {
+    flexDirection: 'row',
+  },
+
+  weekCol: {
+    flex: 1,
+    paddingHorizontal: space.xxs + 2,
+  },
+
+  weekColDivider: {
+    borderRightWidth: 1,
+    borderRightColor: color.border,
+  },
+
+  weekDayLabel: {
+    textAlign: 'center',
+    fontSize: font.size.meta,
+    fontWeight: font.weight.heavy,
+    color: primitive.neutral[700],
+    marginBottom: space.xxs,
+  },
+
+  weekTimesWrap: {
+    alignItems: 'center',
+  },
+
+  weekTimeText: {
+    fontSize: font.size.caption,
+    color: color.textPrimary,
+    lineHeight: 14,
+  },
+
+  monthOuter: {
+    borderTopWidth: 1,
+    borderTopColor: color.border,
+  },
+
+  monthRow: {
+    flexDirection: 'row',
+  },
+
+  monthRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: color.border,
+  },
+
+  monthCell: {
+    flex: 1,
+    padding: space.xxs + 2,
+  },
+
+  monthCellDivider: {
+    borderRightWidth: 1,
+    borderRightColor: color.border,
+  },
+
+  monthDateText: {
+    fontSize: font.size.caption,
+    fontWeight: font.weight.heavy,
+    color: primitive.neutral[700],
+    textAlign: 'right',
+  },
+
+  monthTimesWrap: {
+    marginTop: space.xxs / 2,
+  },
+
+  monthTimeText: {
+    fontSize: font.size.caption,
+    color: color.textPrimary,
+    lineHeight: 14,
+  },
+
+  fullRangeMonthTitle: {
+    fontSize: font.size.meta,
+    fontWeight: font.weight.heavy,
+    color: primitive.neutral[700],
+    marginBottom: space.xxs,
+    textAlign: 'center',
+  },
+
+  weekHeaderRow: {
+    flexDirection: 'row',
+    marginBottom: space.xxs,
+  },
+
+  weekHeaderCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  weekHeaderCellDivider: {
+    borderRightWidth: 1,
+    borderRightColor: color.border,
+  },
+
+  weekHeaderText: {
+    fontSize: font.size.caption,
+    fontWeight: font.weight.heavy,
+    color: primitive.neutral[700],
+  },
+
+  cycleTabRow: {
+    flexDirection: 'row',
+    marginBottom: space.sm,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: color.border,
+  },
+
+  cycleTabBtn: {
+    flex: 1,
+    paddingVertical: space.xs,
+    alignItems: 'center',
+    backgroundColor: color.surfaceMuted,
+  },
+
+  cycleTabBtnOn: {
+    backgroundColor: primitive.black,
+  },
+
+  cycleTabText: {
+    fontSize: font.size.bodySmall,
+    fontWeight: font.weight.heavy,
+    color: color.textSecondary,
+  },
+
+  cycleTabTextOn: {
+    color: primitive.white,
+  },
+
+  scopeRow: {
+    flexDirection: 'row',
+    gap: space.xxs + 2,
+    marginBottom: space.sm,
+  },
+
+  scopeButton: {
+    flex: 1,
+    paddingVertical: space.xxs + 2,
+    borderRadius: radius.sm - 2,
+    backgroundColor: color.surfaceMuted,
+    alignItems: 'center',
+  },
+
+  scopeButtonOn: {
+    backgroundColor: primitive.black,
+  },
+
+  scopeButtonText: {
+    fontSize: font.size.caption,
+    fontWeight: font.weight.bold,
+    color: color.textSecondary,
+  },
+
+  scopeButtonTextOn: {
+    color: primitive.white,
+  },
+
+  cycleDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: space.xs,
+  },
+
+  cycleGridSpacing: {
+    marginBottom: space.lg,
+  },
+
+  cycleDayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: primitive.neutral[300],
+    backgroundColor: primitive.white,
+  },
+
+  cycleDayCircleOn: {
+    backgroundColor: primitive.black,
+    borderColor: primitive.black,
+  },
+
+  cycleDayText: {
+    fontSize: font.size.meta,
+    fontWeight: font.weight.heavy,
+    color: primitive.neutral[700],
+  },
+
+  cycleDayTextOn: {
+    color: primitive.white,
+  },
+
+  monthGridRow: {
+    flexDirection: 'row',
+    marginBottom: space.xxs,
+  },
+
+  monthGridBlank: {
+    flex: 1,
+  },
+
+  monthGridCell: {
+    flex: 1,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.xs,
+    backgroundColor: color.backgroundMuted,
+    margin: space.xxs / 2,
+  },
+
+  monthGridCellOn: {
+    backgroundColor: primitive.black,
+  },
+
+  monthGridText: {
+    fontSize: font.size.caption,
+    fontWeight: font.weight.bold,
+    color: primitive.neutral[700],
+  },
+
+  monthGridTextOn: {
+    color: primitive.white,
+  },
+
+  cycleActionRow: {
+    flexDirection: 'row',
+    gap: space.xs,
+  },
+
+  cycleActionButton: {
+    flex: 1,
+    paddingVertical: space.sm,
+    alignItems: 'center',
+    borderRadius: radius.sm,
+    backgroundColor: primitive.white,
+    borderWidth: 1,
+    borderColor: primitive.black,
+  },
+
+  cycleActionButtonPrimary: {
+    backgroundColor: primitive.black,
+  },
+
+  cycleActionText: {
+    fontSize: font.size.body,
+    fontWeight: font.weight.bold,
+    color: primitive.black,
+  },
+
+  cycleActionTextPrimary: {
+    color: primitive.white,
+  },
+
+  modalButton: {
+    marginTop: space.xs,
+  },
+
   modalDivider: {
-    marginTop: spacing.md,
+    marginTop: space.sm,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: PALETTE.gray800,
+    backgroundColor: color.textPrimary,
     opacity: 0.2,
   },
-    // 알림 기본 설정 버튼: 모양은 위 버튼과 1:1, 색만 유지
+
   modalBasicKeepColor: {
-    backgroundColor: PALETTE.white,
+    backgroundColor: primitive.white,
     borderWidth: 1,
-    borderColor: PALETTE.gray800,
-  },
-  modalBasicKeepLabel: {
-    color: PALETTE.gray800,
+    borderColor: color.textPrimary,
   },
 
-  modalClose: { marginTop: spacing.md, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: PALETTE.black },
-  modalCloseText: { color: PALETTE.white, fontWeight: '700', fontSize: 12 },
+  modalBasicKeepLabel: {
+    color: color.textPrimary,
+  },
+
+  modalCloseColor: {
+    backgroundColor: primitive.black,
+  },
+
+  modalCloseTextColor: {
+    color: primitive.white,
+  },
 });

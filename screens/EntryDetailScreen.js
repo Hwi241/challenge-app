@@ -12,7 +12,19 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
-import { buttonStyles, spacing, radius, colors } from '../styles/common';
+import {
+  buttonStyles,
+  card as canonicalCardStyles,
+  color,
+  font,
+  input as canonicalInputStyles,
+  layout as canonicalLayoutStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+  text as canonicalTextStyles,
+} from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
@@ -436,29 +448,51 @@ export default function EntryDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-      <BackButton title="인증 수정" onPress={handleBackPress} />
-        <Text style={{ color: colors.textSecondary }}>불러오는 중…</Text>
+      <SafeAreaView
+        style={[
+          canonicalSurfaceStyles.screen,
+          styles.loadingContent,
+        ]}
+      >
+        <BackButton title="인증 수정" onPress={handleBackPress} />
+        <Text style={canonicalTextStyles.bodyMuted}>
+          불러오는 중…
+        </Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <BackButton title="기록 수정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+      <ScrollView
+        contentContainerStyle={canonicalLayoutStyles.screenContent}
+      >
         {!!challengeTitle && (
-          <View style={styles.titleBox}>
-            <Text style={styles.titleBoxText}>{challengeTitle}</Text>
+          <View
+        style={[
+          canonicalCardStyles.titleBox,
+          styles.titleBoxSpacing,
+        ]}
+      >
+        <Text style={styles.titleBoxText}>{challengeTitle}</Text>
           </View>
         )}
 
-        <View style={styles.card}>
+        <View style={canonicalCardStyles.list}>
           {/* "내용" + "사진 선택"을 한 줄로 */}
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>내용</Text>
+          <View
+          style={[
+            canonicalLayoutStyles.rowBetween,
+            styles.cardHeaderSpacing,
+          ]}
+        >
+            <Text style={canonicalTextStyles.sectionTitle}>내용</Text>
             <TouchableOpacity
-              style={[buttonStyles.compactRight, { opacity: busy ? 0.6 : 1 }]}
+              style={[
+              buttonStyles.compactRight,
+              busy && styles.busy,
+            ]}
               onPress={onPickImage}
               activeOpacity={0.9}
               disabled={busy}
@@ -489,10 +523,14 @@ export default function EntryDetailScreen() {
             value={text}
             onChangeText={(t) => setText((t || '').slice(0, MAX_TEXT_LEN))}
             placeholder="인증 내용을 입력하세요"
-            style={[styles.input, { height: textHeight, textAlignVertical: 'top' }]}
+            style={[
+            canonicalInputStyles.compact,
+            styles.entryTextInput,
+            { height: textHeight },
+          ]}
             multiline
             editable={!busy}
-            placeholderTextColor={colors.gray400}
+            placeholderTextColor={color.textDisabled}
             maxLength={MAX_TEXT_LEN}
             onContentSizeChange={e => {
               const h = e?.nativeEvent?.contentSize?.height || 0;
@@ -502,13 +540,20 @@ export default function EntryDetailScreen() {
             }}
           />
 
-          <Text style={[styles.label, { marginTop: spacing.md }]}>소요 시간(분)</Text>
+          <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.durationLabel,
+          ]}
+        >
+          소요 시간(분)
+        </Text>
           <TextInput
             value={duration}
             onChangeText={handleDurationChange}
             placeholder="숫자만 입력"
-            style={styles.input}
-            placeholderTextColor={colors.gray400}
+            style={canonicalInputStyles.compact}
+            placeholderTextColor={color.textDisabled}
             editable={!busy}
             {...numericInputProps}
           />
@@ -516,7 +561,11 @@ export default function EntryDetailScreen() {
 
         {/* 저장 / 삭제 버튼 */}
         <TouchableOpacity
-          style={[buttonStyles.primary.container, { marginTop: spacing.xl, opacity: busy ? 0.6 : 1 }]}
+          style={[
+          buttonStyles.primary.container,
+          styles.saveButton,
+          busy && styles.busy,
+        ]}
           onPress={onSave}
           activeOpacity={0.9}
           disabled={busy}
@@ -525,7 +574,11 @@ export default function EntryDetailScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[buttonStyles.outlineSoft.container, { marginTop: spacing.md, opacity: busy ? 0.6 : 1 }]}
+          style={[
+          buttonStyles.outlineSoft.container,
+          styles.deleteButton,
+          busy && styles.busy,
+        ]}
           onPress={onDelete}
           activeOpacity={0.9}
           disabled={busy}
@@ -538,93 +591,29 @@ export default function EntryDetailScreen() {
 }
 
 const styles = StyleSheet.create({
- container: { flex: 1, backgroundColor: colors.background },
+  loadingContent: { alignItems: 'center', justifyContent: 'center' },
 
- screenTitle: {
- fontSize: 20,
- fontWeight: '800',
- color: colors.textPrimary,
- marginBottom: spacing.lg,
- textAlign: 'center',
- },
+  titleBoxSpacing: { marginBottom: space.md },
 
- titleBox: {
- backgroundColor: colors.surface,
- borderWidth: 1,
- borderColor: colors.border,
- borderRadius: radius.md,
- paddingVertical: spacing.md,
- paddingHorizontal: spacing.lg,
- marginBottom: spacing.lg,
- },
- titleBoxText: {
- fontSize: 15,
- fontWeight: '700',
- color: colors.textPrimary,
- textAlign: 'center',
- },
+  titleBoxText: { fontSize: 15, fontWeight: font.weight.bold, color: color.textPrimary, textAlign: 'center' },
 
- card: {
- backgroundColor: colors.surface,
- borderWidth: 1,
- borderColor: colors.border,
- borderRadius: radius.card,
- paddingHorizontal: spacing.lg,
- paddingVertical: spacing.md,
- },
+  cardHeaderSpacing: { marginBottom: space.xs },
 
- cardHeaderRow: {
- flexDirection: 'row',
- alignItems: 'center',
- justifyContent: 'space-between',
- marginBottom: spacing.sm,
- },
+  entryTextInput: { minHeight: 120, textAlignVertical: 'top' },
 
- cardTitle: {
- fontSize: 16,
- fontWeight: '800',
- color: colors.textPrimary,
- },
+  durationLabel: { marginTop: space.sm, marginBottom: space.xxs + 2 },
 
- label: { fontSize: 13, color: colors.textSecondary, marginBottom: 6 },
+  previewWrap: { position: 'relative', marginBottom: space.sm },
 
- input: {
- backgroundColor: colors.surface,
- borderWidth: 1,
- borderColor: colors.border,
- borderRadius: radius.md,
- paddingHorizontal: spacing.md,
- paddingVertical: 10,
- fontSize: 14,
- color: colors.textPrimary,
- },
+  preview: { width: '100%', height: 200, borderRadius: radius.md, backgroundColor: color.surfaceMuted },
 
- previewWrap: {
- position: 'relative',
- marginBottom: spacing.md,
- },
- preview: {
- width: '100%',
- height: 200,
- borderRadius: radius.md,
- backgroundColor: colors.surfaceMuted,
- },
- previewDeleteBtn: {
- position: 'absolute',
- top: 8,
- right: 8,
- width: 28,
- height: 28,
- borderRadius: 14,
- alignItems: 'center',
- justifyContent: 'center',
- backgroundColor: colors.imageDeleteOverlay,
- },
- previewDeleteX: {
- fontSize: 18,
- lineHeight: 18,
- color: colors.black,
- fontWeight: '900',
- includeFontPadding: false,
- },
+  previewDeleteBtn: { position: 'absolute', top: space.xs, right: space.xs, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: color.imageDeleteOverlay },
+
+  previewDeleteX: { fontSize: 18, lineHeight: 18, color: primitive.black, fontWeight: '900', includeFontPadding: false },
+
+  saveButton: { marginTop: space.xl },
+
+  deleteButton: { marginTop: space.sm },
+
+  busy: { opacity: 0.6 },
 });

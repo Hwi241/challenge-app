@@ -61,7 +61,19 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
-import { buttonStyles, spacing, radius, colors as PALETTE } from '../styles/common';
+import {
+  buttonStyles,
+  card as canonicalCardStyles,
+  color,
+  font,
+  input as canonicalInputStyles,
+  layout as canonicalLayoutStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+  text as canonicalTextStyles,
+} from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
@@ -1168,9 +1180,9 @@ const MAX_MINUTES = 1440; // 24시간
 
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
@@ -1178,8 +1190,13 @@ const MAX_MINUTES = 1440; // 24시간
       <ScrollView
         ref={formScrollRef}
         contentContainerStyle={[
-          styles.container,
-          { paddingBottom: Math.max(spacing.xl * 3, keyboardBottomInset + spacing.xl * 2) },
+          canonicalLayoutStyles.screenContentMuted,
+          {
+            paddingBottom: Math.max(
+              space.xl * 3,
+              keyboardBottomInset + space.xl * 2
+            ),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -1192,18 +1209,37 @@ const MAX_MINUTES = 1440; // 24시간
 
 
       {!!challengeTitle && (
-        <View style={styles.titleBox}>
-          <Text style={styles.titleBoxText}>{challengeTitle}</Text>
+        <View
+        style={[
+          canonicalCardStyles.titleBox,
+          styles.titleBoxSpacing,
+        ]}
+      >
+        <Text style={styles.titleBoxText}>{challengeTitle}</Text>
         </View>
       )}
 
-      <View style={styles.dateBox}>
+      <View
+        style={[
+          canonicalCardStyles.titleBox,
+          styles.dateBox,
+        ]}
+      >
         <View style={styles.dateTextGroup}>
-          <Text style={styles.dateLabel}>기록 날짜</Text>
-          <Text style={[
-            styles.dateValue,
+          <Text
+          style={[
+            canonicalTextStyles.metaStrongMuted,
+            styles.dateLabel,
+          ]}
+        >
+          기록 날짜
+        </Text>
+          <Text
+          style={[
+            canonicalTextStyles.value,
             dateEditEnabled && styles.dateValueActive,
-          ]}>
+          ]}
+        >
             {formatKoreanDate(safeSelectedEntryDate)}
           </Text>
         </View>
@@ -1231,12 +1267,25 @@ const MAX_MINUTES = 1440; // 24시간
           onChange={handleEntryDateChange}
         />
       )}
-<View style={styles.card}>
+<View
+      style={[
+        canonicalCardStyles.form,
+        styles.cardSpacing,
+      ]}
+    >
         {/* "내용"과 "사진 넣기"를 가로 한 줄로 */}
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>내용</Text>
+        <View
+          style={[
+            canonicalLayoutStyles.rowBetween,
+            styles.cardHeaderSpacing,
+          ]}
+        >
+          <Text style={canonicalTextStyles.sectionTitle}>내용</Text>
           <TouchableOpacity
-            style={[buttonStyles.compactRight, { opacity: busy ? 0.6 : 1 }]}
+            style={[
+              buttonStyles.compactRight,
+              busy && styles.busy,
+            ]}
             onPress={onPickImage}
             activeOpacity={0.9}
             disabled={busy}
@@ -1268,10 +1317,15 @@ const MAX_MINUTES = 1440; // 24시간
           value={text}
           onChangeText={(t) => setText((t || '').slice(0, MAX_TEXT_LEN))}
           placeholder="인증 내용을 입력하세요"
-          style={[styles.input, { height: textHeight, textAlignVertical: 'top', opacity: busy ? 0.75 : 1 }]}
+          style={[
+            canonicalInputStyles.compact,
+            styles.entryTextInput,
+            { height: textHeight },
+            busy && styles.busyInput,
+          ]}
           multiline
           editable={!busy}
-          placeholderTextColor={PALETTE.gray400}
+          placeholderTextColor={color.textDisabled}
           maxLength={MAX_TEXT_LEN}
           onFocus={() => scrollToFocusedInput(entryTextInputRef, 48)}
           onContentSizeChange={e => {
@@ -1282,22 +1336,39 @@ const MAX_MINUTES = 1440; // 24시간
           }}
         />
 
-        <Text style={[styles.label, { marginTop: spacing.md }]}>소요 시간(분)</Text>
+        <Text
+          style={[
+            canonicalTextStyles.label,
+            styles.durationLabel,
+          ]}
+        >
+          소요 시간(분)
+        </Text>
         <TextInput
           ref={durationInputRef}
           value={duration}
           onChangeText={handleDurationChange}
           placeholder="숫자만 입력"
-          style={[styles.input, { opacity: busy ? 0.75 : 1 }]}
+          style={[
+            canonicalInputStyles.compact,
+            busy && styles.busyInput,
+          ]}
           editable={!busy}
-          placeholderTextColor={PALETTE.gray400}
+          placeholderTextColor={color.textDisabled}
           onFocus={() => scrollToFocusedInput(durationInputRef, 48)}
           {...numericInputProps}
         />
       </View>
 
-      <View style={styles.healthDataBox}>
-        <Text style={styles.healthDataTitle}>데이터 불러오기</Text>
+      <View
+        style={[
+          canonicalCardStyles.form,
+          styles.healthDataSpacing,
+        ]}
+      >
+        <Text style={canonicalTextStyles.sectionTitleSpaced}>
+          데이터 불러오기
+        </Text>
         {healthConnectLinked ? (
           <>
             <View style={styles.healthProviderRow}><Text style={styles.healthProviderLabel}>연동된 데이터 출처</Text><Text style={styles.healthProviderValue}>☑ Health Connect</Text></View>
@@ -1328,7 +1399,11 @@ const MAX_MINUTES = 1440; // 24시간
       </View>
 
       <TouchableOpacity
-        style={[buttonStyles.primary.container, { marginTop: spacing.xl, opacity: busy ? 0.6 : 1 }]}
+        style={[
+          buttonStyles.primary.container,
+          styles.submitButton,
+          busy && styles.busy,
+        ]}
         onPress={onSubmit}
         activeOpacity={0.9}
         disabled={busy}
@@ -1342,148 +1417,81 @@ const MAX_MINUTES = 1440; // 24시간
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, paddingBottom: spacing.xl * 3, backgroundColor: PALETTE.gray50 },
-  screenTitle: { fontSize: 20, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.lg, textAlign: 'center' },
-
-  titleBox: {
-    backgroundColor: PALETTE.white,
-    borderWidth: 1,
-    borderColor: PALETTE.gray200,
-    borderRadius: radius.md,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: spacing.lg,
-  },
-  titleBoxText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: PALETTE.gray800,
-    textAlign: 'center',
-  },
-
-  dateBox: {
-    backgroundColor: PALETTE.white,
-    borderWidth: 1,
-    borderColor: PALETTE.gray200,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  dateTextGroup: {
+  flex: {
     flex: 1,
   },
-  dateLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.gray600,
-    marginBottom: 4,
+
+  titleBoxSpacing: {
+    marginBottom: space.md,
   },
-  dateValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.gray800,
-  },
-  dateValueActive: {
-    color: PALETTE.black,
-  },
-  dateCostButton: {
-    minWidth: 56,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: PALETTE.gray800,
-    backgroundColor: PALETTE.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  dateCostButtonDisabled: {
-    opacity: 0.55,
-  },
-  dateCostButtonText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: PALETTE.gray800,
-  },
-    healthDataBox: { backgroundColor: PALETTE.white, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md || 12, padding: spacing.lg || 16, marginBottom: spacing.lg || 16 },
-  healthDataTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.sm || 8 },
-  healthProviderRow: { padding: 12, borderWidth: 1, borderColor: PALETTE.gray200, borderRadius: radius.md || 12, backgroundColor: PALETTE.gray50, marginBottom: spacing.md || 12 },
-  healthProviderLabel: { fontSize: 12, fontWeight: '700', color: PALETTE.gray600, marginBottom: 4 },
-  healthProviderValue: { fontSize: 14, fontWeight: '800', color: PALETTE.gray800 },
-  healthLoadButton: { height: 44, borderRadius: radius.md || 12, backgroundColor: PALETTE.gray800, alignItems: 'center', justifyContent: 'center' },
-  healthLoadButtonText: { color: PALETTE.white, fontSize: 14, fontWeight: '800' },
-  healthRecordList: { marginTop: spacing.md || 12, borderTopWidth: 1, borderTopColor: PALETTE.gray200, paddingTop: spacing.md || 12 },
-  healthRecordDateTitle: { fontSize: 14, fontWeight: '800', color: PALETTE.gray800, marginBottom: spacing.sm || 8 },
-  healthRecordRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  healthRecCheck: { width: 24, fontSize: 16, color: PALETTE.gray800 },
-  healthRecText: { flex: 1, fontSize: 14, color: PALETTE.gray800 },
-  healthUseButton: { marginTop: spacing.md || 12, height: 44, borderRadius: radius.md || 12, backgroundColor: PALETTE.black, alignItems: 'center', justifyContent: 'center' },
-  healthUseButtonText: { color: PALETTE.white, fontSize: 14, fontWeight: '800' },
+
+  titleBoxText: { fontSize: 15, fontWeight: font.weight.bold, color: color.textPrimary, textAlign: 'center' },
+
+  dateBox: { marginBottom: space.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+
+  dateTextGroup: { flex: 1 },
+
+  dateLabel: { fontWeight: font.weight.bold, marginBottom: space.xxs },
+
+  dateValueActive: { color: primitive.black },
+
+  dateCostButton: { minWidth: 56, height: 34, borderRadius: 17, borderWidth: 1, borderColor: color.textPrimary, backgroundColor: color.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.sm },
+
+  dateCostButtonDisabled: { opacity: 0.55 },
+
+  dateCostButtonText: { fontSize: font.size.bodySmall, fontWeight: '900', color: color.textPrimary },
+
+  cardSpacing: { marginBottom: space.md },
+
+  cardHeaderSpacing: { marginBottom: space.xs },
+
+  entryTextInput: { minHeight: 120, textAlignVertical: 'top' },
+
+  durationLabel: { marginTop: space.sm, marginBottom: space.xxs + 2 },
+
+  busy: { opacity: 0.6 },
+
+  busyInput: { opacity: 0.75 },
+
+  healthDataSpacing: { marginBottom: space.md },
+
+  healthProviderRow: { padding: space.sm, borderWidth: 1, borderColor: color.border, borderRadius: radius.md, backgroundColor: color.backgroundMuted, marginBottom: space.sm },
+
+  healthProviderLabel: { fontSize: font.size.meta, fontWeight: font.weight.bold, color: color.textSecondary, marginBottom: space.xxs },
+
+  healthProviderValue: { fontSize: font.size.body, fontWeight: font.weight.heavy, color: color.textPrimary },
+
+  healthLoadButton: { height: 44, borderRadius: radius.md, backgroundColor: color.textPrimary, alignItems: 'center', justifyContent: 'center' },
+
+  healthLoadButtonText: { color: color.textInverse, fontSize: font.size.body, fontWeight: font.weight.heavy },
+
+  healthRecordList: { marginTop: space.sm, borderTopWidth: 1, borderTopColor: color.border, paddingTop: space.sm },
+
+  healthRecordDateTitle: { fontSize: font.size.body, fontWeight: font.weight.heavy, color: color.textPrimary, marginBottom: space.xs },
+
+  healthRecordRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space.xs },
+
+  healthRecCheck: { width: 24, fontSize: font.size.bodyLarge, color: color.textPrimary },
+
+  healthRecText: { flex: 1, fontSize: font.size.body, color: color.textPrimary },
+
+  healthUseButton: { marginTop: space.sm, height: 44, borderRadius: radius.md, backgroundColor: primitive.black, alignItems: 'center', justifyContent: 'center' },
+
+  healthUseButtonText: { color: primitive.white, fontSize: font.size.body, fontWeight: font.weight.heavy },
+
   healthButtonDisabled: { opacity: 0.55 },
-  healthEmptyTitle: { fontSize: 14, fontWeight: '800', color: PALETTE.gray800, marginBottom: 4 },
-  healthEmptyText: { fontSize: 13, lineHeight: 19, color: PALETTE.gray600, marginBottom: spacing.md || 12 },
-card: {
-    backgroundColor: PALETTE.white,
-    borderWidth: 1,
-    borderColor: PALETTE.gray200,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  // "내용"과 "사진 넣기"를 한 줄로, 간격 살짝 줄임
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.gray800 },
 
-  label: { fontSize: 13, color: PALETTE.gray600, marginBottom: 6 },
-  input: {
-    backgroundColor: PALETTE.white,
-    borderWidth: 1,
-    borderColor: PALETTE.gray200,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: PALETTE.gray800,
-  },
+  healthEmptyTitle: { fontSize: font.size.body, fontWeight: font.weight.heavy, color: color.textPrimary, marginBottom: space.xxs },
 
-  // 미리보기 컨테이너 (삭제 버튼을 절대 위치시키기 위해 relative)
-  previewWrap: {
-    position: 'relative',
-    marginBottom: spacing.md,
-  },
-  preview: {
-    width: '100%',
-    height: 200,
-    borderRadius: radius.md,
-    backgroundColor: PALETTE.gray100,
-  },
-  // 우상단 반투명 회색 원형 + 검은 X
-  previewDeleteBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(229, 231, 235, 0.85)', // 회색(Gray-200) 반투명
-  },
-  previewDeleteX: {
-    fontSize: 18,
-    lineHeight: 18,
-    color: '#000', // 검은색 X
-    fontWeight: '900',
-    includeFontPadding: false,
-  },
+  healthEmptyText: { fontSize: font.size.bodySmall, lineHeight: 19, color: color.textSecondary, marginBottom: space.sm },
+
+  submitButton: { marginTop: space.xl },
+
+  previewWrap: { position: 'relative', marginBottom: space.sm },
+
+  preview: { width: '100%', height: 200, borderRadius: radius.md, backgroundColor: color.surfaceMuted },
+
+  previewDeleteBtn: { position: 'absolute', top: space.xs, right: space.xs, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: color.imageDeleteOverlay },
+
+  previewDeleteX: { fontSize: 18, lineHeight: 18, color: primitive.black, fontWeight: '900', includeFontPadding: false },
 });

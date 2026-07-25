@@ -12,11 +12,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
 
-import { colors, spacing, radius, buttonStyles } from '../styles/common';
+import {
+ buttonStyles,
+ card as canonicalCardStyles,
+ color,
+ font,
+ modal as canonicalModalStyles,
+ primitive,
+ radius,
+ space,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 import BackButton from '../components/BackButton';
 
-const CARD_BORDER = colors.border;   // 도전 리스트와 동일
-const DIVIDER = colors.gray300;       // 살짝 더 진하게
+const DIVIDER = primitive.neutral[300]; // 살짝 더 진하게
 const HOF_KEY = 'hof';
 const LEGACY_KEYS = ['hallOfFame', 'hall_of_fame', 'HOF']; // 1회 마이그레이션 용
 
@@ -116,13 +126,19 @@ const HofItem = memo(function HofItem({
       onPress={() => (selectMode ? onToggleSelect?.(item) : onPress?.(item))}
     >
       <Animated.View style={[
-        styles.card,
+        canonicalCardStyles.list,
         highlight && styles.cardHighlight, // 깜빡임 동안 검은 테두리
         animatedStyle
       ]}>
         {/* 타이틀 중앙 정렬 + 선택 체크는 오버레이 */}
         <View style={styles.titleCenterWrap}>
-          <Text style={styles.titleCentered} numberOfLines={2}>
+          <Text
+ style={[
+ canonicalTextStyles.sectionTitle,
+ canonicalTextStyles.center,
+ ]}
+ numberOfLines={2}
+ >
             {item.title || '(제목 없음)'}
           </Text>
           {selectMode && (
@@ -138,12 +154,12 @@ const HofItem = memo(function HofItem({
 
         <View style={styles.metaWrap}>
           {!!item.startDate && !!item.endDate && (
-            <Text style={styles.meta}>기간 {item.startDate} ~ {item.endDate}</Text>
+            <Text style={[canonicalTextStyles.meta, styles.metaText]}>기간 {item.startDate} ~ {item.endDate}</Text>
           )}
           {(() => {
             const doneTs = toMillis(item.completedAt ?? item.rewardClaimedAt ?? item.endDate);
             return (
-              <Text style={styles.meta}>
+              <Text style={[canonicalTextStyles.meta, styles.metaText]}>
                 완료일 {doneTs ? new Date(doneTs).toLocaleString() : '-'}
               </Text>
             );
@@ -153,8 +169,24 @@ const HofItem = memo(function HofItem({
             <>
               <View style={styles.innerDivider} />
               <View style={styles.rewardBox}>
-                <Text style={styles.rewardBoxLabel}>보상</Text>
-                <Text style={styles.rewardBoxTitle} numberOfLines={1}>{rewardLabel}</Text>
+                <Text
+ style={[
+ canonicalTextStyles.caption,
+ canonicalTextStyles.center,
+ styles.rewardLabelSpacing,
+ ]}
+ >
+ 보상
+ </Text>
+                <Text
+ style={[
+ canonicalTextStyles.value,
+ canonicalTextStyles.center,
+ ]}
+ numberOfLines={1}
+ >
+ {rewardLabel}
+ </Text>
               </View>
             </>
           )}
@@ -334,7 +366,7 @@ export default function HallOfFameScreen() {
   }, [onLongPressItem, onPressItem, selectMode, selected, toggleSelect, highlightId]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <BackButton title="명예의 전당" />
 
 
@@ -343,8 +375,26 @@ export default function HallOfFameScreen() {
         data={hof}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.sm) + 50 }}
-        ListEmptyComponent={<Text style={styles.empty}>아직 완료된 도전이 없습니다.</Text>}
+        contentContainerStyle={[
+ styles.listContent,
+ {
+ paddingBottom:
+ space.xxl +
+ space.xxs +
+ Math.max(insets.bottom, space.xs) +
+ 50,
+ },
+ ]}
+        ListEmptyComponent={
+ <Text
+ style={[
+ canonicalTextStyles.bodyMuted,
+ styles.emptyText,
+ ]}
+ >
+ 아직 완료된 도전이 없습니다.
+ </Text>
+ }
         removeClippedSubviews
         windowSize={7}
         initialNumToRender={12}
@@ -354,11 +404,11 @@ export default function HallOfFameScreen() {
 
       {/* 선택 모드 하단바 (선택 버튼은 제거) */}
       {selectMode && (
-        <View pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
-          <TouchableOpacity style={[buttonStyles.outlineSoft.container, { flex: 1, marginRight: spacing.sm }]} onPress={cancelSelectMode}>
+        <View pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, space.xs) }]}>
+          <TouchableOpacity style={[buttonStyles.outlineSoft.container, styles.bottomButtonLeft]} onPress={cancelSelectMode}>
             <Text style={buttonStyles.outlineSoft.label}>취소</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[buttonStyles.outlineStrong.container, { flex: 1, marginLeft: spacing.sm }]} onPress={removeSelected}>
+          <TouchableOpacity style={[buttonStyles.outlineStrong.container, styles.bottomButtonRight]} onPress={removeSelected}>
             <Text style={buttonStyles.outlineStrong.label}>선택 삭제</Text>
           </TouchableOpacity>
         </View>
@@ -372,14 +422,35 @@ export default function HallOfFameScreen() {
         onRequestClose={closeCongrats}
         onShow={onModalShow}
       >
-        <Pressable style={styles.modalBackdrop} onPress={closeCongrats}>
-          <View style={styles.modalCard}>
-            <Text style={styles.congratsTitle}>축하합니다! 🎉</Text>
-            <Text style={styles.congratsDesc}>도전을 완료하셨습니다.</Text>
+        <Pressable style={canonicalModalStyles.backdrop} onPress={closeCongrats}>
+          <View style={[canonicalModalStyles.sheet, styles.modalCardAlignment]}>
+            <Text
+ style={[
+ canonicalTextStyles.headerTitle,
+ styles.congratsTitleSpacing,
+ ]}
+ >
+ 축하합니다! 🎉
+ </Text>
+            <Text
+ style={[
+ canonicalTextStyles.bodyMuted,
+ canonicalTextStyles.center,
+ ]}
+ >
+ 도전을 완료하셨습니다.
+ </Text>
             {!!(recentItem?.rewardTitle || recentItem?.reward) && (
               <>
-                <View style={styles.congratsDivider} />
-                <Text style={styles.congratsRewardLabel}>이번 보상</Text>
+                                <Text
+ style={[
+ canonicalTextStyles.metaTertiary,
+ canonicalTextStyles.center,
+ styles.congratsRewardLabelSpacing,
+ ]}
+ >
+ 이번 보상
+ </Text>
                 <Text style={styles.congratsRewardName} numberOfLines={2}>
                   {recentItem?.rewardTitle ?? recentItem?.reward}
                 </Text>
@@ -394,103 +465,140 @@ export default function HallOfFameScreen() {
 
 /* ----------------- 스타일 ----------------- */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+ listContent: {
+ paddingHorizontal: space.md,
+ },
 
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
+ cardWrap: {
+ marginTop: space.sm,
+ },
 
-  cardWrap: { marginTop: spacing.md },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,     // ✅ 도전 리스트와 동일한 얇은 회색 라인
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  // 강조 시 테두리만 잠깐 검정 3px로
-  cardHighlight: { borderColor: colors.primary },
+ cardHighlight: {
+ borderColor: color.primary,
+ },
 
-  // 타이틀 중앙 정렬 + 선택 체크는 오버레이
-  titleCenterWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 2,
-    paddingBottom: 6,
-  },
-  titleCentered: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
+ titleCenterWrap: {
+ alignItems: 'center',
+ justifyContent: 'center',
+ paddingTop: 2,
+ paddingBottom: 6,
+ },
 
-  checkOverlay: { position: 'absolute', right: 0, top: 0 },
-  check: {
-    width: 22, height: 22, borderRadius: 6,
-    borderWidth: 1, borderColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.surface,
-  },
-  checkOn: { borderColor: colors.primary, backgroundColor: colors.surface },
-  checkText: { fontSize: 14, color: 'transparent', fontWeight: '900' },
-  checkTextOn: { color: colors.primary },
+ checkOverlay: {
+ position: 'absolute',
+ right: 0,
+ top: 0,
+ },
 
-  metaWrap: { marginTop: 2, alignItems: 'center' },
-  meta: { fontSize: 12, color: colors.gray600, marginTop: 2, textAlign: 'center' },
+ check: {
+ width: 22,
+ height: 22,
+ borderRadius: 6,
+ borderWidth: 1,
+ borderColor: color.primary,
+ alignItems: 'center',
+ justifyContent: 'center',
+ backgroundColor: color.surface,
+ },
 
-  innerDivider: {
-    height: 1,
-    backgroundColor: DIVIDER,     // ✅ 기존보다 살짝 진한 회색
-    alignSelf: 'stretch',
-    marginTop: 10,
-    marginBottom: 8,
-    marginHorizontal: 4,
-  },
+ checkOn: {
+ borderColor: color.primary,
+ backgroundColor: color.surface,
+ },
 
-  rewardBox: {
-    marginTop: 2,
-    backgroundColor: colors.gray100,
-    borderRadius: radius.lg,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-  },
-  rewardBoxLabel: { fontSize: 11, color: colors.gray500, marginBottom: 2, textAlign: 'center' },
-  rewardBoxTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
+ checkText: {
+ fontSize: font.size.body,
+ color: 'transparent',
+ fontWeight: '900',
+ },
 
-  empty: { textAlign: 'center', color: colors.textTertiary, marginTop: 60 },
+ checkTextOn: {
+ color: color.primary,
+ },
 
-  bottomBar: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: 0,
-    flexDirection: 'row',
-  },
+ metaWrap: {
+ marginTop: 2,
+ alignItems: 'center',
+ },
 
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    alignItems: 'center',
-  },
-  congratsTitle: { fontSize: 18, fontWeight: '800', color: colors.textPrimary, marginBottom: 4, textAlign: 'center' },
-  congratsDesc: { color: colors.gray600, textAlign: 'center' },
-  congratsDivider: { height: 1, backgroundColor: CARD_BORDER, alignSelf: 'stretch', marginTop: 10, marginBottom: 10, marginHorizontal: 4 },
-  congratsRewardLabel: { fontSize: 12, color: colors.gray500, marginBottom: 4, textAlign: 'center' },
-  congratsRewardName: { fontSize: 20, fontWeight: '900', color: colors.textPrimary, textAlign: 'center' },
+ metaText: {
+ marginTop: 2,
+ textAlign: 'center',
+ },
+
+ innerDivider: {
+ height: 1,
+ backgroundColor: DIVIDER,
+ alignSelf: 'stretch',
+ marginTop: 10,
+ marginBottom: space.xs,
+ marginHorizontal: space.xxs,
+ },
+
+ rewardBox: {
+ marginTop: 2,
+ backgroundColor: color.surfaceMuted,
+ borderRadius: radius.lg,
+ paddingVertical: space.xs,
+ paddingHorizontal: 10,
+ alignItems: 'center',
+ justifyContent: 'center',
+ alignSelf: 'stretch',
+ },
+
+ rewardLabelSpacing: {
+ marginBottom: 2,
+ },
+
+ emptyText: {
+ textAlign: 'center',
+ color: color.textTertiary,
+ marginTop: space.xxxl + space.lg,
+ },
+
+ bottomBar: {
+ position: 'absolute',
+ left: space.md,
+ right: space.md,
+ bottom: 0,
+ flexDirection: 'row',
+ },
+
+ bottomButtonLeft: {
+ flex: 1,
+ marginRight: space.xs,
+ },
+
+ bottomButtonRight: {
+ flex: 1,
+ marginLeft: space.xs,
+ },
+
+ modalCardAlignment: {
+ alignItems: 'center',
+ },
+
+ congratsTitleSpacing: {
+ marginBottom: space.xxs,
+ },
+
+ congratsDivider: {
+ height: 1,
+ backgroundColor: color.border,
+ alignSelf: 'stretch',
+ marginTop: 10,
+ marginBottom: 10,
+ marginHorizontal: space.xxs,
+ },
+
+ congratsRewardLabelSpacing: {
+ marginBottom: space.xxs,
+ },
+
+ congratsRewardName: {
+ fontSize: font.size.title,
+ fontWeight: '900',
+ color: color.textPrimary,
+ textAlign: 'center',
+ },
 });

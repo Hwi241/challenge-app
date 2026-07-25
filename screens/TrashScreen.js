@@ -1,244 +1,399 @@
 // screens/TrashScreen.js
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  FlatList, Alert, BackHandler,
+ View,
+ Text,
+ StyleSheet,
+ TouchableOpacity,
+ FlatList,
+ Alert,
+ BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import BackButton from '../components/BackButton';
-import { colors, spacing, radius, buttonStyles } from '../styles/common';
 import {
-  loadTrash, restoreFromTrash, permanentDelete, emptyTrash,
+ useFocusEffect,
+ useNavigation,
+} from '@react-navigation/native';
+import BackButton from '../components/BackButton';
+import {
+ card as canonicalCardStyles,
+ color,
+ font,
+ layout as canonicalLayoutStyles,
+ radius,
+ space,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
+import {
+ loadTrash,
+ restoreFromTrash,
+ permanentDelete,
+ emptyTrash,
 } from '../utils/trash';
 
 function fmtDeletedAt(ts) {
-  if (!ts) return '-';
-  const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${day} ${hh}:${mm}`;
+ if (!ts) return '-';
+ const d = new Date(ts);
+ const y = d.getFullYear();
+ const m = String(d.getMonth() + 1).padStart(2, '0');
+ const day = String(d.getDate()).padStart(2, '0');
+ const hh = String(d.getHours()).padStart(2, '0');
+ const mm = String(d.getMinutes()).padStart(2, '0');
+ return `${y}-${m}-${day} ${hh}:${mm}`;
 }
 
 function calcPct(item) {
-  const cur = Number(item.currentScore ?? 0);
-  const goal = Number(item.goalScore ?? 0);
-  if (!goal) return 0;
-  return Math.min(100, Math.round((cur / goal) * 100));
+ const cur = Number(item.currentScore ?? 0);
+ const goal = Number(item.goalScore ?? 0);
+ if (!goal) return 0;
+ return Math.min(100, Math.round((cur / goal) * 100));
 }
 
 export default function TrashScreen() {
-  const [items, setItems] = useState([]);
+ const [items, setItems] = useState([]);
 
-  const navigation = useNavigation();
-  const load = useCallback(async () => {
-    const list = await loadTrash();
-    setItems(list);
-  }, []);
+ const navigation = useNavigation();
 
-  useFocusEffect(useCallback(() => {
-    load();
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      navigation.navigate('Settings');
-      return true;
-    });
-    return () => sub.remove();
-  }, [load, navigation]));
+ const load = useCallback(async () => {
+ const list = await loadTrash();
+ setItems(list);
+ }, []);
 
-  const onRestore = useCallback((item) => {
-    Alert.alert('복구', '이 도전을 복구할까요?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '복구', onPress: async () => {
-          try {
-            await restoreFromTrash(item);
-            Alert.alert('완료', `"${item.title}" 도전이 복구되었습니다.`);
-            load();
-          } catch {
-            Alert.alert('오류', '복구에 실패했습니다.');
-          }
-        },
-      },
-    ]);
-  }, [load]);
+ useFocusEffect(
+ useCallback(() => {
+ load();
 
-  const onPermanentDelete = useCallback((item) => {
-    Alert.alert(
-      '영구 삭제',
-      '이 도전을 영구 삭제할까요? 인증 기록도 함께 삭제되며 되돌릴 수 없습니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '영구 삭제', style: 'destructive', onPress: async () => {
-            await permanentDelete(item.id);
-            load();
-          },
-        },
-      ],
-    );
-  }, [load]);
+ const sub = BackHandler.addEventListener(
+ 'hardwareBackPress',
+ () => {
+ navigation.navigate('Settings');
+ return true;
+ }
+ );
 
-  const onEmptyTrash = useCallback(() => {
-    if (!items.length) return;
-    Alert.alert(
-      '휴지통 비우기',
-      '휴지통을 비울까요? 모든 도전과 인증 기록이 영구 삭제됩니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '모두 삭제', style: 'destructive', onPress: async () => {
-            await emptyTrash(items);
-            load();
-          },
-        },
-      ],
-    );
-  }, [items, load]);
+ return () => sub.remove();
+ }, [load, navigation])
+ );
 
-  const renderItem = useCallback(({ item }) => {
-    const pct = calcPct(item);
-    const reward = item.rewardTitle ?? item.reward ?? null;
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle} numberOfLines={2}>{item.title || '(제목 없음)'}</Text>
+ const onRestore = useCallback(
+ (item) => {
+ Alert.alert('복구', '이 도전을 복구할까요?', [
+ { text: '취소', style: 'cancel' },
+ {
+ text: '복구',
+ onPress: async () => {
+ try {
+ await restoreFromTrash(item);
+ Alert.alert(
+ '완료',
+ `"${item.title}" 도전이 복구되었습니다.`
+ );
+ load();
+ } catch {
+ Alert.alert('오류', '복구에 실패했습니다.');
+ }
+ },
+ },
+ ]);
+ },
+ [load]
+ );
 
-        <View style={styles.metaWrap}>
-          <Text style={styles.meta}>진행률: {pct}%</Text>
-          {!!(item.startDate || item.endDate) && (
-            <Text style={styles.meta}>기간: {item.startDate ?? '-'} ~ {item.endDate ?? '-'}</Text>
-          )}
-          <Text style={styles.meta}>
-            달성: {item.currentScore ?? 0} / {item.goalScore ?? 0}회
-          </Text>
-          {!!reward && (
-            <Text style={styles.meta}>보상: {reward}</Text>
-          )}
-          <Text style={styles.meta}>삭제일: {fmtDeletedAt(item._deletedAt)}</Text>
-        </View>
+ const onPermanentDelete = useCallback(
+ (item) => {
+ Alert.alert(
+ '영구 삭제',
+ '이 도전을 영구 삭제할까요? 인증 기록도 함께 삭제되며 되돌릴 수 없습니다.',
+ [
+ { text: '취소', style: 'cancel' },
+ {
+ text: '영구 삭제',
+ style: 'destructive',
+ onPress: async () => {
+ await permanentDelete(item.id);
+ load();
+ },
+ },
+ ]
+ );
+ },
+ [load]
+ );
 
-        <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={[styles.restoreBtn, { flex: 1 }]}
-            onPress={() => onRestore(item)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.restoreBtnText}>복구</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.deleteBtn, { flex: 1 }]}
-            onPress={() => onPermanentDelete(item)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.deleteBtnText}>영구 삭제</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }, [onRestore, onPermanentDelete]);
+ const onEmptyTrash = useCallback(() => {
+ if (!items.length) return;
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <BackButton />
-        <Text style={styles.headerTitle}>휴지통</Text>
-        {items.length > 0 ? (
-          <TouchableOpacity
-            style={styles.emptyBtn}
-            onPress={onEmptyTrash}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.emptyBtnText}>휴지통 비우기</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 80 }} />
-        )}
-      </View>
+ Alert.alert(
+ '휴지통 비우기',
+ '휴지통을 비울까요? 모든 도전과 인증 기록이 영구 삭제됩니다.',
+ [
+ { text: '취소', style: 'cancel' },
+ {
+ text: '모두 삭제',
+ style: 'destructive',
+ onPress: async () => {
+ await emptyTrash(items);
+ load();
+ },
+ },
+ ]
+ );
+ }, [items, load]);
 
-      <FlatList
-        data={items}
-        keyExtractor={(it) => String(it.id)}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <Text style={styles.empty}>휴지통이 비어있어요</Text>
-        }
-      />
-    </SafeAreaView>
-  );
+ const renderItem = useCallback(
+ ({ item }) => {
+ const pct = calcPct(item);
+ const reward = item.rewardTitle ?? item.reward ?? null;
+
+ return (
+ <View
+ style={[
+ canonicalCardStyles.base,
+ styles.cardSpacing,
+ ]}
+ >
+ <Text
+ style={[
+ canonicalTextStyles.sectionTitle,
+ styles.cardTitleSpacing,
+ ]}
+ numberOfLines={2}
+ >
+ {item.title || '(제목 없음)'}
+ </Text>
+
+ <View style={styles.metaWrap}>
+ <Text
+ style={[
+ canonicalTextStyles.meta,
+ styles.metaText,
+ ]}
+ >
+ 진행률: {pct}%
+ </Text>
+
+ {!!(item.startDate || item.endDate) && (
+ <Text
+ style={[
+ canonicalTextStyles.meta,
+ styles.metaText,
+ ]}
+ >
+ 기간: {item.startDate ?? '-'} ~ {item.endDate ?? '-'}
+ </Text>
+ )}
+
+ <Text
+ style={[
+ canonicalTextStyles.meta,
+ styles.metaText,
+ ]}
+ >
+ 달성: {item.currentScore ?? 0} / {item.goalScore ?? 0}회
+ </Text>
+
+ {!!reward && (
+ <Text
+ style={[
+ canonicalTextStyles.meta,
+ styles.metaText,
+ ]}
+ >
+ 보상: {reward}
+ </Text>
+ )}
+
+ <Text
+ style={[
+ canonicalTextStyles.meta,
+ styles.metaText,
+ ]}
+ >
+ 삭제일: {fmtDeletedAt(item._deletedAt)}
+ </Text>
+ </View>
+
+ <View style={styles.actionRow}>
+ <TouchableOpacity
+ style={[
+ styles.actionButton,
+ styles.restoreButton,
+ styles.actionFlex,
+ ]}
+ onPress={() => onRestore(item)}
+ activeOpacity={0.9}
+ >
+ <Text
+ style={[
+ canonicalTextStyles.bodyStrong,
+ styles.restoreButtonText,
+ ]}
+ >
+ 복구
+ </Text>
+ </TouchableOpacity>
+
+ <TouchableOpacity
+ style={[
+ styles.actionButton,
+ styles.deleteButton,
+ styles.actionFlex,
+ ]}
+ onPress={() => onPermanentDelete(item)}
+ activeOpacity={0.9}
+ >
+ <Text style={canonicalTextStyles.bodyStrong}>
+ 영구 삭제
+ </Text>
+ </TouchableOpacity>
+ </View>
+ </View>
+ );
+ },
+ [onRestore, onPermanentDelete]
+ );
+
+ return (
+ <SafeAreaView style={canonicalSurfaceStyles.screen}>
+ <View
+ style={[
+ canonicalLayoutStyles.rowBetween,
+ styles.header,
+ ]}
+ >
+ <BackButton />
+
+ <Text
+ style={[
+ canonicalTextStyles.screenTitleCompact,
+ styles.headerTitlePosition,
+ ]}
+ >
+ 휴지통
+ </Text>
+
+ {items.length > 0 ? (
+ <TouchableOpacity
+ style={styles.headerActionButton}
+ onPress={onEmptyTrash}
+ activeOpacity={0.9}
+ >
+ <Text style={styles.headerActionText}>
+ 휴지통 비우기
+ </Text>
+ </TouchableOpacity>
+ ) : (
+ <View style={styles.headerPlaceholder} />
+ )}
+ </View>
+
+ <FlatList
+ data={items}
+ keyExtractor={(it) => String(it.id)}
+ renderItem={renderItem}
+ contentContainerStyle={styles.listContent}
+ ListEmptyComponent={
+ <Text
+ style={[
+ canonicalTextStyles.bodyMuted,
+ styles.emptyText,
+ ]}
+ >
+ 휴지통이 비어있어요
+ </Text>
+ }
+ />
+ </SafeAreaView>
+ );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+ header: {
+ paddingRight: space.md,
+ },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: spacing.lg,
-  },
-  headerTitle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.gray800,
-    zIndex: -1,
-  },
-  emptyBtn: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  emptyBtnText: { color: colors.primary, fontWeight: '700', fontSize: 13 },
+ headerTitlePosition: {
+ position: 'absolute',
+ left: 0,
+ right: 0,
+ zIndex: -1,
+ },
 
-  listContent: { padding: spacing.lg, paddingBottom: 60 },
+ headerActionButton: {
+ borderWidth: 1,
+ borderColor: color.primary,
+ borderRadius: radius.md,
+ paddingVertical: space.xxs + 2,
+ paddingHorizontal: space.sm,
+ },
 
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.gray800, marginBottom: spacing.sm },
+ headerActionText: {
+ color: color.primary,
+ fontWeight: font.weight.bold,
+ fontSize: font.size.bodySmall,
+ },
 
-  metaWrap: { gap: 2 },
-  meta: { fontSize: 12, color: colors.gray600, marginTop: 2 },
+ headerPlaceholder: {
+ width: 80,
+ },
 
-  btnRow: { flexDirection: 'row', gap: 8, marginTop: spacing.md },
+ listContent: {
+ padding: space.md,
+ paddingBottom: space.xxxl + space.lg,
+ },
 
-  restoreBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  restoreBtnText: { color: colors.textInverse, fontWeight:'800', fontSize: 14 },
+ cardSpacing: {
+ marginBottom: space.sm,
+ },
 
-  deleteBtn: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtnText: { color: colors.primary, fontWeight: '800', fontSize: 14 },
+ cardTitleSpacing: {
+ marginBottom: space.xs,
+ },
 
-  empty: {
-    textAlign: 'center',
-    color: colors.gray400,
-    marginTop: 80,
-    fontSize: 15,
-  },
+ metaWrap: {
+ gap: 2,
+ },
+
+ metaText: {
+ marginTop: 2,
+ },
+
+ actionRow: {
+ flexDirection: 'row',
+ gap: space.xs,
+ marginTop: space.sm,
+ },
+
+ actionFlex: {
+ flex: 1,
+ },
+
+ actionButton: {
+ borderRadius: radius.md,
+ paddingVertical: 10,
+ alignItems: 'center',
+ justifyContent: 'center',
+ },
+
+ restoreButton: {
+ backgroundColor: color.primary,
+ },
+
+ restoreButtonText: {
+ color: color.textInverse,
+ },
+
+ deleteButton: {
+ backgroundColor: color.surface,
+ borderWidth: 1,
+ borderColor: color.primary,
+ },
+
+ emptyText: {
+ textAlign: 'center',
+ color: color.textDisabled,
+ marginTop: space.xxxl * 2,
+ fontSize: 15,
+ },
 });

@@ -8,7 +8,18 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GraphPreviewIcon from '../components/GraphPreviewIcon';
-import { buttonStyles, colors, radius, spacing } from '../styles/common';
+import {
+  buttonStyles,
+  color,
+  font,
+  input as canonicalInputStyles,
+  layout as canonicalLayoutStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+  text as canonicalTextStyles,
+} from '../styles/common';
 import {
   GRAPH_CATALOG,
   GRAPH_CATEGORIES,
@@ -427,7 +438,7 @@ const showFilterMenu = useCallback(() => {
       >
         <View style={[styles.graphCard, owned && styles.graphCardOwned]}>
           {/* 상단: 가격 + 티어 */}
-          <View style={styles.cardTopRow}>
+          <View style={canonicalLayoutStyles.rowBetween}>
             <View style={styles.priceBadge}>
               <Text style={styles.priceBadgeText}>★ {item.price}</Text>
             </View>
@@ -565,14 +576,17 @@ const showFilterMenu = useCallback(() => {
       </View>
 
       {/* 검색창 */}
-      <View style={styles.searchBox}>
+      <View style={canonicalInputStyles.searchContainer}>
         <Text style={styles.searchIcon}>⌕</Text>
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="그래프 이름, 설명, 입력값, Tier 검색"
-          placeholderTextColor={colors.textTertiary}
-          style={styles.searchInput}
+          placeholderTextColor={color.textTertiary}
+          style={[
+            canonicalInputStyles.searchField,
+            styles.searchInputText,
+          ]}
           autoCorrect={false}
           autoCapitalize="none"
         />
@@ -632,8 +646,13 @@ const showFilterMenu = useCallback(() => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.graphShopHeader}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
+      <View
+        style={[
+          canonicalLayoutStyles.rowBetween,
+          styles.graphShopHeader,
+        ]}
+      >
         <TouchableOpacity
           style={styles.graphShopBackButton}
           onPress={() => navigation.goBack()}
@@ -643,7 +662,14 @@ const showFilterMenu = useCallback(() => {
           <Text style={styles.graphShopBackIcon}>‹</Text>
         </TouchableOpacity>
 
-        <Text style={styles.graphShopHeaderTitle}>그래프 상점</Text>
+        <Text
+        style={[
+          canonicalTextStyles.headerTitle,
+          styles.graphShopHeaderTitleLayout,
+        ]}
+      >
+        그래프 상점
+      </Text>
 
         <TouchableOpacity
           style={[buttonStyles.compactRight, styles.ownedGraphHeaderButton]}
@@ -680,7 +706,7 @@ const showFilterMenu = useCallback(() => {
         }
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: Math.max(insets.bottom, 12) + spacing.xxl },
+          { paddingBottom: Math.max(insets.bottom, 12) + (space.xxl + space.xxs) },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -696,58 +722,40 @@ const styles = StyleSheet.create({
 
 
 
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   listContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: space.md,
   },
   listHeader: {
-    paddingTop: spacing.sm,
+    paddingTop: space.xs,
   },
   walletBox: {
     minHeight: 82,
     borderRadius: 22,
-    backgroundColor: colors.black,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    marginBottom: spacing.md,
+    backgroundColor: primitive.black,
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+    marginBottom: space.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   walletValue: {
-    color: colors.background,
+    color: color.background,
     fontSize: 30,
     fontWeight: '900',
     textAlign: 'center',
   },
-  searchBox: {
-    height: 48,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
   searchIcon: {
     fontSize: 22,
-    color: colors.textDisabled,
-    marginRight: spacing.sm,
+    color: primitive.black,
+    marginRight: space.xs,
     fontWeight: '800',
   },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    color: colors.gray800,
-    fontSize: 14,
-    fontWeight: '600',
-    paddingVertical: 0,
+  searchInputText: {
+    fontWeight: font.weight.semibold,
   },
   categoryScroll: {
-    paddingRight: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingRight: space.md,
+    paddingBottom: space.xs,
   },
   categoryTab: {
     paddingHorizontal: 7,
@@ -757,157 +765,152 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   categoryTabActive: {
-    borderBottomColor: colors.black,
+    borderBottomColor: primitive.black,
   },
   categoryTabText: {
-    color: colors.gray500,
+    color: color.textTertiary,
     fontSize: 15,
     fontWeight: '800',
   },
   categoryTabTextActive: {
-    color: colors.gray900,
+    color: primitive.black,
   },
   resultCount: {
     marginTop: 2,
-    marginBottom: spacing.sm,
-    color: colors.gray400,
+    marginBottom: space.xs,
+    color: color.textDisabled,
     fontSize: 12,
     fontWeight: '700',
   },
   graphCardOuter: {
     width: '100%',
-    marginBottom: spacing.md,
+    marginBottom: space.sm,
   },
   graphCardOuterWide: {
     width: '50%',
   },
   graphCardOuterWideLeft: {
-    paddingRight: spacing.xs,
+    paddingRight: (space.xxs + 2),
   },
   graphCardOuterWideRight: {
-    paddingLeft: spacing.xs,
+    paddingLeft: (space.xxs + 2),
   },
   graphCard: {
     zIndex: 0,
     elevation: 0,
     borderRadius: 22,
-    backgroundColor: colors.surface,
+    backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+    borderColor: color.border,
+    padding: space.sm,
   },
   graphCardOwned: {
-    backgroundColor: colors.border,
+    backgroundColor: color.border,
     opacity: 0.62,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   priceBadge: {
     minHeight: 28,
     borderRadius: 14,
-    backgroundColor: colors.primary,
+    backgroundColor: color.primary,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   priceBadgeText: {
-    color: colors.background,
+    color: color.background,
     fontSize: 12,
     fontWeight: '900',
   },
   tierBadge: {
     minHeight: 28,
     borderRadius: 14,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.gray300,
+    borderColor: primitive.neutral[300],
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tierBadgeText: {
-    color: colors.gray800,
+    color: color.textPrimary,
     fontSize: 12,
     fontWeight: '900',
   },
   previewWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: space.sm,
   },
   graphTitle: {
-    color: colors.gray900,
+    color: primitive.black,
     fontSize: 16,
     fontWeight: '900',
     marginBottom: 5,
   },
   graphDescription: {
-    color: colors.gray600,
+    color: color.textSecondary,
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
-    marginBottom: spacing.sm,
+    marginBottom: space.xs,
   },
   mutedText: {
-    color: colors.gray500,
+    color: color.textTertiary,
   },
   infoBlock: {
-    marginTop: spacing.sm,
+    marginTop: space.xs,
   },
   infoLabel: {
-    color: colors.gray900,
+    color: primitive.black,
     fontSize: 12,
     fontWeight: '900',
     marginBottom: 3,
   },
   infoText: {
-    color: colors.gray600,
+    color: color.textSecondary,
     fontSize: 11,
     fontWeight: '600',
     lineHeight: 16,
   },
   lockHint: {
-    marginTop: spacing.sm,
-    color: colors.textTertiary,
+    marginTop: space.xs,
+    color: color.textTertiary,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 16,
   },
   purchaseButton: {
-    marginTop: spacing.md,
+    marginTop: space.sm,
     height: 44,
     borderRadius: 14,
-    backgroundColor: colors.black,
+    backgroundColor: primitive.black,
     alignItems: 'center',
     justifyContent: 'center',
   },
   purchaseButtonDisabled: {
-    backgroundColor: colors.gray300,
+    backgroundColor: primitive.neutral[300],
   },
   purchaseButtonOwned: {
-    backgroundColor: colors.gray400,
+    backgroundColor: color.textDisabled,
   },
   purchaseButtonText: {
-    color: colors.background,
+    color: color.background,
     fontSize: 14,
     fontWeight: '900',
   },
   purchaseButtonTextDisabled: {
-    color: colors.textTertiary,
+    color: color.textTertiary,
   },
   purchaseButtonTextOwned: {
-    color: colors.backgroundMuted,
+    color: color.backgroundMuted,
   },
   emptyWrap: {
-    paddingVertical: spacing.xxl,
+    paddingVertical: (space.xxl + space.xxs),
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
-    color: colors.gray400,
+    color: color.textDisabled,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -959,12 +962,12 @@ const styles = StyleSheet.create({
   },
   filterSortText: {
     fontSize: 12,
-    color: colors.gray600,
+    color: color.textSecondary,
     fontWeight: '700',
   },
   filterSortArrow: {
     fontSize: 10,
-    color: colors.gray400,
+    color: color.textDisabled,
     marginLeft: 4,
     fontWeight: '700',
   },
@@ -972,14 +975,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 32,
     width: 188,
-    backgroundColor: colors.surface,
+    backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: colors.gray300,
+    borderColor: primitive.neutral[300],
     borderRadius: radius.md,
     overflow: 'hidden',
     zIndex: 20000,
     elevation: 2000,
-    shadowColor: colors.black,
+    shadowColor: primitive.black,
     shadowOpacity: 0.14,
     shadowRadius: 9,
     shadowOffset: { width: 0, height: 5 },
@@ -996,57 +999,50 @@ const styles = StyleSheet.create({
   },
   dropdownOverlayOption: {
     minHeight: 38,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: space.sm,
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderMuted,
+    borderBottomColor: color.borderMuted,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   dropdownOverlayOptionOn: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
   },
   dropdownOverlayOptionLast: {
     borderBottomWidth: 0,
   },
   dropdownOverlayText: {
     fontSize: 12,
-    color: colors.gray700,
+    color: primitive.neutral[700],
     fontWeight: '700',
   },
   dropdownOverlayTextOn: {
-    color: colors.gray900,
+    color: primitive.black,
     fontWeight: '900',
   },
   dropdownOverlayCheck: {
     fontSize: 12,
-    color: colors.gray900,
+    color: primitive.black,
     fontWeight: '900',
   },
   graphShopHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: space.md,
+    paddingTop: space.md,
+    paddingBottom: space.xs,
     zIndex: 30,
     elevation: 30,
   },
-  graphShopHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.gray800,
+  graphShopHeaderTitleLayout: {
     position: 'absolute',
     left: 0,
     right: 0,
-    textAlign: 'center',
     zIndex: -1,
   },
   graphShopBackButton: {
-    padding: spacing.xxs,
-    marginRight: spacing.xxs,
+    padding: space.xxs,
+    marginRight: space.xxs,
   },
   graphShopBackIcon: {
     fontSize: 32,
@@ -1054,7 +1050,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     includeFontPadding: false,
     marginTop: -8,
-    color: colors.gray800,
+    color: color.textPrimary,
   },
   ownedGraphHeaderButton: {
     paddingVertical: 4,
@@ -1066,7 +1062,7 @@ const styles = StyleSheet.create({
   },
   mediumGraphCardOuter: {
     width: '100%',
-    marginBottom: spacing.md,
+    marginBottom: space.sm,
     zIndex: 0,
     elevation: 0,
   },
@@ -1087,13 +1083,13 @@ const styles = StyleSheet.create({
     minHeight: 218,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    borderColor: color.border,
+    backgroundColor: color.surface,
+    paddingHorizontal: space.xs,
+    paddingVertical: space.xs,
   },
   mediumGraphCardOwned: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
     opacity: 0.72,
   },
   mediumGraphTopRow: {
@@ -1101,13 +1097,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+    marginBottom: (space.xxs + 2),
     gap: 6,
   },
   mediumPriceBadge: {
     minHeight: 24,
     borderRadius: radius.pill,
-    backgroundColor: colors.black,
+    backgroundColor: primitive.black,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1115,14 +1111,14 @@ const styles = StyleSheet.create({
   mediumPriceBadgeText: {
     fontSize: 11,
     fontWeight: '900',
-    color: colors.background,
+    color: color.background,
   },
   mediumTierBadge: {
     minHeight: 24,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.gray50,
+    borderColor: color.border,
+    backgroundColor: color.backgroundMuted,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1130,22 +1126,22 @@ const styles = StyleSheet.create({
   mediumTierBadgeText: {
     fontSize: 11,
     fontWeight: '900',
-    color: colors.gray700,
+    color: primitive.neutral[700],
   },
   mediumGraphPreviewWrap: {
     height: 76,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.gray50,
+    borderColor: color.border,
+    backgroundColor: color.backgroundMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: space.xs,
   },
   mediumGraphTitle: {
     fontSize: 13,
     fontWeight: '900',
-    color: colors.gray900,
+    color: primitive.black,
     marginBottom: 4,
   },
   mediumGraphDescription: {
@@ -1153,40 +1149,40 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 17,
     fontWeight: '600',
-    color: colors.gray600,
-    marginBottom: spacing.xs,
+    color: color.textSecondary,
+    marginBottom: (space.xxs + 2),
   },
   mediumGraphMeta: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.gray600,
-    marginBottom: spacing.sm,
+    color: color.textSecondary,
+    marginBottom: space.xs,
   },
   mediumBuyButton: {
     minHeight: 32,
     borderRadius: radius.sm,
-    backgroundColor: colors.black,
+    backgroundColor: primitive.black,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
   mediumBuyButtonDisabled: {
-    backgroundColor: colors.gray300,
+    backgroundColor: primitive.neutral[300],
   },
   mediumBuyButtonText: {
     fontSize: 12,
     fontWeight: '900',
-    color: colors.background,
+    color: color.background,
   },
   mediumBuyButtonTextDisabled: {
-    color: colors.textTertiary,
+    color: color.textTertiary,
   },
   mediumOwnedBadge: {
     minHeight: 32,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.gray50,
+    borderColor: color.border,
+    backgroundColor: color.backgroundMuted,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
@@ -1194,12 +1190,12 @@ const styles = StyleSheet.create({
   mediumOwnedBadgeText: {
     fontSize: 12,
     fontWeight: '900',
-    color: colors.gray600,
+    color: color.textSecondary,
   },
 
   smallGraphCardOuter: {
     width: '100%',
-    marginBottom: spacing.md,
+    marginBottom: space.sm,
     zIndex: 0,
     elevation: 0,
   },
@@ -1217,10 +1213,10 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderColor: color.border,
+    backgroundColor: color.surface,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1229,11 +1225,11 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.gray50,
+    borderColor: color.border,
+    backgroundColor: color.backgroundMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: space.sm,
   },
   smallGraphInfo: {
     flex: 1,
@@ -1242,29 +1238,29 @@ const styles = StyleSheet.create({
   smallGraphTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: colors.gray800,
+    color: color.textPrimary,
     marginBottom: 4,
   },
   smallGraphMeta: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.gray600,
+    color: color.textSecondary,
   },
   smallGraphRight: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: spacing.sm,
+    marginLeft: space.xs,
   },
   smallGraphPrice: {
     fontSize: 12,
     fontWeight: '900',
-    color: colors.gray800,
+    color: color.textPrimary,
     marginBottom: 5,
   },
   smallBuyButton: {
     minHeight: 28,
     borderRadius: radius.sm,
-    backgroundColor: colors.black,
+    backgroundColor: primitive.black,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1272,22 +1268,22 @@ const styles = StyleSheet.create({
   smallBuyButtonText: {
     fontSize: 12,
     fontWeight: '900',
-    color: colors.background,
+    color: color.background,
   },
   smallOwnedBadge: {
     minHeight: 28,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: color.border,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.gray50,
+    backgroundColor: color.backgroundMuted,
   },
   smallOwnedBadgeText: {
     fontSize: 12,
     fontWeight: '900',
-    color: colors.gray600,
+    color: color.textSecondary,
   },
 
 });

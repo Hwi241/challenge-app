@@ -9,7 +9,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GraphPreviewIcon from '../components/GraphPreviewIcon';
 import BackButton from '../components/BackButton';
-import { colors, radius, spacing } from '../styles/common';
+import {
+  color,
+  input as canonicalInputStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+} from '../styles/common';
 import {
   GRAPH_CATALOG,
   GRAPH_CATEGORIES,
@@ -370,14 +377,17 @@ function MyGraphScreen() {
   const listHeader = (
     <View style={styles.listHeader}>
       {/* 검색창 */}
-      <View style={styles.searchBox}>
+      <View style={canonicalInputStyles.searchContainer}>
         <Text style={styles.searchIcon}>⌕</Text>
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="보유 그래프 이름, 설명, 입력값, Tier 검색"
-          placeholderTextColor={colors.textTertiary}
-          style={styles.searchInput}
+          placeholderTextColor={color.textTertiary}
+          style={[
+            canonicalInputStyles.searchField,
+            styles.searchInputText,
+          ]}
           autoCorrect={false}
           autoCapitalize="none"
         />
@@ -437,7 +447,7 @@ function MyGraphScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <BackButton title="내 그래프" />
 
       <FlatList
@@ -463,7 +473,7 @@ function MyGraphScreen() {
         }
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: Math.max(insets.bottom, 12) + spacing.xxl },
+          { paddingBottom: Math.max(insets.bottom, 12) + (space.xxl + space.xxs) },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -475,39 +485,23 @@ function MyGraphScreen() {
 export default MyGraphScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   listContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: space.md,
   },
   listHeader: {
-    paddingTop: spacing.sm,
-  },
-  searchBox: {
-    height: 48,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
+    paddingTop: space.xs,
   },
   searchIcon: {
     fontSize: 20,
-    color: colors.textDisabled,
+    color: primitive.black,
     marginRight: 8,
   },
-  searchInput: {
-    flex: 1,
+  searchInputText: {
     fontSize: 16,
-    color: colors.textPrimary,
-    paddingVertical: 0,
   },
   categoryScroll: {
-    paddingRight: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingRight: space.md,
+    paddingBottom: space.xs,
   },
   categoryTab: {
     paddingHorizontal: 7,
@@ -517,21 +511,21 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   categoryTabActive: {
-    borderBottomColor: colors.black,
+    borderBottomColor: primitive.black,
   },
   categoryTabText: {
-    color: colors.gray500,
+    color: color.textTertiary,
     fontSize: 15,
     fontWeight: '800',
   },
   categoryTabTextActive: {
-    color: colors.gray900,
+    color: primitive.black,
   },
   resultCount: {
     marginTop: 2,
-    marginBottom: spacing.sm,
+    marginBottom: space.xs,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: color.textTertiary,
   },
   filterSortWrap: {
     position: 'relative',
@@ -539,7 +533,7 @@ const styles = StyleSheet.create({
     elevation: 999,
     marginLeft: 0,
     marginRight: 0,
-    marginBottom: spacing.xs,
+    marginBottom: (space.xxs + 2),
     overflow: 'visible',
   },
   filterSortRow: {
@@ -549,8 +543,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 0,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
+    paddingTop: space.xs,
+    paddingBottom: (space.xxs + 2),
     paddingRight: 6,
     justifyContent: 'flex-start',
   },
@@ -565,33 +559,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 0,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
+    paddingTop: space.xs,
+    paddingBottom: (space.xxs + 2),
     paddingLeft: 6,
     justifyContent: 'flex-end',
     marginLeft: 'auto',
   },
   filterSortText: {
     fontSize: 14,
-    color: colors.textTertiary,
+    color: color.textTertiary,
   },
   filterSortArrow: {
     fontSize: 12,
-    color: colors.textTertiary,
-    marginLeft: spacing.xxs,
+    color: color.textTertiary,
+    marginLeft: space.xxs,
   },
   dropdownOverlay: {
     position: 'absolute',
     top: 40,
     zIndex: 10000,
     elevation: 1000,
-    backgroundColor: colors.background,
+    backgroundColor: color.background,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.xs,
+    borderColor: color.border,
+    paddingVertical: (space.xxs + 2),
     minWidth: 160,
-    shadowColor: colors.black,
+    shadowColor: primitive.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -609,25 +603,25 @@ const styles = StyleSheet.create({
   dropdownOverlayOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.sm,
   },
   dropdownOverlayOptionOn: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
   },
   dropdownOverlayText: {
     fontSize: 15,
-    color: colors.textSecondary,
+    color: color.textSecondary,
     flex: 1,
   },
   dropdownOverlayTextOn: {
     fontWeight: '700',
-    color: colors.black,
+    color: primitive.black,
   },
   dropdownOverlayCheck: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.black,
+    color: primitive.black,
     marginLeft: 8,
   },
   dropdownOverlayOptionLast: {
@@ -638,103 +632,103 @@ const styles = StyleSheet.create({
   },
   graphCardOuter: {
     flex: 1,
-    paddingHorizontal: spacing.xxs,
-    paddingBottom: spacing.md,
+    paddingHorizontal: space.xxs,
+    paddingBottom: space.sm,
   },
   graphCardOuterWide: {
     maxWidth: '50%',
   },
   graphCardOuterWideLeft: {
-    paddingRight: spacing.xs,
+    paddingRight: (space.xxs + 2),
   },
   graphCardOuterWideRight: {
-    paddingLeft: spacing.xs,
+    paddingLeft: (space.xxs + 2),
   },
   graphCard: {
-    backgroundColor: colors.background,
+    backgroundColor: color.background,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+    borderColor: color.border,
+    padding: space.sm,
   },
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: space.xs,
   },
   priceBadge: {
-    backgroundColor: colors.black,
+    backgroundColor: primitive.black,
     borderRadius: radius.sm,
     paddingHorizontal: 10,
-    paddingVertical: spacing.xxs,
+    paddingVertical: space.xxs,
   },
   priceBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.background,
+    color: color.background,
   },
   tierBadge: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
     borderRadius: radius.sm,
     paddingHorizontal: 10,
-    paddingVertical: spacing.xxs,
+    paddingVertical: space.xxs,
   },
   tierBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textTertiary,
+    color: color.textTertiary,
   },
   previewWrap: {
     alignItems: 'center',
-    marginVertical: spacing.sm,
+    marginVertical: space.xs,
   },
   graphTitle: {
     fontSize: 17,
     fontWeight: '800',
     marginBottom: 4,
-    marginTop: spacing.sm,
-    color: colors.textPrimary,
+    marginTop: space.xs,
+    color: color.textPrimary,
   },
   graphDescription: {
     fontSize: 14,
-    color: colors.textTertiary,
-    marginBottom: spacing.sm,
+    color: color.textTertiary,
+    marginBottom: space.xs,
   },
   infoBlock: {
-    marginBottom: spacing.sm,
+    marginBottom: space.xs,
   },
   infoLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.textDisabled,
+    color: primitive.black,
     marginBottom: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   infoText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: color.textSecondary,
   },
   emptyWrap: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 80,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: space.md,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textDisabled,
-    marginBottom: spacing.sm,
+    color: primitive.black,
+    marginBottom: space.xs,
   },
   emptySubText: {
     fontSize: 14,
-    color: colors.textDisabled,
+    color: primitive.black,
     textAlign: 'center',
   },
   mediumGraphCardOuter: {
     width: '100%',
-    marginBottom: spacing.md,
+    marginBottom: space.sm,
     zIndex: 0,
     elevation: 0,
   },
@@ -755,24 +749,24 @@ const styles = StyleSheet.create({
     minHeight: 184,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    borderColor: color.border,
+    backgroundColor: color.surface,
+    paddingHorizontal: space.xs,
+    paddingVertical: space.xs,
   },
   mediumGraphTopRow: {
     minHeight: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginBottom: spacing.xs,
+    marginBottom: (space.xxs + 2),
   },
   mediumTierBadge: {
     minHeight: 24,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.gray50,
+    borderColor: color.border,
+    backgroundColor: color.backgroundMuted,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -780,22 +774,22 @@ const styles = StyleSheet.create({
   mediumTierBadgeText: {
     fontSize: 11,
     fontWeight: '900',
-    color: colors.gray700,
+    color: primitive.neutral[700],
   },
   mediumGraphPreviewWrap: {
     height: 76,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.gray50,
+    borderColor: color.border,
+    backgroundColor: color.backgroundMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: space.xs,
   },
   mediumGraphTitle: {
     fontSize: 13,
     fontWeight: '900',
-    color: colors.gray900,
+    color: primitive.black,
     marginBottom: 4,
   },
   mediumGraphDescription: {
@@ -803,19 +797,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 17,
     fontWeight: '600',
-    color: colors.gray600,
-    marginBottom: spacing.xs,
+    color: color.textSecondary,
+    marginBottom: (space.xxs + 2),
   },
   mediumGraphMeta: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.gray600,
-    marginBottom: spacing.sm,
+    color: color.textSecondary,
+    marginBottom: space.xs,
   },
 
   smallGraphCardOuter: {
     width: '100%',
-    marginBottom: spacing.md,
+    marginBottom: space.sm,
     zIndex: 0,
     elevation: 0,
   },
@@ -833,10 +827,10 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderColor: color.border,
+    backgroundColor: color.surface,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -845,11 +839,11 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.gray50,
+    borderColor: color.border,
+    backgroundColor: color.backgroundMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: space.sm,
   },
   smallGraphInfo: {
     flex: 1,
@@ -858,13 +852,13 @@ const styles = StyleSheet.create({
   smallGraphTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: colors.gray800,
+    color: color.textPrimary,
     marginBottom: 4,
   },
   smallGraphMeta: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.gray600,
+    color: color.textSecondary,
   },
 
 });

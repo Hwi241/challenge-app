@@ -3,7 +3,19 @@ import { ActivityIndicator, Alert, AppState, Linking, Modal, ScrollView, StyleSh
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BackButton from '../components/BackButton';
-import { colors, radius, spacing, space } from '../styles/common';
+import {
+  buttonStyles,
+  card as canonicalCardStyles,
+  color,
+  font,
+  layout as canonicalLayoutStyles,
+  modal as canonicalModalStyles,
+  primitive,
+  radius,
+  space,
+  surface as canonicalSurfaceStyles,
+  text as canonicalTextStyles,
+} from '../styles/common';
 import { getAppSettings, setDataIntegrationSettings } from '../utils/appSettings';
 import {
   CALENDAR_RECORD_PROVIDER,
@@ -366,30 +378,88 @@ function showHealthConnectReconnectGuide() {
     }
   },[]);
 
-    if(ld)return <SafeAreaView style={st.safe}><View style={st.c}><ActivityIndicator/><Text style={st.lt}>불러오는 중...</Text></View></SafeAreaView>;
+    if(ld)return <SafeAreaView style={canonicalSurfaceStyles.screen}><View style={st.loadingCenter}>
+ <ActivityIndicator/>
+ <Text
+  style={[
+   canonicalTextStyles.bodyMuted,
+   st.loadingText,
+  ]}
+ >
+  불러오는 중...
+ </Text>
+ </View></SafeAreaView>;
 
   return (
-    <SafeAreaView style={st.safe}>
-      <ScrollView contentContainerStyle={st.ct}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
+      <ScrollView
+  contentContainerStyle={[
+   canonicalLayoutStyles.screenContent,
+   st.content,
+  ]}
+ >
         <BackButton title="데이터 출처 관리"/>
-        <View style={st.card}>
-          <Text style={st.ttl}>Health Connect</Text>
-          <Text style={st.dsc}>Health Connect 권한을 연결하면 Samsung Health, Strava 등에서 공유한 걸음, 운동, 수면, 심박 데이터를 인증 근거로 사용할 수 있습니다.</Text>
-          <TouchableOpacity style={[st.btn,cn&&st.bd]} onPress={connect} disabled={cn||dc} activeOpacity={0.85}>
-            <Text style={st.bt}>{cn?'연결 중...':ok?'Health Connect 권한 관리':'권한 연결하기'}</Text>
+        <View style={canonicalCardStyles.base}>
+          <Text
+  style={[
+   canonicalTextStyles.headerTitle,
+   st.cardTitle,
+  ]}
+ >Health Connect</Text>
+          <Text
+  style={[
+   canonicalTextStyles.bodyMuted,
+   st.description,
+  ]}
+ >Health Connect 권한을 연결하면 Samsung Health, Strava 등에서 공유한 걸음, 운동, 수면, 심박 데이터를 인증 근거로 사용할 수 있습니다.</Text>
+          <TouchableOpacity style={[
+   buttonStyles.primary.container,
+   st.primaryButton,
+   cn&&st.bd,
+  ]} onPress={connect} disabled={cn||dc} activeOpacity={0.85}>
+            <Text
+  style={[
+   buttonStyles.primary.label,
+   st.primaryButtonText,
+  ]}
+ >{cn?'연결 중...':ok?'Health Connect 권한 관리':'권한 연결하기'}</Text>
           </TouchableOpacity>
         </View>
-        <View style={[st.card,st.calendarCardSpacing]}>
-          <Text style={st.ttl}>캘린더 기록</Text>
-          <Text style={st.dsc}>인증 완료 후 휴대폰 캘린더에 기록을 남길 수 있습니다. Google Calendar, Samsung Calendar 등 동기화된 캘린더에서 확인할 수 있습니다.</Text>
+        <View
+  style={[
+   canonicalCardStyles.base,
+   st.calendarCardSpacing,
+  ]}
+ >
+          <Text
+  style={[
+   canonicalTextStyles.headerTitle,
+   st.cardTitle,
+  ]}
+ >캘린더 기록</Text>
+          <Text
+  style={[
+   canonicalTextStyles.bodyMuted,
+   st.description,
+  ]}
+ >인증 완료 후 휴대폰 캘린더에 기록을 남길 수 있습니다. Google Calendar, Samsung Calendar 등 동기화된 캘린더에서 확인할 수 있습니다.</Text>
           {!!calendarOk&&(
             <Text style={st.info}>저장 대상: {calendarRecord.selectedCalendarTitle||'선택된 캘린더'}</Text>
           )}
           {!!calendarRecord.lastError&&!calendarOk&&(
             <Text style={st.err}>{calendarRecord.lastError}</Text>
           )}
-          <TouchableOpacity style={[st.btn,calBusy&&st.bd]} onPress={loadCalendarOptions} disabled={calBusy} activeOpacity={0.85}>
-            <Text style={st.bt}>{calBusy?'연결 중...':calendarOk?'캘린더 다시 선택':'캘린더 기록 켜기'}</Text>
+          <TouchableOpacity style={[
+   buttonStyles.primary.container,
+   st.primaryButton,
+   calBusy&&st.bd,
+  ]} onPress={loadCalendarOptions} disabled={calBusy} activeOpacity={0.85}>
+            <Text
+  style={[
+   buttonStyles.primary.label,
+   st.primaryButtonText,
+  ]}
+ >{calBusy?'연결 중...':calendarOk?'캘린더 다시 선택':'캘린더 기록 켜기'}</Text>
           </TouchableOpacity>
           {!!calendarOk&&(
             <TouchableOpacity style={[st.db,calBusy&&st.bd]} onPress={disconnectCalendarRecord} disabled={calBusy} activeOpacity={0.85}>
@@ -405,9 +475,26 @@ function showHealthConnectReconnectGuide() {
           animationType="fade"
           onRequestClose={function(){setCalPickerVisible(false);}}
         >
-          <View style={st.overlay}>
-            <View style={st.modalCard}>
-              <Text style={st.modalTitle}>저장 대상 캘린더 선택</Text>
+          <View
+  style={[
+   canonicalModalStyles.backdrop,
+   st.overlay,
+  ]}
+ >
+            <View
+  style={[
+   canonicalModalStyles.sheetBorderless,
+   st.modalCard,
+  ]}
+ >
+              <Text
+  style={[
+   canonicalTextStyles.headerTitle,
+   st.modalTitleSpacing,
+  ]}
+ >
+  저장 대상 캘린더 선택
+ </Text>
               <Text style={st.modalDesc}>인증 기록을 저장할 캘린더를 선택하세요.</Text>
               <Text style={st.modalGuide}>캘린더 이름이 헷갈리면 삼성 캘린더나 Google Calendar 앱에서 같은 캘린더로 테스트 일정을 만들어 실제 동기화 계정을 확인하세요.</Text>
               <ScrollView style={st.modalList}>
@@ -420,7 +507,11 @@ function showHealthConnectReconnectGuide() {
                   if(cal.ownerAccount)sourceInfo.push(cal.ownerAccount);
                   var sub=sourceInfo.join(' / ');
                   return(
-                    <TouchableOpacity key={cal.id||i} style={[st.modalItem,isSelected&&st.modalItemSelected]} onPress={function(){selectCalendar(cal);}} activeOpacity={0.75}>
+                    <TouchableOpacity key={cal.id||i} style={[
+   canonicalLayoutStyles.row,
+   st.modalItem,
+   isSelected&&st.modalItemSelected,
+  ]} onPress={function(){selectCalendar(cal);}} activeOpacity={0.75}>
                       <View style={st.modalItemContent}>
                         <Text style={[st.modalItemTitle,isSelected&&st.modalItemTitleSelected]}>{getCalendarDisplayTitle(cal)||'이름 없음'}</Text>
                         {!!sub&&<Text style={st.modalItemSub}>{sub}</Text>}
@@ -430,8 +521,22 @@ function showHealthConnectReconnectGuide() {
                   );
                 })}
               </ScrollView>
-              <TouchableOpacity style={st.modalClose} onPress={function(){setCalPickerVisible(false);}} activeOpacity={0.85}>
-                <Text style={st.modalCloseText}>닫기</Text>
+              <TouchableOpacity
+  style={[
+   buttonStyles.compactSecondary.container,
+   st.modalClose,
+  ]}
+  onPress={function(){setCalPickerVisible(false);}}
+  activeOpacity={0.85}
+ >
+                <Text
+  style={[
+   buttonStyles.compactSecondary.label,
+   st.modalCloseText,
+  ]}
+ >
+  닫기
+ </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -441,101 +546,81 @@ function showHealthConnectReconnectGuide() {
 }
 
 var st=StyleSheet.create({
- safe: { flex: 1, backgroundColor: colors.background },
- ct: { padding: spacing.lg, paddingBottom: space.xxxl },
-
- c: { flex: 1, alignItems: 'center', justifyContent: 'center' },
- lt: { marginTop: spacing.sm, fontSize: 14, color: colors.textSecondary },
-
- card: {
- padding: spacing.lg,
- borderRadius: radius.card,
- backgroundColor: colors.surface,
- borderWidth: 1,
- borderColor: colors.border,
- },
- ttl: {
- fontSize: 18,
- fontWeight: '800',
- color: colors.textPrimary,
- },
- dsc: {
- marginTop: space.xxs,
- fontSize: 14,
- lineHeight: 20,
- color: colors.textSecondary,
+ content: {
+ paddingBottom: space.xxxl,
  },
 
- btn: {
- marginTop: spacing.lg,
- height: 48,
+ loadingCenter: {
+ flex: 1,
  alignItems: 'center',
  justifyContent: 'center',
- borderRadius: radius.md,
- backgroundColor: colors.primary,
  },
- bt: {
- fontSize: 15,
- fontWeight: '800',
- color: colors.textInverse,
+ loadingText: {
+ marginTop: space.xs,
+ },
+
+ cardTitle: {
+ textAlign: 'left',
+ },
+ description: {
+ marginTop: space.xxs,
+ lineHeight: 20,
+ },
+
+ primaryButton: {
+ marginTop: space.md,
+ height: 48,
+ borderWidth: 0,
+ paddingVertical: 0,paddingHorizontal: 0,
+ },
+ primaryButtonText: {
+ fontWeight: font.weight.heavy,
  },
  bd: { opacity: 0.55 },
 
  db: {
- marginTop: spacing.sm,
+ marginTop: space.xs,
  height: 46,
  alignItems: 'center',
  justifyContent: 'center',
  borderRadius: radius.md,
- backgroundColor: colors.dangerBg,
+ backgroundColor: color.dangerBg,
  borderWidth: 1,
- borderColor: colors.dangerBorder,
+ borderColor: color.dangerBorder,
  },
  dbt: {
  fontSize: 14,
  fontWeight: '800',
- color: colors.danger,
+ color: color.danger,
  },
 
  overlay: {
- flex: 1,
- backgroundColor: colors.overlayStrong,
- justifyContent: 'center',
- alignItems: 'center',
  padding: space.lg,
  },
  modalCard: {
- width: '100%',
  maxHeight: '80%',
- backgroundColor: colors.surface,
  borderRadius: radius.sheet,
  padding: space.lg,
- paddingTop: spacing.xl,
+ paddingTop: space.xl,
  },
- modalTitle: {
- fontSize: 18,
- fontWeight: '800',
- color: colors.textPrimary,
- textAlign: 'center',
- marginBottom: spacing.lg,
+ modalTitleSpacing: {
+ marginBottom: space.md,
  },
  modalList: { maxHeight: 400 },
  modalEmpty: {
  textAlign: 'center',
  fontSize: 14,
- color: colors.slate500,
+ color: primitive.slate[500],
  paddingVertical: space.xxl,
  },
  modalItem: {
- flexDirection: 'row',
- alignItems: 'center',
  paddingVertical: 14,
- paddingHorizontal: spacing.md,
+ paddingHorizontal: space.sm,
  borderBottomWidth: 1,
- borderBottomColor: colors.slate100,
+ borderBottomColor: primitive.slate[100],
  },
  modalItemSelected: {
- backgroundColor: colors.infoBg,
+ backgroundColor: color.infoBg,
  },
  modalItemContent: {
  flex: 1,
@@ -543,50 +628,49 @@ var st=StyleSheet.create({
  modalItemTitle: {
  fontSize: 15,
  fontWeight: '600',
- color: colors.slate800,
+ color: primitive.slate[800],
  },
  modalItemTitleSelected: {
- color: colors.info,
+ color: color.info,
  },
  modalItemSub: {
  fontSize: 12,
- color: colors.slate500,
+ color: primitive.slate[500],
  marginTop: 3,
  },
  modalBadge: {
  fontSize: 12,
  fontWeight: '700',
- color: colors.info,
- backgroundColor: colors.blue100,
- paddingHorizontal: spacing.sm,
+ color: color.info,
+ backgroundColor: primitive.blue[100],
+ paddingHorizontal: space.xs,
  paddingVertical: 3,
  borderRadius: radius.sm,
  overflow: 'hidden',
  },
  modalClose: {
- marginTop: spacing.lg,
+ marginTop: space.md,
  height: 46,
- alignItems: 'center',
- justifyContent: 'center',
- borderRadius: radius.md,
- backgroundColor: colors.slate100,
+ borderWidth: 0,
+ paddingVertical: 0,
+ paddingHorizontal: 0,
+ backgroundColor: primitive.slate[100],
  },
  modalCloseText: {
  fontSize: 15,
- fontWeight: '600',
- color: colors.slate600,
+ color: primitive.slate[600],
  },
  modalDesc: {
  fontSize: 13,
  lineHeight: 19,
- color: colors.gray500,
- marginTop: spacing.xs,
+ color: color.textTertiary,
+ marginTop: (space.xxs + 2),
  },
  modalGuide: {
  fontSize: 12,
  lineHeight: 17,
- color: colors.gray400,
- marginTop: spacing.sm,
+ color: color.textDisabled,
+ marginTop: space.xs,
  marginBottom: space.xxs,
  fontStyle: 'italic',
  },

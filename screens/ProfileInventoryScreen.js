@@ -25,7 +25,21 @@ import {
   getDashboardLayoutStateForChallenge,
   getDashboardRowGapForChallenge,
 } from '../utils/dashboardLayout';
-import { colors, radius, spacing } from '../styles/common';
+import {
+ buttonStyles,
+ card as canonicalCardStyles,
+ color,
+ control as canonicalControlStyles,
+ font,
+ input as canonicalInputStyles,
+ layout as canonicalLayoutStyles,
+ modal as canonicalModalStyles,
+ primitive,
+ radius,
+ space,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
@@ -614,11 +628,11 @@ const calcStats = ({ cards, entries, trashInfo, stars, starHistory, hofGoal, hal
 };
 
 const DashboardCard = ({ title, subtitle, children, dark = false }) => (
-  <View style={[styles.dashboardCard, dark && styles.dashboardCardDark]}>
+  <View style={[canonicalCardStyles.compact, styles.dashboardCard, dark && styles.dashboardCardDark]}>
     {(title || subtitle) && (
       <View style={styles.cardHeader}>
-        {!!title && <Text style={[styles.cardTitle, dark && styles.cardTitleDark]} numberOfLines={1}>{title}</Text>}
-        {!!subtitle && <Text style={[styles.cardSubtitle, dark && styles.cardSubtitleDark]} numberOfLines={1}>{subtitle}</Text>}
+        {!!title && <Text style={[canonicalTextStyles.bodySmallStrong, styles.cardTitle, dark && styles.cardTitleDark]} numberOfLines={1}>{title}</Text>}
+        {!!subtitle && <Text style={[canonicalTextStyles.captionStrongMuted, styles.cardSubtitle, dark && styles.cardSubtitleDark]} numberOfLines={1}>{subtitle}</Text>}
       </View>
     )}
     <View style={styles.cardBody}>{children}</View>
@@ -626,7 +640,7 @@ const DashboardCard = ({ title, subtitle, children, dark = false }) => (
 );
 
 const KpiCard = ({ label, value, note, dark = false, icon }) => (
-  <View style={[styles.dashboardCard, styles.kpiCard, dark && styles.dashboardCardDark]}>
+  <View style={[canonicalCardStyles.compact, styles.dashboardCard, styles.kpiCard, dark && styles.dashboardCardDark]}>
     <Text
       style={[styles.kpiLabel, dark && styles.kpiLabelDark]}
       numberOfLines={1}
@@ -912,7 +926,7 @@ const HallBatteryCard = ({ completedCount, goal, progress, onPress }) => (
 const ConnectStatusCard = () => (
   <DashboardCard title="커넥트 현황" subtitle="외부 앱 연동 준비">
     {CONNECT_ITEMS.map((item) => (
-      <View key={item.id} style={styles.connectRow}>
+      <View key={item.id} style={[canonicalLayoutStyles.rowBetween, styles.connectRow]}>
         <Text style={styles.connectTitle}>{item.title}</Text>
         <Text style={styles.connectStatus}>{item.status}</Text>
       </View>
@@ -959,10 +973,10 @@ const CardListSection = ({ cards, hallCards }) => {
   }, [filtered]);
 
   return (
-    <View style={styles.listSection}>
-      <Text style={styles.listTitle}>카드 목록</Text>
+    <View style={[canonicalCardStyles.compact, styles.listSection]}>
+      <Text style={[canonicalTextStyles.sectionTitle, styles.listTitle]}>카드 목록</Text>
 
-      <View style={styles.tabRow}>
+      <View style={[canonicalLayoutStyles.row, styles.tabRow]}>
         {[
           { id: 'all', label: '전체' },
           { id: 'challenge', label: '도전' },
@@ -973,15 +987,15 @@ const CardListSection = ({ cards, hallCards }) => {
             key={item.id}
             activeOpacity={0.85}
             onPress={() => setTab(item.id)}
-            style={[styles.tabButton, tab === item.id && styles.tabButtonActive]}
+            style={[canonicalControlStyles.scopePill, styles.tabButton, tab === item.id && canonicalControlStyles.scopePillActive]}
           >
-            <Text style={[styles.tabButtonText, tab === item.id && styles.tabButtonTextActive]}>{item.label}</Text>
+            <Text style={[canonicalControlStyles.pillText, styles.tabButtonText, tab === item.id && canonicalControlStyles.pillTextActive]}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {sorted.length === 0 ? (
-        <Text style={styles.listEmpty}>표시할 카드가 없습니다.</Text>
+        <Text style={[canonicalTextStyles.bodyMuted, canonicalTextStyles.center, styles.listEmpty]}>표시할 카드가 없습니다.</Text>
       ) : (
         <ScrollView
           style={styles.listScroll}
@@ -999,19 +1013,19 @@ const CardListSection = ({ cards, hallCards }) => {
           const listKey = `${isHallItem ? 'hall' : 'card'}-${baseKey}-${index}`;
 
           return (
-            <View key={listKey} style={styles.listItem}>
+            <View key={listKey} style={[canonicalLayoutStyles.rowBetween, styles.listItem]}>
               <View style={styles.listItemMain}>
                 <Text
-                  style={[styles.listItemTitle, isHallItem && styles.listItemTitleMuted]}
+                  style={[canonicalTextStyles.bodyStrong, styles.listItemTitle, isHallItem && styles.listItemTitleMuted]}
                   numberOfLines={1}
                 >
                   {getCardTitle(item)}
                 </Text>
-                <Text style={styles.listItemMeta}>
+                <Text style={[canonicalTextStyles.caption, styles.listItemMeta]}>
                   {categoryLabel} · {statusLabel}
                 </Text>
               </View>
-              <Text style={[styles.listItemStatus, isHallItem && styles.listItemStatusMuted]}>
+              <Text style={[canonicalTextStyles.metaStrong, styles.listItemStatus, isHallItem && styles.listItemStatusMuted]}>
                 {statusBadge}
               </Text>
             </View>
@@ -1487,10 +1501,10 @@ export default function ProfileInventoryScreen() {
   }, [dashboardItems, columns]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={canonicalSurfaceStyles.screen}>
+      <View style={[canonicalLayoutStyles.rowBetween, styles.header]}>
         <TouchableOpacity
-          style={styles.headerSideBtn}
+          style={[buttonStyles.icon, styles.headerSideBtn]}
           onPress={() => navigation.goBack()}
           activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1498,32 +1512,26 @@ export default function ProfileInventoryScreen() {
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>MY</Text>
-        <View style={styles.headerSideBtn} />
+        <Text style={[canonicalTextStyles.headerTitle, styles.headerTitleLayout]}>MY</Text>
+        <View style={[buttonStyles.icon, styles.headerSideBtn]} />
       </View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
+          canonicalLayoutStyles.screenContent,
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 16) + 32 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={styles.recordRoomInternalTitle}>내 기록실</Text>
+        <View style={[canonicalLayoutStyles.rowBetween, styles.recordRoomTitleRow]}>
+          <View style={[canonicalLayoutStyles.row, styles.recordRoomTitleGroup]}>
+                      <Text style={[canonicalTextStyles.title, styles.recordRoomInternalTitle]}>내 기록실</Text>
 <TouchableOpacity
               onPress={openRecordRoomLayoutEdit}
               activeOpacity={0.85}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: 'transparent',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              style={[buttonStyles.icon, styles.recordRoomEditButton]}
               accessibilityRole="button"
               accessibilityLabel="기록실 배치 수정"
             >
@@ -1559,36 +1567,36 @@ export default function ProfileInventoryScreen() {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.shopFloatingBtn, { bottom: Math.max(insets.bottom, 16) + CARD_GAP }]}
+        style={[buttonStyles.smallPrimary.container, styles.shopFloatingBtn, { bottom: Math.max(insets.bottom, 16) + CARD_GAP }]}
         onPress={() => navigation.navigate('GraphShop')}
         activeOpacity={0.9}
         accessibilityRole="button"
         accessibilityLabel="상점 열기"
       >
-        <Text style={styles.shopFloatingText}>상점</Text>
+        <Text style={[buttonStyles.smallPrimary.label, styles.shopFloatingText]}>상점</Text>
       </TouchableOpacity>
 
       <Modal visible={memoVisible} transparent animationType="fade" onRequestClose={closeMemoModal}>
         <TouchableWithoutFeedback onPress={closeMemoModal}>
-          <View style={styles.modalBackdrop} />
+          <View style={[canonicalModalStyles.backdrop, styles.modalBackdrop]} />
         </TouchableWithoutFeedback>
-        <View style={styles.memoModalCard}>
-          <Text style={styles.memoModalTitle}>메모</Text>
+        <View style={[canonicalModalStyles.sheetBorderless, styles.memoModalCard]}>
+          <Text style={[canonicalTextStyles.headerTitle, styles.memoModalTitle]}>메모</Text>
           <TextInput
             value={memoDraft}
             onChangeText={setMemoDraft}
             multiline
             textAlignVertical="top"
             placeholder="나에게 남기고 싶은 말이나 다짐을 적어보세요."
-            placeholderTextColor={colors.textTertiary}
-            style={styles.memoInput}
+            placeholderTextColor={color.textTertiary}
+            style={[canonicalInputStyles.base, canonicalInputStyles.multiline, styles.memoInput]}
           />
-          <View style={styles.memoModalActions}>
-            <TouchableOpacity style={styles.memoCancelBtn} onPress={closeMemoModal} activeOpacity={0.85}>
-              <Text style={styles.memoCancelText}>취소</Text>
+          <View style={[canonicalModalStyles.actionRow, styles.memoModalActions]}>
+            <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionGhost, styles.memoCancelBtn]} onPress={closeMemoModal} activeOpacity={0.85}>
+              <Text style={[canonicalModalStyles.actionGhostText, styles.memoCancelText]}>취소</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.memoSaveBtn} onPress={saveMemo} activeOpacity={0.9}>
-              <Text style={styles.memoSaveText}>저장</Text>
+            <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionPrimary, styles.memoSaveBtn]} onPress={saveMemo} activeOpacity={0.9}>
+              <Text style={[canonicalModalStyles.actionPrimaryText, styles.memoSaveText]}>저장</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1596,23 +1604,23 @@ export default function ProfileInventoryScreen() {
 
       <Modal visible={profileVisible} transparent animationType="fade" onRequestClose={closeProfileModal}>
         <TouchableWithoutFeedback onPress={closeProfileModal}>
-          <View style={styles.modalBackdrop} />
+          <View style={[canonicalModalStyles.backdrop, styles.modalBackdrop]} />
         </TouchableWithoutFeedback>
-        <View style={styles.memoModalCard}>
-          <Text style={styles.memoModalTitle}>내 정보 수정</Text>
+        <View style={[canonicalModalStyles.sheetBorderless, styles.memoModalCard]}>
+          <Text style={[canonicalTextStyles.headerTitle, styles.memoModalTitle]}>내 정보 수정</Text>
           <TextInput
             value={profileDraft.name}
             onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, name: value }))}
             placeholder="이름 또는 별명"
-            placeholderTextColor={colors.textTertiary}
-            style={styles.profileInput}
+            placeholderTextColor={color.textTertiary}
+            style={[canonicalInputStyles.base, styles.profileInput]}
           />
           <TextInput
             value={profileDraft.headline}
             onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, headline: value }))}
             placeholder="나를 밀어주는 한 문장"
-            placeholderTextColor={colors.textTertiary}
-            style={styles.profileInput}
+            placeholderTextColor={color.textTertiary}
+            style={[canonicalInputStyles.base, styles.profileInput]}
           />
           <TextInput
             value={profileDraft.bio}
@@ -1620,15 +1628,15 @@ export default function ProfileInventoryScreen() {
             multiline
             textAlignVertical="top"
             placeholder="목표, 다짐, 나에 대한 설명을 적어보세요."
-            placeholderTextColor={colors.textTertiary}
-            style={[styles.memoInput, { minHeight: 120 }]}
+            placeholderTextColor={color.textTertiary}
+            style={[canonicalInputStyles.base, canonicalInputStyles.multiline, styles.memoInput, { minHeight: 120 }]}
           />
-          <View style={styles.memoModalActions}>
-            <TouchableOpacity style={styles.memoCancelBtn} onPress={closeProfileModal} activeOpacity={0.85}>
-              <Text style={styles.memoCancelText}>취소</Text>
+          <View style={[canonicalModalStyles.actionRow, styles.memoModalActions]}>
+            <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionGhost, styles.memoCancelBtn]} onPress={closeProfileModal} activeOpacity={0.85}>
+              <Text style={[canonicalModalStyles.actionGhostText, styles.memoCancelText]}>취소</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.memoSaveBtn} onPress={saveProfile} activeOpacity={0.9}>
-              <Text style={styles.memoSaveText}>저장</Text>
+            <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionPrimary, styles.memoSaveBtn]} onPress={saveProfile} activeOpacity={0.9}>
+              <Text style={[canonicalModalStyles.actionPrimaryText, styles.memoSaveText]}>저장</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1636,24 +1644,24 @@ export default function ProfileInventoryScreen() {
 
       <Modal visible={hofGoalVisible} transparent animationType="fade" onRequestClose={closeHofGoalModal}>
         <TouchableWithoutFeedback onPress={closeHofGoalModal}>
-          <View style={styles.modalBackdrop} />
+          <View style={[canonicalModalStyles.backdrop, styles.modalBackdrop]} />
         </TouchableWithoutFeedback>
-        <View style={styles.memoModalCard}>
-          <Text style={styles.memoModalTitle}>명예의 전당 목표</Text>
+        <View style={[canonicalModalStyles.sheetBorderless, styles.memoModalCard]}>
+          <Text style={[canonicalTextStyles.headerTitle, styles.memoModalTitle]}>명예의 전당 목표</Text>
           <TextInput
             value={hofGoalDraft}
             onChangeText={setHofGoalDraft}
             keyboardType="number-pad"
             placeholder="목표 갯수"
-            placeholderTextColor={colors.textTertiary}
-            style={styles.profileInput}
+            placeholderTextColor={color.textTertiary}
+            style={[canonicalInputStyles.base, styles.profileInput]}
           />
-          <View style={styles.memoModalActions}>
-            <TouchableOpacity style={styles.memoCancelBtn} onPress={closeHofGoalModal} activeOpacity={0.85}>
-              <Text style={styles.memoCancelText}>취소</Text>
+          <View style={[canonicalModalStyles.actionRow, styles.memoModalActions]}>
+            <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionGhost, styles.memoCancelBtn]} onPress={closeHofGoalModal} activeOpacity={0.85}>
+              <Text style={[canonicalModalStyles.actionGhostText, styles.memoCancelText]}>취소</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.memoSaveBtn} onPress={saveHofGoal} activeOpacity={0.9}>
-              <Text style={styles.memoSaveText}>저장</Text>
+            <TouchableOpacity style={[canonicalModalStyles.actionButtonCompact, canonicalModalStyles.actionPrimary, styles.memoSaveBtn]} onPress={saveHofGoal} activeOpacity={0.9}>
+              <Text style={[canonicalModalStyles.actionPrimaryText, styles.memoSaveText]}>저장</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1663,23 +1671,21 @@ export default function ProfileInventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   header: {
     minHeight: 54,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: space.md,
+    paddingTop: space.xs,
+    paddingBottom: space.xs,
   },
   headerSideBtn: {
     width: 44,
     height: 40,
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
     alignItems: 'flex-start',
-    justifyContent: 'center',
   },
-  backText: { fontSize: 34, color: colors.textPrimary, fontWeight: '300', lineHeight: 34 },
+  backText: { fontSize: 34, color: color.textPrimary, fontWeight: '300', lineHeight: 34 },
   starPill: {
     position: 'absolute',
     left: 0,
@@ -1688,18 +1694,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 110,
     height: 38,
     borderRadius: 19,
-    backgroundColor: colors.primary,
+    backgroundColor: color.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     columnGap: 7,
   },
-  starIcon: { color: colors.textInverse, fontSize: 15, fontWeight: '900' },
-  starText: { color: colors.textInverse, fontSize: 16, fontWeight: '900' },
+  starIcon: { color: color.textInverse, fontSize: 15, fontWeight: '900' },
+  starText: { color: color.textInverse, fontSize: 16, fontWeight: '900' },
   shopFloatingBtn: {
     position: 'absolute',
     right: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: color.primary,
     borderRadius: 14,
     width: 52,
     height: 42,
@@ -1708,27 +1714,35 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   shopFloatingText: {
-    color: colors.textInverse,
     fontSize: 13,
     fontWeight: '900',
     includeFontPadding: false,
   },
   recordRoomInternalTitle: {
     flex: 1,
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
+    fontWeight: font.weight.heavy,
   },
-  headerTitle: {
+  headerTitleLayout: {
     flex: 1,
-    fontSize: 18,
     fontWeight: '900',
-    color: colors.textPrimary,
-    textAlign: 'center',
   },
   scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: space.sm,
+    paddingVertical: 0,
+  },
+  recordRoomTitleRow: {
+    marginBottom: 14,
+  },
+  recordRoomTitleGroup: {
+    gap: 8,
+  },
+  recordRoomEditButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
 
 
@@ -1749,40 +1763,33 @@ const styles = StyleSheet.create({
   dashboardCard: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    shadowColor: colors.primary,
+    shadowColor: color.primary,
     shadowOpacity: 0.04,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 1,
   },
   dashboardCardDark: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: color.primary,
+    borderColor: color.primary,
   },
   cardHeader: {
-    marginBottom: spacing.sm,
+    marginBottom: space.xs,
   },
   cardTitle: {
-    fontSize: 13,
-    color: colors.textPrimary,
     fontWeight: '900',
   },
   cardTitleDark: {
-    color: colors.textInverse,
+    color: color.textInverse,
   },
   cardSubtitle: {
     marginTop: 3,
     fontSize: 10.5,
-    color: colors.textTertiary,
-    fontWeight: '700',
+    color: color.textTertiary,
+    fontWeight: font.weight.bold,
   },
   cardSubtitleDark: {
-    color: colors.gray300,
+    color: primitive.neutral[300],
   },
   cardBody: {
     flex: 1,
@@ -1796,12 +1803,12 @@ const styles = StyleSheet.create({
   },
   kpiLabel: {
     fontSize: 10.5,
-    color: colors.textSecondary,
+    color: color.textSecondary,
     fontWeight: '900',
     lineHeight: 13,
   },
   kpiLabelDark: {
-    color: colors.border,
+    color: color.border,
   },
   kpiValueRow: {
     flexDirection: 'row',
@@ -1811,28 +1818,28 @@ const styles = StyleSheet.create({
   kpiIcon: {
     marginRight: 5,
     fontSize: 18,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '900',
   },
   kpiValue: {
     flexShrink: 1,
     fontSize: 22,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '900',
     letterSpacing: -0.8,
     lineHeight: 25,
   },
   kpiValueDark: {
-    color: colors.textInverse,
+    color: color.textInverse,
   },
   kpiNote: {
     fontSize: 9.5,
-    color: colors.textTertiary,
+    color: color.textTertiary,
     fontWeight: '700',
     lineHeight: 12,
   },
   kpiNoteDark: {
-    color: colors.gray300,
+    color: primitive.neutral[300],
   },
   profileImageTouchable: {
     width: '100%',
@@ -1847,13 +1854,13 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 37,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
   },
   profileAvatar: {
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -1862,7 +1869,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.primary,
+    backgroundColor: color.primary,
     marginTop: 6,
   },
   profileAvatarBody: {
@@ -1870,13 +1877,13 @@ const styles = StyleSheet.create({
     height: 28,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: colors.primary,
+    backgroundColor: color.primary,
     marginTop: 6,
   },
   profileImageText: {
     marginTop: 10,
     fontSize: 11,
-    color: colors.textTertiary,
+    color: color.textTertiary,
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -1886,53 +1893,53 @@ const styles = StyleSheet.create({
   },
   profileInfoName: {
     fontSize: 13,
-    color: colors.textTertiary,
+    color: color.textTertiary,
     fontWeight: '800',
-    marginBottom: spacing.xs,
+    marginBottom: (space.xxs + 2),
   },
   profileInfoMain: {
     fontSize: 20,
     fontWeight: '900',
-    color: colors.textPrimary,
+    color: color.textPrimary,
   },
   profileInfoSub: {
-    marginTop: spacing.xs,
+    marginTop: (space.xxs + 2),
     fontSize: 12,
-    color: colors.textSecondary,
+    color: color.textSecondary,
     fontWeight: '700',
   },
   profileEditHint: {
     marginTop: 10,
     fontSize: 11,
-    color: colors.textDisabled,
+    color: primitive.black,
     fontWeight: '800',
   },
   infoPillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: spacing.md,
-    gap: spacing.xs,
+    marginTop: space.sm,
+    gap: (space.xxs + 2),
   },
   infoPill: {
     paddingHorizontal: 10,
-    paddingVertical: spacing.xs,
+    paddingVertical: (space.xxs + 2),
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: color.surfaceMuted,
   },
   infoPillText: {
     fontSize: 11,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '800',
   },
   infoPillDark: {
     paddingHorizontal: 10,
-    paddingVertical: spacing.xs,
+    paddingVertical: (space.xxs + 2),
     borderRadius: radius.pill,
-    backgroundColor: colors.primary,
+    backgroundColor: color.primary,
   },
   infoPillDarkText: {
     fontSize: 11,
-    color: colors.textInverse,
+    color: color.textInverse,
     fontWeight: '900',
   },
   cardPagerRow: {
@@ -1940,7 +1947,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xxs,
+    marginBottom: space.xxs,
   },
   cardPagerBtn: {
     width: 26,
@@ -1951,14 +1958,14 @@ const styles = StyleSheet.create({
   cardPagerText: {
     fontSize: 22,
     lineHeight: 22,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '500',
   },
   cardPagerLabel: {
     flex: 1,
     textAlign: 'center',
     fontSize: 11,
-    color: colors.gray600,
+    color: color.textSecondary,
     fontWeight: '800',
   },
   barChartRow: {
@@ -1966,7 +1973,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingTop: spacing.sm,
+    paddingTop: space.xs,
   },
   barColumn: {
     flex: 1,
@@ -1988,13 +1995,13 @@ const styles = StyleSheet.create({
   chartSmallValue: {
     marginTop: 5,
     fontSize: 10,
-    color: colors.gray700,
+    color: primitive.neutral[700],
     fontWeight: '800',
   },
   chartAxisLabel: {
     marginTop: 2,
     fontSize: 10,
-    color: colors.gray400,
+    color: color.textDisabled,
     fontWeight: '700',
   },
   donutRow: {
@@ -2013,7 +2020,7 @@ const styles = StyleSheet.create({
   },
   donutSubText: {
     fontSize: 10,
-    color: colors.gray500,
+    color: color.textTertiary,
     fontWeight: '800',
   },
   legendRow: {
@@ -2023,7 +2030,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 11,
-    color: colors.gray600,
+    color: color.textSecondary,
     fontWeight: '800',
   },
   emptyCardText: {
@@ -2032,9 +2039,9 @@ const styles = StyleSheet.create({
     color: '#111',
   },
   emptyCardSubText: {
-    marginTop: spacing.xs,
+    marginTop: (space.xxs + 2),
     fontSize: 11,
-    color: colors.gray500,
+    color: color.textTertiary,
     fontWeight: '700',
     lineHeight: 15,
   },
@@ -2044,17 +2051,17 @@ const styles = StyleSheet.create({
   },
   calendarWeekLabel: {
     width: '14.2857%',
-    marginBottom: spacing.xs,
+    marginBottom: (space.xxs + 2),
     textAlign: 'center',
     fontSize: 10,
-    color: colors.gray400,
+    color: color.textDisabled,
     fontWeight: '800',
   },
   calendarCell: {
     width: '14.2857%',
     aspectRatio: 1,
     borderRadius: 8,
-    marginBottom: spacing.xxs,
+    marginBottom: space.xxs,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2063,7 +2070,7 @@ const styles = StyleSheet.create({
   },
   calendarCellText: {
     fontSize: 10,
-    color: colors.gray400,
+    color: color.textDisabled,
     fontWeight: '700',
   },
   calendarCellTextActive: {
@@ -2073,13 +2080,13 @@ const styles = StyleSheet.create({
   heatmapHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: (space.xxs + 2),
   },
   heatmapDayLabel: {
     flex: 1,
     textAlign: 'center',
     fontSize: 10,
-    color: colors.gray400,
+    color: color.textDisabled,
     fontWeight: '800',
   },
   heatmapRow: {
@@ -2090,7 +2097,7 @@ const styles = StyleSheet.create({
   heatmapTimeLabel: {
     width: 34,
     fontSize: 10,
-    color: colors.gray500,
+    color: color.textTertiary,
     fontWeight: '800',
   },
   heatmapCell: {
@@ -2104,7 +2111,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingTop: spacing.sm,
+    paddingTop: space.xs,
   },
   monthlyColumn: {
     flex: 1,
@@ -2133,7 +2140,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     backgroundColor: '#E5E7EB',
     overflow: 'hidden',
-    marginTop: spacing.sm,
+    marginTop: space.xs,
   },
   goalBarFill: {
     height: '100%',
@@ -2176,25 +2183,22 @@ const styles = StyleSheet.create({
   batteryText: {
     marginTop: 10,
     fontSize: 12,
-    color: colors.gray600,
+    color: color.textSecondary,
     fontWeight: '800',
   },
   connectRow: {
     minHeight: 30,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderMuted,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderBottomColor: color.borderMuted,
   },
   connectTitle: {
     fontSize: 12,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '800',
   },
   connectStatus: {
     fontSize: 11,
-    color: colors.textTertiary,
+    color: color.textTertiary,
     fontWeight: '800',
   },
   memoTouchable: {
@@ -2203,24 +2207,19 @@ const styles = StyleSheet.create({
   },
   memoText: {
     fontSize: 13,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '700',
     lineHeight: 19,
   },
   memoPlaceholder: {
     fontSize: 13,
-    color: colors.textDisabled,
+    color: primitive.black,
     fontWeight: '700',
     lineHeight: 19,
   },
   listSection: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
     overflow: 'hidden',
   },
   listScroll: {
@@ -2228,145 +2227,117 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   listTitle: {
-    fontSize: 16,
-    color: colors.textPrimary,
     fontWeight: '900',
     marginBottom: 10,
   },
   tabRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: space.xs,
+    marginBottom: space.sm,
   },
   tabButton: {
     height: 34,
     paddingHorizontal: 14,
+    paddingVertical: 0,
     borderRadius: 17,
-    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabButtonActive: {
-    backgroundColor: colors.primary,
-  },
   tabButtonText: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    color: color.textSecondary,
     fontWeight: '900',
   },
-  tabButtonTextActive: {
-    color: colors.textInverse,
-  },
   listEmpty: {
-    marginVertical: spacing.xl,
+    marginVertical: space.xl,
     textAlign: 'center',
-    color: colors.textDisabled,
+    color: primitive.black,
     fontWeight: '700',
   },
   listItem: {
     minHeight: 52,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderMuted,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderBottomColor: color.borderMuted,
   },
   listItemMain: {
     flex: 1,
     minWidth: 0,
-    paddingRight: spacing.md,
+    paddingRight: space.sm,
   },
   listItemTitle: {
     fontSize: 14,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '900',
   },
   listItemTitleMuted: {
-    color: colors.textDisabled,
+    color: primitive.black,
   },
   listItemMeta: {
     marginTop: 3,
     fontSize: 11,
-    color: colors.textTertiary,
+    color: color.textTertiary,
     fontWeight: '700',
   },
   listItemStatus: {
     fontSize: 12,
-    color: colors.textPrimary,
+    color: color.textPrimary,
     fontWeight: '900',
   },
   listItemStatusMuted: {
-    color: colors.textDisabled,
+    color: primitive.black,
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay,
+    padding: 0,
   },
   memoModalCard: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
+    left: space.md,
+    right: space.md,
     top: '22%',
+    width: 'auto',
     borderRadius: 20,
-    backgroundColor: colors.surface,
     padding: 18,
   },
   memoModalTitle: {
-    fontSize: 18,
-    color: colors.textPrimary,
+    textAlign: 'left',
     fontWeight: '900',
-    marginBottom: spacing.md,
+    marginBottom: space.sm,
   },
   profileInput: {
     minHeight: 46,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 14,
-    paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '700',
+    fontWeight: font.weight.bold,
     marginBottom: 10,
   },
   memoInput: {
     minHeight: 150,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 14,
-    padding: spacing.md,
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '600',
+    padding: space.sm,
+    fontWeight: font.weight.semibold,
     lineHeight: 20,
   },
   memoModalActions: {
     marginTop: 14,
-    flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: spacing.sm,
   },
   memoCancelBtn: {
+    flex: 0,
     height: 38,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 0,
+    paddingHorizontal: space.md,
   },
   memoCancelText: {
-    color: colors.textSecondary,
+    color: color.textSecondary,
     fontWeight: '900',
   },
   memoSaveBtn: {
+    flex: 0,
     height: 38,
+    paddingVertical: 0,
     paddingHorizontal: 18,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   memoSaveText: {
-    color: colors.textInverse,
     fontWeight: '900',
   },
 });

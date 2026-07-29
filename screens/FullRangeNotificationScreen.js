@@ -18,7 +18,7 @@ import {
  input as canonicalInputStyles,
  layout as canonicalLayoutStyles,
  modal as canonicalModalStyles,
- spacing,
+ space,
  surface as canonicalSurfaceStyles,
  text as canonicalTextStyles,
 } from '../styles/common';
@@ -360,7 +360,7 @@ export default function FullRangeNotificationScreen(){
               <Text style={[canonicalTextStyles.metaStrongMuted, styles.monthTitleLayout]}>{y}.{pad2(mi+1)}</Text>
 
               {/* 요일 헤더 */}
-              <View style={styles.weekHeaderRow}>
+              <View style={[canonicalLayoutStyles.row, styles.weekHeaderRow]}>
                 {['일','월','화','수','목','금','토'].map((w,idx)=>(
                   <View key={w} style={[styles.weekHeaderCell, idx<6 && styles.weekHeaderCellDivider]}>
                     <Text style={canonicalTextStyles.captionStrongMuted}>{w}</Text>
@@ -370,7 +370,7 @@ export default function FullRangeNotificationScreen(){
 
               <View style={styles.gridOuter}>
                 {rows.map((row,rIdx)=>(
-                  <View key={`r-${y}-${mi}-${rIdx}`} style={[styles.row, rIdx<rows.length-1 && styles.rowDivider]}>
+                  <View key={`r-${y}-${mi}-${rIdx}`} style={[canonicalLayoutStyles.row, styles.row, rIdx<rows.length-1 && styles.rowDivider]}>
                     {row.map((d,cIdx)=>{
                       const inR = d ? isInRange(y,mi,d) : false;
                       const key = d ? dateKey(y,mi,d) : '';
@@ -412,13 +412,13 @@ export default function FullRangeNotificationScreen(){
       </ScrollView>
 
       {/* ▼ 하단 고정 바 */}
-      <View style={[canonicalLayoutStyles.fixedBottomBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]} pointerEvents="box-none">
+      <View style={[canonicalLayoutStyles.fixedBottomBar, { paddingBottom: Math.max(insets.bottom, space.sm) }]} pointerEvents="box-none">
         <View style={[canonicalLayoutStyles.row, styles.fixedTopRowSpacing]}>
           <TouchableOpacity style={buttonStyles.compactSecondary.container} onPress={clearAll}>
             <Text style={buttonStyles.compactSecondary.label}>초기화</Text>
           </TouchableOpacity>
-          <View style={{flex:1}} />
-          <TouchableOpacity style={[buttonStyles.primary.container, { paddingHorizontal: 14 }]} onPress={openBulk}>
+          <View style={styles.flexSpacer} />
+          <TouchableOpacity style={[buttonStyles.primary.container, styles.bulkApplyButton]} onPress={openBulk}>
             <Text style={buttonStyles.primary.label}>일괄 시간 적용</Text>
           </TouchableOpacity>
         </View>
@@ -501,15 +501,15 @@ export default function FullRangeNotificationScreen(){
             )}
 
             {/* 시간 추가 */}
-            <View style={{ marginTop: spacing.md }}>
+            <View style={styles.bulkTimeSection}>
               <Text style={canonicalTextStyles.bodySmallStrong}>적용할 시간</Text>
               <View style={[canonicalLayoutStyles.row, styles.timesEditRowSpacing]}>
                 <TouchableOpacity style={canonicalControlStyles.addCircle} onPress={()=>setBulkTimePickerVisible(true)}>
                   <Text style={canonicalControlStyles.addCircleText}>＋</Text>
                 </TouchableOpacity>
-                <View style={{flex:1}} />
+                <View style={styles.flexSpacer} />
               </View>
-              <View style={[styles.timesWrap, { marginTop: spacing.sm }]}>
+              <View style={[styles.timesWrap, styles.bulkTimesWrap]}>
                 {bulkTimes.map(t=>(
                   <View key={t} style={canonicalControlStyles.chipUltraDense}>
                     <Text style={canonicalControlStyles.chipUltraDenseText}>{t}</Text>
@@ -548,8 +548,8 @@ export default function FullRangeNotificationScreen(){
 
 const styles = StyleSheet.create({
  descLayout: {
- marginTop: spacing.xxs,
- marginBottom: spacing.md,
+ marginTop: space.xxs,
+ marginBottom: space.sm,
  textAlign: 'center',
  },
 
@@ -558,13 +558,12 @@ const styles = StyleSheet.create({
  },
 
  monthTitleLayout: {
- marginBottom: spacing.xxs,
+ marginBottom: space.xxs,
  textAlign: 'center',
  },
 
  weekHeaderRow: {
- flexDirection: 'row',
- marginBottom: spacing.xxs,
+ marginBottom: space.xxs,
  },
 
  weekHeaderCell: {
@@ -583,7 +582,6 @@ const styles = StyleSheet.create({
  },
 
  row: {
- flexDirection: 'row',
  },
 
  rowDivider: {
@@ -593,7 +591,7 @@ const styles = StyleSheet.create({
 
  cell: {
  flex: 1,
- padding: spacing.xs,
+ padding: space.xxs + 2,
  },
 
  cellDivider: {
@@ -612,24 +610,40 @@ const styles = StyleSheet.create({
  flexWrap: 'wrap',
  },
 
+ flexSpacer: {
+ flex: 1,
+ },
+
+ bulkApplyButton: {
+ paddingHorizontal: space.sm + 2,
+ },
+
+ bulkTimeSection: {
+ marginTop: space.sm,
+ },
+
+ bulkTimesWrap: {
+ marginTop: space.xs,
+ },
+
  fixedTopRowSpacing: {
- marginBottom: spacing.sm,
+ marginBottom: space.xs,
  },
 
  fixedSave: {
- marginTop: spacing.sm,
+ marginTop: space.xs,
  },
 
  scopeWrap: {
- marginBottom: spacing.md,
+ marginBottom: space.sm,
  },
 
  customInputWrap: {
- marginTop: spacing.sm,
+ marginTop: space.xs,
  },
 
  customRowSpacing: {
- marginBottom: spacing.sm,
+ marginBottom: space.xs,
  },
 
  customInputLabelLayout: {
@@ -641,11 +655,11 @@ const styles = StyleSheet.create({
  },
 
  customHintLayout: {
- marginTop: spacing.xxs,
+ marginTop: space.xxs,
  textAlign: 'right',
  },
 
  timesEditRowSpacing: {
- marginTop: spacing.xs,
+ marginTop: space.xxs + 2,
  },
 });

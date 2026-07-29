@@ -9,7 +9,7 @@ import {
  control as canonicalControlStyles,
  layout as canonicalLayoutStyles,
  modal as canonicalModalStyles,
- spacing,
+ space,
  surface as canonicalSurfaceStyles,
  text as canonicalTextStyles,
 } from '../styles/common';
@@ -264,11 +264,11 @@ export default function WeeklyNotificationScreen(){
   return (
     <SafeAreaView style={canonicalSurfaceStyles.screen} edges={['top', 'bottom']}>
       <BackButton title="주간 알림 설정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
+      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: space.xxl + space.xxs + Math.max(insets.bottom, space.md) }]}>
       
       <Text style={[canonicalTextStyles.help, styles.descLayout]}>각 요일 최대 10개</Text>
 
-      <View style={{ marginTop: spacing.sm }}>
+      <View style={styles.weekList}>
         {WEEK.map(day=>{
           const times = map.get(day)||[];
           const canAdd = times.length < MAX_PER_DAY;
@@ -302,20 +302,20 @@ export default function WeeklyNotificationScreen(){
         })}
       </View>
 
-      <View style={styles.actions}>
+      <View style={[canonicalLayoutStyles.row, styles.actions]}>
         <TouchableOpacity style={buttonStyles.compactSecondary.container} onPress={clearAll}>
           <Text style={buttonStyles.compactSecondary.label}>초기화</Text>
         </TouchableOpacity>
-        <View style={{flex:1}} />
+        <View style={styles.actionSpacer} />
         <TouchableOpacity
-          style={[buttonStyles.primary.container, { paddingHorizontal: 14 }]}
+          style={[buttonStyles.primary.container, styles.bulkApplyButton]}
           onPress={openBulk}
         >
           <Text style={buttonStyles.primary.label}>일괄 시간 적용</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[buttonStyles.primary.container,{marginTop:spacing.xl}]} onPress={save}>
+      <TouchableOpacity style={[buttonStyles.primary.container, styles.saveButton]} onPress={save}>
         <Text style={buttonStyles.primary.label}>선택완료</Text>
       </TouchableOpacity>
 
@@ -335,7 +335,7 @@ export default function WeeklyNotificationScreen(){
             <Text style={canonicalModalStyles.title}>일괄 시간 적용</Text>
 
             {/* 범위 선택 */}
-            <View style={styles.scopeRow}>
+            <View style={[canonicalLayoutStyles.row, styles.scopeRow]}>
               <TouchableOpacity
                 style={[canonicalControlStyles.scopePill, bulkScope==='all' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('all')}
@@ -363,7 +363,7 @@ export default function WeeklyNotificationScreen(){
             </View>
 
             {/* 요일 원형 선택 */}
-            <View style={styles.bulkDaysRow}>
+            <View style={[canonicalLayoutStyles.rowBetween, styles.bulkDaysRow]}>
               {WEEK.map(d=>{
                 const on = bulkDays.has(d);
                 return (
@@ -432,36 +432,48 @@ export default function WeeklyNotificationScreen(){
 
 const styles = StyleSheet.create({
  descLayout: {
- marginTop: spacing.xxs,
- marginBottom: spacing.md,
+ marginTop: space.xxs,
+ marginBottom: space.sm,
  textAlign: 'center',
  },
 
- cardSpacing: { marginBottom: spacing.sm,
+ cardSpacing: { marginBottom: space.xs,
  },
 
  timeChips: {
  flexDirection: 'row',
  flexWrap: 'wrap',
- marginTop: spacing.sm,
+ marginTop: space.xs,
+ },
+
+ weekList: {
+ marginTop: space.xs,
  },
 
  actions: {
- flexDirection: 'row',
- alignItems: 'center',
- marginTop: spacing.lg,
+ marginTop: space.md,
+ },
+
+ actionSpacer: {
+ flex: 1,
+ },
+
+ bulkApplyButton: {
+ paddingHorizontal: space.sm + 2,
+ },
+
+ saveButton: {
+ marginTop: space.xl,
  },
 
  scopeRow: {
- flexDirection: 'row',
  flexWrap: 'wrap',
- gap: spacing.sm,
+ gap: space.xs,
  justifyContent: 'center',
  },
 
  bulkDaysRow: {
- flexDirection: 'row',
- justifyContent: 'space-between',
- marginTop: spacing.md,
+ marginTop: space.sm,
+ marginBottom: space.sm,
  },
 });

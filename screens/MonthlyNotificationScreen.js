@@ -11,7 +11,7 @@ import {
  layout as canonicalLayoutStyles,
  modal as canonicalModalStyles,
  radius,
- spacing,
+ space,
  surface as canonicalSurfaceStyles,
  text as canonicalTextStyles,
 } from '../styles/common';
@@ -303,7 +303,7 @@ const onChangeScope = useCallback((scope)=>{
   return (
     <SafeAreaView style={canonicalSurfaceStyles.screen} edges={['top', 'bottom']}>
       <BackButton title="월간 알림 설정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
+      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: space.xxl + space.xxs + Math.max(insets.bottom, space.md) }]}>
       
       <Text style={[canonicalTextStyles.help, styles.descLayout]}>각 날짜 최대 {MAX_PER_DATE}개</Text>
       {/* 추가 설명 문구 */}
@@ -348,13 +348,13 @@ const onChangeScope = useCallback((scope)=>{
         })}
       </View>
 
-      <View style={styles.actions}>
+      <View style={[canonicalLayoutStyles.row, styles.actions]}>
         <TouchableOpacity style={buttonStyles.compactSecondary.container} onPress={clearAll}>
           <Text style={buttonStyles.compactSecondary.label}>초기화</Text>
         </TouchableOpacity>
-        <View style={{ flex: 1 }} />
+        <View style={styles.actionSpacer} />
         <TouchableOpacity
-          style={[buttonStyles.primary.container, { paddingHorizontal: 14 }]}
+          style={[buttonStyles.primary.container, styles.bulkApplyButton]}
           onPress={openBulkModal}
         >
           <Text style={buttonStyles.primary.label}>일괄 시간 적용</Text>
@@ -362,7 +362,7 @@ const onChangeScope = useCallback((scope)=>{
       </View>
 
       <TouchableOpacity
-        style={[buttonStyles.primary.container, { marginTop: spacing.xl }]}
+        style={[buttonStyles.primary.container, styles.saveButton]}
         onPress={handleDone}
       >
         <Text style={buttonStyles.primary.label}>선택완료</Text>
@@ -384,7 +384,7 @@ const onChangeScope = useCallback((scope)=>{
             <Text style={canonicalModalStyles.title}>일괄 시간 적용</Text>
 
             {/* 범위 선택 */}
-            <View style={styles.scopeRow}>
+            <View style={[canonicalLayoutStyles.row, styles.scopeRow]}>
               <TouchableOpacity
                 style={[canonicalControlStyles.scopePill, bulkScope==='all' && canonicalControlStyles.scopePillActive]}
                 onPress={()=>onChangeScope('all')}
@@ -504,8 +504,8 @@ const CELL = 48;
 
 const styles = StyleSheet.create({
  descLayout: {
- marginTop: spacing.xxs,
- marginBottom: spacing.md,
+ marginTop: space.xxs,
+ marginBottom: space.sm,
  textAlign: 'center',
  },
 
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
  cell: {
  width: `${100 / 7}%`,
  minHeight: CELL + 36,
- padding: spacing.xs,
+ padding: space.xs - 2,
  borderRightWidth: 1,
  borderRightColor: color.border,
  borderBottomWidth: 1,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
  },
 
  dateBadgeLayout: {
- marginBottom: spacing.xxs,
+ marginBottom: space.xxs,
  textAlign: 'right',
  },
 
@@ -542,20 +542,29 @@ const styles = StyleSheet.create({
  },
 
  actions: {
- flexDirection: 'row',
- alignItems: 'center',
- marginTop: spacing.lg,
+ marginTop: space.md,
+ },
+
+ actionSpacer: {
+ flex: 1,
+ },
+
+ bulkApplyButton: {
+ paddingHorizontal: space.sm + 2,
+ },
+
+ saveButton: {
+ marginTop: space.xl,
  },
 
  scopeRow: {
- flexDirection: 'row',
  flexWrap: 'wrap',
- gap: spacing.sm,
+ gap: space.xs,
  justifyContent: 'center',
  },
 
  bulkGridWrap: {
- marginTop: spacing.md,
+ marginTop: space.sm,
  },
 
  bulkRow: {
@@ -579,6 +588,6 @@ const styles = StyleSheet.create({
  timeChips: {
  flexDirection: 'row',
  flexWrap: 'wrap',
- marginTop: spacing.sm,
+ marginTop: space.xs,
  },
 });

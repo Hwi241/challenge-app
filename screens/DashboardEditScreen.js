@@ -28,7 +28,19 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
 import DashboardWidgetPreview from '../components/dashboard/DashboardWidgetPreview';
-import { colors, radius, spacing } from '../styles/common';
+import {
+ buttonStyles,
+ color,
+ control as canonicalControlStyles,
+ font,
+ layout as canonicalLayoutStyles,
+ modal as canonicalModalStyles,
+ primitive,
+ radius,
+ space,
+ surface as canonicalSurfaceStyles,
+ text as canonicalTextStyles,
+} from '../styles/common';
 
 const AnimatedSvgLine = Animated.createAnimatedComponent(Line);
 
@@ -2223,19 +2235,20 @@ function MarqueeText({ text, style, enabled = true }) {
  <Animated.View
  pointerEvents="none"
  style={[
- styles.graphCardVisualSurface,
+ canonicalSurfaceStyles.card,
+  styles.graphCardVisualSurface,
  isResizeActive && styles.graphCardResizeActive,
  isResizeActive && resizeTouchOpacity && { opacity: resizeTouchOpacity },
  shouldDimOriginalCard && styles.graphCardDimmed,
  ]}
  />
 
- <View style={[styles.graphHeader, isCompactCard && styles.graphHeaderCompact]}>
- <View style={styles.graphTitleGroup}>
- <MarqueeText text={titleText} style={styles.graphTitle} enabled={isCompactCard || isNarrowTitleCard} />
+ <View style={[canonicalLayoutStyles.rowBetween, styles.graphHeader, isCompactCard && styles.graphHeaderCompact]}>
+ <View style={[canonicalLayoutStyles.row, styles.graphTitleGroup]}>
+ <MarqueeText text={titleText} style={[canonicalTextStyles.bodyStrong, styles.graphTitle]} enabled={isCompactCard || isNarrowTitleCard} />
  </View>
- <View style={[styles.graphSizeBadge, isCompactCard && styles.graphSizeBadgeCompact]}>
- <Text style={[styles.graphSizeBadgeText, isCompactCard && styles.graphSizeBadgeTextCompact]}>{displaySizeText}</Text>
+ <View style={[canonicalControlStyles.pill, styles.graphSizeBadge, isCompactCard && styles.graphSizeBadgeCompact]}>
+ <Text style={[canonicalTextStyles.metaStrong, styles.graphSizeBadgeText, isCompactCard && styles.graphSizeBadgeTextCompact]}>{displaySizeText}</Text>
  </View>
  </View>
  {previewNode}
@@ -2253,7 +2266,7 @@ function MarqueeText({ text, style, enabled = true }) {
    const slotW = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
    return (
      <View style={[styles.graphCell, { opacity: 0.5 }]}>
-       <View style={[styles.graphCard, { minHeight: h >= 2 ? 120 : 90, backgroundColor: colors.surfaceMuted, borderColor: colors.textDisabled, borderStyle: 'dashed' }]} />
+       <View style={[styles.graphCard, { minHeight: h >= 2 ? 120 : 90, backgroundColor: color.surfaceMuted, borderColor: primitive.black, borderStyle: 'dashed' }]} />
      </View>
    );
  }
@@ -2707,11 +2720,11 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  ) : null;
  const removeActionOverlay = isResizeActive && !isThisGestureDragging ? (
  <TouchableOpacity
- style={styles.removeBtnBottomRight}
+ style={[buttonStyles.smallOutline.container, styles.removeBtnBottomRight]}
  onPress={() => removeGraph(widgetId)}
  activeOpacity={0.82}
  >
- <Text style={styles.removeText}>삭제</Text>
+ <Text style={[buttonStyles.smallOutline.label, styles.removeText]}>삭제</Text>
  </TouchableOpacity>
  ) : null;
 
@@ -3033,12 +3046,12 @@ const renderResizeGuideOverlay = () => {
 
  return (
  <GestureHandlerRootView style={{ flex: 1 }}>
- <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
- <View style={styles.header}>
- <TouchableOpacity style={styles.backBtn} onPress={() => returnToEntryList('cancel')}>
+ <SafeAreaView style={[canonicalSurfaceStyles.screen, styles.safe]} edges={['top', 'left', 'right']}>
+ <View style={[canonicalLayoutStyles.rowBetween, styles.header]}>
+ <TouchableOpacity style={[buttonStyles.icon, styles.backBtn]} onPress={() => returnToEntryList('cancel')}>
  <Text style={styles.backText}>‹</Text>
  </TouchableOpacity>
- <Text style={styles.screenTitle}>대시보드 수정</Text>
+ <Text style={[canonicalTextStyles.headerTitle, styles.screenTitle]}>대시보드 수정</Text>
  <View style={styles.headerSpacer} />
  </View>
 
@@ -3047,25 +3060,28 @@ const renderResizeGuideOverlay = () => {
  scrollEnabled={!resizeDraggingWidgetId && !gestureDraggingWidgetId}
  onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
  scrollEventThrottle={16}
- contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}
+ contentContainerStyle={[canonicalLayoutStyles.screenContent, styles.content, { paddingBottom: 112 + insets.bottom }]}
 >
- <View style={styles.contentHeader}>
- <Text style={styles.challengeTitle} numberOfLines={1}>{title}</Text>
- <View style={styles.headerActions}>
- <View style={styles.rowGapControl}>
- <Text style={styles.rowGapLabel}>간격 {rowGap}px</Text>
- <View style={styles.rowGapButtons}>
+ <View style={[canonicalLayoutStyles.rowBetween, styles.contentHeader]}>
+ <Text style={[canonicalTextStyles.bodyStrongMuted, styles.challengeTitle]} numberOfLines={1}>{title}</Text>
+ <View style={[canonicalLayoutStyles.row, styles.headerActions]}>
+ <View style={[canonicalControlStyles.optionRow, styles.rowGapControl]}>
+ <Text style={[canonicalTextStyles.metaStrong, styles.rowGapLabel]}>간격 {rowGap}px</Text>
+ <View style={[canonicalLayoutStyles.row, styles.rowGapButtons]}>
  <TouchableOpacity
- style={[styles.rowGapButton, !canDecreaseRowGap && styles.rowGapButtonDisabled]}
+ style={[buttonStyles.icon,
+  styles.rowGapButton, !canDecreaseRowGap && styles.rowGapButtonDisabled]}
  onPress={decreaseRowGap}
  disabled={!canDecreaseRowGap}
  activeOpacity={0.8}
  >
- <Text style={[styles.rowGapButtonText, !canDecreaseRowGap && styles.rowGapButtonTextDisabled]}>-</Text>
+ <Text style={[canonicalTextStyles.bodyStrong,
+  styles.rowGapButtonText, !canDecreaseRowGap && styles.rowGapButtonTextDisabled]}>-</Text>
  </TouchableOpacity>
  <TouchableOpacity
  style={[
- styles.rowGapButton,
+ buttonStyles.icon,
+  styles.rowGapButton,
  styles.rowGapButtonWithDivider,
  !canIncreaseRowGap && styles.rowGapButtonDisabled,
  ]}
@@ -3073,18 +3089,19 @@ const renderResizeGuideOverlay = () => {
  disabled={!canIncreaseRowGap}
  activeOpacity={0.8}
  >
- <Text style={[styles.rowGapButtonText, !canIncreaseRowGap && styles.rowGapButtonTextDisabled]}>+</Text>
+ <Text style={[canonicalTextStyles.bodyStrong,
+  styles.rowGapButtonText, !canIncreaseRowGap && styles.rowGapButtonTextDisabled]}>+</Text>
  </TouchableOpacity>
  </View>
  </View>
- <TouchableOpacity style={styles.addBtn} onPress={() => setPickerVisible(true)}>
- <Text style={styles.addText}>카드추가</Text>
+ <TouchableOpacity style={[buttonStyles.headerRight.container, styles.addBtn]} onPress={() => setPickerVisible(true)}>
+ <Text style={[canonicalTextStyles.bodySmallStrong, styles.addText]}>카드추가</Text>
  </TouchableOpacity>
  </View>
  </View>
 
  {loading ? (
- <Text style={styles.emptyText}>불러오는 중...</Text>
+ <Text style={[canonicalTextStyles.bodyMuted, canonicalTextStyles.center, styles.emptyText]}>불러오는 중...</Text>
  ) : (
  <View style={[styles.grid, { overflow: 'visible', minHeight: gridBoardHeight }]} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
  {renderDragPlaceholderOverlay()}
@@ -3096,12 +3113,12 @@ const renderResizeGuideOverlay = () => {
  )}
  </ScrollView>
 
- <View style={[styles.footer, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
- <TouchableOpacity style={[styles.footerButton, styles.cancelButton]} onPress={() => returnToEntryList('cancel')}>
- <Text style={styles.cancelButtonText}>취소</Text>
+ <View style={[canonicalLayoutStyles.fixedBottomBar, canonicalLayoutStyles.row, styles.footer, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
+ <TouchableOpacity style={[buttonStyles.secondary.container, styles.footerButton, styles.cancelButton]} onPress={() => returnToEntryList('cancel')}>
+ <Text style={[buttonStyles.secondary.label, styles.cancelButtonText]}>취소</Text>
  </TouchableOpacity>
- <TouchableOpacity style={[styles.footerButton, styles.saveButton]} onPress={saveLayout}>
- <Text style={styles.saveButtonText}>저장</Text>
+ <TouchableOpacity style={[buttonStyles.primary.container, styles.footerButton, styles.saveButton]} onPress={saveLayout}>
+ <Text style={[buttonStyles.primary.label, styles.saveButtonText]}>저장</Text>
  </TouchableOpacity>
  </View>
 
@@ -3111,17 +3128,17 @@ const renderResizeGuideOverlay = () => {
  animationType="fade"
  onRequestClose={() => setPickerVisible(false)}
  >
- <View style={styles.modalOverlay}>
- <View style={styles.modalSheet}>
- <View style={styles.modalHeader}>
- <Text style={styles.modalTitle}>카드 추가</Text>
- <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setPickerVisible(false)}>
- <Text style={styles.modalCloseText}>×</Text>
+ <View style={[canonicalModalStyles.backdrop, styles.modalOverlay]}>
+ <View style={[canonicalModalStyles.sheetBorderless, styles.modalSheet]}>
+ <View style={[canonicalLayoutStyles.row, styles.modalHeader]}>
+ <Text style={[canonicalTextStyles.headerTitle, styles.modalTitle]}>카드 추가</Text>
+ <TouchableOpacity style={[buttonStyles.icon, styles.modalCloseBtn]} onPress={() => setPickerVisible(false)}>
+ <Text style={[canonicalTextStyles.title, styles.modalCloseText]}>×</Text>
  </TouchableOpacity>
  </View>
 
  {pickerWidgets.length === 0 ? (
- <Text style={styles.emptyText}>추가할 수 있는 카드이 없습니다.</Text>
+ <Text style={[canonicalTextStyles.bodyMuted, canonicalTextStyles.center, styles.emptyText]}>추가할 수 있는 카드이 없습니다.</Text>
  ) : (
  <ScrollView style={styles.pickerList}>
  {pickerWidgets.map((widget) => {
@@ -3129,11 +3146,11 @@ const renderResizeGuideOverlay = () => {
  return (
  <TouchableOpacity
  key={widgetId}
- style={styles.pickerItem}
+ style={[canonicalControlStyles.optionRow, styles.pickerItem]}
  onPress={() => addGraph(widget)}
  >
- <Text style={styles.pickerTitle}>{widget.title || widget.name || widgetId}</Text>
- <Text style={styles.pickerMeta}>{widget.description || widgetId}</Text>
+ <Text style={[canonicalTextStyles.bodyStrong, styles.pickerTitle]}>{widget.title || widget.name || widgetId}</Text>
+ <Text style={[canonicalTextStyles.metaTertiary, styles.pickerMeta]}>{widget.description || widgetId}</Text>
  </TouchableOpacity>
  );
  })}
@@ -3152,7 +3169,7 @@ const renderResizeGuideOverlay = () => {
 const styles = StyleSheet.create({
  safe: {
  flex: 1,
- backgroundColor: colors.surface,
+ backgroundColor: color.surface,
  },
  header: {
  minHeight: 58,
@@ -3163,18 +3180,21 @@ const styles = StyleSheet.create({
  alignItems: 'center',
  justifyContent: 'space-between',
  borderBottomWidth: StyleSheet.hairlineWidth,
- borderBottomColor: colors.border,
+ borderBottomColor: color.border,
  },
  backBtn: {
  width: 38,
  height: 38,
+ borderWidth: 0,
+ borderRadius: 0,
+ backgroundColor: 'transparent',
  alignItems: 'center',
  justifyContent: 'center',
  zIndex: 2,
  },
  backText: {
  fontSize: 36,
- color: colors.textPrimary,
+ color: color.textPrimary,
  lineHeight: 38,
  },
  headerSpacer: {
@@ -3187,16 +3207,16 @@ const styles = StyleSheet.create({
  right: 0,
  textAlign: 'center',
  fontSize: 18,
- fontWeight: '800',
- color: colors.textPrimary,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
  zIndex: 1,
  },
  challengeTitle: {
  flex: 1,
- marginRight: spacing.md,
+ marginRight: space.sm,
  fontSize: 14,
- fontWeight: '700',
- color: colors.textSecondary,
+ fontWeight: font.weight.bold,
+ color: color.textSecondary,
  },
   content: {
  paddingHorizontal: 18,
@@ -3211,68 +3231,72 @@ const styles = StyleSheet.create({
  headerActions: {
  flexDirection: 'row',
  alignItems: 'center',
- gap: spacing.sm,
+ gap: space.xs,
  },
  rowGapControl: {
  height: 34,
+ paddingVertical: 0,
+ paddingHorizontal: 0,
  flexDirection: 'row',
  alignItems: 'center',
  borderRadius: radius.sm,
  borderWidth: 1,
- borderColor: colors.slate300,
- backgroundColor: colors.surface,
+ borderColor: primitive.slate[300],
+ backgroundColor: color.surface,
  overflow: 'hidden',
  },
  rowGapLabel: {
- paddingHorizontal: spacing.sm,
+ paddingHorizontal: space.xs,
  fontSize: 12,
- fontWeight: '800',
- color: colors.textPrimary,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
  },
  rowGapButtons: {
  flexDirection: 'row',
  height: '100%',
  borderLeftWidth: 1,
- borderLeftColor: colors.border,
+ borderLeftColor: color.border,
  },
  rowGapButton: {
  width: 30,
  height: '100%',
+ borderWidth: 0,
+ borderRadius: 0,
  alignItems: 'center',
  justifyContent: 'center',
- backgroundColor: colors.surface,
+ backgroundColor: color.surface,
  },
  rowGapButtonWithDivider: {
  borderLeftWidth: 1,
- borderLeftColor: colors.border,
+ borderLeftColor: color.border,
  },
  rowGapButtonDisabled: {
- backgroundColor: colors.surfaceMuted,
+ backgroundColor: color.surfaceMuted,
  },
  rowGapButtonText: {
  fontSize: 16,
  fontWeight: '900',
- color: colors.textPrimary,
+ color: color.textPrimary,
  lineHeight: 18,
  includeFontPadding: false,
  },
  rowGapButtonTextDisabled: {
- color: colors.textDisabled,
+ color: primitive.black,
  },
  addBtn: {
  height: 34,
- paddingHorizontal: spacing.md,
+ paddingHorizontal: space.sm,
  borderRadius: radius.sm,
  borderWidth: 1,
- borderColor: colors.borderStrong,
- backgroundColor: colors.surface,
+ borderColor: color.borderStrong,
+ backgroundColor: color.surface,
  alignItems: 'center',
  justifyContent: 'center',
  },
  addText: {
- color: colors.textPrimary,
+ color: color.textPrimary,
  fontSize: 13,
- fontWeight: '800',
+ fontWeight: font.weight.heavy,
  },
  grid: {
  position: 'relative',
@@ -3301,22 +3325,22 @@ graphCellResizeActive: {
 graphCard: {
  minHeight: 132,
  borderRadius: radius.sm,
- padding: spacing.md,
+ padding: space.sm,
  },
 graphCardCompact: {
  paddingTop: 4,
  paddingBottom: 2,
- paddingHorizontal: spacing.sm,
+ paddingHorizontal: space.xs,
  overflow: 'hidden',
  },
 graphCardVisualSurface: {
  ...StyleSheet.absoluteFillObject,
  borderRadius: radius.sm,
  borderWidth: 1,
- borderColor: colors.border,
+ borderColor: color.border,
  borderTopWidth: 3,
- borderTopColor: colors.primary,
- backgroundColor: colors.surface,
+ borderTopColor: color.primary,
+ backgroundColor: color.surface,
  zIndex: 0,
  elevation: 0,
  },
@@ -3327,7 +3351,7 @@ graphCardVisualSurface: {
  position: 'relative',
  zIndex: 2,
  elevation: 1,
- columnGap: spacing.sm,
+ columnGap: space.xs,
  },
  graphHeaderCompact: {
  minHeight: 18,
@@ -3337,7 +3361,7 @@ graphCardVisualSurface: {
  graphTitleGroup: {
  flexDirection: 'row',
  alignItems: 'center',
- gap: spacing.sm,
+ gap: space.xs,
  flex: 1,
  minWidth: 0,
  overflow: 'hidden',
@@ -3354,18 +3378,19 @@ graphCardVisualSurface: {
  graphTitle: {
  fontSize: 15,
  lineHeight: 18,
- fontWeight: '800',
- color: colors.textPrimary,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
  includeFontPadding: false,
  },
  graphSizeBadge: {
  minWidth: 38,
  height: 22,
+ paddingVertical: 0,
  paddingHorizontal: 7,
  borderRadius: radius.pill,
- backgroundColor: colors.surfaceMuted,
+ backgroundColor: color.surfaceMuted,
  borderWidth: 1,
- borderColor: colors.border,
+ borderColor: color.border,
  alignItems: 'center',
  justifyContent: 'center',
  },
@@ -3379,7 +3404,7 @@ graphCardVisualSurface: {
  fontSize: 11,
  lineHeight: 13,
  fontWeight: '900',
- color: colors.textPrimary,
+ color: color.textPrimary,
  includeFontPadding: false,
  },
  graphSizeBadgeTextCompact: {
@@ -3388,30 +3413,32 @@ graphCardVisualSurface: {
  },
  removeBtnBottomRight: {
  position: 'absolute',
- right: spacing.md,
- bottom: spacing.md,
+ right: space.sm,
+ bottom: space.sm,
  minWidth: 42,
  height: 26,
+ minHeight: 26,
+ paddingVertical: 0,
  paddingHorizontal: 9,
  borderRadius: radius.pill,
  borderWidth: 1,
- borderColor: colors.border,
+ borderColor: color.border,
  alignItems: 'center',
  justifyContent: 'center',
- backgroundColor: colors.surface,
+ backgroundColor: color.surface,
  zIndex: 12,
  elevation: 4,
  },
  removeText: {
  fontSize: 11,
- fontWeight: '800',
- color: colors.textSecondary,
+ fontWeight: font.weight.heavy,
+ color: color.textSecondary,
  lineHeight: 13,
  includeFontPadding: false,
  },
  graphCardResizeActive: {
- borderColor: colors.borderStrong,
- shadowColor: colors.black,
+ borderColor: color.borderStrong,
+ shadowColor: primitive.black,
  shadowOffset: { width: 0, height: 4 },
  shadowOpacity: 0.08,
  shadowRadius: 8,
@@ -3428,14 +3455,14 @@ resizeHandle: {
  height: 28,
  borderRadius: radius.pill,
  borderWidth: 1,
- borderColor: colors.border,
- backgroundColor: colors.surface,
+ borderColor: color.border,
+ backgroundColor: color.surface,
  alignItems: 'center',
  justifyContent: 'center',
 },
 resizeHandleActive: {
- backgroundColor: colors.surface,
- borderColor: colors.border,
+ backgroundColor: color.surface,
+ borderColor: color.border,
 },
 resizeHandleCornerTopRight: {
  position: 'absolute',
@@ -3445,7 +3472,7 @@ resizeHandleCornerTopRight: {
  height: 8,
  borderTopWidth: 2,
  borderRightWidth: 2,
- borderColor: colors.borderStrong,
+ borderColor: color.borderStrong,
 },
 resizeHandleCornerBottomLeft: {
  position: 'absolute',
@@ -3455,7 +3482,7 @@ resizeHandleCornerBottomLeft: {
  height: 8,
  borderBottomWidth: 2,
  borderLeftWidth: 2,
- borderColor: colors.borderStrong,
+ borderColor: color.borderStrong,
 },
 resizeActiveOverlay: {
  ...StyleSheet.absoluteFillObject,
@@ -3496,7 +3523,7 @@ resizeActiveCorner: {
  position: 'absolute',
  width: RESIZE_ACTIVE_CORNER_SIZE,
  height: RESIZE_ACTIVE_CORNER_SIZE,
- borderColor: colors.borderStrong,
+ borderColor: color.borderStrong,
 },
 resizeActiveCornerTopRight: {
  top: 0,
@@ -3519,13 +3546,13 @@ resizeActiveDiagonalTrack: {
 resizeActiveDiagonalDash: {
  borderTopWidth: 1.2,
  borderStyle: 'dashed',
- borderColor: colors.borderStrong,
+ borderColor: color.borderStrong,
 },
  emptyText: {
- paddingVertical: spacing.xl,
+ paddingVertical: space.xl,
  textAlign: 'center',
  fontSize: 14,
- color: colors.textTertiary,
+ color: color.textTertiary,
  },
  footer: {
  position: 'absolute',
@@ -3537,8 +3564,8 @@ resizeActiveDiagonalDash: {
  paddingHorizontal: 18,
  paddingTop: 12,
  borderTopWidth: StyleSheet.hairlineWidth,
- borderTopColor: colors.border,
- backgroundColor: colors.surface,
+ borderTopColor: color.border,
+ backgroundColor: color.surface,
  },
  footerButton: {
  flex: 1,
@@ -3549,26 +3576,27 @@ resizeActiveDiagonalDash: {
  },
  cancelButton: {
  borderWidth: 1,
- borderColor: colors.border,
- backgroundColor: colors.surface,
+ borderColor: color.border,
+ backgroundColor: color.surface,
  },
  saveButton: {
- backgroundColor: colors.primary,
+ borderWidth: 0,
+ backgroundColor: color.primary,
  },
  cancelButtonText: {
  fontSize: 15,
- fontWeight: '800',
- color: colors.textPrimary,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
  },
  saveButtonText: {
  fontSize: 15,
- fontWeight: '800',
- color: colors.textInverse,
+ fontWeight: font.weight.heavy,
+ color: color.textInverse,
  },
  modalOverlay: {
  flex: 1,
  padding: 20,
- backgroundColor: colors.overlay,
+ backgroundColor: color.overlay,
  alignItems: 'center',
  justifyContent: 'center',
  },
@@ -3576,31 +3604,33 @@ resizeActiveDiagonalDash: {
  width: '100%',
  maxHeight: '75%',
  borderRadius: radius.md,
- backgroundColor: colors.surface,
- padding: spacing.lg,
+ backgroundColor: color.surface,
+ padding: space.md,
  },
  modalHeader: {
  flexDirection: 'row',
  alignItems: 'center',
- marginBottom: spacing.md,
+ marginBottom: space.sm,
  },
  modalTitle: {
  flex: 1,
+ textAlign: 'left',
  fontSize: 18,
- fontWeight: '800',color: colors.textPrimary,
+ fontWeight: font.weight.heavy,color: color.textPrimary,
  },
  modalCloseBtn: {
  width: 32,
  height: 32,
+ borderWidth: 0,
  borderRadius: radius.lg,
  alignItems: 'center',
  justifyContent: 'center',
- backgroundColor: colors.surfaceMuted,
+ backgroundColor: color.surfaceMuted,
  },
  modalCloseText: {
  fontSize: 20,
- fontWeight: '800',
- color: colors.textSecondary,
+ fontWeight: font.weight.heavy,
+ color: color.textSecondary,
  lineHeight: 24,
  },
  pickerList: {
@@ -3608,18 +3638,22 @@ resizeActiveDiagonalDash: {
  },
  pickerItem: {
  paddingVertical: 13,
+ paddingHorizontal: 0,
+ borderWidth: 0,
+ borderRadius: 0,
+ backgroundColor: 'transparent',
  borderBottomWidth: StyleSheet.hairlineWidth,
- borderBottomColor: colors.border,
+ borderBottomColor: color.border,
  },
  pickerTitle: {
  fontSize: 15,
- fontWeight: '800',
- color: colors.textPrimary,
+ fontWeight: font.weight.heavy,
+ color: color.textPrimary,
  },
  pickerMeta: {
- marginTop: spacing.xxs,
+ marginTop: space.xxs,
  fontSize: 12,
- color: colors.textTertiary,
+ color: color.textTertiary,
  },
  absoluteGraphCell: {
  position: 'absolute',
@@ -3631,9 +3665,9 @@ absoluteGraphCellResizeActive: {
  dragPlaceholderOverlay: {
  position: 'absolute',
  borderWidth: 1.2,
- borderColor: colors.textTertiary,
+ borderColor: color.textTertiary,
  borderRadius: radius.md,
- backgroundColor: colors.surfaceMuted,
+ backgroundColor: color.surfaceMuted,
  zIndex: 998,
  pointerEvents: 'none',
  },
@@ -3649,7 +3683,7 @@ resizeGhostFrameOverlay: {
  elevation: 0,
  borderWidth: 1.5,
  borderStyle: 'solid',
- borderColor: colors.gray400,
+ borderColor: primitive.neutral[400],
  borderRadius: radius.md,
  backgroundColor: 'transparent',
  overflow: 'visible',
@@ -3659,7 +3693,7 @@ resizeGhostCorner: {
  position: 'absolute',
  width: RESIZE_ACTIVE_CORNER_SIZE,
  height: RESIZE_ACTIVE_CORNER_SIZE,
- borderColor: colors.borderStrong,
+ borderColor: color.borderStrong,
 },
 resizeGhostCornerTopRight: {
  top: -(RESIZE_CORNER_OUTSET + RESIZE_FRAME_INSET),
@@ -3682,6 +3716,6 @@ resizeGhostDiagonalTrack: {
 resizeGhostDiagonalDash: {
  borderTopWidth: 1.2,
  borderStyle: 'dashed',
- borderColor: colors.borderStrong,
+ borderColor: color.borderStrong,
 },
 });

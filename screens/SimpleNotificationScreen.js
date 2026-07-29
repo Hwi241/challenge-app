@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { buttonStyles, card as canonicalCardStyles, control as canonicalControlStyles, layout as canonicalLayoutStyles, modal as canonicalModalStyles, spacing, surface as canonicalSurfaceStyles, text as canonicalTextStyles } from '../styles/common';
+import { buttonStyles, card as canonicalCardStyles, control as canonicalControlStyles, layout as canonicalLayoutStyles, modal as canonicalModalStyles, space, surface as canonicalSurfaceStyles, text as canonicalTextStyles } from '../styles/common';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 
@@ -208,14 +208,14 @@ export default function SimpleNotificationScreen() {
   return (
     <SafeAreaView style={canonicalSurfaceStyles.screen} edges={['top', 'bottom']}>
       <BackButton title="간단 알림 설정" onPress={handleBackPress} />
-      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: spacing.xxl + Math.max(insets.bottom, spacing.lg) }]}>
+      <ScrollView contentContainerStyle={[canonicalLayoutStyles.screenContent, { paddingBottom: space.xxl + space.xxs + Math.max(insets.bottom, space.md) }]}>
       
 
       {/* 요일 선택 */}
       <View style={canonicalCardStyles.base}>
         <View style={canonicalLayoutStyles.rowBetween}>
           <Text style={canonicalTextStyles.sectionTitle}>요일 선택</Text>
-          <View style={{ flexDirection: 'row', columnGap: 8 }}>
+          <View style={[canonicalLayoutStyles.row, styles.headerActions]}>
             <TouchableOpacity
               onPress={toggleDaily}
               activeOpacity={0.9}
@@ -257,10 +257,10 @@ export default function SimpleNotificationScreen() {
       </View>
 
       {/* 시간 선택 */}
-      <View style={[canonicalCardStyles.base, { marginTop: spacing.lg }]}>
+      <View style={[canonicalCardStyles.base, styles.timeCard]}>
         <View style={canonicalLayoutStyles.rowBetween}>
           <Text style={canonicalTextStyles.sectionTitle}>알림 시간</Text>
-          <Text style={[canonicalTextStyles.help, { marginTop: spacing.xxs }]}>최대 {MAX_TIMES}개</Text>
+          <Text style={[canonicalTextStyles.help, styles.timeLimit]}>최대 {MAX_TIMES}개</Text>
         </View>
 
         <View style={styles.timeChips}>
@@ -284,7 +284,7 @@ export default function SimpleNotificationScreen() {
 
       {/* 완료 */}
       <TouchableOpacity
-        style={[buttonStyles.primary.container, { marginTop: spacing.xl }]}
+        style={[buttonStyles.primary.container, styles.saveButton]}
         onPress={save}
         activeOpacity={0.9}
       >
@@ -305,7 +305,7 @@ export default function SimpleNotificationScreen() {
         <View style={canonicalModalStyles.backdrop}>
           <View style={canonicalModalStyles.sheetBorderless}>
             <Text style={canonicalModalStyles.title}>반복 주차 선택</Text>
-            <View style={{ rowGap: 8 }}>
+            <View style={styles.weekOptions}>
               {[1, 2, 3, 4, 5].map((n) => {
                 const active = Array.isArray(weeks) && weeks.includes(n);
                 return (
@@ -338,16 +338,36 @@ export default function SimpleNotificationScreen() {
 }
 
 const styles = StyleSheet.create({
+ headerActions: {
+ columnGap: space.xs,
+ },
+
  daysWrap: {
- marginTop: spacing.md,
+ marginTop: space.sm,
  flexDirection: 'row',
  justifyContent: 'space-between',
+ },
+
+ timeCard: {
+ marginTop: space.md,
+ },
+
+ timeLimit: {
+ marginTop: space.xxs,
  },
 
  timeChips: {
  flexDirection: 'row',
  flexWrap: 'wrap',
- gap: spacing.xs,
- marginTop: spacing.sm,
+ gap: space.xxs + 2,
+ marginTop: space.xs,
+ },
+
+ saveButton: {
+ marginTop: space.xl,
+ },
+
+ weekOptions: {
+ rowGap: space.xs,
  },
 });

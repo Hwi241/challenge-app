@@ -16,7 +16,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, radius } from '../styles/common';
+import { layout as canonicalLayoutStyles, primitive, radius, space } from '../styles/common';
 
 const DEFAULT_DAY_ORDER = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -46,7 +46,7 @@ export default function WeeklyNotificationPreview({
 }) {
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.headerRow}>
+      <View style={[canonicalLayoutStyles.row, styles.headerRow]}>
         {dayOrder.map((d) => (
           <View key={`h-${d}`} style={styles.headerCell}>
             <Text style={styles.headerText}>{d}</Text>
@@ -54,7 +54,7 @@ export default function WeeklyNotificationPreview({
         ))}
       </View>
 
-      <View style={styles.bodyRow}>
+      <View style={[canonicalLayoutStyles.row, styles.bodyRow]}>
         {dayOrder.map((d) => {
           const times = Array.isArray(data[d]) ? [...data[d]] : [];
           times.sort(); // 'HH:mm' 문자열 정렬로 시간 순서 보장
@@ -88,14 +88,13 @@ const CELL_MIN_HEIGHT = 64;
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: primitive.neutral[200],
     borderRadius: radius.lg,
-    padding: spacing.md,
-    backgroundColor: colors.white,
+    padding: space.sm,
+    backgroundColor: primitive.white,
   },
   headerRow: {
-    flexDirection: 'row',
-    marginBottom: spacing.sm,
+       marginBottom: space.xs,
   },
   headerCell: {
     flex: 1,
@@ -103,38 +102,37 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 12,
-    color: colors.gray600,
+    color: primitive.neutral[600],
     fontWeight: '600',
   },
   bodyRow: {
-    flexDirection: 'row',
-  },
+     },
   bodyCell: {
     flex: 1,
     minHeight: CELL_MIN_HEIGHT,
     borderRightWidth: 1,
-    borderRightColor: colors.gray200,
-    paddingHorizontal: spacing.xxs,
+    borderRightColor: primitive.neutral[200],
+    paddingHorizontal: space.xxs,
     alignItems: 'center',
   },
   timeChip: {
-    backgroundColor: colors.gray100,
+    backgroundColor: primitive.neutral[100],
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    marginBottom: spacing.xxs,
+    paddingHorizontal: space.xs,
+    paddingVertical: space.xxs,
+    marginBottom: space.xxs,
   },
   timeText: {
     fontSize: 12,
-    color: colors.gray800,
+    color: primitive.neutral[800],
   },
   empty: {
     fontSize: 12,
-    color: colors.gray400,
+    color: primitive.neutral[400],
   },
   moreText: {
     fontSize: 11,
-    color: colors.gray600,
+    color: primitive.neutral[600],
     marginTop: 2,
   },
 });

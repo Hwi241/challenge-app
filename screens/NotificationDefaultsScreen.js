@@ -1,6 +1,6 @@
 // screens/NotificationDefaultsScreen.js
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Switch, Modal, TextInput, Alert, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, Modal, TextInput, Alert, ScrollView, SafeAreaView, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../components/BackButton';
@@ -14,7 +14,7 @@ import {
  layout as canonicalLayoutStyles,
  modal as canonicalModalStyles,
  primitive,
- spacing,
+ space,
  surface as canonicalSurfaceStyles,
  text as canonicalTextStyles,
 } from '../styles/common';
@@ -160,7 +160,7 @@ export default function NotificationDefaultsScreen() {
       </View>
 
       {/* 스누즈 */}
-      <View style={[canonicalCardStyles.base, {marginTop: spacing.lg}]}>
+      <View style={[canonicalCardStyles.base, styles.snoozeCard]}>
         <View style={canonicalLayoutStyles.rowBetween}>
           <Text style={canonicalTextStyles.sectionTitleSpaced}>스누즈</Text>
           <Switch
@@ -230,3 +230,9 @@ export default function NotificationDefaultsScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+ snoozeCard: {
+ marginTop: space.md,
+ },
+});

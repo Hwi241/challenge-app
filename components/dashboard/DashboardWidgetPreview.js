@@ -428,8 +428,8 @@ const styles = StyleSheet.create({
   },
   widgetDelegatedCap: {
     width: '100%',
-    maxWidth: 156,
-    maxHeight: 72,
+    maxWidth: 212,
+    maxHeight: 112,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',

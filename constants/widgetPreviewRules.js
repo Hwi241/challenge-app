@@ -145,6 +145,59 @@ export const getWidgetPreviewKpiLayout = (sizeMode) => (
  WIDGET_PREVIEW_KPI_LAYOUT[WIDGET_PREVIEW_SIZE_MODES.REGULAR]
 );
 
+export const WIDGET_PREVIEW_NON_KPI_LAYOUT = Object.freeze({
+ [WIDGET_PREVIEW_SIZE_MODES.TINY]: Object.freeze({
+ maxWidth: 144,
+ height: 28,
+ radius: 8,
+ paddingHorizontal: 8,
+ paddingVertical: 4,
+ gap: 4,
+ labelFontSize: 8,
+ labelLineHeight: 10,
+ lineHeight: 3,
+ avatarSize: 16,
+ dotSize: 5,
+ rowHeight: 6,
+ tabHeight: 5,
+ }),
+ [WIDGET_PREVIEW_SIZE_MODES.COMPACT]: Object.freeze({
+ maxWidth: 180,
+ height: 58,
+ radius: 11,
+ paddingHorizontal: 10,
+ paddingVertical: 7,
+ gap: 5,
+ labelFontSize: 9,
+ labelLineHeight: 11,
+ lineHeight: 5,
+ avatarSize: 24,
+ dotSize: 6,
+ rowHeight: 7,
+ tabHeight: 7,
+ }),
+ [WIDGET_PREVIEW_SIZE_MODES.REGULAR]: Object.freeze({
+ maxWidth: 212,
+ height: 104,
+ radius: 14,
+ paddingHorizontal: 12,
+ paddingVertical: 10,
+ gap: 7,
+ labelFontSize: 10,
+ labelLineHeight: 12,
+ lineHeight: 6,
+ avatarSize: 40,
+ dotSize: 7,
+ rowHeight: 8,
+ tabHeight: 9,
+ }),
+});
+
+export const getWidgetPreviewNonKpiLayout = (sizeMode) => (
+ WIDGET_PREVIEW_NON_KPI_LAYOUT[sizeMode] ||
+ WIDGET_PREVIEW_NON_KPI_LAYOUT[WIDGET_PREVIEW_SIZE_MODES.REGULAR]
+);
+
 export const getWidgetPreviewSampleData = (preview = {}) => {
  const seed = Number.isInteger(preview?.seed)
  ? preview.seed
@@ -313,3 +366,20 @@ export const assertValidWidgetPreviewDefinition = (
 
  return preview;
 };
+
+export const WIDGET_PREVIEW_RENDERED_VARIANTS = Object.freeze([
+ WIDGET_PREVIEW_VARIANTS.COUNT_WITH_NOTE,
+ WIDGET_PREVIEW_VARIANTS.COUNT_WITH_ICON,
+ WIDGET_PREVIEW_VARIANTS.DUAL_COUNT,
+ WIDGET_PREVIEW_VARIANTS.AVATAR,
+ WIDGET_PREVIEW_VARIANTS.PROFILE_SUMMARY,
+ WIDGET_PREVIEW_VARIANTS.BATTERY,
+ WIDGET_PREVIEW_VARIANTS.CONNECTION_LIST,
+ WIDGET_PREVIEW_VARIANTS.MEMO_LINES,
+ WIDGET_PREVIEW_VARIANTS.TABBED_LIST,
+]);
+
+export const isRenderedWidgetPreviewDefinition = (preview) => (
+ isValidWidgetPreviewDefinition(preview) &&
+ WIDGET_PREVIEW_RENDERED_VARIANTS.includes(preview.variant)
+);

@@ -6,7 +6,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import GraphPreviewIcon from '../GraphPreviewIcon';
+import NonGraphPreviewIcon, {
+ supportsNonGraphPreview,
+} from '../NonGraphPreviewIcon';
 import { getGraphById } from '../../constants/graphCatalog';
+import { getWidgetById } from '../../constants/widgetCatalog';
 
 /**
  * Dashboard widget preview — pure graph visual
@@ -310,6 +314,13 @@ export default function DashboardWidgetPreview({
   const compact = safeW <= 2 || safeH <= 2;
   const tiny = safeH <= 1;
   const catalogGraph = resolveDashboardGraphCatalogItem(widgetId);
+  const catalogWidget = getWidgetById(widgetId);
+  const widgetPreview = catalogWidget?.widgetPreview || null;
+  const isGraphDelegated = !!catalogGraph;
+  const isWidgetDelegated =
+    !isGraphDelegated &&
+    supportsNonGraphPreview(widgetPreview);
+
   const graphPreviewSize = tiny
     ? 24
     : compact
@@ -318,12 +329,23 @@ export default function DashboardWidgetPreview({
           88,
           Math.max(68, rule.maxHeight || 82),
         );
-  const isDelegated = !!catalogGraph;
-  const visual = catalogGraph ? (
+
+  const isDelegated =
+    isGraphDelegated ||
+    isWidgetDelegated;
+
+  const visual = isGraphDelegated ? (
     <GraphPreviewIcon
       graph={catalogGraph}
       size={graphPreviewSize}
       muted={isResizeActive}
+    />
+  ) : isWidgetDelegated ? (
+    <NonGraphPreviewIcon
+      preview={widgetPreview}
+      title={catalogWidget?.title || title}
+      w={safeW}
+      h={safeH}
     />
   ) : (
     renderVisual({ family, compact, widgetId })
@@ -342,8 +364,10 @@ export default function DashboardWidgetPreview({
       <View
         style={[
           styles.cap,
-          isDelegated && styles.delegatedCap,
-          isDelegated && tiny && styles.delegatedCapTiny,
+          isGraphDelegated && styles.delegatedCap,
+          isGraphDelegated && tiny && styles.delegatedCapTiny,
+          isWidgetDelegated && styles.widgetDelegatedCap,
+          isWidgetDelegated && tiny && styles.widgetDelegatedCapTiny,
           !isDelegated && {
             maxWidth: rule.maxWidth,
             maxHeight: tiny ? Math.min(rule.maxHeight, 30) : compact ? Math.min(rule.maxHeight, 58) : rule.maxHeight,
@@ -397,6 +421,23 @@ const styles = StyleSheet.create({
     width: 30,
     height: 28,
     maxWidth: 30,
+    maxHeight: 28,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetDelegatedCap: {
+    width: '100%',
+    maxWidth: 156,
+    maxHeight: 72,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetDelegatedCapTiny: {
+    width: '100%',
+    height: 28,
+    maxWidth: 144,
     maxHeight: 28,
     overflow: 'hidden',
     alignItems: 'center',

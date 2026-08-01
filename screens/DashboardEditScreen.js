@@ -10,6 +10,7 @@ import {
  StyleSheet,
  Text,
  TouchableOpacity,
+ useWindowDimensions,
  View,
 } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
@@ -24,6 +25,12 @@ import {
  supportsWidgetTarget,
 } from '../constants/widgetCatalog';
 import { getPurchasedGraphIds } from '../utils/graphOwnership';
+import {
+ buildDashboardLayoutFromOrder,
+ buildResponsiveDashboardLayout,
+ reorderDashboardCardsByInsertion,
+ sortDashboardCardsByStoredPosition,
+} from '../utils/dashboardAutoLayout';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Line, Rect } from 'react-native-svg';
@@ -440,20 +447,71 @@ const getResizeCatalogBounds = (widgetId) => {
  return { minW, minH, maxW, maxH };
 };
 
-const getResizeGridItemFrame = (item, gridW, rowGap = GRID_ROW_GAP) => {
- const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
- const safeH = Math.max(1, Number(item?.h) || 1);
- const maxX = Math.max(0, GRID_COLUMNS - safeW);
- const safeX = Math.max(0, Math.min(maxX, Number(item?.x) || 0));
- const safeY = Math.max(0, Number(item?.y) || 0);
- const slotWidth = gridW > 0 ? gridW / GRID_COLUMNS : 0;
- const safeRowGap = Math.max(0, Number(rowGap) || 0);
+const getResizeGridItemFrame = (
+ item,
+ gridW,
+ rowGap = GRID_ROW_GAP,
+ columns = GRID_COLUMNS,
+) => {
+ const safeColumns = Math.max(
+ 1,
+ Number(columns) || GRID_COLUMNS,
+ );
+
+ const safeW = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(item?.w) || 1,
+ ),
+ );
+
+ const safeH = Math.max(
+ 1,
+ Number(item?.h) || 1,
+ );
+
+ const maxX = Math.max(
+ 0,
+ safeColumns - safeW,
+ );
+
+ const safeX = Math.max(
+ 0,
+ Math.min(
+ maxX,
+ Number(item?.x) || 0,
+ ),
+ );
+
+ const safeY = Math.max(
+ 0,
+ Number(item?.y) || 0,
+ );
+
+ const slotWidth = gridW > 0
+ ? gridW / safeColumns
+ : 0;
+
+ const safeRowGap = Math.max(
+ 0,
+ Number(rowGap) || 0,
+ );
 
  return {
- left: safeX * slotWidth + GRID_CELL_PADDING,
- top: safeY * (GRID_ROW_HEIGHT + safeRowGap),
- width: Math.max(0, safeW * slotWidth - GRID_CELL_PADDING * 2),
- height: safeH * GRID_ROW_HEIGHT,
+ left:
+ safeX * slotWidth +
+ GRID_CELL_PADDING,
+ top:
+ safeY *
+ (GRID_ROW_HEIGHT + safeRowGap),
+ width: Math.max(
+ 0,
+ safeW * slotWidth -
+ GRID_CELL_PADDING * 2,
+ ),
+ height:
+ safeH * GRID_ROW_HEIGHT,
  safeX,
  safeY,
  safeW,
@@ -466,7 +524,17 @@ const getResizeGridItemHeight = (h, rowGap = GRID_ROW_GAP) => {
  return safeH * GRID_ROW_HEIGHT;
 };
 
-const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, translationY, gridW, rowGap = GRID_ROW_GAP) => {
+const getResizeGhostVisualFramePx = (
+ widgetId,
+ origin,
+ corner,
+ translationX,
+ translationY,
+ gridW,
+ rowGap = GRID_ROW_GAP,
+ columns = GRID_COLUMNS,
+ maxCardWidth = GRID_COLUMNS,
+) => {
  if (!gridW) {
  return {
  visualFramePx: null,
@@ -475,55 +543,188 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
  };
  }
 
- const slotWidth = gridW / GRID_COLUMNS;
- const originFrame = getResizeGridItemFrame(origin, gridW, rowGap);
- const bounds = getResizeCatalogBounds(widgetId);
+ const safeColumns = Math.max(
+ 1,
+ Number(columns) || GRID_COLUMNS,
+ );
 
- const originX = Math.max(0, Number(origin?.x) || 0);
- const originY = Math.max(0, Number(origin?.y) || 0);
- const originW = Math.max(1, Number(origin?.w) || 1);
- const originH = Math.max(1, Number(origin?.h) || 1);
+ const safeMaxCardWidth = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ safeColumns,
+ Number(maxCardWidth) || GRID_COLUMNS,
+ ),
+ );
 
- const isLeftCorner = corner === 'topLeft' || corner === 'bottomLeft';
- const isTopCorner = corner === 'topLeft' || corner === 'topRight';
+ const slotWidth =
+ gridW / safeColumns;
 
- const minWidthPx = Math.max(0, bounds.minW * slotWidth - GRID_CELL_PADDING * 2);
- const maxWidthCells = isLeftCorner
- ? Math.min(bounds.maxW, originX + originW)
- : Math.min(bounds.maxW, GRID_COLUMNS - originX);
- const maxHeightCells = isTopCorner
- ? Math.min(bounds.maxH, originY + originH)
+ const originFrame =
+ getResizeGridItemFrame(
+ origin,
+ gridW,
+ rowGap,
+ safeColumns,
+ );
+
+ const bounds =
+ getResizeCatalogBounds(widgetId);
+
+ const originX = Math.max(
+ 0,
+ Number(origin?.x) || 0,
+ );
+
+ const originY = Math.max(
+ 0,
+ Number(origin?.y) || 0,
+ );
+
+ const originW = Math.max(
+ 1,
+ Math.min(
+ safeMaxCardWidth,
+ Number(origin?.w) || 1,
+ ),
+ );
+
+ const originH = Math.max(
+ 1,
+ Number(origin?.h) || 1,
+ );
+
+ const isLeftCorner =
+ corner === 'topLeft' ||
+ corner === 'bottomLeft';
+
+ const isTopCorner =
+ corner === 'topLeft' ||
+ corner === 'topRight';
+
+ const minWidthPx = Math.max(
+ 0,
+ bounds.minW * slotWidth -
+ GRID_CELL_PADDING * 2,
+ );
+
+ const availableWidthCells =
+ isLeftCorner
+ ? originX + originW
+ : safeColumns - originX;
+
+ const maxWidthCells = Math.max(
+ bounds.minW,
+ Math.min(
+ bounds.maxW,
+ safeMaxCardWidth,
+ availableWidthCells,
+ ),
+ );
+
+ const maxHeightCells =
+ isTopCorner
+ ? Math.min(
+ bounds.maxH,
+ originY + originH,
+ )
  : bounds.maxH;
 
- const maxWidthPx = Math.max(minWidthPx, maxWidthCells * slotWidth - GRID_CELL_PADDING * 2);
- const minHeightPx = getResizeGridItemHeight(bounds.minH, rowGap);
- const maxHeightPx = getResizeGridItemHeight(maxHeightCells, rowGap);
+ const maxWidthPx = Math.max(
+ minWidthPx,
+ maxWidthCells * slotWidth -
+ GRID_CELL_PADDING * 2,
+ );
+
+ const minHeightPx =
+ getResizeGridItemHeight(
+ bounds.minH,
+ rowGap,
+ );
+
+ const maxHeightPx =
+ getResizeGridItemHeight(
+ maxHeightCells,
+ rowGap,
+ );
 
  const originLeft = originFrame.left;
  const originTop = originFrame.top;
- const originRight = originFrame.left + originFrame.width;
- const originBottom = originFrame.top + originFrame.height;
 
- const rawX = Number(translationX) || 0;
- const rawY = Number(translationY) || 0;
+ const originRight =
+ originFrame.left +
+ originFrame.width;
 
- const rawWidth = originFrame.width + (isLeftCorner ? -rawX : rawX);
- const rawHeight = originFrame.height + (isTopCorner ? -rawY : rawY);
- const boundedWidth = Math.max(minWidthPx, Math.min(maxWidthPx, rawWidth));
- const boundedHeight = Math.max(minHeightPx, Math.min(maxHeightPx, rawHeight));
- const visualWidth = applyResizeResistancePx(rawWidth, minWidthPx, maxWidthPx);
- const visualHeight = applyResizeResistancePx(rawHeight, minHeightPx, maxHeightPx);
+ const originBottom =
+ originFrame.top +
+ originFrame.height;
+
+ const rawX =
+ Number(translationX) || 0;
+
+ const rawY =
+ Number(translationY) || 0;
+
+ const rawWidth =
+ originFrame.width +
+ (isLeftCorner ? -rawX : rawX);
+
+ const rawHeight =
+ originFrame.height +
+ (isTopCorner ? -rawY : rawY);
+
+ const boundedWidth = Math.max(
+ minWidthPx,
+ Math.min(
+ maxWidthPx,
+ rawWidth,
+ ),
+ );
+
+ const boundedHeight = Math.max(
+ minHeightPx,
+ Math.min(
+ maxHeightPx,
+ rawHeight,
+ ),
+ );
+
+ const visualWidth =
+ applyResizeResistancePx(
+ rawWidth,
+ minWidthPx,
+ maxWidthPx,
+ );
+
+ const visualHeight =
+ applyResizeResistancePx(
+ rawHeight,
+ minHeightPx,
+ maxHeightPx,
+ );
 
  const boundedFramePx = {
- left: isLeftCorner ? originRight - boundedWidth : originLeft,
- top: isTopCorner ? originBottom - boundedHeight : originTop,
+ left:
+ isLeftCorner
+ ? originRight - boundedWidth
+ : originLeft,
+ top:
+ isTopCorner
+ ? originBottom - boundedHeight
+ : originTop,
  width: boundedWidth,
  height: boundedHeight,
  };
 
  const visualFramePx = {
- left: isLeftCorner ? originRight - visualWidth : originLeft,
- top: isTopCorner ? originBottom - visualHeight : originTop,
+ left:
+ isLeftCorner
+ ? originRight - visualWidth
+ : originLeft,
+ top:
+ isTopCorner
+ ? originBottom - visualHeight
+ : originTop,
  width: visualWidth,
  height: visualHeight,
  };
@@ -532,13 +733,24 @@ const getResizeGhostVisualFramePx = (widgetId, origin, corner, translationX, tra
  visualFramePx,
  boundedFramePx,
  isBeyondLimit:
- Math.abs(visualFramePx.left - boundedFramePx.left) > 0.5 ||
- Math.abs(visualFramePx.top - boundedFramePx.top) > 0.5 ||
- Math.abs(visualFramePx.width - boundedFramePx.width) > 0.5 ||
- Math.abs(visualFramePx.height - boundedFramePx.height) > 0.5,
+ Math.abs(
+ visualFramePx.left -
+ boundedFramePx.left,
+ ) > 0.5 ||
+ Math.abs(
+ visualFramePx.top -
+ boundedFramePx.top,
+ ) > 0.5 ||
+ Math.abs(
+ visualFramePx.width -
+ boundedFramePx.width,
+ ) > 0.5 ||
+ Math.abs(
+ visualFramePx.height -
+ boundedFramePx.height,
+ ) > 0.5,
  };
 };
-
 
 const GRID_ROW_HEIGHT = 60;
 const GRID_ROW_GAP = 4;
@@ -558,9 +770,105 @@ const RESIZE_GRID_STEP_THRESHOLD = 0.45;
 const AUTO_SCROLL_EDGE_SIZE = 110;
 const AUTO_SCROLL_STEP = 9;
 const AUTO_SCROLL_INTERVAL_MS = 16;
+const WIDE_GRID_COLUMNS = GRID_COLUMNS * 2;
+const WIDE_EDIT_MIN_WIDTH = 600;
+
+const getDashboardEditItemId = (item) => String(
+ item?.widgetId ??
+ item?.id ??
+ item?.i ??
+ '',
+);
+
+const getDashboardInsertionIndexFromPoint = (
+ items,
+ movingId,
+ point,
+ columns,
+) => {
+ const safeColumns = Math.max(
+ 1,
+ Number(columns) || GRID_COLUMNS,
+ );
+
+ const movingIdentity = String(
+ movingId ?? '',
+ );
+
+ const orderedItems =
+ sortDashboardCardsByStoredPosition(
+ Array.isArray(items) ? items : [],
+ ).filter(
+ (item) => (
+ getDashboardEditItemId(item) !==
+ movingIdentity
+ ),
+ );
+
+ const safePointX = Math.max(
+ 0,
+ Math.min(
+ safeColumns - 0.001,
+ Number(point?.x) || 0,
+ ),
+ );
+
+ const safePointY = Math.max(
+ 0,
+ Number(point?.y) || 0,
+ );
+
+ const pointRow = Math.floor(
+ safePointY,
+ );
+
+ for (
+ let index = 0;
+ index < orderedItems.length;
+ index += 1
+ ) {
+ const item = orderedItems[index];
+
+ const itemY = Math.max(
+ 0,
+ Number(item?.y) || 0,
+ );
+
+ const itemX = Math.max(
+ 0,
+ Number(item?.x) || 0,
+ );
+
+ const itemW = Math.max(
+ 1,
+ Number(item?.w) || 1,
+ );
+
+ const itemCenterX =
+ itemX + itemW / 2;
+
+ if (pointRow < itemY) {
+ return index;
+ }
+
+ if (
+ pointRow === itemY &&
+ safePointX < itemCenterX
+ ) {
+ return index;
+ }
+ }
+
+ return orderedItems.length;
+};
 
 export default function DashboardEditScreen({ route, navigation }) {
  const insets = useSafeAreaInsets();
+ const { width: editWindowWidth } = useWindowDimensions();
+ const isWideEditLayout = editWindowWidth >= WIDE_EDIT_MIN_WIDTH;
+ const displayGridColumns = isWideEditLayout
+ ? WIDE_GRID_COLUMNS
+ : GRID_COLUMNS;
  const params = route?.params || {};
  const dashboardTarget = useMemo(() => resolveTarget(params), [params]);
  const isRecordRoomDashboard = dashboardTarget === DASHBOARD_TARGETS.RECORD_ROOM;
@@ -816,6 +1124,19 @@ const exitResizeMode = useCallback(() => {
  resetResizeInteractionState();
 }, [resetResizeInteractionState]);
 
+useEffect(() => {
+ if (!isWideEditLayout) return;
+
+ clearScheduledDragVisualCleanup();
+ clearDragVisualState();
+ resetResizeInteractionState();
+}, [
+ isWideEditLayout,
+ clearScheduledDragVisualCleanup,
+ clearDragVisualState,
+ resetResizeInteractionState,
+]);
+
 const scheduleDragVisualCleanup = useCallback(() => {
  clearScheduledDragVisualCleanup();
  dragCleanupTimerRef.current = setTimeout(() => {
@@ -837,12 +1158,65 @@ const scheduleDragVisualCleanup = useCallback(() => {
 
  const placedIds = useMemo(() => new Set(layout.map(item => item.widgetId || item.id)), [layout]);
 
+ const canonicalDisplayLayout = useMemo(() => {
+ if (
+ Array.isArray(previewLayout) &&
+ previewLayout.length > 0 &&
+ (
+ gestureDraggingWidgetId ||
+ resizeDraggingWidgetId
+ )
+ ) {
+ return previewLayout.map(normalizeLayoutItem);
+ }
+
+ return Array.isArray(layout)
+ ? layout.map(normalizeLayoutItem)
+ : [];
+ }, [
+ layout,
+ previewLayout,
+ gestureDraggingWidgetId,
+ resizeDraggingWidgetId,
+ ]);
+
  const displayLayout = useMemo(() => {
-   if (Array.isArray(previewLayout) && previewLayout.length > 0 && gestureDraggingWidgetId) {
-     return previewLayout.map(normalizeLayoutItem);
-   }
-   return Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
- }, [layout, previewLayout, gestureDraggingWidgetId]);
+ if (!isWideEditLayout) {
+ return canonicalDisplayLayout;
+ }
+
+ return buildResponsiveDashboardLayout(
+ canonicalDisplayLayout,
+ {
+ columns: WIDE_GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ );
+ }, [
+ canonicalDisplayLayout,
+ isWideEditLayout,
+ ]);
+
+ const interactionDisplayLayout = useMemo(() => {
+ const sourceLayout = Array.isArray(layout)
+ ? layout.map(normalizeLayoutItem)
+ : [];
+
+ if (!isWideEditLayout) {
+ return sourceLayout;
+ }
+
+ return buildResponsiveDashboardLayout(
+ sourceLayout,
+ {
+ columns: WIDE_GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ );
+ }, [
+ layout,
+ isWideEditLayout,
+ ]);
 
 useEffect(() => {
  if (!activeResizeWidgetId) return;
@@ -879,19 +1253,55 @@ const getGridItemHeight = (h) => {
 };
 
 const getGridItemFrame = (item, gridW) => {
-  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item?.w) || 1));
-  const safeH = Math.max(1, Number(item?.h) || 1);
-  const maxX = Math.max(0, GRID_COLUMNS - safeW);
-  const safeX = Math.max(0, Math.min(maxX, Number(item?.x) || 0));
-  const safeY = Math.max(0, Number(item?.y) || 0);
-  const slotWidth = gridW > 0 ? gridW / GRID_COLUMNS : 0;
-  return {
-    left: safeX * slotWidth + GRID_CELL_PADDING,
-    top: safeY * (GRID_ROW_HEIGHT + rowGap),
-    width: Math.max(0, safeW * slotWidth - GRID_CELL_PADDING * 2),
-    height: getGridItemHeight(safeH),
-    safeX, safeY, safeW, safeH,
-  };
+ const safeW = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(item?.w) || 1,
+ ),
+ );
+
+ const safeH = Math.max(
+ 1,
+ Number(item?.h) || 1,
+ );
+
+ const maxX = Math.max(
+ 0,
+ displayGridColumns - safeW,
+ );
+
+ const safeX = Math.max(
+ 0,
+ Math.min(
+ maxX,
+ Number(item?.x) || 0,
+ ),
+ );
+
+ const safeY = Math.max(
+ 0,
+ Number(item?.y) || 0,
+ );
+
+ const slotWidth = gridW > 0
+ ? gridW / displayGridColumns
+ : 0;
+
+ return {
+ left: safeX * slotWidth + GRID_CELL_PADDING,
+ top: safeY * (GRID_ROW_HEIGHT + rowGap),
+ width: Math.max(
+ 0,
+ safeW * slotWidth -
+ GRID_CELL_PADDING * 2,
+ ),
+ height: getGridItemHeight(safeH),
+ safeX,
+ safeY,
+ safeW,
+ safeH,
+ };
 };
 
 const calculateReflowLayout = (sourceLayout, movingWidgetId, target) => {
@@ -1769,6 +2179,80 @@ const resizeLayoutItem = useCallback((widgetId, nextSize) => {
  }));
 }, [buildResizedLayoutWithReflow, setDashboardLayoutImmediate]);
 
+const buildResizedDashboardLayoutFromOrder = useCallback((
+ sourceLayout,
+ targetWidgetId,
+ nextSize,
+) => {
+ if (
+ !targetWidgetId ||
+ !nextSize
+ ) {
+ return Array.isArray(sourceLayout)
+ ? sourceLayout
+ : [];
+ }
+
+ const targetIdentity = String(
+ targetWidgetId,
+ );
+
+ const orderedSource =
+ sortDashboardCardsByStoredPosition(
+ Array.isArray(sourceLayout)
+ ? sourceLayout.map(normalizeLayoutItem)
+ : [],
+ );
+
+ let targetFound = false;
+
+ const resizedOrderedSource =
+ orderedSource.map((item) => {
+ const itemIdentity = String(
+ item?.widgetId ??
+ item?.id ??
+ item?.i ??
+ '',
+ );
+
+ if (itemIdentity !== targetIdentity) {
+ return {
+ ...item,
+ };
+ }
+
+ const clampedSize =
+ clampDashboardResizeSize(
+ targetWidgetId,
+ nextSize.w,
+ nextSize.h,
+ {
+ maxW: GRID_COLUMNS,
+ },
+ );
+
+ targetFound = true;
+
+ return {
+ ...item,
+ w: clampedSize.w,
+ h: clampedSize.h,
+ };
+ });
+
+ if (!targetFound) {
+ return orderedSource;
+ }
+
+ return buildDashboardLayoutFromOrder(
+ resizedOrderedSource,
+ {
+ columns: GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ );
+}, []);
+
 const getLayoutPreviewSignature = useCallback((items) => {
  return Array.isArray(items)
  ? items
@@ -2263,7 +2747,9 @@ function MarqueeText({ text, style, enabled = true }) {
    const ph = item;
    const w = Math.max(1, Math.min(GRID_COLUMNS, Number(ph.w || GRID_COLUMNS)));
    const h = Math.max(1, Number(ph.h || 1));
-   const slotW = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
+   const slotW = gridWidth > 0
+ ? gridWidth / displayGridColumns
+ : 0;
    return (
      <View style={[styles.graphCell, { opacity: 0.5 }]}>
        <View style={[styles.graphCard, { minHeight: h >= 2 ? 120 : 90, backgroundColor: color.surfaceMuted, borderColor: primitive.black, borderStyle: 'dashed' }]} />
@@ -2273,7 +2759,12 @@ function MarqueeText({ text, style, enabled = true }) {
  const widgetId = item.widgetId || item.id || `graph_${index}`;
  const baseTitleText = item.title || item.name || widgetId;
  const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(item.w || GRID_COLUMNS)));
- const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x || 0)));
+ const safeX = Math.max(
+ 0,
+ Math.min(displayGridColumns - safeW,
+ Number(item.x || 0),
+ ),
+ );
  const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
  const safeH = Math.max(1, Number(item.h || 1));
  const isCompactCard = safeH === 1;
@@ -2281,7 +2772,9 @@ function MarqueeText({ text, style, enabled = true }) {
  const titleText = baseTitleText;
  const cardHeight = getGridItemHeight(safeH);
  const innerCardHeight = Math.max(0, cardHeight - RESIZE_FRAME_INSET * 2);
- const slotWidth = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
+ const slotWidth = gridWidth > 0
+ ? gridWidth / displayGridColumns
+ : 0;
 const resizeTouchOpacity = resizeTouchOpacityRef.current;
 const isResizeActive = activeResizeWidgetId === widgetId;
 const isThisResizeDragging = resizeDraggingWidgetId === widgetId;
@@ -2358,50 +2851,97 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  .runOnJS(true)
  .onTouchesDown(() => {
  resizeTouchOpacityRef.current.setValue(0.16);
+
  clearResizeDiagonalDelayTimer();
- resizeDiagonalDelayTimerRef.current = setTimeout(() => {
-  setActiveResizeCorner(corner);
-  resizeDiagonalDelayTimerRef.current = null;
+
+ resizeDiagonalDelayTimerRef.current =
+ setTimeout(() => {
+ setActiveResizeCorner(corner);
+ resizeDiagonalDelayTimerRef.current = null;
  }, RESIZE_DIAGONAL_TOUCH_DELAY_MS);
  })
-.onTouchesUp(() => {
+ .onTouchesUp(() => {
  clearResizeDiagonalDelayTimer();
  resizeTouchOpacityRef.current.setValue(1);
  setActiveResizeCorner(null);
  })
-.onTouchesCancelled(() => {
+ .onTouchesCancelled(() => {
  clearResizeDiagonalDelayTimer();
  resizeTouchOpacityRef.current.setValue(1);
  setActiveResizeCorner(null);
- }) .onBegin(() => {
-  setResizeDraggingWidgetId(widgetId);
+ })
+ .onBegin(() => {
+ setResizeDraggingWidgetId(widgetId);
  resizeTouchOpacityRef.current.setValue(0.16);
+
  resizeOriginRef.current = {
  x: safeX,
  y: safeY,
  w: safeW,
  h: safeH,
  };
+
  resizePreviewSignatureRef.current = '';
- resizePreviewSizeRef.current = `${safeX}:${safeY}:${safeW}:${safeH}`;
+ resizePreviewSizeRef.current =
+ `${safeW}:${safeH}`;
+
  clearResizeGhostBounceTimer();
  setPreviewLayout(null);
+ setResizeGhostFrame(null);
  })
  .onUpdate((event) => {
- const origin = resizeOriginRef.current || {
+ const origin =
+ resizeOriginRef.current || {
  x: safeX,
  y: safeY,
  w: safeW,
  h: safeH,
  };
 
- const deltaColsRaw = slotWidth ? event.translationX / slotWidth : 0;
- const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + rowGap);
- const deltaCols = getResizeStableGridDelta(deltaColsRaw);
- const deltaRows = getResizeStableGridDelta(deltaRowsRaw);
+ const deltaColsRaw = slotWidth
+ ? event.translationX / slotWidth
+ : 0;
 
-const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, deltaRows);
- const ghostState = getResizeGhostVisualFramePx(
+ const deltaRowsRaw =
+ (event.translationY || 0) /
+ (GRID_ROW_HEIGHT + rowGap);
+
+ const deltaCols =
+ getResizeStableGridDelta(
+ deltaColsRaw,
+ );
+
+ const deltaRows =
+ getResizeStableGridDelta(
+ deltaRowsRaw,
+ );
+
+ const horizontalDirection =
+ corner === 'topLeft' ||
+ corner === 'bottomLeft'
+ ? -1
+ : 1;
+
+ const verticalDirection =
+ corner === 'topLeft' ||
+ corner === 'topRight'
+ ? -1
+ : 1;
+
+ const nextSize =
+ clampDashboardResizeSize(
+ widgetId,
+ origin.w +
+ horizontalDirection * deltaCols,
+ origin.h +
+ verticalDirection * deltaRows,
+ {
+ maxW: GRID_COLUMNS,
+ },
+ );
+
+ const ghostState =
+ getResizeGhostVisualFramePx(
  widgetId,
  origin,
  corner,
@@ -2409,84 +2949,186 @@ const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, de
  event.translationY,
  gridWidth,
  rowGap,
+ displayGridColumns,
+ GRID_COLUMNS,
  );
 
- const visualFrame = ghostState.visualFramePx;
- const boundedFrame = ghostState.boundedFramePx;
+ const visualFrame =
+ ghostState.visualFramePx;
+
+ const boundedFrame =
+ ghostState.boundedFramePx;
+
+ const roundVisualValue = (value) => (
+ Math.round(
+ (Number(value) || 0) * 10,
+ ) / 10
+ );
+
  const visualSignature = [
  widgetId,
- nextFrame.x,
- nextFrame.y,
- nextFrame.w,
- nextFrame.h,
- Math.round(Number(visualFrame?.left) || 0),
- Math.round(Number(visualFrame?.top) || 0),
- Math.round(Number(visualFrame?.width) || 0),
- Math.round(Number(visualFrame?.height) || 0),
+ nextSize.w,
+ nextSize.h,
+ roundVisualValue(
+ visualFrame?.left,
+ ),
+ roundVisualValue(
+ visualFrame?.top,
+ ),
+ roundVisualValue(
+ visualFrame?.width,
+ ),
+ roundVisualValue(
+ visualFrame?.height,
+ ),
  ].join(':');
 
- if (resizePreviewSignatureRef.current === visualSignature) {
- return;
+ const sizeSignature =
+ `${nextSize.w}:${nextSize.h}`;
+
+ const shouldUpdateGhost =
+ resizePreviewSignatureRef.current !==
+ visualSignature;
+
+ const shouldUpdateLayoutPreview =
+ resizePreviewSizeRef.current !==
+ sizeSignature;
+
+ if (shouldUpdateLayoutPreview) {
+ const sourceCanonicalLayout =
+ Array.isArray(layoutRef.current) &&
+ layoutRef.current.length > 0
+ ? layoutRef.current
+ : layout;
+
+ const previewCanonicalLayout =
+ buildResizedDashboardLayoutFromOrder(
+ sourceCanonicalLayout,
+ widgetId,
+ nextSize,
+ );
+
+ setPreviewLayout(
+ previewCanonicalLayout,
+ );
+
+ resizePreviewSizeRef.current =
+ sizeSignature;
  }
 
- resizePreviewSignatureRef.current = visualSignature;
- resizePreviewSizeRef.current = `${nextFrame.x}:${nextFrame.y}:${nextFrame.w}:${nextFrame.h}`;
+ if (shouldUpdateGhost) {
+ resizePreviewSignatureRef.current =
+ visualSignature;
 
  setResizeGhostFrame({
  widgetId,
- x: nextFrame.x,
- y: nextFrame.y,
- w: nextFrame.w,
- h: nextFrame.h,
+ x: origin.x,
+ y: origin.y,
+ w: nextSize.w,
+ h: nextSize.h,
  visualFramePx: visualFrame,
  boundedFramePx: boundedFrame,
  corner,
  });
+ }
 
  if (ghostState.isBeyondLimit) {
- scheduleResizeGhostBounceBack(widgetId, nextFrame, boundedFrame, visualSignature);
+ scheduleResizeGhostBounceBack(
+ widgetId,
+ {
+ x: origin.x,
+ y: origin.y,
+ w: nextSize.w,
+ h: nextSize.h,
+ },
+ boundedFrame,
+ visualSignature,
+ );
  } else {
  clearResizeGhostBounceTimer();
  }
  })
  .onEnd((event) => {
  clearResizeDiagonalDelayTimer();
-const origin = resizeOriginRef.current || {
+
+ const origin =
+ resizeOriginRef.current || {
  x: safeX,
  y: safeY,
  w: safeW,
  h: safeH,
  };
 
- const deltaColsRaw = slotWidth ? event.translationX / slotWidth : 0;
- const deltaRowsRaw = (event.translationY || 0) / (GRID_ROW_HEIGHT + rowGap);
- const deltaCols = getResizeStableGridDelta(deltaColsRaw);
- const deltaRows = getResizeStableGridDelta(deltaRowsRaw);
+ const deltaColsRaw = slotWidth
+ ? event.translationX / slotWidth
+ : 0;
 
- if (deltaCols === 0 && deltaRows === 0) {
- clearResizeGhostBounceTimer();
- setPreviewLayout(null);
- setResizeGhostFrame(null);
- setResizeDraggingWidgetId(null);
-  resizeOriginRef.current = null;
- resizePreviewSignatureRef.current = '';
- resizePreviewSizeRef.current = '';
- return;
+ const deltaRowsRaw =
+ (event.translationY || 0) /
+ (GRID_ROW_HEIGHT + rowGap);
+
+ const deltaCols =
+ getResizeStableGridDelta(
+ deltaColsRaw,
+ );
+
+ const deltaRows =
+ getResizeStableGridDelta(
+ deltaRowsRaw,
+ );
+
+ const horizontalDirection =
+ corner === 'topLeft' ||
+ corner === 'bottomLeft'
+ ? -1
+ : 1;
+
+ const verticalDirection =
+ corner === 'topLeft' ||
+ corner === 'topRight'
+ ? -1
+ : 1;
+
+ const nextSize =
+ clampDashboardResizeSize(
+ widgetId,
+ origin.w +
+ horizontalDirection * deltaCols,
+ origin.h +
+ verticalDirection * deltaRows,
+ {
+ maxW: GRID_COLUMNS,
+ },
+ );
+
+ const sizeChanged =
+ nextSize.w !== origin.w ||
+ nextSize.h !== origin.h;
+
+ if (sizeChanged) {
+ setDashboardLayoutImmediate(
+ (current) => (
+ buildResizedDashboardLayoutFromOrder(
+ current,
+ widgetId,
+ nextSize,
+ )
+ ),
+ );
  }
 
- const nextFrame = getAnchoredResizeFrame(widgetId, origin, corner, deltaCols, deltaRows);
- resizeLayoutItem(widgetId, nextFrame);
  clearResizeGhostBounceTimer();
  setPreviewLayout(null);
  setResizeGhostFrame(null);
  setResizeDraggingWidgetId(null);
-  resizeOriginRef.current = null;
+ resizeTouchOpacityRef.current.setValue(1);
+ resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
  })
  .onFinalize(() => {
  clearResizeDiagonalDelayTimer();
-clearResizeGhostBounceTimer();
+ clearResizeGhostBounceTimer();
  setActiveResizeCorner(null);
  setResizeDraggingWidgetId(null);
  resizeTouchOpacityRef.current.setValue(1);
@@ -2557,117 +3199,216 @@ const canMoveCard =
      });
    })
    .onUpdate((event) => {
-     const nextOffset = { x: event.translationX, y: event.translationY };
-     setGestureDragOffset(nextOffset);
-     const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
-     const scrollDelta = scrollYRef.current - dragStartScrollYRef.current;
-     const rawGridDY = (event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + rowGap);
-     const dX = slotWidth ? getStableGridDelta(rawGridDX) : 0;
-     const dY = getStableGridDelta(rawGridDY);
-     if (!slotWidth || (dX === 0 && dY === 0)) {
-       setDragPlaceholder(null);
-       lastDropTargetRef.current = null;
-     } else {
-       const dragOrigin = dragOriginRef.current || { x: safeX, y: safeY, w: safeW, h: safeH };
-       const originW = Math.max(1, Math.min(GRID_COLUMNS, Number(dragOrigin.w) || safeW));
-       const originX = Math.max(0, Number(dragOrigin.x) || 0);
-       const originY = Math.max(0, Number(dragOrigin.y) || 0);
-       const maxX = Math.max(0, GRID_COLUMNS - originW);
-       const tX = originW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, originX + dX));
-       const tY = Math.max(0, originY + dY);
-       setDragPlaceholder((prev) => {
-         if (prev && prev.x === tX && prev.y === tY && prev.w === safeW && prev.h === safeH) return prev;
-         return { widgetId: '__placeholder__', x: tX, y: tY, w: safeW, h: safeH, isPlaceholder: true };
-       });
-       const hoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
-       const hoverY = originY + ((event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + rowGap));
-       const stableHoverX = Math.round(hoverX * 4) / 4;
-       const stableHoverY = Math.round(hoverY * 4) / 4;
-       lastDropTargetRef.current = {
-         widgetId,
-         x: tX,
-         y: tY,
-         w: safeW,
-         h: safeH,
-         hoverX: stableHoverX,
-         hoverY: stableHoverY,
-       };
-       const prevTarget = previewTargetRef.current;
-       if (!prevTarget || prevTarget.x !== tX || prevTarget.y !== tY || prevTarget.hoverX !== stableHoverX || prevTarget.hoverY !== stableHoverY) {
-         previewTargetRef.current = { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY };
-         try {
-           const src = Array.isArray(layout) ? layout.map(normalizeLayoutItem) : [];
-           const previewResult = calculateReflowLayout(src, widgetId, { x: tX, y: tY, hoverX: stableHoverX, hoverY: stableHoverY, isPreview: true });
-           const previewSignature = Array.isArray(previewResult)
-             ? previewResult
-                 .map((r) => [
-                   r.widgetId || r.id || '',
-                   Number(r.x) || 0,
-                   Number(r.y) || 0,
-                   Number(r.w) || 0,
-                   Number(r.h) || 0,
-                 ].join(':'))
-                 .join('|')
-             : '';
-           if (previewLayoutSignatureRef.current !== previewSignature) {
-             previewLayoutSignatureRef.current = previewSignature;
-             setPreviewLayout(previewResult);
-           }
-         } catch (e) {
-           console.warn('[DashboardEditScreen] preview calculation failed:', e?.message || e);
-         }
-       }
-     }
-   })
-   .onEnd((event) => {
-     const rawGridDX = slotWidth ? event.translationX / slotWidth : 0;
-     const scrollDelta = scrollYRef.current - dragStartScrollYRef.current;
-     const rawGridDY = (event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + GRID_ROW_GAP);
-     const deltaX = slotWidth ? getStableGridDelta(rawGridDX) : 0;
-     const deltaY = getStableGridDelta(rawGridDY);
-     const lastTarget = lastDropTargetRef.current;
-     if (lastTarget && lastTarget.widgetId === widgetId) {
-       const dropX = safeW >= GRID_COLUMNS ? 0 : lastTarget.x;
-       const dropY = lastTarget.y;
-       moveGraph(widgetId, {
-         type: 'drop',
-         x: dropX,
-         y: dropY,
-         hoverX: lastTarget.hoverX,
-         hoverY: lastTarget.hoverY,
-       });
-     } else if (deltaX !== 0 || deltaY !== 0) {
-       const dragOrigin = dragOriginRef.current || { x: safeX, y: safeY, w: safeW, h: safeH };
-       const originW = Math.max(1, Math.min(GRID_COLUMNS, Number(dragOrigin.w) || safeW));
-       const originX = Math.max(0, Number(dragOrigin.x) || 0);
-       const originY = Math.max(0, Number(dragOrigin.y) || 0);
-       const maxX = Math.max(0, GRID_COLUMNS - originW);
-       const tX = originW >= GRID_COLUMNS ? 0 : Math.max(0, Math.min(maxX, originX + deltaX));
-       const tY = Math.max(0, originY + deltaY);
-       const dropX = safeW >= GRID_COLUMNS ? 0 : tX;
-       const dropY = tY;
-       const fallbackHoverX = originX + (slotWidth ? event.translationX / slotWidth : 0);
-       const fallbackHoverY = originY + ((event.translationY + scrollDelta) / (GRID_ROW_HEIGHT + rowGap));
-       const stableFallbackHoverX = Math.round(fallbackHoverX * 4) / 4;
-       const stableFallbackHoverY = Math.round(fallbackHoverY * 4) / 4;
-       moveGraph(widgetId, {
-         type: 'drop',
-         x: dropX,
-         y: dropY,
-         hoverX: stableFallbackHoverX,
-         hoverY: stableFallbackHoverY,
-       });
-     }
+ const nextOffset = {
+ x: event.translationX,
+ y: event.translationY,
+ };
 
-if (activeResizeWidgetId === widgetId) {
+ setGestureDragOffset(nextOffset);
+
+ const rawGridDX = slotWidth
+ ? event.translationX / slotWidth
+ : 0;
+
+ const scrollDelta =
+ scrollYRef.current -
+ dragStartScrollYRef.current;
+
+ const rawGridDY =
+ (
+ event.translationY +
+ scrollDelta
+ ) /
+ (
+ GRID_ROW_HEIGHT +
+ rowGap
+ );
+
+ if (
+ !slotWidth ||
+ (
+ Math.abs(rawGridDX) < 0.15 &&
+ Math.abs(rawGridDY) < 0.15
+ )
+ ) {
+ setDragPlaceholder(null);
+ setPreviewLayout(null);
+ lastDropTargetRef.current = null;
+ previewTargetRef.current = null;
+ previewLayoutSignatureRef.current = '';
+ return;
+ }
+
+ const dragOrigin =
+ dragOriginRef.current || {
+ x: safeX,
+ y: safeY,
+ w: safeW,
+ h: safeH,
+ };
+
+ const originX = Math.max(
+ 0,
+ Number(dragOrigin.x) || 0,
+ );
+
+ const originY = Math.max(
+ 0,
+ Number(dragOrigin.y) || 0,
+ );
+
+ const originW = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(dragOrigin.w) || safeW,
+ ),
+ );
+
+ const hoverPoint = {
+ x:
+ originX +
+ rawGridDX + originW / 2,
+ y:
+ Math.max(
+ 0,
+ originY + rawGridDY,
+ ) + 0.5,
+ };
+
+ const insertionIndex =
+ getDashboardInsertionIndexFromPoint(
+ interactionDisplayLayout,
+ widgetId,
+ hoverPoint,
+ displayGridColumns,
+ );
+
+ const previousTarget =
+ lastDropTargetRef.current;
+
+ if (
+ previousTarget &&
+ previousTarget.widgetId === widgetId &&
+ previousTarget.insertionIndex ===
+ insertionIndex
+ ) {
+ return;
+ }
+
+ const sourceCanonicalLayout =
+ Array.isArray(layoutRef.current) &&
+ layoutRef.current.length > 0
+ ? layoutRef.current
+ : layout;
+
+ const previewCanonicalLayout =
+ reorderDashboardCardsByInsertion(
+ sourceCanonicalLayout,
+ widgetId,
+ insertionIndex,
+ {
+ columns: GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ );
+
+ const previewDisplayLayout =
+ isWideEditLayout
+ ? buildResponsiveDashboardLayout(
+ previewCanonicalLayout,
+ {
+ columns: WIDE_GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ )
+ : previewCanonicalLayout;
+
+ const previewMovingItem =
+ previewDisplayLayout.find(
+ (previewItem) => (
+ getDashboardEditItemId(
+ previewItem,
+ ) === String(widgetId)
+ ),
+ );
+
+ const previewSignature =
+ getLayoutPreviewSignature(
+ previewCanonicalLayout,
+ );
+
+ if (
+ previewLayoutSignatureRef.current !==
+ previewSignature
+ ) {
+ previewLayoutSignatureRef.current =
+ previewSignature;
+
+ setPreviewLayout(
+ previewCanonicalLayout,
+ );
+ }
+
+ if (previewMovingItem) {
+ setDragPlaceholder({
+ ...previewMovingItem,
+ widgetId: '__placeholder__',
+ id: '__placeholder__',
+ isPlaceholder: true,
+ });
+ } else {
+ setDragPlaceholder(null);
+ }
+
+ lastDropTargetRef.current = {
+ widgetId,
+ insertionIndex,
+ };
+
+ previewTargetRef.current = {
+ insertionIndex,
+ };
+ })
+ .onEnd(() => {
+ const lastTarget =
+ lastDropTargetRef.current;
+
+ if (
+ lastTarget &&
+ lastTarget.widgetId === widgetId &&
+ Number.isFinite(
+ Number(
+ lastTarget.insertionIndex,
+ ),
+ )
+ ) {
+ setDashboardLayoutImmediate(
+ (current) => (
+ reorderDashboardCardsByInsertion(
+ current,
+ widgetId,
+ lastTarget.insertionIndex,
+ {
+ columns: GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ )
+ ),
+ );
+ }
+
+ if (
+ activeResizeWidgetId === widgetId
+ ) {
  setActiveResizeWidgetId(null);
  setResizeGhostFrame(null);
  setPreviewLayout(null);
-}
+ }
 
-     scheduleDragVisualCleanup();
-   })
-   .onFinalize(() => {
+ scheduleDragVisualCleanup();
+ })
+ .onFinalize(() => {
      scheduleDragVisualCleanup();
    });
 
@@ -2681,8 +3422,15 @@ const tapResizeGesture = Gesture.Tap()
 const disabledCardGesture = Gesture.Tap().enabled(false);
 
 const cardGesture = activeResizeWidgetId
- ? (isResizeActive ? testGesture : disabledCardGesture)
- : Gesture.Exclusive(testGesture, tapResizeGesture);
+ ? (
+ isResizeActive
+ ? testGesture
+ : disabledCardGesture
+ )
+ : Gesture.Exclusive(
+ testGesture,
+ tapResizeGesture,
+ );
 
 const cardLeftPx = safeX * slotWidth + GRID_CELL_PADDING;
 const cardTopPx = safeY * (GRID_ROW_HEIGHT + rowGap);
@@ -2781,11 +3529,16 @@ isResizeActive && styles.graphCellResizeActive,
  };
 
  const renderDragOverlay = () => {
-   if (!dragOverlayItem || !gestureDraggingWidgetId) return null;
+   if (
+ !dragOverlayItem ||
+ !gestureDraggingWidgetId
+ ) return null;
    const o = dragOverlayItem;
    const gy = gestureDragOffset.y;
    const gx = gestureDragOffset.x;
-   const slotW = gridWidth > 0 ? gridWidth / GRID_COLUMNS : 0;
+   const slotW = gridWidth > 0
+ ? gridWidth / displayGridColumns
+ : 0;
    const overlayW = slotW ? Math.max(0, slotW * Math.max(1, Number(o.w || 1)) - GRID_CELL_PADDING * 2) : '90%';
    const overlayH = o.cardHeight || 120;
    const touchX = Number(dragOverlayStart.x) || 0;
@@ -2848,7 +3601,10 @@ isResizeActive && styles.graphCellResizeActive,
  };
 
  const renderDragPlaceholderOverlay = () => {
-   if (!dragPlaceholder || !gridWidth) return null;
+   if (
+ !dragPlaceholder ||
+ !gridWidth
+ ) return null;
    const frame = getGridItemFrame(dragPlaceholder, gridWidth);
    return (
      <View pointerEvents="none" style={[styles.dragPlaceholderOverlay, {
@@ -2861,7 +3617,11 @@ isResizeActive && styles.graphCellResizeActive,
  };
 
  const renderResizeGhostFrameOverlay = () => {
- if (!resizeGhostFrame || !gridWidth || !resizeDraggingWidgetId) return null;
+ if (
+ !resizeGhostFrame ||
+ !gridWidth ||
+ !resizeDraggingWidgetId
+ ) return null;
 
  const snapFrame = getGridItemFrame(resizeGhostFrame, gridWidth);
  const visualFrame = resizeGhostFrame.visualFramePx || snapFrame;
@@ -2920,7 +3680,12 @@ isResizeActive && styles.graphCellResizeActive,
  };
 
 const renderResizeDismissOverlay = () => {
- if (!activeResizeWidgetId || resizeDraggingWidgetId || gestureDraggingWidgetId || !gridWidth) return null;
+ if (
+ !activeResizeWidgetId ||
+ resizeDraggingWidgetId ||
+ gestureDraggingWidgetId ||
+ !gridWidth
+ ) return null;
 
  const sourceItems = Array.isArray(displayLayout) ? displayLayout : [];
  const activeItem = sourceItems.find((item) => {
@@ -2930,7 +3695,12 @@ const renderResizeDismissOverlay = () => {
 
  if (!activeItem) return null;
 
- const activeFrame = getResizeGridItemFrame(activeItem, gridWidth, rowGap);
+ const activeFrame = getResizeGridItemFrame(
+ activeItem,
+ gridWidth,
+ rowGap,
+ displayGridColumns,
+ );
  const safePadding = RESIZE_DISMISS_SAFE_PADDING;
 
  const dismissFrame = {
@@ -2997,7 +3767,11 @@ const renderResizeDismissOverlay = () => {
  };
 
 const renderResizeGuideOverlay = () => {
- if (!activeResizeWidgetId || gestureDraggingWidgetId || !gridWidth) return null;
+ if (
+ !activeResizeWidgetId ||
+ gestureDraggingWidgetId ||
+ !gridWidth
+ ) return null;
 
  const sourceItems = Array.isArray(displayLayout) ? displayLayout : [];
  const activeItem = sourceItems.find((item) => {
@@ -3007,7 +3781,12 @@ const renderResizeGuideOverlay = () => {
 
  if (!activeItem) return null;
 
- const baseFrame = getResizeGridItemFrame(activeItem, gridWidth, rowGap);
+ const baseFrame = getResizeGridItemFrame(
+ activeItem,
+ gridWidth,
+ rowGap,
+ displayGridColumns,
+ );
  const dragFrame = resizeGhostFrame?.visualFramePx;
  const guideFrame = dragFrame || baseFrame;
  const guideWidth = Math.max(1, Number(guideFrame.width) || 1);
@@ -3103,7 +3882,25 @@ const renderResizeGuideOverlay = () => {
  {loading ? (
  <Text style={[canonicalTextStyles.bodyMuted, canonicalTextStyles.center, styles.emptyText]}>불러오는 중...</Text>
  ) : (
- <View style={[styles.grid, { overflow: 'visible', minHeight: gridBoardHeight }]} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
+ <View
+ key={
+ isWideEditLayout
+ ? 'dashboard-edit-grid-wide'
+ : 'dashboard-edit-grid-narrow'
+ }
+ style={[
+ styles.grid,
+ {
+ overflow: 'visible',
+ minHeight: gridBoardHeight,
+ },
+ ]}
+ onLayout={(event) => {
+ setGridWidth(
+ event.nativeEvent.layout.width,
+ );
+ }}
+ >
  {renderDragPlaceholderOverlay()}
  {renderResizeDismissOverlay()}
  {(Array.isArray(displayLayout) ? displayLayout : []).map((item, index) => renderAbsoluteGraphCard(item, index))}

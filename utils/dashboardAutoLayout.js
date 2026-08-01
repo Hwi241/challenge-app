@@ -176,3 +176,114 @@ export const buildResponsiveDashboardLayout = (
  };
  });
 };
+
+const getDashboardCardIdentity = (item) => String(
+ item?.widgetId ??
+ item?.id ??
+ item?.i ??
+ '',
+);
+
+export const buildDashboardLayoutFromOrder = (
+ items = [],
+ {
+ columns = 6,
+ maxCardWidth = 6,
+ } = {},
+) => {
+ const source = Array.isArray(items)
+ ? items
+ : [];
+
+ const orderedSeeds = source.map(
+ (item, index) => ({
+ ...item,
+ x: 0,
+ y: index,
+ __dashboardOrderIndex: index,
+ }),
+ );
+
+ return buildResponsiveDashboardLayout(
+ orderedSeeds,
+ {
+ columns,
+ maxCardWidth,
+ },
+ ).map((item) => {
+ const {
+ __dashboardOrderIndex,
+ ...cleanItem
+ } = item;
+
+ return cleanItem;
+ });
+};
+
+export const reorderDashboardCardsByInsertion = (
+ items = [],
+ movingId,
+ insertionIndex,
+ {
+ columns = 6,
+ maxCardWidth = 6,
+ } = {},
+) => {
+ const movingIdentity = String(
+ movingId ?? '',
+ );
+
+ const orderedCards =
+ sortDashboardCardsByStoredPosition(items);
+
+ if (!movingIdentity) {
+ return orderedCards;
+ }
+
+ const movingIndex = orderedCards.findIndex(
+ (item) => (
+ getDashboardCardIdentity(item) ===
+ movingIdentity
+ ),
+ );
+
+ if (movingIndex < 0) {
+ return orderedCards;
+ }
+
+ const remainingCards = orderedCards.map(
+ (item) => ({ ...item }),
+ );
+
+ const [movingCard] = remainingCards.splice(
+ movingIndex,
+ 1,
+ );
+
+ const safeInsertionIndex = Math.max(
+ 0,
+ Math.min(
+ remainingCards.length,
+ Math.floor(
+ toFiniteNumber(
+ insertionIndex,
+ movingIndex,
+ ),
+ ),
+ ),
+ );
+
+ remainingCards.splice(
+ safeInsertionIndex,
+ 0,
+ movingCard,
+ );
+
+ return buildDashboardLayoutFromOrder(
+ remainingCards,
+ {
+ columns,
+ maxCardWidth,
+ },
+ );
+};

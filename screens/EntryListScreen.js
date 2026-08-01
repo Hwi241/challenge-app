@@ -4959,9 +4959,6 @@ const runWeek = useCallback(() => {
  ? WIDE_GRID_COLUMNS
  : GRID_COLUMNS;
 
- const isDashboardEditDisabled =
- !isShare && isWideDashboardLayout;
-
  const baseSafeLayout = baseLayout.map(
  (item, index) => {
  const widgetId =
@@ -5070,12 +5067,8 @@ const runWeek = useCallback(() => {
             <Text style={{ fontSize: 20, fontWeight: '800', color: canonicalColor.textPrimary }}>대시보드</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity
-                disabled={isDashboardEditDisabled}
-                onPress={() => {
-                  if (isDashboardEditDisabled) return;
-                  if (typeof enterDashboardEdit === 'function') enterDashboardEdit();
-                }}
-                activeOpacity={isDashboardEditDisabled ? 1 : 0.85}
+                onPress={enterDashboardEdit}
+                activeOpacity={0.85}
                 style={{
                   width: 44,
                   height: 44,

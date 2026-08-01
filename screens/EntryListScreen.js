@@ -65,6 +65,7 @@ import {
 } from '../constants/widgetCatalog';
 import { getOwnedWidgets } from '../utils/widgetOwnership';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
+import { buildResponsiveDashboardLayout } from '../utils/dashboardAutoLayout';
 import { color as canonicalColor, radius } from '../styles/common';
 import {
   GRAPH_RENDER_GRAPH_IDS,
@@ -4953,75 +4954,69 @@ const runWeek = useCallback(() => {
     const GRID_CELL_PADDING_VIEW = 4;
     const DASHBOARD_BOARD_SIDE_BLEED = 4;
 
-    const effectiveGridColumns = isWideDashboardLayout
-      ? WIDE_GRID_COLUMNS
-      : GRID_COLUMNS;
-    const shouldUseWideReflow = isWideDashboardLayout;
-    const isDashboardEditDisabled = !isShare && isWideDashboardLayout;
+ const effectiveGridColumns =
+ isWideDashboardLayout
+ ? WIDE_GRID_COLUMNS
+ : GRID_COLUMNS;
 
-    const baseSafeLayout = baseLayout
-      .map((item, index) => {
-        const widgetId = item.widgetId || item.id || item.i || `dashboard_graph_${index}`;
+ const isDashboardEditDisabled =
+ !isShare && isWideDashboardLayout;
 
-        const rawW = item.w;
-        const rawH = item.h;
+ const baseSafeLayout = baseLayout.map(
+ (item, index) => {
+ const widgetId =
+ item.widgetId ||
+ item.id ||
+ item.i ||
+ `dashboard_graph_${index}`;
 
-        const safeW = Math.max(1, Math.min(GRID_COLUMNS, Number(rawW) || GRID_COLUMNS));
-        const safeH = Math.max(1, Number(rawH) || 1);
-        const safeX = Math.max(0, Math.min(GRID_COLUMNS - safeW, Number(item.x) || 0));
-        const safeY = Number.isFinite(Number(item.y)) ? Math.max(0, Number(item.y)) : index;
+ const safeW = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(item.w) || GRID_COLUMNS,
+ ),
+ );
 
-        return {
-          ...item,
-          id: widgetId,
-          widgetId,
-          x: safeX,
-          y: safeY,
-          w: safeW,
-          h: safeH,
-        };
-      })
-      .sort((a, b) => {
-        if (a.y !== b.y) return a.y - b.y;
-        return a.x - b.x;
-      });
+ const safeH = Math.max(
+ 1,
+ Number(item.h) || 1,
+ );
 
-    const reflowWideLayout = (items) => {
-      let cursorX = 0;
-      let cursorY = 0;
-      let rowH = 0;
+ const safeX = Math.max(
+ 0,
+ Math.min(
+ GRID_COLUMNS - safeW,
+ Number(item.x) || 0,
+ ),
+ );
 
-      return items.map((item, index) => {
-        const widgetId = item.widgetId || item.id || item.i || `dashboard_graph_${index}`;
-        const safeW = Math.max(1, Math.min(effectiveGridColumns, Number(item.w) || GRID_COLUMNS));
-        const safeH = Math.max(1, Number(item.h) || 1);
+ const safeY = Number.isFinite(
+ Number(item.y),
+ )
+ ? Math.max(0, Number(item.y))
+ : index;
 
-        if (cursorX > 0 && cursorX + safeW > effectiveGridColumns) {
-          cursorX = 0;
-          cursorY += Math.max(1, rowH);
-          rowH = 0;
-        }
+ return {
+ ...item,
+ id: widgetId,
+ widgetId,
+ x: safeX,
+ y: safeY,
+ w: safeW,
+ h: safeH,
+ };
+ },
+ );
 
-        const nextItem = {
-          ...item,
-          id: widgetId,
-          widgetId,
-          x: cursorX,
-          y: cursorY,
-          w: safeW,
-          h: safeH,
-        };
-
-        cursorX += safeW;
-        rowH = Math.max(rowH, safeH);
-
-        return nextItem;
-      });
-    };
-
-    const safeLayout = shouldUseWideReflow
-      ? reflowWideLayout(baseSafeLayout)
-      : baseSafeLayout;
+ const safeLayout =
+ buildResponsiveDashboardLayout(
+ baseSafeLayout,
+ {
+ columns: effectiveGridColumns,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ );
 
     const maxRow = safeLayout.reduce((max, item) => {
       const y = Math.max(0, Number(item.y) || 0);

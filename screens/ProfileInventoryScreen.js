@@ -43,6 +43,7 @@ import {
 import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
+import { buildResponsiveDashboardLayout } from '../utils/dashboardAutoLayout';
 
 const CHALLENGES_KEY = 'challenges';
 const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
@@ -1466,39 +1467,56 @@ export default function ProfileInventoryScreen() {
       .sort((a, b) => (a.y - b.y) || (a.x - b.x));
   }, [recordRoomLayout, recordRoomItemMap, columns]);
 
-  const dashboardRows = useMemo(() => {
-    if (!Array.isArray(dashboardItems) || dashboardItems.length === 0) {
-      return [];
-    }
+ const responsiveDashboardItems = useMemo(
+ () => buildResponsiveDashboardLayout(
+ dashboardItems,
+ {
+ columns,
+ maxCardWidth: PHONE_GRID_COLUMNS,
+ },
+ ),
+ [columns, dashboardItems],
+ );
 
-    if (columns <= PHONE_GRID_COLUMNS) {
-      return [];
-    }
+ const safeRecordRoomRowGap = Math.max(
+ 0,
+ Number(recordRoomRowGap) || 0,
+ );
 
-    const rows = [];
-    let currentRow = [];
-    let currentWidth = 0;
+ const recordRoomBoardHeight = useMemo(() => {
+ const maxRow = responsiveDashboardItems.reduce(
+ (max, item) => {
+ const safeY = Math.max(
+ 0,
+ Number(item?.y) || 0,
+ );
 
-    dashboardItems.forEach((item) => {
-      const itemW = Math.max(1, Math.min(PHONE_GRID_COLUMNS, Number(item?.w) || PHONE_GRID_COLUMNS));
-      const nextItem = { ...item, w: itemW };
+ const safeH = Math.max(
+ 1,
+ Number(item?.h) || 1,
+ );
 
-      if (currentRow.length > 0 && currentWidth + itemW > columns) {
-        rows.push(currentRow);
-        currentRow = [];
-        currentWidth = 0;
-      }
+ return Math.max(
+ max,
+ safeY + safeH,
+ );
+ },
+ 0,
+ );
 
-      currentRow.push(nextItem);
-      currentWidth += itemW;
-    });
+ if (maxRow <= 0) {
+ return CARD_ROW_HEIGHT;
+ }
 
-    if (currentRow.length > 0) {
-      rows.push(currentRow);
-    }
-
-    return rows;
-  }, [dashboardItems, columns]);
+ return (
+ maxRow * CARD_ROW_HEIGHT +
+ Math.max(0, maxRow - 1) *
+ safeRecordRoomRowGap
+ );
+ }, [
+ responsiveDashboardItems,
+ safeRecordRoomRowGap,
+ ]);
 
   return (
     <SafeAreaView style={canonicalSurfaceStyles.screen}>
@@ -1542,28 +1560,83 @@ export default function ProfileInventoryScreen() {
 
 
         <View
-          key={`record-room-grid-${recordRoomLayoutKey}-${columns}`}
-          style={[styles.gridWrap, { rowGap: recordRoomRowGap }]}
-          onLayout={(event) => setRecordRoomFrameWidth(event.nativeEvent.layout.width || 0)}
-        >
-          {columns > PHONE_GRID_COLUMNS
-            ? dashboardRows.map((row, rowIndex) => (
-                <View key={`record-room-row-${rowIndex}`} style={styles.gridRow}>
-                  {row.map((item) => (
-                    <GridItem key={item.id} item={item} columns={columns}>
-                      {item.render()}
-                    </GridItem>
-                  ))}
-                </View>
-              ))
-            : dashboardItems.map((item) => (
-                <GridItem key={item.id} item={item} columns={PHONE_GRID_COLUMNS}>
-                  {item.render()}
-                </GridItem>
-              ))}
-        </View>
+ key={`record-room-grid-${recordRoomLayoutKey}-${columns}`}
+ style={[
+ styles.gridWrap,
+ {
+ height: recordRoomBoardHeight,
+ },
+ ]}
+ onLayout={(event) => {
+ setRecordRoomFrameWidth(
+ event.nativeEvent.layout.width || 0,
+ );
+ }}
+ >
+ {responsiveDashboardItems.map(
+ (item) => {
+ const safeW = Math.max(
+ 1,
+ Math.min(
+ PHONE_GRID_COLUMNS,
+ Number(item?.w) ||
+ PHONE_GRID_COLUMNS,
+ ),
+ );
 
+ const safeH = Math.max(
+ 1,
+ Number(item?.h) || 1,
+ );
 
+ const safeX = Math.max(
+ 0,
+ Math.min(
+ columns - safeW,
+ Number(item?.x) || 0,
+ ),
+ );
+
+ const safeY = Math.max(
+ 0,
+ Number(item?.y) || 0,
+ );
+
+ const left =
+ `${(safeX / columns) * 100}%`;
+
+ const width =
+ `${(safeW / columns) * 100}%`;
+
+ const top =
+ safeY *
+ (
+ CARD_ROW_HEIGHT +
+ safeRecordRoomRowGap
+ );
+
+ const height =
+ safeH * CARD_ROW_HEIGHT;
+
+ return (
+ <View
+ key={item.id}
+ style={[styles.gridItem,
+ {
+ position: 'absolute',
+ left,
+ top,
+ width,
+ height,
+ },
+ ]}
+ >
+ {item.render()}
+ </View>
+ );
+ },
+ )}
+ </View>
       </ScrollView>
 
       <TouchableOpacity
@@ -1747,11 +1820,13 @@ const styles = StyleSheet.create({
 
 
 
-  gridWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -CARD_GAP / 2,
-  },
+ gridWrap: {
+ position: 'relative',
+ width: '100%',
+ marginHorizontal: -CARD_GAP / 2,
+ overflow: 'visible',
+ },
+
   gridRow: {
     width: '100%',
     flexDirection: 'row',

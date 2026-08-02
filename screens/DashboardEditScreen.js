@@ -329,89 +329,6 @@ const clampDashboardResizeSize = (widgetId, rawW, rawH, bounds = {}) => {
  };
 };
 
-const getAnchoredResizeFrame = (widgetId, origin, corner, deltaCols, deltaRows) => {
- const safeOrigin = {
- x: Math.max(0, Number(origin?.x) || 0),
- y: Math.max(0, Number(origin?.y) || 0),
- w: Math.max(1, Number(origin?.w) || 1),
- h: Math.max(1, Number(origin?.h) || 1),
- };
-
- if (corner === 'topRight') {
- const fixedLeft = safeOrigin.x;
- const fixedBottom = safeOrigin.y + safeOrigin.h;
- const rawW = safeOrigin.w + deltaCols;
- const rawH = safeOrigin.h - deltaRows;
- const maxW = Math.max(1, GRID_COLUMNS - fixedLeft);
- const maxH = Math.max(1, fixedBottom);
- const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW, maxH });
-
- return {
- x: fixedLeft,
- y: Math.max(0, fixedBottom - clamped.h),
- w: clamped.w,
- h: clamped.h,
- };
- }
-
- if (corner === 'bottomLeft') {
- const fixedRight = safeOrigin.x + safeOrigin.w;
- const fixedTop = safeOrigin.y;
- const rawW = safeOrigin.w - deltaCols;
- const rawH = safeOrigin.h + deltaRows;
- const maxW = Math.max(1, fixedRight);
- const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW });
-
- return {
- x: Math.max(0, fixedRight - clamped.w),
- y: fixedTop,
- w: clamped.w,
- h: clamped.h,
- };
- }
-
- if (corner === 'topLeft') {
- const fixedRight = safeOrigin.x + safeOrigin.w;
- const fixedBottom = safeOrigin.y + safeOrigin.h;
- const rawW = safeOrigin.w - deltaCols;
- const rawH = safeOrigin.h - deltaRows;
- const maxW = Math.max(1, fixedRight);
- const maxH = Math.max(1, fixedBottom);
- const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW, maxH });
- return {
- x: Math.max(0, fixedRight - clamped.w),
- y: Math.max(0, fixedBottom - clamped.h),
- w: clamped.w,
- h: clamped.h,
- };
- }
-
- if (corner === 'bottomRight') {
- const fixedLeft = safeOrigin.x;
- const fixedTop = safeOrigin.y;
- const rawW = safeOrigin.w + deltaCols;
- const rawH = safeOrigin.h + deltaRows;
- const maxW = Math.max(1, GRID_COLUMNS - fixedLeft);
- const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW });
- return {
- x: fixedLeft,
- y: fixedTop,
- w: clamped.w,
- h: clamped.h,
- };
- }
-
- const fallback = clampDashboardResizeSize(widgetId, safeOrigin.w, safeOrigin.h);
- return {
- x: safeOrigin.x,
- y: safeOrigin.y,
- w: fallback.w,
- h: fallback.h,
- };
-};
-
-
-
 const applyResizeResistancePx = (rawValue, minValue, maxValue) => {
  const numeric = Number(rawValue) || 0;
  const safeMin = Number(minValue) || 0;
@@ -869,6 +786,26 @@ export default function DashboardEditScreen({ route, navigation }) {
  const displayGridColumns = isWideEditLayout
  ? WIDE_GRID_COLUMNS
  : GRID_COLUMNS;
+
+ const editLayoutMode = isWideEditLayout
+ ? 'wide'
+ : 'narrow';
+
+ const currentEditLayoutModeRef =
+ useRef(editLayoutMode);
+
+ const handledEditLayoutModeRef =
+ useRef(editLayoutMode);
+
+ const dragGestureLayoutModeRef =
+ useRef(null);
+
+ const resizeGestureLayoutModeRef =
+ useRef(null);
+
+ currentEditLayoutModeRef.current =
+ editLayoutMode;
+
  const params = route?.params || {};
  const dashboardTarget = useMemo(() => resolveTarget(params), [params]);
  const isRecordRoomDashboard = dashboardTarget === DASHBOARD_TARGETS.RECORD_ROOM;
@@ -1124,17 +1061,44 @@ const exitResizeMode = useCallback(() => {
  resetResizeInteractionState();
 }, [resetResizeInteractionState]);
 
-useEffect(() => {
- if (!isWideEditLayout) return;
-
+const cancelDashboardGestureForLayoutChange =
+useCallback(() => {
  clearScheduledDragVisualCleanup();
+ clearResizeDiagonalDelayTimer();
  clearDragVisualState();
- resetResizeInteractionState();
+
+ resizeTouchOpacityRef.current.setValue(1);
+
+ previewTargetRef.current = null;
+
+ dragStartScrollYRef.current =
+ scrollYRef.current;
+
+ dragGestureLayoutModeRef.current = null;
+ resizeGestureLayoutModeRef.current = null;
+
+ setGridWidth(0);
 }, [
- isWideEditLayout,
  clearScheduledDragVisualCleanup,
+ clearResizeDiagonalDelayTimer,
  clearDragVisualState,
- resetResizeInteractionState,
+]);
+
+useEffect(() => {
+ if (
+ handledEditLayoutModeRef.current ===
+ editLayoutMode
+ ) {
+ return;
+ }
+
+ handledEditLayoutModeRef.current =
+ editLayoutMode;
+
+ cancelDashboardGestureForLayoutChange();
+}, [
+ editLayoutMode,
+ cancelDashboardGestureForLayoutChange,
 ]);
 
 const scheduleDragVisualCleanup = useCallback(() => {
@@ -1230,14 +1194,6 @@ useEffect(() => {
  resetResizeInteractionState();
  }
 }, [activeResizeWidgetId, layout, resetResizeInteractionState]);
-
-const getStableGridDelta = (rawDelta) => {
-  const numeric = Number(rawDelta) || 0;
-  const abs = Math.abs(numeric);
-  if (abs < GRID_DRAG_STEP_THRESHOLD) return 0;
-  const sign = numeric < 0 ? -1 : 1;
-  return sign * Math.floor(abs + (1 - GRID_DRAG_STEP_THRESHOLD));
-};
 
 const getResizeStableGridDelta = (rawDelta) => {
   const numeric = Number(rawDelta) || 0;
@@ -2171,14 +2127,6 @@ const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, 
  }
 }, []);
 
-const resizeLayoutItem = useCallback((widgetId, nextSize) => {
- if (!widgetId || !nextSize) return;
-
- setDashboardLayoutImmediate((prev) => buildResizedLayoutWithReflow(prev, widgetId, nextSize, {
- isPreview: false,
- }));
-}, [buildResizedLayoutWithReflow, setDashboardLayoutImmediate]);
-
 const buildResizedDashboardLayoutFromOrder = useCallback((
  sourceLayout,
  targetWidgetId,
@@ -2850,6 +2798,13 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  .enabled(isResizeActive)
  .runOnJS(true)
  .onTouchesDown(() => {
+ if (
+ currentEditLayoutModeRef.current !==
+ editLayoutMode
+ ) {
+ return;
+ }
+
  resizeTouchOpacityRef.current.setValue(0.16);
 
  clearResizeDiagonalDelayTimer();
@@ -2871,6 +2826,16 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setActiveResizeCorner(null);
  })
  .onBegin(() => {
+ resizeGestureLayoutModeRef.current =
+ editLayoutMode;
+
+ if (
+ currentEditLayoutModeRef.current !==
+ editLayoutMode
+ ) {
+ return;
+ }
+
  setResizeDraggingWidgetId(widgetId);
  resizeTouchOpacityRef.current.setValue(0.16);
 
@@ -2890,6 +2855,13 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setResizeGhostFrame(null);
  })
  .onUpdate((event) => {
+ if (
+ resizeGestureLayoutModeRef.current !==
+ currentEditLayoutModeRef.current
+ ) {
+ return;
+ }
+
  const origin =
  resizeOriginRef.current || {
  x: safeX,
@@ -3049,6 +3021,13 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  }
  })
  .onEnd((event) => {
+ if (
+ resizeGestureLayoutModeRef.current !==
+ currentEditLayoutModeRef.current
+ ) {
+ return;
+ }
+
  clearResizeDiagonalDelayTimer();
 
  const origin =
@@ -3127,6 +3106,16 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  resizePreviewSizeRef.current = '';
  })
  .onFinalize(() => {
+ const isCurrentLayoutMode =
+ resizeGestureLayoutModeRef.current ===
+ currentEditLayoutModeRef.current;
+
+ resizeGestureLayoutModeRef.current = null;
+
+ if (!isCurrentLayoutMode) {
+ return;
+ }
+
  clearResizeDiagonalDelayTimer();
  clearResizeGhostBounceTimer();
  setActiveResizeCorner(null);
@@ -3153,11 +3142,28 @@ const canMoveCard =
    .activateAfterLongPress(300)
    .runOnJS(true)
    .onBegin(() => {
+     dragGestureLayoutModeRef.current =
+      editLayoutMode;
+
+     if (
+      currentEditLayoutModeRef.current !==
+      editLayoutMode
+     ) {
+      return;
+     }
+
      clearScheduledDragVisualCleanup();
      previewLayoutSignatureRef.current = '';
      dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
    })
    .onStart((event) => {
+     if (
+      dragGestureLayoutModeRef.current !==
+      currentEditLayoutModeRef.current
+     ) {
+      return;
+     }
+
      dragStartScrollYRef.current = scrollYRef.current;
      clearScheduledDragVisualCleanup();
 
@@ -3199,6 +3205,13 @@ const canMoveCard =
      });
    })
    .onUpdate((event) => {
+ if (
+  dragGestureLayoutModeRef.current !==
+  currentEditLayoutModeRef.current
+ ) {
+  return;
+ }
+
  const nextOffset = {
  x: event.translationX,
  y: event.translationY,
@@ -3371,6 +3384,13 @@ const canMoveCard =
  };
  })
  .onEnd(() => {
+ if (
+  dragGestureLayoutModeRef.current !==
+  currentEditLayoutModeRef.current
+ ) {
+  return;
+ }
+
  const lastTarget =
  lastDropTargetRef.current;
 
@@ -3409,13 +3429,37 @@ const canMoveCard =
  scheduleDragVisualCleanup();
  })
  .onFinalize(() => {
+     const isCurrentLayoutMode =
+      dragGestureLayoutModeRef.current ===
+      currentEditLayoutModeRef.current;
+
+     dragGestureLayoutModeRef.current = null;
+
+     if (!isCurrentLayoutMode) {
+      return;
+     }
+
      scheduleDragVisualCleanup();
    });
 
 const tapResizeGesture = Gesture.Tap()
  .runOnJS(true)
  .onEnd(() => {
- if (activeResizeWidgetId || resizeDraggingWidgetId || gestureDraggingWidgetId) return;
+ if (
+ currentEditLayoutModeRef.current !==
+ editLayoutMode
+ ) {
+ return;
+ }
+
+ if (
+ activeResizeWidgetId ||
+ resizeDraggingWidgetId ||
+ gestureDraggingWidgetId
+ ) {
+ return;
+ }
+
  setActiveResizeWidgetId(widgetId);
  });
 
@@ -3515,20 +3559,7 @@ isResizeActive && styles.graphCellResizeActive,
      <GestureDetector gesture={cardGesture}>{cardContent}</GestureDetector>
    );
  };
- const renderGridSlot = (slot, index) => {
- const widthPct = ((Math.max(0, Number(slot.w || 0)) / GRID_COLUMNS) * 100) + '%';
- if (slot.type === 'spacer') {
- return <View key={slot.key || index} style={[styles.gridSpacer, { width: widthPct }]} />;
- }
- const isDraggingSlot = slot.item?.widgetId && slot.item.widgetId === gestureDraggingWidgetId;
- return (
- <View key={slot.key || index} style={{ width: widthPct, zIndex: isDraggingSlot ? 999 : 0, elevation: isDraggingSlot ? 12 : 0 }}>
- {renderGraphCard(slot.item, index)}
- </View>
- );
- };
-
- const renderDragOverlay = () => {
+  const renderDragOverlay = () => {
    if (
  !dragOverlayItem ||
  !gestureDraggingWidgetId

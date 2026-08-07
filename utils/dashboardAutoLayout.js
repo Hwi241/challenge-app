@@ -57,13 +57,25 @@ export const buildResponsiveDashboardLayout = (
  const occupiedCells = new Set();
  let nextMinimumCellIndex = 0;
 
+ const protectedMiddleBoundary =
+ safeColumns === 12 &&
+ safeMaxCardWidth === 6
+ ? safeColumns / 2
+ : null;
+
  const getCellKey = (x, y) => `${x}:${y}`;
 
  const canPlaceCard = ({ x, y, w, h }) => {
+ const crossesProtectedMiddleBoundary =
+ protectedMiddleBoundary !== null &&
+ x < protectedMiddleBoundary &&
+ x + w > protectedMiddleBoundary;
+
  if (
  x < 0 ||
  y < 0 ||
- x + w > safeColumns
+ x + w > safeColumns ||
+ crossesProtectedMiddleBoundary
  ) {
  return false;
  }

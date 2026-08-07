@@ -329,6 +329,87 @@ const clampDashboardResizeSize = (widgetId, rawW, rawH, bounds = {}) => {
  };
 };
 
+const getAnchoredResizeFrame = (widgetId, origin, corner, deltaCols, deltaRows) => {
+ const safeOrigin = {
+ x: Math.max(0, Number(origin?.x) || 0),
+ y: Math.max(0, Number(origin?.y) || 0),
+ w: Math.max(1, Number(origin?.w) || 1),
+ h: Math.max(1, Number(origin?.h) || 1),
+ };
+
+ if (corner === 'topRight') {
+ const fixedLeft = safeOrigin.x;
+ const fixedBottom = safeOrigin.y + safeOrigin.h;
+ const rawW = safeOrigin.w + deltaCols;
+ const rawH = safeOrigin.h - deltaRows;
+ const maxW = Math.max(1, GRID_COLUMNS - fixedLeft);
+ const maxH = Math.max(1, fixedBottom);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW, maxH });
+
+ return {
+ x: fixedLeft,
+ y: Math.max(0, fixedBottom - clamped.h),
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
+ if (corner === 'bottomLeft') {
+ const fixedRight = safeOrigin.x + safeOrigin.w;
+ const fixedTop = safeOrigin.y;
+ const rawW = safeOrigin.w - deltaCols;
+ const rawH = safeOrigin.h + deltaRows;
+ const maxW = Math.max(1, fixedRight);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW });
+
+ return {
+ x: Math.max(0, fixedRight - clamped.w),
+ y: fixedTop,
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
+ if (corner === 'topLeft') {
+ const fixedRight = safeOrigin.x + safeOrigin.w;
+ const fixedBottom = safeOrigin.y + safeOrigin.h;
+ const rawW = safeOrigin.w - deltaCols;
+ const rawH = safeOrigin.h - deltaRows;
+ const maxW = Math.max(1, fixedRight);
+ const maxH = Math.max(1, fixedBottom);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW, maxH });
+ return {
+ x: Math.max(0, fixedRight - clamped.w),
+ y: Math.max(0, fixedBottom - clamped.h),
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
+ if (corner === 'bottomRight') {
+ const fixedLeft = safeOrigin.x;
+ const fixedTop = safeOrigin.y;
+ const rawW = safeOrigin.w + deltaCols;
+ const rawH = safeOrigin.h + deltaRows;
+ const maxW = Math.max(1, GRID_COLUMNS - fixedLeft);
+ const clamped = clampDashboardResizeSize(widgetId, rawW, rawH, { maxW });
+ return {
+ x: fixedLeft,
+ y: fixedTop,
+ w: clamped.w,
+ h: clamped.h,
+ };
+ }
+
+ const fallback = clampDashboardResizeSize(widgetId, safeOrigin.w, safeOrigin.h);
+ return {
+ x: safeOrigin.x,
+ y: safeOrigin.y,
+ w: fallback.w,
+ h: fallback.h,
+ };
+};
+
 const applyResizeResistancePx = (rawValue, minValue, maxValue) => {
  const numeric = Number(rawValue) || 0;
  const safeMin = Number(minValue) || 0;
@@ -782,7 +863,13 @@ const getDashboardInsertionIndexFromPoint = (
 export default function DashboardEditScreen({ route, navigation }) {
  const insets = useSafeAreaInsets();
  const { width: editWindowWidth } = useWindowDimensions();
- const isWideEditLayout = editWindowWidth >= WIDE_EDIT_MIN_WIDTH;
+ const [editFrameWidth, setEditFrameWidth] = useState(0);
+ const effectiveEditWidth =
+ editFrameWidth > 0
+ ? editFrameWidth
+ : editWindowWidth;
+ const isWideEditLayout =
+ effectiveEditWidth >= WIDE_EDIT_MIN_WIDTH;
  const displayGridColumns = isWideEditLayout
  ? WIDE_GRID_COLUMNS
  : GRID_COLUMNS;
@@ -1076,8 +1163,6 @@ useCallback(() => {
 
  dragGestureLayoutModeRef.current = null;
  resizeGestureLayoutModeRef.current = null;
-
- setGridWidth(0);
 }, [
  clearScheduledDragVisualCleanup,
  clearResizeDiagonalDelayTimer,
@@ -1194,6 +1279,14 @@ useEffect(() => {
  resetResizeInteractionState();
  }
 }, [activeResizeWidgetId, layout, resetResizeInteractionState]);
+
+const getStableGridDelta = (rawDelta) => {
+  const numeric = Number(rawDelta) || 0;
+  const abs = Math.abs(numeric);
+  if (abs < GRID_DRAG_STEP_THRESHOLD) return 0;
+  const sign = numeric < 0 ? -1 : 1;
+  return sign * Math.floor(abs + (1 - GRID_DRAG_STEP_THRESHOLD));
+};
 
 const getResizeStableGridDelta = (rawDelta) => {
   const numeric = Number(rawDelta) || 0;
@@ -2127,6 +2220,14 @@ const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, 
  }
 }, []);
 
+const resizeLayoutItem = useCallback((widgetId, nextSize) => {
+ if (!widgetId || !nextSize) return;
+
+ setDashboardLayoutImmediate((prev) => buildResizedLayoutWithReflow(prev, widgetId, nextSize, {
+ isPreview: false,
+ }));
+}, [buildResizedLayoutWithReflow, setDashboardLayoutImmediate]);
+
 const buildResizedDashboardLayoutFromOrder = useCallback((
  sourceLayout,
  targetWidgetId,
@@ -2836,19 +2937,66 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  return;
  }
 
+ const sourceCanonicalLayout =
+ Array.isArray(layoutRef.current) &&
+ layoutRef.current.length > 0
+ ? layoutRef.current
+ : layout;
+
+ const canonicalOriginItem =
+ sourceCanonicalLayout.find(
+ (sourceItem) => (
+ getDashboardEditItemId(
+ sourceItem,
+ ) === String(widgetId)
+ ),
+ );
+
+ const canonicalW = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(canonicalOriginItem?.w) ||
+ safeW,
+ ),
+ );
+
+ const canonicalH = Math.max(
+ 1,
+ Number(canonicalOriginItem?.h) ||
+ safeH,
+ );
+
+ const canonicalX = Math.max(
+ 0,
+ Math.min(
+ GRID_COLUMNS - canonicalW,
+ Number(canonicalOriginItem?.x) ||
+ 0,
+ ),
+ );
+
+ const canonicalY = Math.max(
+ 0,
+ Number(canonicalOriginItem?.y) ||
+ 0,
+ );
+
  setResizeDraggingWidgetId(widgetId);
  resizeTouchOpacityRef.current.setValue(0.16);
 
  resizeOriginRef.current = {
- x: safeX,
- y: safeY,
- w: safeW,
- h: safeH,
+ x: canonicalX,
+ y: canonicalY,
+ w: canonicalW,
+ h: canonicalH,
+ displayX: safeX,
+ displayY: safeY,
  };
 
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current =
- `${safeW}:${safeH}`;
+ `${canonicalX}:${canonicalY}:${canonicalW}:${canonicalH}`;
 
  clearResizeGhostBounceTimer();
  setPreviewLayout(null);
@@ -2864,10 +3012,18 @@ const buildResizeGesture = (corner) => Gesture.Pan()
 
  const origin =
  resizeOriginRef.current || {
- x: safeX,
+ x: Math.max(
+ 0,
+ Math.min(
+ GRID_COLUMNS - safeW,
+ safeX,
+ ),
+ ),
  y: safeY,
  w: safeW,
  h: safeH,
+ displayX: safeX,
+ displayY: safeY,
  };
 
  const deltaColsRaw = slotWidth
@@ -2888,34 +3044,34 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  deltaRowsRaw,
  );
 
- const horizontalDirection =
- corner === 'topLeft' ||
- corner === 'bottomLeft'
- ? -1
- : 1;
-
- const verticalDirection =
- corner === 'topLeft' ||
- corner === 'topRight'
- ? -1
- : 1;
-
- const nextSize =
- clampDashboardResizeSize(
+ const nextFrame =
+ getAnchoredResizeFrame(
  widgetId,
- origin.w +
- horizontalDirection * deltaCols,
- origin.h +
- verticalDirection * deltaRows,
- {
- maxW: GRID_COLUMNS,
- },
+ origin,
+ corner,
+ deltaCols,
+ deltaRows,
  );
+
+ const displayOrigin = {
+ x: Math.max(
+ 0,
+ Number(origin.displayX) ||
+ 0,
+ ),
+ y: Math.max(
+ 0,
+ Number(origin.displayY) ||
+ 0,
+ ),
+ w: origin.w,
+ h: origin.h,
+ };
 
  const ghostState =
  getResizeGhostVisualFramePx(
  widgetId,
- origin,
+ displayOrigin,
  corner,
  event.translationX,
  event.translationY,
@@ -2939,8 +3095,10 @@ const buildResizeGesture = (corner) => Gesture.Pan()
 
  const visualSignature = [
  widgetId,
- nextSize.w,
- nextSize.h,
+ nextFrame.x,
+ nextFrame.y,
+ nextFrame.w,
+ nextFrame.h,
  roundVisualValue(
  visualFrame?.left,
  ),
@@ -2955,64 +3113,34 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  ),
  ].join(':');
 
- const sizeSignature =
- `${nextSize.w}:${nextSize.h}`;
-
- const shouldUpdateGhost =
- resizePreviewSignatureRef.current !==
- visualSignature;
-
- const shouldUpdateLayoutPreview =
- resizePreviewSizeRef.current !==
- sizeSignature;
-
- if (shouldUpdateLayoutPreview) {
- const sourceCanonicalLayout =
- Array.isArray(layoutRef.current) &&
- layoutRef.current.length > 0
- ? layoutRef.current
- : layout;
-
- const previewCanonicalLayout =
- buildResizedDashboardLayoutFromOrder(
- sourceCanonicalLayout,
- widgetId,
- nextSize,
- );
-
- setPreviewLayout(
- previewCanonicalLayout,
- );
-
- resizePreviewSizeRef.current =
- sizeSignature;
+ if (
+ resizePreviewSignatureRef.current ===
+ visualSignature
+ ) {
+ return;
  }
 
- if (shouldUpdateGhost) {
  resizePreviewSignatureRef.current =
  visualSignature;
 
+ resizePreviewSizeRef.current =
+ `${nextFrame.x}:${nextFrame.y}:${nextFrame.w}:${nextFrame.h}`;
+
  setResizeGhostFrame({
  widgetId,
- x: origin.x,
- y: origin.y,
- w: nextSize.w,
- h: nextSize.h,
+ x: nextFrame.x,
+ y: nextFrame.y,
+ w: nextFrame.w,
+ h: nextFrame.h,
  visualFramePx: visualFrame,
  boundedFramePx: boundedFrame,
  corner,
  });
- }
 
  if (ghostState.isBeyondLimit) {
  scheduleResizeGhostBounceBack(
  widgetId,
- {
- x: origin.x,
- y: origin.y,
- w: nextSize.w,
- h: nextSize.h,
- },
+ nextFrame,
  boundedFrame,
  visualSignature,
  );
@@ -3032,10 +3160,18 @@ const buildResizeGesture = (corner) => Gesture.Pan()
 
  const origin =
  resizeOriginRef.current || {
- x: safeX,
+ x: Math.max(
+ 0,
+ Math.min(
+ GRID_COLUMNS - safeW,
+ safeX,
+ ),
+ ),
  y: safeY,
  w: safeW,
  h: safeH,
+ displayX: safeX,
+ displayY: safeY,
  };
 
  const deltaColsRaw = slotWidth
@@ -3056,44 +3192,31 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  deltaRowsRaw,
  );
 
- const horizontalDirection =
- corner === 'topLeft' ||
- corner === 'bottomLeft'
- ? -1
- : 1;
-
- const verticalDirection =
- corner === 'topLeft' ||
- corner === 'topRight'
- ? -1
- : 1;
-
- const nextSize =
- clampDashboardResizeSize(
+ if (
+ deltaCols !== 0 ||
+ deltaRows !== 0
+ ) {
+ const nextFrame =
+ getAnchoredResizeFrame(
  widgetId,
- origin.w +
- horizontalDirection * deltaCols,
- origin.h +
- verticalDirection * deltaRows,
- {
- maxW: GRID_COLUMNS,
- },
+ origin,
+ corner,
+ deltaCols,
+ deltaRows,
  );
 
- const sizeChanged =
- nextSize.w !== origin.w ||
- nextSize.h !== origin.h;
+ const frameChanged =
+ nextFrame.x !== origin.x ||
+ nextFrame.y !== origin.y ||
+ nextFrame.w !== origin.w ||
+ nextFrame.h !== origin.h;
 
- if (sizeChanged) {
- setDashboardLayoutImmediate(
- (current) => (
- buildResizedDashboardLayoutFromOrder(
- current,
+ if (frameChanged) {
+ resizeLayoutItem(
  widgetId,
- nextSize,
- )
- ),
+ nextFrame,
  );
+ }
  }
 
  clearResizeGhostBounceTimer();
@@ -3154,7 +3277,44 @@ const canMoveCard =
 
      clearScheduledDragVisualCleanup();
      previewLayoutSignatureRef.current = '';
-     dragOriginRef.current = { x: safeX, y: safeY, w: safeW, h: safeH };
+     const sourceCanonicalLayout =
+ Array.isArray(layoutRef.current) &&
+ layoutRef.current.length > 0
+ ? layoutRef.current
+ : layout;
+
+ const canonicalOriginItem =
+ sourceCanonicalLayout.find(
+ (sourceItem) => (
+ getDashboardEditItemId(
+ sourceItem,
+ ) === String(widgetId)
+ ),
+ );
+
+ dragOriginRef.current = {
+ x: Math.max(
+ 0,
+ Number(canonicalOriginItem?.x) || 0,
+ ),
+ y: Math.max(
+ 0,
+ Number(canonicalOriginItem?.y) || 0,
+ ),
+ w: Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(canonicalOriginItem?.w) ||
+ safeW,
+ ),
+ ),
+ h: Math.max(
+ 1,
+ Number(canonicalOriginItem?.h) ||
+ safeH,
+ ),
+ };
    })
    .onStart((event) => {
      if (
@@ -3206,10 +3366,10 @@ const canMoveCard =
    })
    .onUpdate((event) => {
  if (
-  dragGestureLayoutModeRef.current !==
-  currentEditLayoutModeRef.current
+ dragGestureLayoutModeRef.current !==
+ currentEditLayoutModeRef.current
  ) {
-  return;
+ return;
  }
 
  const nextOffset = {
@@ -3219,8 +3379,15 @@ const canMoveCard =
 
  setGestureDragOffset(nextOffset);
 
- const rawGridDX = slotWidth
- ? event.translationX / slotWidth
+ const canonicalSlotWidth =
+ gridWidth > 0
+ ? gridWidth / GRID_COLUMNS
+ : 0;
+
+ const rawGridDX =
+ canonicalSlotWidth
+ ? event.translationX /
+ canonicalSlotWidth
  : 0;
 
  const scrollDelta =
@@ -3237,11 +3404,23 @@ const canMoveCard =
  rowGap
  );
 
+ const deltaX =
+ canonicalSlotWidth
+ ? getStableGridDelta(
+ rawGridDX,
+ )
+ : 0;
+
+ const deltaY =
+ getStableGridDelta(
+ rawGridDY,
+ );
+
  if (
- !slotWidth ||
+ !canonicalSlotWidth ||
  (
- Math.abs(rawGridDX) < 0.15 &&
- Math.abs(rawGridDY) < 0.15
+ deltaX === 0 &&
+ deltaY === 0
  )
  ) {
  setDragPlaceholder(null);
@@ -3254,11 +3433,20 @@ const canMoveCard =
 
  const dragOrigin =
  dragOriginRef.current || {
- x: safeX,
- y: safeY,
+ x: 0,
+ y: 0,
  w: safeW,
  h: safeH,
  };
+
+ const originW = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(dragOrigin.w) ||
+ safeW,
+ ),
+ );
 
  const originX = Math.max(
  0,
@@ -3270,44 +3458,60 @@ const canMoveCard =
  Number(dragOrigin.y) || 0,
  );
 
- const originW = Math.max(
- 1,
+ const maxX = Math.max(
+ 0,
+ GRID_COLUMNS - originW,
+ );
+
+ const targetX =
+ originW >= GRID_COLUMNS
+ ? 0
+ : Math.max(
+ 0,
  Math.min(
- GRID_COLUMNS,
- Number(dragOrigin.w) || safeW,
+ maxX,
+ originX + deltaX,
  ),
  );
 
- const hoverPoint = {
- x:
- originX +
- rawGridDX + originW / 2,
- y:
- Math.max(
+ const targetY = Math.max(
  0,
- originY + rawGridDY,
- ) + 0.5,
- };
-
- const insertionIndex =
- getDashboardInsertionIndexFromPoint(
- interactionDisplayLayout,
- widgetId,
- hoverPoint,
- displayGridColumns,
+ originY + deltaY,
  );
 
+ const hoverX =
+ originX + rawGridDX;
+
+ const hoverY =
+ originY + rawGridDY;
+
+ const stableHoverX =
+ Math.round(hoverX * 4) / 4;
+
+ const stableHoverY =
+ Math.round(hoverY * 4) / 4;
+
  const previousTarget =
- lastDropTargetRef.current;
+ previewTargetRef.current;
 
  if (
  previousTarget &&
- previousTarget.widgetId === widgetId &&
- previousTarget.insertionIndex ===
- insertionIndex
+ previousTarget.x === targetX &&
+ previousTarget.y === targetY &&
+ previousTarget.hoverX ===
+ stableHoverX &&
+ previousTarget.hoverY ===
+ stableHoverY
  ) {
  return;
  }
+
+ previewTargetRef.current = {
+ x: targetX,
+ y: targetY,
+ hoverX: stableHoverX,
+ hoverY: stableHoverY,
+ };
 
  const sourceCanonicalLayout =
  Array.isArray(layoutRef.current) &&
@@ -3315,35 +3519,21 @@ const canMoveCard =
  ? layoutRef.current
  : layout;
 
+ try {
  const previewCanonicalLayout =
- reorderDashboardCardsByInsertion(
- sourceCanonicalLayout,
- widgetId,
- insertionIndex,
- {
- columns: GRID_COLUMNS,
- maxCardWidth: GRID_COLUMNS,
- },
- );
-
- const previewDisplayLayout =
- isWideEditLayout
- ? buildResponsiveDashboardLayout(
- previewCanonicalLayout,
- {
- columns: WIDE_GRID_COLUMNS,
- maxCardWidth: GRID_COLUMNS,
- },
- )
- : previewCanonicalLayout;
-
- const previewMovingItem =
- previewDisplayLayout.find(
- (previewItem) => (
- getDashboardEditItemId(
- previewItem,
- ) === String(widgetId)
+ calculateReflowLayout(
+ sourceCanonicalLayout.map(
+ normalizeLayoutItem,
  ),
+ widgetId,
+ {
+ type: 'drop',
+ x: targetX,
+ y: targetY,
+ hoverX: stableHoverX,
+ hoverY: stableHoverY,
+ isPreview: true,
+ },
  );
 
  const previewSignature =
@@ -3363,6 +3553,27 @@ const canMoveCard =
  );
  }
 
+ const previewDisplayLayout =
+ isWideEditLayout
+ ? buildResponsiveDashboardLayout(
+ previewCanonicalLayout,
+ {
+ columns:
+ WIDE_GRID_COLUMNS,
+ maxCardWidth:
+ GRID_COLUMNS,
+ },
+ )
+ : previewCanonicalLayout;
+
+ const previewMovingItem =
+ previewDisplayLayout.find(
+ (previewItem) => (
+ getDashboardEditItemId(previewItem,
+ ) === String(widgetId)
+ ),
+ );
+
  if (previewMovingItem) {
  setDragPlaceholder({
  ...previewMovingItem,
@@ -3376,45 +3587,169 @@ const canMoveCard =
 
  lastDropTargetRef.current = {
  widgetId,
- insertionIndex,
+ x: targetX,
+ y: targetY,
+ w: originW,
+ h: Math.max(
+ 1,
+ Number(dragOrigin.h) ||
+ safeH,
+ ),
+ hoverX: stableHoverX,
+ hoverY: stableHoverY,
  };
-
- previewTargetRef.current = {
- insertionIndex,
- };
- })
- .onEnd(() => {
- if (
-  dragGestureLayoutModeRef.current !==
-  currentEditLayoutModeRef.current
- ) {
-  return;
+ } catch (error) {
+ console.warn(
+ '[DashboardEditScreen] preview calculation failed:',
+ error?.message || error,
+ );
  }
+ })
+ .onEnd((event) => {
+ if (
+ dragGestureLayoutModeRef.current !==
+ currentEditLayoutModeRef.current
+ ) {
+ return;
+ }
+
+ const canonicalSlotWidth =
+ gridWidth > 0
+ ? gridWidth / GRID_COLUMNS
+ : 0;
+
+ const rawGridDX =
+ canonicalSlotWidth
+ ? event.translationX /
+ canonicalSlotWidth
+ : 0;
+
+ const scrollDelta =
+ scrollYRef.current -
+ dragStartScrollYRef.current;
+
+ const rawGridDY =
+ (
+ event.translationY +
+ scrollDelta
+ ) /
+ (
+ GRID_ROW_HEIGHT +
+ rowGap
+ );
+
+ const deltaX =
+ canonicalSlotWidth
+ ? getStableGridDelta(
+ rawGridDX,
+ )
+ : 0;
+
+ const deltaY =
+ getStableGridDelta(
+ rawGridDY,
+ );
 
  const lastTarget =
  lastDropTargetRef.current;
 
  if (
  lastTarget &&
- lastTarget.widgetId === widgetId &&
- Number.isFinite(
- Number(
- lastTarget.insertionIndex,
- ),
- )
+ lastTarget.widgetId === widgetId
  ) {
- setDashboardLayoutImmediate(
- (current) => (
- reorderDashboardCardsByInsertion(
- current,
+ const dropX =
+ safeW >= GRID_COLUMNS
+ ? 0
+ : lastTarget.x;
+
+ moveGraph(
  widgetId,
- lastTarget.insertionIndex,
  {
- columns: GRID_COLUMNS,
- maxCardWidth: GRID_COLUMNS,
+ type: 'drop',
+ x: dropX,
+ y: lastTarget.y,
+ hoverX:
+ lastTarget.hoverX,
+ hoverY:
+ lastTarget.hoverY,
  },
- )
+ );
+ } else if (
+ deltaX !== 0 ||
+ deltaY !== 0
+ ) {
+ const dragOrigin =
+ dragOriginRef.current || {
+ x: 0,
+ y: 0,
+ w: safeW,
+ h: safeH,
+ };
+
+ const originW = Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(dragOrigin.w) ||
+ safeW,
  ),
+ );
+
+ const originX = Math.max(
+ 0,
+ Number(dragOrigin.x) || 0,
+ );
+
+ const originY = Math.max(
+ 0,
+ Number(dragOrigin.y) || 0,
+ );
+
+ const maxX = Math.max(
+ 0,
+ GRID_COLUMNS - originW,
+ );
+
+ const targetX =
+ originW >= GRID_COLUMNS
+ ? 0
+ : Math.max(
+ 0,
+ Math.min(
+ maxX,
+ originX + deltaX,
+ ),
+ );
+
+ const targetY = Math.max(
+ 0,
+ originY + deltaY,
+ );
+
+ moveGraph(
+ widgetId,
+ {
+ type: 'drop',
+ x:
+ safeW >= GRID_COLUMNS
+ ? 0
+ : targetX,
+ y: targetY,
+ hoverX:
+ Math.round(
+ (
+ originX +
+ rawGridDX
+ ) * 4,
+ ) / 4,
+ hoverY:
+ Math.round(
+ (
+ originY +
+ rawGridDY
+ ) * 4,
+ ) / 4,
+ },
  );
  }
 
@@ -3854,6 +4189,81 @@ const renderResizeGuideOverlay = () => {
  );
  };
 
+ const dashboardEditDiagnosticText = useMemo(() => {
+ const formatFrame = (item) => {
+ if (!item) return '-';
+
+ const itemId =
+ item.widgetId ||
+ item.id ||
+ item.i ||
+ '?';
+
+ const safeX = Number.isFinite(Number(item.x))
+ ? Number(item.x)
+ : 0;
+
+ const safeY = Number.isFinite(Number(item.y))
+ ? Number(item.y)
+ : 0;
+
+ const safeW = Number.isFinite(Number(item.w))
+ ? Number(item.w)
+ : 0;
+
+ const safeH = Number.isFinite(Number(item.h))
+ ? Number(item.h)
+ : 0;
+
+ return `${itemId}:${safeX},${safeY},${safeW}x${safeH}`;
+ };
+
+ const canonicalFrames =
+ canonicalDisplayLayout
+ .slice(0, 3)
+ .map(formatFrame)
+ .join(' | ') || '-';
+
+ const displayFrames =
+ displayLayout
+ .slice(0, 3)
+ .map(formatFrame)
+ .join(' | ') || '-';
+
+ const firstDisplayItem =
+ Array.isArray(displayLayout)
+ ? displayLayout[0]
+ : null;
+
+ const firstWidthPercent =
+ firstDisplayItem && displayGridColumns > 0
+ ? (
+  Math.max(
+  0,
+  Number(firstDisplayItem.w) || 0,
+  ) /
+  displayGridColumns *
+  100
+ ).toFixed(1)
+ : '0.0';
+
+ return [
+ `window=${Math.round(Number(editWindowWidth) || 0)} frame=${Math.round(Number(editFrameWidth) || 0)} effective=${Math.round(Number(effectiveEditWidth) || 0)} wide=${String(isWideEditLayout)} columns=${displayGridColumns} grid=${Math.round(Number(gridWidth) || 0)}`,
+ `firstWidth=${firstWidthPercent}% canonical=${canonicalFrames}`,
+ `display=${displayFrames}`,
+ ].join('\n');
+ }, [
+ canonicalDisplayLayout,
+ displayGridColumns,
+ displayLayout,
+ editFrameWidth,
+ editWindowWidth,
+ effectiveEditWidth,
+ gridWidth,
+ isWideEditLayout,
+ ]);
+
+
  return (
  <GestureHandlerRootView style={{ flex: 1 }}>
  <SafeAreaView style={[canonicalSurfaceStyles.screen, styles.safe]} edges={['top', 'left', 'right']}>
@@ -3863,6 +4273,15 @@ const renderResizeGuideOverlay = () => {
  </TouchableOpacity>
  <Text style={[canonicalTextStyles.headerTitle, styles.screenTitle]}>대시보드 수정</Text>
  <View style={styles.headerSpacer} />
+ </View>
+
+ <View
+ pointerEvents="none"
+ style={styles.layoutDiagnosticPanel}
+ >
+ <Text style={styles.layoutDiagnosticText}>
+ {dashboardEditDiagnosticText}
+ </Text>
  </View>
 
  <ScrollView
@@ -3927,8 +4346,15 @@ const renderResizeGuideOverlay = () => {
  },
  ]}
  onLayout={(event) => {
+ const nextGridWidth =
+ event.nativeEvent.layout.width;
+
  setGridWidth(
- event.nativeEvent.layout.width,
+ nextGridWidth,
+ );
+
+ setEditFrameWidth(
+ nextGridWidth,
  );
  }}
  >
@@ -3998,6 +4424,26 @@ const styles = StyleSheet.create({
  safe: {
  flex: 1,
  backgroundColor: color.surface,
+ },
+ layoutDiagnosticPanel: {
+ marginHorizontal: 18,
+ marginTop: 8,
+ paddingHorizontal: 10,
+ paddingVertical: 8,
+ borderWidth: 1,
+ borderColor: '#D92D20',
+ borderRadius: 8,
+ backgroundColor: '#FFF4F2',
+ zIndex: 50,
+ elevation: 5,
+ },
+ layoutDiagnosticText: {
+ fontSize: 11,
+ lineHeight: 15,
+ fontWeight: '800',
+ color: '#B42318',
+ includeFontPadding: false,
+ fontFamily: 'monospace',
  },
  header: {
  minHeight: 58,

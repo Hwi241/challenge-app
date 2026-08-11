@@ -1106,28 +1106,52 @@ const clearResizeDiagonalDelayTimer = useCallback(() => {
  }
  }, []);
 
- const clearDragVisualState = useCallback(() => {
+const clearDragVisualState = useCallback(
+(options = {}) => {
+ const preserveResize =
+ !!options.preserveResize;
+
+ if (!preserveResize) {
  clearResizeGhostBounceTimer();
+ }
+
  stopDashboardAutoScroll();
+
  setGestureDraggingWidgetId(null);
- setActiveResizeCorner(null);
  setDraggingOriginalWidgetId(null);
- setResizeDimWidgetId(null);
- setResizeDraggingWidgetId(null);
- setGestureDragOffset({ x: 0, y: 0 });
+ setGestureDragOffset({
+ x: 0,
+ y: 0,
+ });
  setDragPlaceholder(null);
- setPreviewLayout(null);
- setResizeGhostFrame(null);
  setDragOverlayItem(null);
- setDragOverlayStart({ x: 0, y: 0 });
- setDragOverlayTouchOffset({ x: 0, y: 0 });
+ setDragOverlayStart({
+ x: 0,
+ y: 0,
+ });
+ setDragOverlayTouchOffset({
+ x: 0,
+ y: 0,
+ });
+
  dragOriginRef.current = null;
- resizeOriginRef.current = null;
- resizePreviewSizeRef.current = '';
  lastDropTargetRef.current = null;
  previewLayoutSignatureRef.current = '';
+
+ if (!preserveResize) {
+ setActiveResizeCorner(null);
+ setResizeDimWidgetId(null);
+ setResizeDraggingWidgetId(null);
+ setPreviewLayout(null);
+ setResizeGhostFrame(null);
+
+
+ resizeOriginRef.current = null;
+ resizePreviewSizeRef.current = '';
  resizePreviewSignatureRef.current = '';
- }, []);
+ }
+},
+[]);
 
 const resetResizeInteractionState = useCallback(() => {
  clearResizeGhostBounceTimer();
@@ -1139,6 +1163,7 @@ const resetResizeInteractionState = useCallback(() => {
  setResizeGhostFrame(null);
  setPreviewLayout(null);
  resizeTouchOpacityRef.current.setValue(1);
+
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
@@ -1188,11 +1213,25 @@ useEffect(() => {
 
 const scheduleDragVisualCleanup = useCallback(() => {
  clearScheduledDragVisualCleanup();
- dragCleanupTimerRef.current = setTimeout(() => {
-   dragCleanupTimerRef.current = null;
-   clearDragVisualState();
+
+ dragCleanupTimerRef.current =
+ setTimeout(() => {
+ dragCleanupTimerRef.current = null;
+
+ const preserveResize =
+ resizeGestureLayoutModeRef.current !==
+ null &&
+ resizeOriginRef.current !==
+ null;
+
+ clearDragVisualState({
+ preserveResize,
+ });
  }, 32);
- }, [clearDragVisualState, clearScheduledDragVisualCleanup]);
+}, [
+ clearDragVisualState,
+ clearScheduledDragVisualCleanup,
+]);
 
  const decreaseRowGap = useCallback(() => {
  setRowGap((current) => Math.max(DASHBOARD_ROW_GAP_MIN, current - DASHBOARD_ROW_GAP_STEP));
@@ -2203,20 +2242,121 @@ const buildResizedLayoutWithReflow = useCallback((sourceLayout, targetWidgetId, 
  isPreview,
  });
 
- return reflowDashboardLayoutWithFixedItem(
- Array.isArray(reflowed) ? reflowed : resizedLayout,
+ const firstReflowLayout =
+ Array.isArray(reflowed)
+ ? reflowed
+ : resizedLayout;
+
+ const finalReflowLayout =
+ reflowDashboardLayoutWithFixedItem(
+ firstReflowLayout,
  targetWidgetId,
  resizedItem,
  );
- } catch (error) {
+
  if (!isPreview) {
- console.warn('[DashboardEditScreen] resize reflow failed:', error?.message || error);
+ const toResizeDiagnosticSnapshot = (items) => {
+ return (Array.isArray(items) ? items : [])
+ .map((item) => ({
+ id:
+ item.widgetId ||
+ item.id ||
+ item.i ||
+ '?',
+ x: Number(item.x) || 0,
+ y: Number(item.y) || 0,
+ w: Number(item.w) || 0,
+ h: Number(item.h) || 0,
+ }))
+ .sort((a, b) => {
+ if (a.y !== b.y) return a.y - b.y;
+ if (a.x !== b.x) return a.x - b.x;
+ return String(a.id).localeCompare(String(b.id));
+ });
+ };
+
+ const resizedSnapshot =
+ toResizeDiagnosticSnapshot(
+ resizedLayout,
+ );
+
+ const finalSnapshot =
+ toResizeDiagnosticSnapshot(
+ finalReflowLayout,
+ );
+
+ const resizedById =
+ new Map(
+ resizedSnapshot.map((item) => [
+ String(item.id),
+ item,
+ ]),
+ );
+
+ const delta =
+ finalSnapshot.map((item) => {
+ const before =
+ resizedById.get(
+ String(item.id),
+ );
+
+ if (!before) {
+ return {
+ id: item.id,
+ added: true,
+ after: item,
+ };
  }
- return reflowDashboardLayoutWithFixedItem(
+
+ return {
+ id: item.id,
+ dx: item.x - before.x,
+ dy: item.y - before.y,
+ dw: item.w - before.w,
+ dh: item.h - before.h,
+ };
+ });
+
+  }
+
+ return finalReflowLayout;
+ } catch (error) {
+ const fallbackLayout =
+ reflowDashboardLayoutWithFixedItem(
  resizedLayout,
  targetWidgetId,
  resizedItem,
  );
+
+ if (!isPreview) {
+ console.warn(
+ '[DashboardEditScreen] resize reflow failed:',
+ error?.message || error,
+ );
+
+ const snapshotFallback = (items) => {
+ return (Array.isArray(items) ? items : [])
+ .map((item) => ({
+ id:
+ item.widgetId ||
+ item.id ||
+ item.i ||
+ '?',
+ x: Number(item.x) || 0,
+ y: Number(item.y) || 0,
+ w: Number(item.w) || 0,
+ h: Number(item.h) || 0,
+ }))
+ .sort((a, b) => {
+ if (a.y !== b.y) return a.y - b.y;
+ if (a.x !== b.x) return a.x - b.x;
+ return String(a.id).localeCompare(String(b.id));
+ });
+ };
+
+  }
+
+ return fallbackLayout;
  }
 }, []);
 
@@ -2895,6 +3035,79 @@ const resizeDiagonalDashStyle = {
  }, RESIZE_GHOST_BOUNCE_BACK_MS);
 };
 
+const getCanonicalResizeOriginFromCurrentLayout = () => {
+ const findCanonicalItem = (items) => {
+ if (!Array.isArray(items)) {
+ return null;
+ }
+
+ return (
+ items.find(
+ (sourceItem) =>
+ getDashboardEditItemId(
+ sourceItem,
+ ) ===
+ String(widgetId),
+ ) ||
+ null
+ );
+ };
+
+ const canonicalItem =
+ findCanonicalItem(
+ layoutRef.current,
+ ) ||
+ findCanonicalItem(
+ layout,
+ );
+
+ if (!canonicalItem) {
+ return null;
+ }
+
+ const canonicalW =
+ Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(
+ canonicalItem.w,
+ ) || 1,
+ ),
+ );
+
+ const canonicalH =
+ Math.max(
+ 1,
+ Number(
+ canonicalItem.h,
+ ) || 1,
+ );
+
+ return {
+ x:
+ Math.max(
+ 0,
+ Math.min(
+ GRID_COLUMNS -
+ canonicalW,
+ Number(
+ canonicalItem.x,
+ ) || 0,
+ ),
+ ),
+ y:
+ Math.max(
+ 0,
+ Number(
+ canonicalItem.y,
+ ) || 0,
+ ),
+ w: canonicalW,
+ h: canonicalH,
+ };
+};
+
 const buildResizeGesture = (corner) => Gesture.Pan()
  .enabled(isResizeActive)
  .runOnJS(true)
@@ -2994,6 +3207,8 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  displayY: safeY,
  };
 
+
+
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current =
  `${canonicalX}:${canonicalY}:${canonicalW}:${canonicalH}`;
@@ -3010,21 +3225,14 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  return;
  }
 
+
  const origin =
- resizeOriginRef.current || {
- x: Math.max(
- 0,
- Math.min(
- GRID_COLUMNS - safeW,
- safeX,
- ),
- ),
- y: safeY,
- w: safeW,
- h: safeH,
- displayX: safeX,
- displayY: safeY,
- };
+ resizeOriginRef.current ||
+ getCanonicalResizeOriginFromCurrentLayout();
+
+ if (!origin) {
+ return;
+ }
 
  const deltaColsRaw = slotWidth
  ? event.translationX / slotWidth
@@ -3158,21 +3366,14 @@ const buildResizeGesture = (corner) => Gesture.Pan()
 
  clearResizeDiagonalDelayTimer();
 
+
  const origin =
- resizeOriginRef.current || {
- x: Math.max(
- 0,
- Math.min(
- GRID_COLUMNS - safeW,
- safeX,
- ),
- ),
- y: safeY,
- w: safeW,
- h: safeH,
- displayX: safeX,
- displayY: safeY,
- };
+ resizeOriginRef.current ||
+ getCanonicalResizeOriginFromCurrentLayout();
+
+ if (!origin) {
+ return;
+ }
 
  const deltaColsRaw = slotWidth
  ? event.translationX / slotWidth
@@ -3212,6 +3413,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  nextFrame.h !== origin.h;
 
  if (frameChanged) {
+
  resizeLayoutItem(
  widgetId,
  nextFrame,
@@ -3224,6 +3426,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setResizeGhostFrame(null);
  setResizeDraggingWidgetId(null);
  resizeTouchOpacityRef.current.setValue(1);
+
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
@@ -3244,6 +3447,7 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setActiveResizeCorner(null);
  setResizeDraggingWidgetId(null);
  resizeTouchOpacityRef.current.setValue(1);
+
  resizeOriginRef.current = null;
  resizePreviewSignatureRef.current = '';
  resizePreviewSizeRef.current = '';
@@ -4189,79 +4393,6 @@ const renderResizeGuideOverlay = () => {
  );
  };
 
- const dashboardEditDiagnosticText = useMemo(() => {
- const formatFrame = (item) => {
- if (!item) return '-';
-
- const itemId =
- item.widgetId ||
- item.id ||
- item.i ||
- '?';
-
- const safeX = Number.isFinite(Number(item.x))
- ? Number(item.x)
- : 0;
-
- const safeY = Number.isFinite(Number(item.y))
- ? Number(item.y)
- : 0;
-
- const safeW = Number.isFinite(Number(item.w))
- ? Number(item.w)
- : 0;
-
- const safeH = Number.isFinite(Number(item.h))
- ? Number(item.h)
- : 0;
-
- return `${itemId}:${safeX},${safeY},${safeW}x${safeH}`;
- };
-
- const canonicalFrames =
- canonicalDisplayLayout
- .slice(0, 3)
- .map(formatFrame)
- .join(' | ') || '-';
-
- const displayFrames =
- displayLayout
- .slice(0, 3)
- .map(formatFrame)
- .join(' | ') || '-';
-
- const firstDisplayItem =
- Array.isArray(displayLayout)
- ? displayLayout[0]
- : null;
-
- const firstWidthPercent =
- firstDisplayItem && displayGridColumns > 0
- ? (
-  Math.max(
-  0,
-  Number(firstDisplayItem.w) || 0,
-  ) /
-  displayGridColumns *
-  100
- ).toFixed(1)
- : '0.0';
-
- return [
- `window=${Math.round(Number(editWindowWidth) || 0)} frame=${Math.round(Number(editFrameWidth) || 0)} effective=${Math.round(Number(effectiveEditWidth) || 0)} wide=${String(isWideEditLayout)} columns=${displayGridColumns} grid=${Math.round(Number(gridWidth) || 0)}`,
- `firstWidth=${firstWidthPercent}% canonical=${canonicalFrames}`,
- `display=${displayFrames}`,
- ].join('\n');
- }, [
- canonicalDisplayLayout,
- displayGridColumns,
- displayLayout,
- editFrameWidth,
- editWindowWidth,
- effectiveEditWidth,
- gridWidth,
- isWideEditLayout,
- ]);
 
 
  return (
@@ -4275,14 +4406,6 @@ const renderResizeGuideOverlay = () => {
  <View style={styles.headerSpacer} />
  </View>
 
- <View
- pointerEvents="none"
- style={styles.layoutDiagnosticPanel}
- >
- <Text style={styles.layoutDiagnosticText}>
- {dashboardEditDiagnosticText}
- </Text>
- </View>
 
  <ScrollView
  ref={scrollRef}
@@ -4425,27 +4548,7 @@ const styles = StyleSheet.create({
  flex: 1,
  backgroundColor: color.surface,
  },
- layoutDiagnosticPanel: {
- marginHorizontal: 18,
- marginTop: 8,
- paddingHorizontal: 10,
- paddingVertical: 8,
- borderWidth: 1,
- borderColor: '#D92D20',
- borderRadius: 8,
- backgroundColor: '#FFF4F2',
- zIndex: 50,
- elevation: 5,
- },
- layoutDiagnosticText: {
- fontSize: 11,
- lineHeight: 15,
- fontWeight: '800',
- color: '#B42318',
- includeFontPadding: false,
- fontFamily: 'monospace',
- },
- header: {
+   header: {
  minHeight: 58,
  paddingHorizontal: 18,
  paddingTop: 8,
@@ -4631,7 +4734,7 @@ graphCardVisualSurface: {
  minHeight: 18,
  marginBottom: 0,
  },
- 
+
  graphTitleGroup: {
  flexDirection: 'row',
  alignItems: 'center',

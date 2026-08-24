@@ -908,7 +908,12 @@ export default function DashboardEditScreen({ route, navigation }) {
  const [purchasedGraphIds, setPurchasedGraphIds] = useState([]);
  const [gestureDraggingWidgetId, setGestureDraggingWidgetId] = useState(null);
  const [draggingOriginalWidgetId, setDraggingOriginalWidgetId] = useState(null);
- const [gestureDragOffset, setGestureDragOffset] = useState({ x: 0, y: 0 });
+ const gestureDragOffset = useRef(
+ new Animated.ValueXY({
+ x: 0,
+ y: 0,
+ }),
+ ).current;
  const [gridWidth, setGridWidth] = useState(0);
  const [dragPlaceholder, setDragPlaceholder] = useState(null);
  const [dragOverlayItem, setDragOverlayItem] = useState(null);
@@ -1120,7 +1125,7 @@ const clearDragVisualState = useCallback(
 
  setGestureDraggingWidgetId(null);
  setDraggingOriginalWidgetId(null);
- setGestureDragOffset({
+ gestureDragOffset.setValue({
  x: 0,
  y: 0,
  });
@@ -3541,7 +3546,7 @@ const canMoveCard =
 
      setDraggingOriginalWidgetId(widgetId);
      setGestureDraggingWidgetId(widgetId);
-     setGestureDragOffset({ x: 0, y: 0 });
+     gestureDragOffset.setValue({ x: 0, y: 0 });
      const overlayWidth = slotWidth ? slotWidth * safeW : 0;
      const overlayHeight = cardHeight || 0;
      const localTouchX = Math.max(
@@ -3579,12 +3584,10 @@ const canMoveCard =
  return;
  }
 
- const nextOffset = {
+ gestureDragOffset.setValue({
  x: event.translationX,
  y: event.translationY,
- };
-
- setGestureDragOffset(nextOffset);
+ });
 
  const canonicalSlotWidth =
  gridWidth > 0
@@ -4391,7 +4394,7 @@ isResizeActive && styles.graphCellResizeActive,
    ) : null;
 
    return (
-     <View
+     <Animated.View
        pointerEvents="none"
        style={{
          position: 'absolute',
@@ -4425,7 +4428,7 @@ isResizeActive && styles.graphCellResizeActive,
          />
        ),
        })}
-     </View>
+     </Animated.View>
    );
  };
 

@@ -923,6 +923,7 @@ const [resizeDimWidgetId, setResizeDimWidgetId] = useState(null);
  const lastDropTargetRef = useRef(null);
  const dragOriginRef = useRef(null);
  const previewTargetRef = useRef(null);
+ const dragInsertionIndexRef = useRef(null);
  const previewLayoutSignatureRef = useRef('');
  const resizeOriginRef = useRef(null);
  const resizePreviewSignatureRef = useRef('');
@@ -1137,6 +1138,7 @@ const clearDragVisualState = useCallback(
  dragOriginRef.current = null;
  lastDropTargetRef.current = null;
  previewLayoutSignatureRef.current = '';
+ dragInsertionIndexRef.current = null;
 
  if (!preserveResize) {
  setActiveResizeCorner(null);
@@ -3481,6 +3483,7 @@ const canMoveCard =
 
      clearScheduledDragVisualCleanup();
      previewLayoutSignatureRef.current = '';
+     dragInsertionIndexRef.current = null;
      const sourceCanonicalLayout =
  Array.isArray(layoutRef.current) &&
  layoutRef.current.length > 0
@@ -3597,6 +3600,221 @@ const canMoveCard =
  const scrollDelta =
  scrollYRef.current -
  dragStartScrollYRef.current;
+
+ const insertionDragOrigin =
+ dragOriginRef.current;
+
+ const insertionOriginW =
+ Math.max(
+ 1,
+ Math.min(
+ GRID_COLUMNS,
+ Number(
+ insertionDragOrigin?.w,
+ ) || safeW,
+ ),
+ );
+
+ const canUseInsertionReorder =
+ insertionOriginW < GRID_COLUMNS;
+
+ if (canUseInsertionReorder) {
+ const displayOriginItem =
+ interactionDisplayLayout.find(
+ (displayItem) => (
+ getDashboardEditItemId(
+ displayItem,
+ ) === String(widgetId)
+ ),
+ );
+
+ const displaySlotWidth =
+ gridWidth > 0 &&
+ displayGridColumns > 0
+ ? gridWidth /
+ displayGridColumns
+ : 0;
+
+ if (
+ displayOriginItem &&
+ displaySlotWidth > 0
+ ) {
+ const displayOriginX =
+ Math.max(
+ 0,
+ Number(
+ displayOriginItem.x,
+ ) || 0,
+ );
+
+ const displayOriginY =
+ Math.max(
+ 0,
+ Number(
+ displayOriginItem.y,
+ ) || 0,
+ );
+
+ const displayOriginW =
+ Math.max(
+ 1,
+ Number(
+ displayOriginItem.w,
+ ) || 1,
+ );
+
+ const displayOriginH =
+ Math.max(
+ 1,
+ Number(
+ displayOriginItem.h,
+ ) || 1,
+ );
+
+ const rawDisplayDX =
+ event.translationX /
+ displaySlotWidth;
+
+ const rawDisplayDY =
+ (
+ event.translationY +
+ scrollDelta
+ ) /
+ (
+ GRID_ROW_HEIGHT +
+ rowGap
+ );
+
+ const movedEnoughForInsertion =
+ Math.abs(rawDisplayDX) >= 0.18 ||
+ Math.abs(rawDisplayDY) >= 0.18;
+
+ if (!movedEnoughForInsertion) {
+ dragInsertionIndexRef.current =
+ null;
+ previewTargetRef.current =
+ null;
+ lastDropTargetRef.current =
+ null;
+ previewLayoutSignatureRef.current =
+ '';
+ setDragPlaceholder(null);
+ setPreviewLayout(null);
+ return;
+ }
+
+ const insertionPoint = {
+ x:
+ displayOriginX +
+ displayOriginW / 2 +
+ rawDisplayDX,
+ y:
+ displayOriginY +
+ displayOriginH / 2 +
+ rawDisplayDY,
+ };
+
+ const insertionIndex =
+ getDashboardInsertionIndexFromPoint(
+ displayLayout,
+ widgetId,
+ insertionPoint,
+ displayGridColumns,
+ );
+
+ if (
+ dragInsertionIndexRef.current ===
+ insertionIndex
+ ) {
+ return;
+ }
+
+ dragInsertionIndexRef.current =
+ insertionIndex;
+
+ previewTargetRef.current = {
+ type: 'insertion',
+ insertionIndex,
+ };
+
+ const sourceCanonicalLayout =
+ Array.isArray(layoutRef.current) &&
+ layoutRef.current.length > 0
+ ? layoutRef.current
+ : layout;
+
+ const previewCanonicalLayout =
+ reorderDashboardCardsByInsertion(
+ sourceCanonicalLayout,
+ widgetId,
+ insertionIndex,
+ {
+ columns: GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ );
+
+ const previewSignature =
+ getLayoutPreviewSignature(
+ previewCanonicalLayout,
+ );
+
+ if (
+ previewLayoutSignatureRef.current !==
+ previewSignature
+ ) {
+ previewLayoutSignatureRef.current =
+ previewSignature;
+
+ setPreviewLayout(
+ previewCanonicalLayout,
+ );
+ }
+
+ const previewDisplayLayout =
+ isWideEditLayout
+ ? buildResponsiveDashboardLayout(
+ previewCanonicalLayout,
+ {
+ columns:
+ WIDE_GRID_COLUMNS,
+ maxCardWidth:
+ GRID_COLUMNS,
+ },
+ )
+ : previewCanonicalLayout;
+
+ const previewMovingItem =
+ previewDisplayLayout.find(
+ (previewItem) => (
+ getDashboardEditItemId(
+ previewItem,
+ ) === String(widgetId)
+ ),
+ );
+
+ if (previewMovingItem) {
+ setDragPlaceholder({
+ ...previewMovingItem,
+ widgetId: 'placeholder',
+ id: 'placeholder',
+ isPlaceholder: true,
+ });
+ } else {
+ setDragPlaceholder(null);
+ }
+
+ lastDropTargetRef.current = {
+ widgetId,
+ type: 'insertion',
+ insertionIndex,
+ };
+
+ return;
+ }
+ }
+
+ dragInsertionIndexRef.current = null;
 
  const rawGridDY =
  (
@@ -3817,6 +4035,46 @@ const canMoveCard =
  return;
  }
 
+ const insertionTarget =
+ lastDropTargetRef.current;
+
+ if (
+ insertionTarget &&
+ insertionTarget.widgetId ===
+ widgetId &&
+ insertionTarget.type ===
+ 'insertion'
+ ) {
+ setDashboardLayoutImmediate(
+ (current) =>
+ reorderDashboardCardsByInsertion(
+ current,
+ widgetId,
+ insertionTarget.insertionIndex,
+ {
+ columns: GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ ),
+ );
+
+ dragInsertionIndexRef.current =
+ null;
+ previewTargetRef.current =
+ null;
+
+ if (
+ activeResizeWidgetId === widgetId
+ ) {
+ setActiveResizeWidgetId(null);
+ setResizeGhostFrame(null);
+ setPreviewLayout(null);
+ }
+
+ scheduleDragVisualCleanup();
+ return;
+ }
+
  const canonicalSlotWidth =
  gridWidth > 0
  ? gridWidth / GRID_COLUMNS
@@ -3973,6 +4231,7 @@ const canMoveCard =
       currentEditLayoutModeRef.current;
 
      dragGestureLayoutModeRef.current = null;
+     dragInsertionIndexRef.current = null;
 
      if (!isCurrentLayoutMode) {
       return;

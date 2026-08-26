@@ -1125,10 +1125,6 @@ const clearDragVisualState = useCallback(
 
  setGestureDraggingWidgetId(null);
  setDraggingOriginalWidgetId(null);
- gestureDragOffset.setValue({
- x: 0,
- y: 0,
- });
  setDragPlaceholder(null);
  setDragOverlayItem(null);
  setDragOverlayStart({

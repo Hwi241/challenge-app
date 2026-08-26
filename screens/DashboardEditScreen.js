@@ -770,6 +770,8 @@ const AUTO_SCROLL_STEP = 9;
 const AUTO_SCROLL_INTERVAL_MS = 16;
 const WIDE_GRID_COLUMNS = GRID_COLUMNS * 2;
 const WIDE_EDIT_MIN_WIDTH = 600;
+const WIDE_HALF_SWITCH_HYSTERESIS = 0.35;
+const WIDE_HALF_AWARE_MIN_CARD_WIDTH = 4;
 
 const getDashboardEditItemId = (item) => String(
  item?.widgetId ??
@@ -3615,6 +3617,7 @@ const canMoveCard =
  );
 
  const canUseInsertionReorder =
+ isWideEditLayout ||
  insertionOriginW < GRID_COLUMNS ||
  String(widgetId) === 'weekly-bars';
 
@@ -3714,13 +3717,210 @@ const canMoveCard =
  rawDisplayDY,
  };
 
- const insertionIndex =
+ const rawInsertionIndex =
  getDashboardInsertionIndexFromPoint(
  displayLayout,
  widgetId,
  insertionPoint,
  displayGridColumns,
  );
+
+ const sourceCanonicalLayout =
+ Array.isArray(layoutRef.current) &&
+ layoutRef.current.length > 0
+ ? layoutRef.current
+ : layout;
+
+ const wideHalfAwareInsertion =
+ isWideEditLayout &&
+ displayGridColumns ===
+ WIDE_GRID_COLUMNS &&
+ displayOriginW >=
+ WIDE_HALF_AWARE_MIN_CARD_WIDTH;
+
+ const wideMiddleColumn =
+ WIDE_GRID_COLUMNS / 2;
+
+ const originDisplayCenterX =
+ displayOriginX +
+ displayOriginW / 2;
+
+ const movingDisplayCenterX =
+ originDisplayCenterX +
+ rawDisplayDX;
+
+ const originWideHalf =
+ originDisplayCenterX <
+ wideMiddleColumn
+ ? 'left'
+ : 'right';
+
+ let intendedWideHalf =
+ originWideHalf;
+
+ if (wideHalfAwareInsertion) {
+ if (
+ originWideHalf === 'left' &&
+ movingDisplayCenterX >=
+ wideMiddleColumn +
+ WIDE_HALF_SWITCH_HYSTERESIS
+ ) {
+ intendedWideHalf = 'right';
+ } else if (
+ originWideHalf === 'right' &&
+ movingDisplayCenterX <=
+ wideMiddleColumn -
+ WIDE_HALF_SWITCH_HYSTERESIS
+ ) {
+ intendedWideHalf = 'left';
+ }
+ }
+
+ const buildInsertionPreview =
+ (candidateIndex) => {
+ const canonicalLayout =
+ reorderDashboardCardsByInsertion(
+ sourceCanonicalLayout,
+ widgetId,
+ candidateIndex,
+ {
+ columns: GRID_COLUMNS,
+ maxCardWidth: GRID_COLUMNS,
+ },
+ );
+
+ const responsiveLayout =
+ isWideEditLayout
+ ? buildResponsiveDashboardLayout(
+ canonicalLayout,
+ {
+ columns:
+ WIDE_GRID_COLUMNS,
+ maxCardWidth:
+ GRID_COLUMNS,
+ },
+ )
+ : canonicalLayout;
+
+ const candidateMovingItem =
+ responsiveLayout.find(
+ (candidateItem) => (
+ getDashboardEditItemId(
+ candidateItem,
+ ) === String(widgetId)
+ ),
+ );
+
+ const candidateMovingCenterX =
+ candidateMovingItem
+ ? (
+ Math.max(
+ 0,
+ Number(candidateMovingItem.x) || 0,
+ ) +
+ Math.max(
+ 1,
+ Number(candidateMovingItem.w) || 1,
+ ) / 2
+ )
+ : null;
+
+ const candidateWideHalf =
+ candidateMovingCenterX === null
+ ? null
+ : (
+ candidateMovingCenterX <
+ wideMiddleColumn
+ ? 'left'
+ : 'right'
+ );
+
+ return {
+ insertionIndex: candidateIndex,
+ canonicalLayout,
+ responsiveLayout,
+ wideHalf: candidateWideHalf,
+ };
+ };
+
+ let resolvedInsertionPreview =
+ buildInsertionPreview(
+ rawInsertionIndex,
+ );
+
+ if (
+ wideHalfAwareInsertion &&
+ resolvedInsertionPreview.wideHalf !==
+ intendedWideHalf
+ ) {
+ const maxInsertionIndex =
+ Math.max(
+ 0,
+ sourceCanonicalLayout.length - 1,
+ );
+
+ let matchedInsertionPreview =
+ null;
+
+ for (
+ let distance = 1;
+ distance <=
+ maxInsertionIndex + 1;
+ distance += 1
+ ) {
+ const lowerIndex =
+ rawInsertionIndex - distance;
+
+ const upperIndex =
+ rawInsertionIndex + distance;
+
+ const candidateIndexes =
+ intendedWideHalf === 'right'
+ ? [upperIndex, lowerIndex]
+ : [lowerIndex, upperIndex];
+
+ for (
+ const candidateIndex of
+ candidateIndexes
+ ) {
+ if (
+ candidateIndex < 0 ||
+ candidateIndex >
+ maxInsertionIndex
+ ) {
+ continue;
+ }
+
+ const candidatePreview =
+ buildInsertionPreview(
+ candidateIndex,
+ );
+
+ if (
+ candidatePreview.wideHalf ===
+ intendedWideHalf
+ ) {
+ matchedInsertionPreview =
+ candidatePreview;
+ break;
+ }
+ }
+
+ if (matchedInsertionPreview) {
+ break;
+ }
+ }
+
+ if (!matchedInsertionPreview) {
+ return;
+ }
+
+ resolvedInsertionPreview =
+ matchedInsertionPreview;
+ }
+
+ const insertionIndex =
+ resolvedInsertionPreview.insertionIndex;
 
  if (
  dragInsertionIndexRef.current ===
@@ -3737,22 +3937,8 @@ const canMoveCard =
  insertionIndex,
  };
 
- const sourceCanonicalLayout =
- Array.isArray(layoutRef.current) &&
- layoutRef.current.length > 0
- ? layoutRef.current
- : layout;
-
  const previewCanonicalLayout =
- reorderDashboardCardsByInsertion(
- sourceCanonicalLayout,
- widgetId,
- insertionIndex,
- {
- columns: GRID_COLUMNS,
- maxCardWidth: GRID_COLUMNS,
- },
- );
+ resolvedInsertionPreview.canonicalLayout;
 
  const previewSignature =
  getLayoutPreviewSignature(
@@ -3772,17 +3958,7 @@ const canMoveCard =
  }
 
  const previewDisplayLayout =
- isWideEditLayout
- ? buildResponsiveDashboardLayout(
- previewCanonicalLayout,
- {
- columns:
- WIDE_GRID_COLUMNS,
- maxCardWidth:
- GRID_COLUMNS,
- },
- )
- : previewCanonicalLayout;
+ resolvedInsertionPreview.responsiveLayout;
 
  const previewMovingItem =
  previewDisplayLayout.find(

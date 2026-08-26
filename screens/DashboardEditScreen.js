@@ -3619,7 +3619,8 @@ const canMoveCard =
  );
 
  const canUseInsertionReorder =
- insertionOriginW < GRID_COLUMNS;
+ insertionOriginW < GRID_COLUMNS ||
+ String(widgetId) === 'weekly-bars';
 
  if (canUseInsertionReorder) {
  const displayOriginItem =
@@ -4323,7 +4324,6 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
 
  const cardContent = (
  <View
-key={widgetId}
 style={[
 styles.graphCell,
 isResizeActive && styles.graphCellResizeActive,
@@ -4357,7 +4357,12 @@ isResizeActive && styles.graphCellResizeActive,
  </View>
  );
    return (
-     <GestureDetector gesture={cardGesture}>{cardContent}</GestureDetector>
+     <GestureDetector
+       key={widgetId}
+       gesture={cardGesture}
+     >
+       {cardContent}
+     </GestureDetector>
    );
  };
   const renderDragOverlay = () => {

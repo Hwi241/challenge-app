@@ -46,6 +46,13 @@ import Svg,
   LinearGradient,
   Stop,
   } from 'react-native-svg';
+import Reanimated, {
+  Easing as ReanimatedEasing,
+  useAnimatedProps,
+  useDerivedValue,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import WidgetDonutCapture1x1 from '../components/WidgetDonutCapture1x1';
 import { useFocusEffect } from '@react-navigation/native';
@@ -77,6 +84,10 @@ import {
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ReanimatedSvgPath = Reanimated.createAnimatedComponent(Path);
+const ReanimatedSvgCircle = Reanimated.createAnimatedComponent(Circle);
+const ReanimatedSvgRect = Reanimated.createAnimatedComponent(Rect);
+const ReanimatedSvgText = Reanimated.createAnimatedComponent(SvgText);
 const DASHBOARD_WIDGET_HEADER_HEIGHT = 28;
 const DASHBOARD_WIDGET_HEADER_TOP_OFFSET = 0;
 const DASHBOARD_WIDGET_HEADER_TITLE_TOP_ADJUST = -6;
@@ -1325,6 +1336,8 @@ const LineGradientChart = memo(function LineGradientChart({
   width=SCREEN_WIDTH - EDGE*2 - GRAPH_SIDE_PAD*2 - 8,
   height=185,
   introProgress=1,
+  lineIntroRunId=null,
+  lineIntroPhase=null,
   interactive=true,
   pagerIndex=0,
   onSelectPagerIndex=()=>{},
@@ -1404,6 +1417,32 @@ const LineGradientChart = memo(function LineGradientChart({
   const cw = Math.max(1, width - left - right);
   const ch = Math.max(1, height - top - bottom);
   const introBaselineY = top + ch + 0.5;
+  const usesSharedLineIntro = Number.isFinite(lineIntroRunId) && (
+    lineIntroPhase === 'pending' ||
+    lineIntroPhase === 'animate' ||
+    lineIntroPhase === 'complete'
+  );
+  const lineIntroProgress = useSharedValue(
+    usesSharedLineIntro && lineIntroPhase !== 'complete' ? 0 : 1,
+  );
+
+  useEffect(() => {
+    if (!usesSharedLineIntro) {
+      lineIntroProgress.value = 1;
+      return;
+    }
+
+    if (lineIntroPhase === 'animate') {
+      lineIntroProgress.value = 0;
+      lineIntroProgress.value = withTiming(1, {
+        duration: 900,
+        easing: ReanimatedEasing.inOut(ReanimatedEasing.cubic),
+      });
+      return;
+    }
+
+    lineIntroProgress.value = lineIntroPhase === 'complete' ? 1 : 0;
+  }, [lineIntroPhase, lineIntroProgress, lineIntroRunId, usesSharedLineIntro]);
 
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
@@ -1646,6 +1685,45 @@ const finalSafeNodePts = useMemo(() => {
     return d;
   }, [pts, baselineY]);
 
+  const linePathCoordinates = useMemo(
+    () => linePts.map((point) => ({ x: point.x, y: point.y })),
+    [linePts],
+  );
+  const areaPathCoordinates = useMemo(
+    () => pts.map((point) => ({ x: point.x, y: point.y })),
+    [pts],
+  );
+
+  const animatedLinePathProps = useAnimatedProps(() => {
+    if (!usesSharedLineIntro || linePathCoordinates.length === 0) return { d: '' };
+    const progress = lineIntroProgress.value;
+    const first = linePathCoordinates[0];
+    const firstY = introBaselineY - (introBaselineY - first.y) * progress;
+    let d = `M ${first.x} ${firstY}`;
+    for (let index = 1; index < linePathCoordinates.length; index += 1) {
+      const point = linePathCoordinates[index];
+      const y = introBaselineY - (introBaselineY - point.y) * progress;
+      d += ` L ${point.x} ${y}`;
+    }
+    return { d };
+  }, [introBaselineY, linePathCoordinates, usesSharedLineIntro]);
+
+  const animatedAreaPathProps = useAnimatedProps(() => {
+    if (!usesSharedLineIntro || areaPathCoordinates.length === 0) return { d: '' };
+    const progress = lineIntroProgress.value;
+    const bottomY = baselineY - areaGap;
+    const first = areaPathCoordinates[0];
+    const firstY = introBaselineY - (introBaselineY - first.y) * progress;
+    let d = `M ${first.x} ${bottomY} L ${first.x} ${firstY}`;
+    for (let index = 1; index < areaPathCoordinates.length; index += 1) {
+      const point = areaPathCoordinates[index];
+      const y = introBaselineY - (introBaselineY - point.y) * progress;
+      d += ` L ${point.x} ${y}`;
+    }
+    d += ` L ${areaPathCoordinates[areaPathCoordinates.length - 1].x} ${bottomY} Z`;
+    return { d };
+  }, [areaGap, areaPathCoordinates, baselineY, introBaselineY, usesSharedLineIntro]);
+
   const formatLineLabel = useCallback((point, index) => {
     if (!point) return null;
     if (typeof labelFormatter === 'function') {
@@ -1749,6 +1827,85 @@ const finalSafeNodePts = useMemo(() => {
 
   const safeEndNode = safeNodePts[safeNodePts.length-1] || null;
 
+  const selectedPointX = selPoint?.x ?? 0;
+  const selectedPointFinalY = selPoint?.y ?? introBaselineY;
+  const endPointX = safeEndNode?.x ?? 0;
+  const endPointFinalY = safeEndNode?.y ?? introBaselineY;
+
+  const selectedLabelSize = labelDims(selectedLabel || '');
+  const selectedLabelX = Math.min(
+    Math.max(selectedPointX - selectedLabelSize.w / 2, left + 4),
+    left + cw - selectedLabelSize.w - 4,
+  );
+  const selectedLabelIsEnd = selectedIdx === series.length - 1;
+  const defaultLabelSize = labelDims(defaultLabel || '');
+  const defaultLabelX = Math.min(
+    Math.max(endPointX - defaultLabelSize.w / 2, left + 4),
+    left + cw - defaultLabelSize.w - 4,
+  );
+
+  const animatedSelectedPointProps = useAnimatedProps(() => ({
+    cy: introBaselineY - (introBaselineY - selectedPointFinalY) * lineIntroProgress.value,
+  }), [introBaselineY, selectedPointFinalY]);
+  const animatedEndPointProps = useAnimatedProps(() => ({
+    cy: introBaselineY - (introBaselineY - endPointFinalY) * lineIntroProgress.value,
+  }), [endPointFinalY, introBaselineY]);
+
+  const animatedSelectedLabelY = useDerivedValue(() => {
+    const pointY = introBaselineY - (
+      introBaselineY - selectedPointFinalY
+    ) * lineIntroProgress.value;
+    const gap = selectedLabelIsEnd ? LINE_LABEL_END_GAP : LINE_LABEL_GAP;
+    const above = pointY - selectedLabelSize.h - gap;
+    const below = pointY + gap;
+    if (above >= top + 4) return above;
+    if (below <= baselineY - 16) return below;
+    return Math.min(
+      Math.max(above, top + 4),
+      baselineY - selectedLabelSize.h - 4,
+    );
+  }, [
+    baselineY,
+    introBaselineY,
+    selectedLabelIsEnd,
+    selectedLabelSize.h,
+    selectedPointFinalY,
+    top,
+  ]);
+
+  const animatedDefaultLabelY = useDerivedValue(() => {
+    const pointY = introBaselineY - (
+      introBaselineY - endPointFinalY
+    ) * lineIntroProgress.value;
+    const above = pointY - defaultLabelSize.h - LINE_LABEL_END_GAP;
+    const below = pointY + LINE_LABEL_END_GAP;
+    if (above >= top + 4) return above;
+    if (below <= baselineY - 16) return below;
+    return Math.min(
+      Math.max(above, top + 4),
+      baselineY - defaultLabelSize.h - 4,
+    );
+  }, [
+    baselineY,
+    defaultLabelSize.h,
+    endPointFinalY,
+    introBaselineY,
+    top,
+  ]);
+
+  const animatedSelectedRectProps = useAnimatedProps(() => ({
+    y: animatedSelectedLabelY.value,
+  }));
+  const animatedSelectedTextProps = useAnimatedProps(() => ({
+    y: animatedSelectedLabelY.value + selectedLabelSize.h - 6,
+  }), [selectedLabelSize.h]);
+  const animatedDefaultRectProps = useAnimatedProps(() => ({
+    y: animatedDefaultLabelY.value,
+  }));
+  const animatedDefaultTextProps = useAnimatedProps(() => ({
+    y: animatedDefaultLabelY.value + defaultLabelSize.h - 6,
+  }), [defaultLabelSize.h]);
+
   return (
     <View pointerEvents="box-none">
       <Svg
@@ -1769,8 +1926,16 @@ const finalSafeNodePts = useMemo(() => {
           </LinearGradient>
         </Defs>
 
-        {!!pts.length && <Path d={areaD} fill={`url(#grad-${metric})`} />}
-        {!!pts.length && <Path d={pathD} fill="none" stroke={lineRenderColors.lineStroke} strokeWidth={LINE_STROKE_W} />}
+        {!!pts.length && (usesSharedLineIntro ? (
+          <ReanimatedSvgPath animatedProps={animatedAreaPathProps} fill={`url(#grad-${metric})`} />
+        ) : (
+          <Path d={areaD} fill={`url(#grad-${metric})`} />
+        ))}
+        {!!pts.length && (usesSharedLineIntro ? (
+          <ReanimatedSvgPath animatedProps={animatedLinePathProps} fill="none" stroke={lineRenderColors.lineStroke} strokeWidth={LINE_STROKE_W} />
+        ) : (
+          <Path d={pathD} fill="none" stroke={lineRenderColors.lineStroke} strokeWidth={LINE_STROKE_W} />
+        ))}
 
         {/* X축 */}
         <Line x1={left} y1={top + ch + 0.5} x2={left+cw} y2={top + ch + 0.5} stroke={lineRenderColors.axisStroke} strokeWidth={LINE_AXIS_STROKE_W} />
@@ -1803,13 +1968,38 @@ const finalSafeNodePts = useMemo(() => {
         ) : null}
 
         {/* 마커/라벨 */}
-        {!selPoint && safeEndNode && (
+        {!selPoint && safeEndNode && (usesSharedLineIntro ? (
+          <ReanimatedSvgCircle cx={endPointX} animatedProps={animatedEndPointProps} r={EDGE_DEFAULT_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={EDGE_DEFAULT_MARKER_STROKE_W}/>
+        ) : (
           <Circle cx={safeEndNode.x} cy={safeEndNode.y} r={EDGE_DEFAULT_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={EDGE_DEFAULT_MARKER_STROKE_W}/>
-        )}
-        {selPoint && (
+        ))}
+        {selPoint && (usesSharedLineIntro ? (
+          <ReanimatedSvgCircle cx={selectedPointX} animatedProps={animatedSelectedPointProps} r={SELECTED_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={SELECTED_MARKER_STROKE_W}/>
+        ) : (
           <Circle cx={selPoint.x} cy={selPoint.y} r={SELECTED_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={SELECTED_MARKER_STROKE_W}/>
-        )}
-        {selPoint && selectedLabel && (() => {
+        ))}
+        {selPoint && selectedLabel && (usesSharedLineIntro ? (
+          <>
+            <ReanimatedSvgRect
+              x={selectedLabelX}
+              animatedProps={animatedSelectedRectProps}
+              width={selectedLabelSize.w}
+              height={selectedLabelSize.h}
+              rx={LINE_LABEL_RX}
+              fill={lineRenderColors.tooltipFill}
+            />
+            <ReanimatedSvgText
+              x={selectedLabelX + selectedLabelSize.w / 2}
+              animatedProps={animatedSelectedTextProps}
+              fill={lineRenderColors.tooltipText}
+              fontSize={LINE_LABEL_FONT_SIZE}
+              fontWeight="700"
+              textAnchor="middle"
+            >
+              {selectedLabel}
+            </ReanimatedSvgText>
+          </>
+        ) : (() => {
           const pos = placeLabel(selPoint, selectedLabel, selectedIdx === series.length - 1);
           return (
             <>
@@ -1819,8 +2009,29 @@ const finalSafeNodePts = useMemo(() => {
               </SvgText>
             </>
           );
-        })()}
-        {!selPoint && defaultLabel && safeEndNode && (() => {
+        })())}
+        {!selPoint && defaultLabel && safeEndNode && (usesSharedLineIntro ? (
+          <>
+            <ReanimatedSvgRect
+              x={defaultLabelX}
+              animatedProps={animatedDefaultRectProps}
+              width={defaultLabelSize.w}
+              height={defaultLabelSize.h}
+              rx={LINE_LABEL_RX}
+              fill={lineRenderColors.tooltipFill}
+            />
+            <ReanimatedSvgText
+              x={defaultLabelX + defaultLabelSize.w / 2}
+              animatedProps={animatedDefaultTextProps}
+              fill={lineRenderColors.tooltipText}
+              fontSize={LINE_LABEL_FONT_SIZE}
+              fontWeight="700"
+              textAnchor="middle"
+            >
+              {defaultLabel}
+            </ReanimatedSvgText>
+          </>
+        ) : (() => {
           const pos = placeLabel(safeEndNode, defaultLabel, true);
           return (
             <>
@@ -1830,7 +2041,7 @@ const finalSafeNodePts = useMemo(() => {
               </SvgText>
             </>
           );
-        })()}
+        })())}
 
         {/* 내장 페이저 점 */}
         {showPager && (
@@ -1933,6 +2144,8 @@ const LineFamilyCard = memo(function LineFamilyCard({
  emptyText = '데이터 없음',
  disabled = false,
  introProgress = 1,
+ lineIntroRunId = null,
+ lineIntroPhase = null,
  interactive = true,
  pagerIndex = 0,
  onSelectPagerIndex = () => {},
@@ -2011,6 +2224,8 @@ const LineFamilyCard = memo(function LineFamilyCard({
  width={chartWidth}
  height={chartHeight}
  introProgress={introProgress}
+ lineIntroRunId={lineIntroRunId}
+ lineIntroPhase={lineIntroPhase}
  interactive={!isEmpty && interactive && !disabled}
  pagerIndex={pagerIndex}
  onSelectPagerIndex={onSelectPagerIndex}
@@ -2070,7 +2285,8 @@ const DashboardLineChart = memo(function DashboardLineChart({
  startDate,
  entries,
  metric,
- introProgress = 1,
+ lineIntroRunId = null,
+ lineIntroPhase = null,
  interactive = true,
 }) {
  const isMinutes = metric === 'minutes';
@@ -2128,7 +2344,8 @@ const DashboardLineChart = memo(function DashboardLineChart({
  axisEndLabel={endAxisLabel}
  isEmpty={isEmpty}
  emptyText="데이터 없음"
- introProgress={introProgress}
+ lineIntroRunId={lineIntroRunId}
+ lineIntroPhase={lineIntroPhase}
  interactive={interactive}
  pagerIndex={isMinutes ? 1 : 0}
  showPager={false}
@@ -4292,7 +4509,8 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
           entries={entries}
           metric="count"
           interactive={!isShare}
-          introProgress={isShare ? undefined : introK}
+          lineIntroRunId={isShare ? null : lineIntroCommand.runId}
+          lineIntroPhase={isShare ? null : lineIntroCommand.phase}
         />
       );
     }
@@ -4304,7 +4522,8 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
           entries={entries}
           metric="minutes"
           interactive={!isShare}
-          introProgress={isShare ? undefined : introK}
+          lineIntroRunId={isShare ? null : lineIntroCommand.runId}
+          lineIntroPhase={isShare ? null : lineIntroCommand.phase}
         />
       );
     }
@@ -4381,6 +4600,10 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
   const [introK, setIntroK] = useState(0);
   const [donutK, setDonutK] = useState(1);
   const [weekK, setWeekK] = useState(1);
+  const [lineIntroCommand, setLineIntroCommand] = useState(() => ({
+    runId: 0,
+    phase: 'pending',
+  }));
   const [grassDashboardReturnTick, setGrassDashboardReturnTick] = useState(0);
  const [introReadyTick, setIntroReadyTick] = useState(0);
  const [reloadNonce, setReloadNonce] = useState(0);
@@ -4501,10 +4724,18 @@ const runWeek = useCallback(() => {
   const donutProgressK = introK * donutK;
   const weekProgressK = introK * weekK;
 
+  const updateLineIntro = useCallback((phase) => {
+    setLineIntroCommand((current) => ({
+      runId: current.runId + 1,
+      phase,
+    }));
+  }, []);
+
   const runAllIntro = useCallback(() => {
     cancelIntroAnimations();
     cancelWidgetTapAnimations();
     setAllWidgetTapK(1);
+    updateLineIntro('animate');
 
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
       setIntroK(1);
@@ -4514,7 +4745,7 @@ const runWeek = useCallback(() => {
     isIntroAnimatingRef.current = true;
     setIntroK(0);
     animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
-  }, [animateK, cancelIntroAnimations, cancelWidgetTapAnimations, setAllWidgetTapK, hasWeeklyDataReady, hasWeeklyBarData]);
+  }, [animateK, cancelIntroAnimations, cancelWidgetTapAnimations, setAllWidgetTapK, hasWeeklyDataReady, hasWeeklyBarData, updateLineIntro]);
 
   /* ── 디버그/리로드 ── */
   const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
@@ -4831,11 +5062,13 @@ const runWeek = useCallback(() => {
 
     if (normalizedMode === 'save') {
       setIntroK(0);
+      updateLineIntro('pending');
       setGrassDashboardReturnTick((tick) => tick + 1);
     } else {
       setIntroK(1);
+      updateLineIntro('complete');
     }
-  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap, cancelWidgetTapAnimations, setAllWidgetTapK]);
+  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap, cancelWidgetTapAnimations, setAllWidgetTapK, updateLineIntro]);
 
   // focus 해제 시 저장 복귀 skip ref 초기화
   useEffect(() => {
@@ -4876,11 +5109,13 @@ const runWeek = useCallback(() => {
             if (!dashboardReturnIntroHandledRef.current) {
               dashboardReturnIntroHandledRef.current = true;
               setIntroK(1);
+              updateLineIntro('complete');
             }
             return;
           }
 
           setIntroK(1);
+          updateLineIntro('complete');
           return;
         }
         runAllIntro();
@@ -4894,7 +5129,7 @@ const runWeek = useCallback(() => {
         task.cancel();
       }
     };
-  }, [isFocused, introReadyTick, dashboardLayoutReady, dashboardLayout.length, runAllIntro, navigation]);
+  }, [isFocused, introReadyTick, dashboardLayoutReady, dashboardLayout.length, runAllIntro, navigation, updateLineIntro]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -5173,7 +5408,8 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, introK, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, wideReflowFadeAnim
+    weekIndex, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, wideReflowFadeAnim,
+    lineIntroCommand.runId, lineIntroCommand.phase
   , dashboardLayout, dashboardRowGap,
     displayTitle, headerTitleContainerWidth
   ]);

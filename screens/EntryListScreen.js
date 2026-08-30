@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ScrollView,
+  FlatList,
   Share,
   Modal,
   TouchableWithoutFeedback,
@@ -1515,7 +1516,7 @@ const LineGradientChart = memo(function LineGradientChart({
     );
   }, [axisEndLabel, today]);
 
-  const nodePts = useMemo(()=>{
+  const finalNodePts = useMemo(()=>{
     const n = series.length;
     if (n===0) return [];
     const BOTTOM_PADDING_RATIO = 0.15;
@@ -1534,8 +1535,7 @@ const LineGradientChart = memo(function LineGradientChart({
       const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
       const yRatio = clamp(series[0].v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * usableCh;
-      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
-      return [{ x, y, v: series[0].v, d: series[0].d, sourceIdx: 0 }];
+      return [{ x, y: finalY, v: series[0].v, d: series[0].d, sourceIdx: 0 }];
     }
     const vmax = Math.max(1, ...series.map(p=>p.v));
     const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
@@ -1545,13 +1545,12 @@ const LineGradientChart = memo(function LineGradientChart({
       const x = left + xRatio * cw;
       const yRatio = clamp(p.v / yMax, 0, 1);
       const finalY = top + (1 - yRatio) * usableCh;
-      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
-      return { x, y, v: p.v, d: p.d, sourceIdx: idx };
+      return { x, y: finalY, v: p.v, d: p.d, sourceIdx: idx };
     });
-  }, [series, start, end, today, left, cw, top, ch, metric, introProgress, introBaselineY, hasSeriesOverride]);
+  }, [series, start, end, left, cw, top, ch, metric]);
 
-const safeNodePts = useMemo(() => {
- if (!Array.isArray(nodePts) || nodePts.length === 0) return [];
+const finalSafeNodePts = useMemo(() => {
+ if (!Array.isArray(finalNodePts) || finalNodePts.length === 0) return [];
 
  const minX = pointSafeInset;
  const maxX = width - pointSafeInset;
@@ -1564,15 +1563,15 @@ const safeNodePts = useMemo(() => {
    return a.y + (b.y - a.y) * t;
  };
 
- return nodePts.map((point, index) => {
+ return finalNodePts.map((point, index) => {
    const safeX = Math.min(Math.max(point.x, minX), maxX);
 
    if (Math.abs(safeX - point.x) < 0.001) {
      return point;
    }
 
-   const prev = nodePts[index - 1] || null;
-   const next = nodePts[index + 1] || null;
+   const prev = finalNodePts[index - 1] || null;
+   const next = finalNodePts[index + 1] || null;
 
    const yOnLine = safeX < point.x
      ? interpolateYOnSegment(prev, point, safeX, point.y)
@@ -1584,7 +1583,22 @@ const safeNodePts = useMemo(() => {
      y: yOnLine,
    };
  });
-}, [nodePts, pointSafeInset, width]);
+}, [finalNodePts, pointSafeInset, width]);
+
+  const animatePointY = useCallback((point) => ({
+    ...point,
+    y: introBaselineY - (introBaselineY - point.y) * introProgress,
+  }), [introBaselineY, introProgress]);
+
+  const nodePts = useMemo(
+    () => finalNodePts.map(animatePointY),
+    [finalNodePts, animatePointY],
+  );
+
+  const safeNodePts = useMemo(
+    () => finalSafeNodePts.map(animatePointY),
+    [finalSafeNodePts, animatePointY],
+  );
 
   const yScale = useCallback((v, vmax)=> {
     const BOTTOM_PADDING_RATIO = 0.15;
@@ -1600,11 +1614,7 @@ const safeNodePts = useMemo(() => {
     const n = series.length;
     if(n===0) return [];
     if (n===1) {
-      const vmax = Math.max(1, series[0].v);
-      const yMax = metric === 'count' ? Math.max(2, vmax + 1) : Math.max(10, vmax * 1.25);
-      const yRatio = clamp(series[0].v / yMax, 0, 1);
-      const finalY = top + (1 - yRatio) * ch * 0.85;
-      const y = introBaselineY - (introBaselineY - finalY) * introProgress;
+      const y = nodePts[0]?.y ?? introBaselineY;
       const xleft = left;
       return [
         {x:xleft-0.001, y, v:series[0].v, d:series[0].d, sourceIdx: 0},
@@ -1612,7 +1622,7 @@ const safeNodePts = useMemo(() => {
       ];
     }
     return nodePts;
-  }, [series, metric, top, ch, left, nodePts, introProgress, introBaselineY]);
+  }, [series, left, nodePts, introBaselineY]);
 
   const linePts = useMemo(() => {
     return safeNodePts.length >= 2 ? safeNodePts : pts;
@@ -2074,21 +2084,37 @@ const DashboardLineChart = memo(function DashboardLineChart({
  : '누적 선형';
 
  const hasEntries = Array.isArray(entries) && entries.length > 0;
- const hasDurationEntries = hasEntries && aggregateByDate(entries).some((item) => item.minutes > 0);
+ const aggregatedEntries = useMemo(() => aggregateByDate(entries), [entries]);
+ const hasDurationEntries = hasEntries && aggregatedEntries.some((item) => item.minutes > 0);
  const isEmpty = isMinutes ? !hasDurationEntries : !hasEntries;
 
- const today = new Date();
- today.setHours(0, 0, 0, 0);
+ const today = useMemo(() => {
+ const value = new Date();
+ value.setHours(0, 0, 0, 0);
+ return value;
+ }, []);
 
- const normalizedStartDate = startDate
+ const normalizedStartDate = useMemo(() => {
+ const value = startDate
  ? new Date(startDate)
  : new Date(today);
 
- if (isNaN(normalizedStartDate.getTime())) {
- normalizedStartDate.setTime(today.getTime());
+ if (isNaN(value.getTime())) {
+ value.setTime(today.getTime());
  }
 
- normalizedStartDate.setHours(0, 0, 0, 0);
+ value.setHours(0, 0, 0, 0);
+ return value;
+ }, [startDate, today]);
+
+ const startAxisLabel = useMemo(
+ () => formatLineAxisDate(normalizedStartDate),
+ [normalizedStartDate],
+ );
+ const endAxisLabel = useMemo(
+ () => 'Today ' + formatLineAxisDate(today),
+ [today],
+ );
 
  return (
  <LineFamilyCard
@@ -2098,8 +2124,8 @@ const DashboardLineChart = memo(function DashboardLineChart({
  entries={entries}
  metric={metric}
  graphId={graphId}
- axisStartLabel={formatLineAxisDate(normalizedStartDate)}
- axisEndLabel={'Today ' + formatLineAxisDate(today)}
+ axisStartLabel={startAxisLabel}
+ axisEndLabel={endAxisLabel}
  isEmpty={isEmpty}
  emptyText="데이터 없음"
  introProgress={introProgress}
@@ -3576,7 +3602,7 @@ export default function EntryListScreen({ route, navigation }) {
     readOnly = false,
   } = params;
 
-    const [hasStoredDashboardLayout, setHasStoredDashboardLayout] = useState(false);
+    const [dashboardLayoutReady, setDashboardLayoutReady] = useState(false);
 
 
 
@@ -3599,6 +3625,7 @@ export default function EntryListScreen({ route, navigation }) {
   useFocusEffect(
   useCallback(() => {
     let mounted = true;
+    setDashboardLayoutReady(false);
     const loadDashboardLayout = async () => {
       try {
         const [result, storedRowGap] = await Promise.all([
@@ -3631,6 +3658,10 @@ export default function EntryListScreen({ route, navigation }) {
         setDashboardRowGap(DASHBOARD_ROW_GAP_DEFAULT);
         setDashboardLayoutHasStored(false);
         setDashboardLayout(fallbackLayout.map((item) => ({ ...item })));
+      } finally {
+        if (mounted) {
+          setDashboardLayoutReady(true);
+        }
       }
     };
     loadDashboardLayout();
@@ -4389,7 +4420,7 @@ const setAllWidgetTapK = useCallback((nextValue) => {
         : 1 - Math.pow(-2 * t + 2, 3) / 2
     );
     const DUR = 900;
-    const MIN_SETTER_INTERVAL = 22;
+    const MIN_SETTER_INTERVAL = 16;
     const t0 = Date.now();
     let lastSetterAt = 0;
 
@@ -4519,6 +4550,30 @@ const runWeek = useCallback(() => {
     const start = new Date(startDateStr); start.setHours(0,0,0,0);
     const sd = start.getDay(); start.setDate(start.getDate() - sd); start.setHours(0,0,0,0);
 
+    const statsByDay = new Map();
+    for (const entry of list) {
+      const entryDate = new Date(entry.timestamp);
+      if (Number.isNaN(entryDate.getTime())) continue;
+
+      const dayKey = new Date(
+        entryDate.getFullYear(),
+        entryDate.getMonth(),
+        entryDate.getDate(),
+      ).getTime();
+      const current = statsByDay.get(dayKey) || {
+        duration: 0,
+        totalCount: 0,
+        durations: [],
+      };
+
+      current.totalCount += 1;
+      if (typeof entry.duration === 'number' && entry.duration > 0) {
+        current.duration += entry.duration;
+        current.durations.push(entry.duration);
+      }
+      statsByDay.set(dayKey, current);
+    }
+
     const now = new Date(); const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const td = todayMid.getDay();
     const thisSaturday = new Date(todayMid); thisSaturday.setDate(todayMid.getDate() + (6 - td));
@@ -4529,20 +4584,14 @@ const runWeek = useCallback(() => {
       const wsMid = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
       const dailyStats = Array(7).fill(null).map((_, i) => {
         const dayStart = new Date(wsMid); dayStart.setDate(wsMid.getDate() + i);
-        const dayEnd = new Date(dayStart); dayEnd.setDate(dayStart.getDate() + 1);
-        const dailyEntries = list.filter(e => {
-          const d = new Date(e.timestamp);
-          return d >= dayStart && d < dayEnd;
-        });
-        const timedEntries = dailyEntries.filter(e => typeof e.duration === 'number' && e.duration > 0);
-        const durations = timedEntries.map(e => e.duration);
-        const durationSum = durations.reduce((sum, v) => sum + v, 0);
+        const dayStats = statsByDay.get(dayStart.getTime());
+        const durations = dayStats?.durations || [];
 
         return {
           date: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
-          duration: durationSum,
+          duration: dayStats?.duration || 0,
           countTimed: durations.length,
-          totalCount: dailyEntries.length,
+          totalCount: dayStats?.totalCount || 0,
           durations,
         };
       });
@@ -4798,9 +4847,10 @@ const runWeek = useCallback(() => {
     dashboardReturnIntroHandledRef.current = false;
   }, [isFocused]);
 
-  // 인트로 애니메이션 — 데이터·레이아웃 준비 + InteractionManager + 320ms 안정화 후 실행
+  // 인트로 애니메이션 — 데이터·저장 레이아웃 준비 후 한 번만 실행
   useEffect(() => {
     if (!isFocused || introReadyTick === 0) return;
+    if (!dashboardLayoutReady) return;
     if (!Array.isArray(dashboardLayout) || dashboardLayout.length === 0) return;
 
     let cancelled = false;
@@ -4844,7 +4894,7 @@ const runWeek = useCallback(() => {
         task.cancel();
       }
     };
-  }, [isFocused, introReadyTick, dashboardLayout.length, runAllIntro, navigation]);
+  }, [isFocused, introReadyTick, dashboardLayoutReady, dashboardLayout.length, runAllIntro, navigation]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -5175,6 +5225,41 @@ const runWeek = useCallback(() => {
     }
   }, [ meta.title, offscreenRenderReady ]);
 
+  const renderEntryItem = useCallback(({ item, index }) => {
+    const indexFromEnd = sortedEntries.length - index;
+    const onPress = readOnly ? undefined : () =>
+      navigation.navigate('EntryDetail', { challengeId, entryId: item.id, title: displayTitle });
+
+    if (isWideDashboardLayout) {
+      return (
+        <View
+          style={[
+            styles.entryGridItemWide,
+            index % 2 === 0 ? styles.entryGridItemWideLeft : styles.entryGridItemWideRight,
+          ]}
+        >
+          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
+        </View>
+      );
+    }
+
+    return (
+      <View>
+        <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
+        <View style={[styles.separator, styles.sectionPadNarrow]} />
+      </View>
+    );
+  }, [challengeId, displayTitle, isWideDashboardLayout, navigation, readOnly, sortedEntries.length]);
+
+  const entryKeyExtractor = useCallback(
+    (item, index) => String(item?.id ?? `${item?.timestamp ?? 0}-${index}`),
+    [],
+  );
+
+  const handleEntryListLayout = useCallback((event) => {
+    setEntryListFrameWidth(event.nativeEvent.layout.width || 0);
+  }, []);
+
   /* ── RAW 모드 ── */
   if (KILL_UI_AND_SHOW_RAW) {
     return (
@@ -5275,15 +5360,24 @@ const runWeek = useCallback(() => {
       </Modal>
 
       {/* 스크롤 콘텐츠 */}
-      <ScrollView
-        key={`entry-list-scroll-${entryListLayoutKey}-${isWideDashboardLayout ? 'wide' : 'normal'}`}
+      <FlatList
+        key={isWideDashboardLayout ? 'entry-list-wide' : 'entry-list-normal'}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
-        onLayout={(event) => setEntryListFrameWidth(event.nativeEvent.layout.width || 0)}
-      >
-        <ViewShot ref={shareRef} style={{ width: '100%' }} options={{ format: 'png', quality: 1 }}>
+        onLayout={handleEntryListLayout}
+        data={sortedEntries}
+        renderItem={renderEntryItem}
+        keyExtractor={entryKeyExtractor}
+        numColumns={isWideDashboardLayout ? 2 : 1}
+        columnWrapperStyle={isWideDashboardLayout ? styles.entryGridWide : undefined}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={32}
+        windowSize={7}
+        ListHeaderComponent={(
+          <ViewShot ref={shareRef} style={{ width: '100%' }} options={{ format: 'png', quality: 1 }}>
           <View collapsable={false} style={{ width: '100%', backgroundColor: '#fff' }}>
         <HeaderWithCountMemo HeaderCard={HeaderCard} />
 
@@ -5301,47 +5395,12 @@ const runWeek = useCallback(() => {
           <View style={{ height: EDGE }} />
           </View>
         </ViewShot>
-
-{/* 인증목록 */}
-{sortedEntries.length === 0 ? (
-  <Text style={[styles.empty, styles.sectionPadNarrow]}>등록된 인증이 없습니다.</Text>
-) : isWideDashboardLayout ? (
-  <View key={`entry-grid-wide-${entryListLayoutKey}`} style={styles.entryGridWide}>
-    {sortedEntries.map((item, index) => {
-      const indexFromEnd = sortedEntries.length - index;
-      const onPress = readOnly ? undefined : () =>
-        navigation.navigate('EntryDetail', { challengeId, entryId: item.id, title: displayTitle });
-
-      return (
-        <View
-          key={item?.id ?? `${item?.timestamp ?? 0}-${index}`}
-          style={[
-            styles.entryGridItemWide,
-            index % 2 === 0 ? styles.entryGridItemWideLeft : styles.entryGridItemWideRight,
-          ]}
-        >
-          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
-        </View>
-      );
-    })}
-  </View>
-) : (
-  sortedEntries.map((item, index) => {
-    const indexFromEnd = sortedEntries.length - index;
-    const onPress = readOnly ? undefined : () =>
-      navigation.navigate('EntryDetail', { challengeId, entryId: item.id, title: displayTitle });
-    return (
-      <React.Fragment key={item?.id ?? `${item?.timestamp ?? 0}-${index}`}>
-        {/* entry 스타일이 이미 NARROW_PLUS 반영됨 */}
-        <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
-        <View style={[styles.separator, styles.sectionPadNarrow]} />
-      </React.Fragment>
-    );
-  })
-)}
-
-        <View style={{ height: insets.bottom + 24 }} />
-      </ScrollView>
+        )}
+        ListEmptyComponent={(
+          <Text style={[styles.empty, styles.sectionPadNarrow]}>등록된 인증이 없습니다.</Text>
+        )}
+        ListFooterComponent={<View style={{ height: insets.bottom + 24 }} />}
+      />
 
             {!readOnly && (
         <TouchableOpacity
@@ -5796,8 +5855,6 @@ rewardBlockSpacing: {
   separator: { height: 1, backgroundColor: '#F3F4F6' },
 
   entryGridWide: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     paddingHorizontal: EDGE + NARROW_PLUS,
   },
   entryGridItemWide: {

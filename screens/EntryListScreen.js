@@ -52,6 +52,7 @@ import Svg,
 import Reanimated, {
   Easing as ReanimatedEasing,
   useAnimatedProps,
+  useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
   withTiming,
@@ -2643,11 +2644,138 @@ const DashboardGoalWidget = memo(function DashboardGoalWidget({
  );
 });
 
+const WeeklyAnimatedBarSegment = memo(function WeeklyAnimatedBarSegment({
+  progress,
+  finalHeight,
+  segmentCount,
+  segmentGap,
+  ratio,
+  width,
+  radius: segmentRadius,
+  color: segmentColor,
+  isLast,
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const height = finalHeight * progress.value;
+    const available = Math.max(
+      height - segmentGap * (segmentCount - 1),
+      2 * segmentCount,
+    );
+    return { height: Math.max(4, ratio * available) };
+  }, [finalHeight, ratio, segmentCount, segmentGap]);
+
+  return (
+    <Reanimated.View
+      style={[
+        {
+          width,
+          borderRadius: segmentRadius,
+          marginBottom: isLast ? 0 : segmentGap,
+          backgroundColor: segmentColor,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+});
+
+const WeeklyAnimatedBarGeometry = memo(function WeeklyAnimatedBarGeometry({
+  progress,
+  finalHeight,
+  segmentRatios,
+  segmentGap,
+  width,
+  radius: barRadius,
+  color: barColor,
+  verticalGap,
+}) {
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    height: finalHeight * progress.value,
+  }), [finalHeight]);
+
+  return (
+    <Reanimated.View
+      style={[
+        {
+          marginVertical: verticalGap,
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+        },
+        animatedContainerStyle,
+      ]}
+    >
+      {segmentRatios.length <= 1 ? (
+        <View style={{
+          width,
+          height: '100%',
+          borderRadius: barRadius,
+          backgroundColor: barColor,
+        }} />
+      ) : segmentRatios.map((ratio, index) => (
+        <WeeklyAnimatedBarSegment
+          key={index}
+          progress={progress}
+          finalHeight={finalHeight}
+          segmentCount={segmentRatios.length}
+          segmentGap={segmentGap}
+          ratio={ratio}
+          width={width}
+          radius={barRadius}
+          color={barColor}
+          isLast={index === segmentRatios.length - 1}
+        />
+      ))}
+    </Reanimated.View>
+  );
+});
+
+const WeeklyAnimatedGoalLine = memo(function WeeklyAnimatedGoalLine({
+  progress,
+  finalBarHeight,
+  barTopGap,
+  barRowHeight,
+  countLineHeight,
+  verticalGap,
+  rowOffsetX,
+  rowWidth,
+  lineColor,
+  children,
+}) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    top: barTopGap + Math.max(
+      0,
+      barRowHeight - countLineHeight - verticalGap - finalBarHeight * progress.value,
+    ),
+  }), [barRowHeight, barTopGap, countLineHeight, finalBarHeight, verticalGap]);
+
+  return (
+    <Reanimated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          left: rowOffsetX,
+          width: rowWidth,
+          height: 1,
+          backgroundColor: lineColor,
+          opacity: 0.78,
+        },
+        animatedStyle,
+      ]}
+    >
+      {children}
+    </Reanimated.View>
+  );
+});
+
 const WeekView = memo(function WeekView({
   weeksData,
   currentIndex = 0,
   onIndexChange,
   introProgress = 1,
+  weekIntroRunId = null,
+  weekIntroPhase = null,
+  weekIntroTargetIndex = null,
   onPressDay,
   onTapBar,
   challengeStartDate,
@@ -2666,6 +2794,61 @@ const WeekView = memo(function WeekView({
   const [pageW, setPageW] = useState(0);
   const [viewH, setViewH] = useState(168);
   const [weekDateTextWidth, setWeekDateTextWidth] = useState(34);
+  const usesSharedWeekIntro = Number.isFinite(weekIntroRunId) && (
+    weekIntroPhase === 'pending' ||
+    weekIntroPhase === 'animate' ||
+    weekIntroPhase === 'complete'
+  );
+  const resolvedWeekIntroTargetIndex = Number.isInteger(weekIntroTargetIndex)
+    ? weekIntroTargetIndex
+    : weekIntroPhase === 'pending'
+    ? currentIndex
+    : null;
+  const weekIntroProgress = useSharedValue(
+    usesSharedWeekIntro && weekIntroPhase !== 'complete' ? 0 : 1,
+  );
+
+  useEffect(() => {
+    if (!usesSharedWeekIntro) {
+      const fallbackProgress = Number(introProgress);
+      weekIntroProgress.value = Number.isFinite(fallbackProgress)
+        ? Math.max(0, Math.min(1, fallbackProgress))
+        : 1;
+      return;
+    }
+
+    if (weekIntroPhase === 'animate') {
+      weekIntroProgress.value = 0;
+      weekIntroProgress.value = withTiming(1, {
+        duration: 900,
+        easing: ReanimatedEasing.inOut(ReanimatedEasing.cubic),
+      });
+      return;
+    }
+
+    weekIntroProgress.value = weekIntroPhase === 'complete' ? 1 : 0;
+  }, [
+    introProgress,
+    usesSharedWeekIntro,
+    weekIntroPhase,
+    weekIntroProgress,
+    weekIntroRunId,
+  ]);
+
+  useEffect(() => {
+    if (
+      usesSharedWeekIntro &&
+      Number.isInteger(resolvedWeekIntroTargetIndex) &&
+      currentIndex !== resolvedWeekIntroTargetIndex
+    ) {
+      weekIntroProgress.value = 1;
+    }
+  }, [
+    currentIndex,
+    resolvedWeekIntroTargetIndex,
+    usesSharedWeekIntro,
+    weekIntroProgress,
+  ]);
 
   const recordWeekDateTextWidth = useCallback((event) => {
     const width = Math.ceil(event?.nativeEvent?.layout?.width || 0);
@@ -3033,6 +3216,14 @@ return (
 
 const renderWeek = useCallback(({ dailyStats }, idx) => {
     const isStepValueMode = valueMode === 'steps';
+    const shouldAnimateCurrentWeek = (
+      usesSharedWeekIntro &&
+      idx === currentIndex &&
+      idx === resolvedWeekIntroTargetIndex
+    );
+    const staticIntroProgress = usesSharedWeekIntro
+      ? 1
+      : Math.max(0, Math.min(1, Number(introProgress) || 0));
     const primaryValueOf = (stat) => Math.max(
      0,
      Number(isStepValueMode ? stat?.steps : stat?.duration) || 0
@@ -3044,12 +3235,13 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
     );
     const maxCount = Math.max(...dailyStats.map(s => s.totalCount || 0), 1);
 
-    const weeklyGoalBarHeight = hasGoalLine
+    const finalWeeklyGoalBarHeight = hasGoalLine
      ? Math.min(
       (normalizedGoalValue / maxTime) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
       WEEK_BAR_VALUE_MAX_H
-     ) * introProgress
+     )
      : 0;
+    const weeklyGoalBarHeight = finalWeeklyGoalBarHeight * staticIntroProgress;
 
     const weeklyGoalLineTop = (
      WEEK_BAR_TOP_GAP +
@@ -3091,24 +3283,31 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
               );
             }
 
-            const hTime = hasTime
+            const finalTimeHeight = hasTime
               ? Math.min(
                 (primaryValue / maxTime) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
                 WEEK_BAR_VALUE_MAX_H
-              ) * introProgress
+              )
               : 0;
-            const hCount = (!hasTime && hasCount)
+            const finalCountHeight = (!hasTime && hasCount)
               ? Math.min(
                 (stat.totalCount / maxCount) * WEEK_BAR_VALUE_RANGE_H + WEEK_BAR_VALUE_BASE_H,
                 WEEK_BAR_VALUE_MAX_H
-              ) * introProgress
+              )
               : 0;
+            const hTime = finalTimeHeight * staticIntroProgress;
+            const hCount = finalCountHeight * staticIntroProgress;
 
             if (hasTime) {
               const segDurations = isStepValueMode
                ? (primaryValue > 0 ? [primaryValue] : [])
                : (Array.isArray(stat.durations) ? stat.durations : []);
               const totalSegDur = segDurations.reduce((a, b) => a + b, 0);
+              const segmentRatios = segDurations.map((duration) => (
+                totalSegDur > 0
+                  ? duration / totalSegDur
+                  : 1 / Math.max(segDurations.length, 1)
+              ));
               const primaryLabel = typeof formatPrimaryValue === 'function'
                ? formatPrimaryValue(primaryValue, stat, i)
                : `${primaryValue}분`;
@@ -3119,8 +3318,20 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
               return (
                 <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
                   <Text style={[styles.barText, { fontSize: WEEK_BAR_TEXT_FONT_SIZE, lineHeight: WEEK_BAR_TEXT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{primaryLabel}</Text>
-                  <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
-                    {(() => {
+                  {shouldAnimateCurrentWeek ? (
+                    <WeeklyAnimatedBarGeometry
+                      progress={weekIntroProgress}
+                      finalHeight={finalTimeHeight}
+                      segmentRatios={segmentRatios}
+                      segmentGap={weeklyRenderLayout.segmentGap}
+                      width={WEEK_BAR_W}
+                      radius={weeklyRenderLayout.barRadius}
+                      color={weeklyRenderColors.durationBarFill}
+                      verticalGap={WEEK_BAR_VERTICAL_GAP}
+                    />
+                  ) : (
+                    <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hTime, justifyContent:'flex-end', alignItems:'center' }}>
+                      {(() => {
                       if (segDurations.length <= 1) {
                         return <View style={[styles.bar, { width: WEEK_BAR_W, height: hTime, borderRadius: weeklyRenderLayout.barRadius, backgroundColor: weeklyRenderColors.durationBarFill }]} />;
                       }
@@ -3137,19 +3348,36 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
                           }}/>
                         );
                       });
-                    })()}
-                  </View>
+                      })()}
+                    </View>
+                  )}
                   <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{secondaryLabel}</Text>
                 </View>
               );
             }
 
             const segCount = stat.totalCount || 0;
+            const countSegmentRatios = Array.from(
+              { length: segCount },
+              () => 1 / Math.max(segCount, 1),
+            );
             return (
               <View key={i} style={{ width: COL_W, alignItems:'center', justifyContent:'flex-end' }}>
                 <Text style={[styles.barText, { fontSize: WEEK_BAR_TEXT_FONT_SIZE, lineHeight: WEEK_BAR_TEXT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{' '}</Text>
-                <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hCount, justifyContent:'flex-end', alignItems:'center' }}>
-                  {(() => {
+                {shouldAnimateCurrentWeek ? (
+                  <WeeklyAnimatedBarGeometry
+                    progress={weekIntroProgress}
+                    finalHeight={finalCountHeight}
+                    segmentRatios={countSegmentRatios}
+                    segmentGap={weeklyRenderLayout.segmentGap}
+                    width={WEEK_BAR_W}
+                    radius={weeklyRenderLayout.barRadius}
+                    color={weeklyRenderColors.countBarFill}
+                    verticalGap={WEEK_BAR_VERTICAL_GAP}
+                  />
+                ) : (
+                  <View style={{ marginVertical: WEEK_BAR_VERTICAL_GAP, height: hCount, justifyContent:'flex-end', alignItems:'center' }}>
+                    {(() => {
                     const segGap = weeklyRenderLayout.segmentGap;
                     const available = Math.max(hCount - segGap * (segCount - 1), 2 * segCount);
                     const segH = Math.max(4, available / segCount);
@@ -3160,15 +3388,45 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
                         backgroundColor: weeklyRenderColors.countBarFill,
                       }}/>
                     ));
-                  })()}
-                </View>
+                    })()}
+                  </View>
+                )}
                 <Text style={[styles.countLabel, { fontSize: WEEK_COUNT_FONT_SIZE, lineHeight: WEEK_COUNT_LINE_H, includeFontPadding: false }, isTodayBar && WEEK_TODAY_TEXT_STYLE]}>{`${stat.totalCount}회`}</Text>
               </View>
             );
           })}
         </TouchableOpacity>
 
-        {hasGoalLine ? (
+        {hasGoalLine ? (shouldAnimateCurrentWeek ? (
+         <WeeklyAnimatedGoalLine
+          progress={weekIntroProgress}
+          finalBarHeight={finalWeeklyGoalBarHeight}
+          barTopGap={WEEK_BAR_TOP_GAP}
+          barRowHeight={WEEK_BAR_ROW_HEIGHT}
+          countLineHeight={WEEK_COUNT_LINE_H}
+          verticalGap={WEEK_BAR_VERTICAL_GAP}
+          rowOffsetX={ROW_OFFSET_X}
+          rowWidth={ROW_W}
+          lineColor={weeklyRenderColors.countBarFill}
+         >
+          <Text
+           numberOfLines={1}
+           style={{
+            position: 'absolute',
+            right: 0,
+            top: -13,
+            color: weeklyRenderColors.text,
+            fontSize: scaleWeek(9, 8.5, 10),
+            lineHeight: 12,
+            fontWeight: '800',
+            textAlign: 'right',
+            includeFontPadding: false,
+           }}
+          >
+           {normalizedGoalLabel}
+          </Text>
+         </WeeklyAnimatedGoalLine>
+        ) : (
          <View
           pointerEvents="none"
           style={{
@@ -3198,10 +3456,10 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
            {normalizedGoalLabel}
           </Text>
          </View>
-        ) : null}
+        )) : null}
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE, weeklyRenderColors, weeklyRenderLayout, WEEK_BAR_W, valueMode, formatPrimaryValue, formatSecondaryValue, hasGoalLine, normalizedGoalValue, normalizedGoalLabel]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE, weeklyRenderColors, weeklyRenderLayout, WEEK_BAR_W, valueMode, formatPrimaryValue, formatSecondaryValue, hasGoalLine, normalizedGoalValue, normalizedGoalLabel, currentIndex, resolvedWeekIntroTargetIndex, usesSharedWeekIntro, weekIntroProgress]);
 
   useEffect(() => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;
@@ -4600,7 +4858,9 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
             weeksData={weeksData}
             currentIndex={weekIndex}
             onIndexChange={isShare ? undefined : setWeekIndex}
-            introProgress={isShare ? undefined : (hasWeeklyDataReady && !hasWeeklyBarData ? 1 : weekProgressK)}
+            weekIntroRunId={isShare ? null : weekIntroCommand.runId}
+            weekIntroPhase={isShare ? null : weekIntroCommand.phase}
+            weekIntroTargetIndex={isShare ? null : weekIntroCommand.targetIndex}
             onPressDay={isShare ? undefined : handlePressDay}
             onTapBar={isShare ? undefined : runWeek}
             challengeStartDate={meta.startDate}
@@ -4703,13 +4963,13 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
   const grassTapRef = useRef(null);
   const wideReflowFadeAnim = useRef(new Animated.Value(1)).current;
   const previousWideLayoutRef = useRef(isWideDashboardLayout);
+  const weekIndexRef = useRef(weekIndex);
+  weekIndexRef.current = weekIndex;
   const isIntroAnimatingRef = useRef(false);
   const isDonutTapAnimatingRef = useRef(false);
-  const isWeekTapAnimatingRef = useRef(false);
   const isGrassAnimatingRef = useRef(false);
   const introAnimFrameRef = useRef(null);
   const donutTapAnimFrameRef = useRef(null);
-  const weekTapAnimFrameRef = useRef(null);
   const skipDashboardReturnIntroRef = useRef(false);
   const skipDashboardReturnReloadRef = useRef(false);
   const dashboardReturnSuppressUntilRef = useRef(0);
@@ -4720,7 +4980,11 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
   /* ── 인트로 애니메이션 ── */
   const [introK, setIntroK] = useState(0);
   const [donutK, setDonutK] = useState(1);
-  const [weekK, setWeekK] = useState(1);
+  const [weekIntroCommand, setWeekIntroCommand] = useState(() => ({
+    runId: 0,
+    phase: 'pending',
+    targetIndex: null,
+  }));
   const [lineIntroCommand, setLineIntroCommand] = useState(() => ({
     runId: 0,
     phase: 'pending',
@@ -4743,14 +5007,11 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
 
 const cancelWidgetTapAnimations = useCallback(() => {
     cancelKFrame(donutTapAnimFrameRef);
-    cancelKFrame(weekTapAnimFrameRef);
     isDonutTapAnimatingRef.current = false;
-    isWeekTapAnimatingRef.current = false;
   }, [cancelKFrame]);
 
-const setAllWidgetTapK = useCallback((nextValue) => {
+const setDonutTapK = useCallback((nextValue) => {
     setDonutK(nextValue);
-    setWeekK(nextValue);
   }, []);
 
   const animateK = useCallback((setter, onDone, frameRef = null) => {
@@ -4828,22 +5089,41 @@ const hasWeeklyBarData = useMemo(() => (
 
 const runWeek = useCallback(() => {
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
-      setWeekK(1);
+      setWeekIntroCommand((current) => ({
+        runId: current.runId + 1,
+        phase: 'complete',
+        targetIndex: weekIndex,
+      }));
       return;
     }
 
-    runTapAnimation(setWeekK, weekTapAnimFrameRef, isWeekTapAnimatingRef);
-  }, [hasWeeklyDataReady, hasWeeklyBarData, runTapAnimation]);
+    setWeekIntroCommand((current) => ({
+      runId: current.runId + 1,
+      phase: 'animate',
+      targetIndex: weekIndex,
+    }));
+  }, [hasWeeklyDataReady, hasWeeklyBarData, weekIndex]);
 
   useEffect(() => {
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
-      setWeekK(1);
+      setWeekIntroCommand((current) => ({
+        runId: current.runId + 1,
+        phase: 'complete',
+        targetIndex: weekIndexRef.current,
+      }));
       setIntroK(1);
     }
   }, [hasWeeklyDataReady, hasWeeklyBarData]);
 
   const donutProgressK = introK * donutK;
-  const weekProgressK = introK * weekK;
+
+  const updateWeekIntro = useCallback((phase) => {
+    setWeekIntroCommand((current) => ({
+      runId: current.runId + 1,
+      phase,
+      targetIndex: weekIndexRef.current,
+    }));
+  }, []);
 
   const updateLineIntro = useCallback((phase) => {
     setLineIntroCommand((current) => ({
@@ -4855,18 +5135,20 @@ const runWeek = useCallback(() => {
   const runAllIntro = useCallback(() => {
     cancelIntroAnimations();
     cancelWidgetTapAnimations();
-    setAllWidgetTapK(1);
+    setDonutTapK(1);
     updateLineIntro('animate');
 
     if (hasWeeklyDataReady && !hasWeeklyBarData) {
+      updateWeekIntro('complete');
       setIntroK(1);
       return;
     }
 
+    updateWeekIntro('animate');
     isIntroAnimatingRef.current = true;
     setIntroK(0);
     animateK(setIntroK, () => { isIntroAnimatingRef.current = false; }, introAnimFrameRef);
-  }, [animateK, cancelIntroAnimations, cancelWidgetTapAnimations, setAllWidgetTapK, hasWeeklyDataReady, hasWeeklyBarData, updateLineIntro]);
+  }, [animateK, cancelIntroAnimations, cancelWidgetTapAnimations, setDonutTapK, hasWeeklyDataReady, hasWeeklyBarData, updateLineIntro, updateWeekIntro]);
 
   /* ── 디버그/리로드 ── */
   const [debug, setDebug] = useState({ hitKey:null, tried:[], count:0 });
@@ -5179,17 +5461,19 @@ const runWeek = useCallback(() => {
     skipDashboardReturnReloadRef.current = true;
 
     cancelWidgetTapAnimations();
-    setAllWidgetTapK(1);
+    setDonutTapK(1);
 
     if (normalizedMode === 'save') {
       setIntroK(0);
       updateLineIntro('pending');
+      updateWeekIntro('pending');
       setGrassDashboardReturnTick((tick) => tick + 1);
     } else {
       setIntroK(1);
       updateLineIntro('complete');
+      updateWeekIntro('complete');
     }
-  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap, cancelWidgetTapAnimations, setAllWidgetTapK, updateLineIntro]);
+  }, [dashboardEditReturnMode, dashboardEditReturnedAt, dashboardEditLayout, dashboardEditRowGap, cancelWidgetTapAnimations, setDonutTapK, updateLineIntro, updateWeekIntro]);
 
   // focus 해제 시 저장 복귀 skip ref 초기화
   useEffect(() => {
@@ -5231,12 +5515,14 @@ const runWeek = useCallback(() => {
               dashboardReturnIntroHandledRef.current = true;
               setIntroK(1);
               updateLineIntro('complete');
+              updateWeekIntro('complete');
             }
             return;
           }
 
           setIntroK(1);
           updateLineIntro('complete');
+          updateWeekIntro('complete');
           return;
         }
         runAllIntro();
@@ -5250,7 +5536,7 @@ const runWeek = useCallback(() => {
         task.cancel();
       }
     };
-  }, [isFocused, introReadyTick, dashboardLayoutReady, dashboardLayout.length, runAllIntro, navigation, updateLineIntro]);
+  }, [isFocused, introReadyTick, dashboardLayoutReady, dashboardLayout.length, runAllIntro, navigation, updateLineIntro, updateWeekIntro]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -5529,8 +5815,9 @@ const runWeek = useCallback(() => {
     </View>
   ), [meta.title, meta.startDate, meta.endDate,
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
-    weekIndex, donutProgressK, weekProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, wideReflowFadeAnim,
-    lineIntroCommand.runId, lineIntroCommand.phase
+    weekIndex, donutProgressK, entries, overallPct, highlightDate, isWideDashboardLayout, wideReflowFadeAnim,
+    lineIntroCommand.runId, lineIntroCommand.phase,
+    weekIntroCommand.runId, weekIntroCommand.phase, weekIntroCommand.targetIndex
   , dashboardLayout, dashboardRowGap,
     displayTitle, headerTitleContainerWidth
   ]);

@@ -43,7 +43,10 @@ import Svg,
   Text as SvgText,
   Path,
   Defs,
+  G,
   LinearGradient,
+  Mask,
+  Pattern,
   Stop,
   } from 'react-native-svg';
 import Reanimated, {
@@ -3320,6 +3323,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
 });
 
 const GRASS_ROWS = 7;
+const GRASS_WAVE_COLS = 60;
 const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_SHOW = [1, 3, 5]; // Mon, Wed, Fri
 
@@ -3331,12 +3335,10 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     width: SCREEN_WIDTH - EDGE * 2,
     height: 124,
   });
-  const [waveIntensity, setWaveIntensity] = useState(() => new Array(60 * 7).fill(0));
-  const sparkTimersRef = React.useRef([]);
   const grassScrollRef = useRef(null);
-  const waveRafRef = React.useRef(null);
   const [waveTrigger, setWaveTrigger] = useState(0);
   const [scrollPos, setScrollPos] = useState({ x: 0, w: 0 });
+  const wavePosition = useSharedValue(0);
 
   const onLayout = useCallback((e) => {
     const w = Math.floor(e?.nativeEvent?.layout?.width || 0);
@@ -3364,43 +3366,19 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   }, [dashboardReturnTrigger]);
 
   useEffect(() => {
-    sparkTimersRef.current.forEach(t => clearTimeout(t));
-    sparkTimersRef.current = [];
-    if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
+    const totalRows = grassRenderLayout.rows;
+    const waveWidth = grassRenderLayout.waveWidth;
+    const waveSpeed = grassRenderLayout.waveSpeed;
+    const diagonal = grassRenderLayout.waveDiagonal;
+    const endPosition = GRASS_WAVE_COLS + waveWidth + totalRows * diagonal;
+    const duration = waveSpeed > 0 ? endPosition / waveSpeed : 0;
 
-    const TOTAL_COLS = 60;
-    const TOTAL_ROWS = grassRenderLayout.rows;
-    const WAVE_WIDTH = grassRenderLayout.waveWidth;
-    const WAVE_SPEED = grassRenderLayout.waveSpeed;
-    const DIAGONAL = grassRenderLayout.waveDiagonal;
-    const startTime = performance.now();
-
-    const tick = (now) => {
-      const elapsed = now - startTime;
-      const wavePos = elapsed * WAVE_SPEED;
-      if (wavePos > TOTAL_COLS + WAVE_WIDTH + TOTAL_ROWS * DIAGONAL) {
-        setWaveIntensity(new Array(TOTAL_COLS * TOTAL_ROWS).fill(0));
-        return;
-      }
-      const intensities = new Array(TOTAL_COLS * TOTAL_ROWS).fill(0);
-      for (let col = 0; col < TOTAL_COLS; col++) {
-        for (let row = 0; row < TOTAL_ROWS; row++) {
-          const diagOffset = row * DIAGONAL;
-          const dist = Math.abs((col + diagOffset) - wavePos);
-          if (dist < WAVE_WIDTH) {
-            intensities[col * TOTAL_ROWS + row] = Math.sin((1 - dist / WAVE_WIDTH) * Math.PI * 0.5);
-          }
-        }
-      }
-      setWaveIntensity(intensities);
-      waveRafRef.current = requestAnimationFrame(tick);
-    };
-    waveRafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
-      sparkTimersRef.current.forEach(t => clearTimeout(t));
-    };
-  }, [waveTrigger, grassRenderLayout]);
+    wavePosition.value = 0;
+    wavePosition.value = withTiming(endPosition, {
+      duration,
+      easing: ReanimatedEasing.linear,
+    });
+  }, [grassRenderLayout, wavePosition, waveTrigger]);
 
   const containerWidth = Math.max(1, containerSize.width);
   const containerHeight = Math.max(1, containerSize.height);
@@ -3511,13 +3489,98 @@ const GRASS_ARROW_SIZE = scaleGrass(grassRenderLayout.arrowSize, 12, 18);
     const graphWidth = totalCols * colUnit - CELL_GAP;
     const contentWidth = contentCols * colUnit - CELL_GAP;
     const canScrollGrass = contentWidth > containerWidth + 1;
-  const LEVEL_COLORS = [
+  const levelColors = useMemo(() => [
     grassRenderColors.level0,
     grassRenderColors.level1,
     grassRenderColors.level2,
     grassRenderColors.level3,
     grassRenderColors.level4,
-  ];
+  ], [
+    grassRenderColors.level0,
+    grassRenderColors.level1,
+    grassRenderColors.level2,
+    grassRenderColors.level3,
+    grassRenderColors.level4,
+  ]);
+  const cellLevels = useMemo(() => {
+    const levels = new Array(totalCols * GRASS_ROWS).fill(0);
+    for (const cell of cellData) {
+      if (cell.col < totalCols && cell.row < GRASS_ROWS) {
+        levels[cell.col * GRASS_ROWS + cell.row] = cell.level;
+      }
+    }
+    return levels;
+  }, [cellData, totalCols]);
+
+  const gridHeight = GRASS_ROWS * cellSize + (GRASS_ROWS - 1) * CELL_GAP;
+  const waveColumnCount = Math.min(totalCols, GRASS_WAVE_COLS);
+  const waveMaskWidth = Math.min(
+    graphWidth,
+    GRASS_WAVE_COLS * colUnit - CELL_GAP,
+  );
+  const grassWaveIdBase = useMemo(
+    () => String(graphId || 'grass').replace(/[^a-zA-Z0-9_-]/g, '-'),
+    [graphId],
+  );
+  const grassWavePatternId = `grass-wave-pattern-${grassWaveIdBase}`;
+  const grassWaveMaskId = `grass-wave-mask-${grassWaveIdBase}`;
+  const waveCellPaths = useDerivedValue(() => {
+    const waveWidth = grassRenderLayout.waveWidth;
+    const diagonal = grassRenderLayout.waveDiagonal;
+    const wavePos = wavePosition.value;
+    let low = '';
+    let mid = '';
+    let high = '';
+    let peak = '';
+
+    for (let row = 0; row < GRASS_ROWS; row += 1) {
+      const centerCol = wavePos - row * diagonal;
+      const firstCol = Math.max(0, Math.floor(centerCol - waveWidth));
+      const lastCol = Math.min(
+        waveColumnCount - 1,
+        Math.ceil(centerCol + waveWidth),
+      );
+
+      for (let col = firstCol; col <= lastCol; col += 1) {
+        const dist = Math.abs((col + row * diagonal) - wavePos);
+        if (dist >= waveWidth) continue;
+        const intensity = Math.sin(
+          (1 - dist / waveWidth) * Math.PI * 0.5,
+        );
+        if (intensity <= 0.05) continue;
+
+        const x = col * colUnit;
+        const y = row * colUnit;
+        const cellPath = `M ${x} ${y} h ${cellSize} v ${cellSize} h ${-cellSize} Z `;
+        if (intensity > 0.85) peak += cellPath;
+        else if (intensity > 0.6) high += cellPath;
+        else if (intensity > 0.25) mid += cellPath;
+        else low += cellPath;
+      }
+    }
+
+    return { low, mid, high, peak };
+  }, [
+    cellSize,
+    colUnit,
+    grassRenderLayout.waveDiagonal,
+    grassRenderLayout.waveWidth,
+    waveColumnCount,
+    wavePosition,
+  ]);
+  const waveLowAnimatedProps = useAnimatedProps(
+    () => ({ d: waveCellPaths.value.low }),
+  );
+  const waveMidAnimatedProps = useAnimatedProps(
+    () => ({ d: waveCellPaths.value.mid }),
+  );
+  const waveHighAnimatedProps = useAnimatedProps(
+    () => ({ d: waveCellPaths.value.high }),
+  );
+  const wavePeakAnimatedProps = useAnimatedProps(
+    () => ({ d: waveCellPaths.value.peak }),
+  );
+
   const handlePressGrass = useCallback(() => {
     setWaveTrigger((t) => t + 1);
     if (typeof onTapGrass === 'function') {
@@ -3525,26 +3588,19 @@ const GRASS_ARROW_SIZE = scaleGrass(grassRenderLayout.arrowSize, 12, 18);
     }
   }, [onTapGrass]);
 
-  const GridContent = (
+  const GridContent = useMemo(() => (
     <View style={{ flexDirection: 'row', width: graphWidth }}>
       {Array.from({ length: totalCols }).map((_, col) => {
         return (
           <View key={col} style={{ marginRight: col < totalCols - 1 ? CELL_GAP : 0 }}>
             {Array.from({ length: GRASS_ROWS }).map((__, row) => {
-              const cell = cellData.find(c => c.col === col && c.row === row);
-              const baseLevel = cell?.level ?? 0;
-              const wave = waveIntensity[col * GRASS_ROWS + row] ?? 0;
-              const baseColor = LEVEL_COLORS[baseLevel] ?? '#F3F4F6';
-              let waveColor = baseColor;
-              if (wave > 0.85) waveColor = grassRenderColors.wavePeak;
-              else if (wave > 0.6) waveColor = grassRenderColors.waveHigh;
-              else if (wave > 0.25) waveColor = grassRenderColors.waveMid;
-              else if (wave > 0.05) waveColor = grassRenderColors.waveLow;
+              const baseLevel = cellLevels[col * GRASS_ROWS + row] ?? 0;
+              const baseColor = levelColors[baseLevel] ?? '#F3F4F6';
               return (
                 <View key={row} style={{
                   width: cellSize, height: cellSize,
                   borderRadius: GRASS_CELL_RADIUS,
-                  backgroundColor: wave > 0.05 ? waveColor : baseColor,
+                  backgroundColor: baseColor,
                   marginBottom: row < GRASS_ROWS - 1 ? CELL_GAP : 0,
                 }} />
               );
@@ -3553,7 +3609,15 @@ const GRASS_ARROW_SIZE = scaleGrass(grassRenderLayout.arrowSize, 12, 18);
         );
       })}
     </View>
-);
+  ), [
+    CELL_GAP,
+    GRASS_CELL_RADIUS,
+    cellLevels,
+    cellSize,
+    graphWidth,
+    levelColors,
+    totalCols,
+  ]);
 
   return (
     <View style={{ flex: 1, width: '100%', justifyContent: 'center' }} onLayout={onLayout}>
@@ -3593,8 +3657,65 @@ const GRASS_ARROW_SIZE = scaleGrass(grassRenderLayout.arrowSize, 12, 18);
               ))}
             </View>
             {/* 잔디 블록 영역 */}
-            <TouchableOpacity onPress={handlePressGrass} activeOpacity={1} style={{ flexDirection: 'row' }}>
-              {GridContent}
+            <TouchableOpacity onPress={handlePressGrass} activeOpacity={1}>
+              <View style={{ width: graphWidth, height: gridHeight }}>
+                {GridContent}
+                <Svg
+                  pointerEvents="none"
+                  width={graphWidth}
+                  height={gridHeight}
+                  style={StyleSheet.absoluteFill}
+                >
+                  <Defs>
+                    <Pattern
+                      id={grassWavePatternId}
+                      width={colUnit}
+                      height={colUnit}
+                      patternUnits="userSpaceOnUse"
+                    >
+                      <Rect
+                        x={0}
+                        y={0}
+                        width={cellSize}
+                        height={cellSize}
+                        rx={GRASS_CELL_RADIUS}
+                        fill="#FFFFFF"
+                      />
+                    </Pattern>
+                    <Mask
+                      id={grassWaveMaskId}
+                      maskUnits="userSpaceOnUse"
+                      maskContentUnits="userSpaceOnUse"
+                    >
+                      <Rect
+                        x={0}
+                        y={0}
+                        width={waveMaskWidth}
+                        height={gridHeight}
+                        fill={`url(#${grassWavePatternId})`}
+                      />
+                    </Mask>
+                  </Defs>
+                  <G mask={`url(#${grassWaveMaskId})`}>
+                    <ReanimatedSvgPath
+                      animatedProps={waveLowAnimatedProps}
+                      fill={grassRenderColors.waveLow}
+                    />
+                    <ReanimatedSvgPath
+                      animatedProps={waveMidAnimatedProps}
+                      fill={grassRenderColors.waveMid}
+                    />
+                    <ReanimatedSvgPath
+                      animatedProps={waveHighAnimatedProps}
+                      fill={grassRenderColors.waveHigh}
+                    />
+                    <ReanimatedSvgPath
+                      animatedProps={wavePeakAnimatedProps}
+                      fill={grassRenderColors.wavePeak}
+                    />
+                  </G>
+                </Svg>
+              </View>
             </TouchableOpacity>
           </View>
         </ScrollView>

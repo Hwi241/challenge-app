@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
  Alert,
  Animated,
@@ -929,6 +929,10 @@ const [resizeDraggingWidgetId, setResizeDraggingWidgetId] = useState(null);
 const [resizeDimWidgetId, setResizeDimWidgetId] = useState(null);
  const lastDropTargetRef = useRef(null);
  const dragOriginRef = useRef(null);
+ const dragVisualStartedWidgetIdRef = useRef(null);
+ const longPressCompletingWidgetIdRef = useRef(null);
+ const longPressMovedWidgetIdRef = useRef(null);
+ const longPressVisualOpacityByWidgetRef = useRef(new Map());
  const previewTargetRef = useRef(null);
  const dragInsertionIndexRef = useRef(null);
  const previewLayoutSignatureRef = useRef('');
@@ -946,6 +950,28 @@ const resizeDiagonalDelayTimerRef = useRef(null);
  const dragStartScrollYRef = useRef(0);
  const autoScrollTimerRef = useRef(null);
  const autoScrollDirectionRef = useRef(0);
+
+ useLayoutEffect(() => {
+ if (!activeResizeWidgetId) {
+ return;
+ }
+
+ const activeLongPressOpacity =
+ longPressVisualOpacityByWidgetRef.current.get(
+ activeResizeWidgetId,
+ );
+
+ if (activeLongPressOpacity) {
+ activeLongPressOpacity.setValue(0);
+ }
+
+ if (
+ longPressCompletingWidgetIdRef.current ===
+ activeResizeWidgetId
+ ) {
+ longPressCompletingWidgetIdRef.current = null;
+ }
+ }, [activeResizeWidgetId]);
 
 const setDashboardLayoutImmediate = useCallback((updater) => {
   setLayout((current) => {
@@ -3469,11 +3495,87 @@ const canMoveCard =
  !resizeDraggingWidgetId &&
  (!activeResizeWidgetId || activeResizeWidgetId === widgetId);
 
+let longPressVisualOpacity =
+ longPressVisualOpacityByWidgetRef.current.get(widgetId);
+
+if (!longPressVisualOpacity) {
+ longPressVisualOpacity = new Animated.Value(0);
+ longPressVisualOpacityByWidgetRef.current.set(
+ widgetId,
+ longPressVisualOpacity,
+ );
+}
+
+const startCardDragVisual = (event) => {
+ if (dragVisualStartedWidgetIdRef.current === widgetId) {
+ return;
+ }
+
+ dragVisualStartedWidgetIdRef.current = widgetId;
+
+ if (activeResizeWidgetId) {
+ setResizeGhostFrame(null);
+ setPreviewLayout(null);
+ }
+
+ setDraggingOriginalWidgetId(widgetId);
+ setGestureDraggingWidgetId(widgetId);
+ gestureDragOffset.setValue({ x: 0, y: 0 });
+ const overlayWidth = slotWidth ? slotWidth * safeW : 0;
+ const overlayHeight = cardHeight || 0;
+ const initialTouchX =
+ (Number(event.x) || 0) -
+ (Number(event.translationX) || 0);
+ const initialTouchY =
+ (Number(event.y) || 0) -
+ (Number(event.translationY) || 0);
+ const localTouchX = Math.max(
+ 0,
+ Math.min(
+ overlayWidth || Number.MAX_SAFE_INTEGER,
+ initialTouchX,
+ ),
+ );
+ const localTouchY = Math.max(
+ 0,
+ Math.min(
+ overlayHeight || Number.MAX_SAFE_INTEGER,
+ initialTouchY,
+ ),
+ );
+
+ setDragOverlayStart({
+ x:
+ (Number(event.absoluteX) || 0) -
+ (Number(event.translationX) || 0),
+ y:
+ (Number(event.absoluteY) || 0) -
+ (Number(event.translationY) || 0),
+ });
+ setDragOverlayTouchOffset({
+ x: localTouchX,
+ y: localTouchY,
+ });
+ setDragOverlayItem({
+ widgetId: item.widgetId,
+ kind: item.kind,
+ w: safeW,
+ h: safeH,
+ cardHeight,
+ isCompactCard,
+ safeW,
+ safeH,
+ titleText,
+ });
+};
+
  const testGesture = Gesture.Pan()
    .enabled(canMoveCard)
    .activateAfterLongPress(300)
    .runOnJS(true)
    .onBegin(() => {
+     dragVisualStartedWidgetIdRef.current = null;
+     longPressMovedWidgetIdRef.current = null;
      dragGestureLayoutModeRef.current =
       editLayoutMode;
 
@@ -3536,43 +3638,6 @@ const canMoveCard =
 
      dragStartScrollYRef.current = scrollYRef.current;
      clearScheduledDragVisualCleanup();
-
-     if (activeResizeWidgetId) {
- setResizeGhostFrame(null);
- setPreviewLayout(null);
- }
-
-     setDraggingOriginalWidgetId(widgetId);
-     setGestureDraggingWidgetId(widgetId);
-     gestureDragOffset.setValue({ x: 0, y: 0 });
-     const overlayWidth = slotWidth ? slotWidth * safeW : 0;
-     const overlayHeight = cardHeight || 0;
-     const localTouchX = Math.max(
-      0,
-      Math.min(
-       overlayWidth || Number.MAX_SAFE_INTEGER,
-       Number(event.x) || 0,
-      ),
-     );
-     const localTouchY = Math.max(
-      0,
-      Math.min(
-       overlayHeight || Number.MAX_SAFE_INTEGER,
-       Number(event.y) || 0,
-      ),
-     );
-
-     setDragOverlayStart({ x: Number(event.absoluteX) || 0, y: Number(event.absoluteY) || 0 });
-     setDragOverlayTouchOffset({
-      x: localTouchX,
-      y: localTouchY,
-     });
-     setDragOverlayItem({
-       widgetId: item.widgetId,
-       kind: item.kind,
-       w: safeW, h: safeH, cardHeight, isCompactCard, safeW, safeH,
-       titleText,
-     });
    })
    .onUpdate((event) => {
  if (
@@ -3580,6 +3645,15 @@ const canMoveCard =
  currentEditLayoutModeRef.current
  ) {
  return;
+ }
+
+ if (
+ Math.abs(event.translationX) > 10 ||
+ Math.abs(event.translationY) > 10
+ ) {
+ longPressMovedWidgetIdRef.current = widgetId;
+ longPressVisualOpacity.setValue(0);
+ startCardDragVisual(event);
  }
 
  gestureDragOffset.setValue({
@@ -4416,9 +4490,7 @@ const canMoveCard =
      scheduleDragVisualCleanup();
    });
 
-const tapResizeGesture = Gesture.Tap()
- .runOnJS(true)
- .onEnd(() => {
+const activateCardResizeMode = () => {
  if (
  currentEditLayoutModeRef.current !==
  editLayoutMode
@@ -4435,18 +4507,72 @@ const tapResizeGesture = Gesture.Tap()
  }
 
  setActiveResizeWidgetId(widgetId);
+};
+
+const tapResizeGesture = Gesture.Tap()
+ .runOnJS(true)
+ .onEnd(activateCardResizeMode);
+
+const completeStationaryLongPress = () => {
+ if (
+ currentEditLayoutModeRef.current !==
+ editLayoutMode ||
+ activeResizeWidgetId ||
+ resizeDraggingWidgetId ||
+ longPressMovedWidgetIdRef.current === widgetId
+ ) {
+ return false;
+ }
+
+ longPressCompletingWidgetIdRef.current = widgetId;
+ setActiveResizeWidgetId(widgetId);
+ return true;
+};
+
+const longPressResizeGesture = Gesture.LongPress()
+ .minDuration(300)
+ .runOnJS(true)
+ .onStart(() => {
+ longPressMovedWidgetIdRef.current = null;
+ longPressVisualOpacity.setValue(1);
+ })
+ .onEnd((_event, success) => {
+ if (success) {
+ completeStationaryLongPress();
+ }
+ })
+ .onFinalize(() => {
+ if (
+ longPressCompletingWidgetIdRef.current === widgetId
+ ) {
+ return;
+ }
+
+ longPressVisualOpacity.setValue(0);
  });
 
-const disabledCardGesture = Gesture.Tap().enabled(false);
+const dismissResizeGesture = Gesture.Tap()
+ .runOnJS(true)
+ .onEnd((_event, success) => {
+ if (success) {
+ exitResizeMode();
+ }
+ });
 
 const cardGesture = activeResizeWidgetId
  ? (
  isResizeActive
- ? testGesture
- : disabledCardGesture
+ ? Gesture.Exclusive(
+ testGesture,
+ dismissResizeGesture,
+ )
+ : dismissResizeGesture
  )
  : Gesture.Exclusive(
+ Gesture.Simultaneous(
  testGesture,
+ longPressResizeGesture,
+ ),
  tapResizeGesture,
  );
 
@@ -4464,6 +4590,25 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  }
  : styles.resizeActiveOverlay;
 
+const temporaryLongPressResizeOverlay = (
+ <Animated.View
+ pointerEvents="none"
+ style={[
+ styles.resizeActiveOverlay,
+ { opacity: longPressVisualOpacity },
+ ]}
+ >
+ {renderResizeCornerDiagonalSvg({
+ width: resizeFrameWidth,
+ height: cardHeight,
+ edgeOffset: RESIZE_CORNER_OUTSET,
+ showDiagonal: false,
+ showGrid: true,
+ gridColumns: safeW,
+ gridRows: safeH,
+ })}
+ </Animated.View>
+);
 
  const resizeCornerOverlay = isResizeActive ? (
  <View pointerEvents="box-none" style={resizeOverlayDynamicStyle}>
@@ -4511,7 +4656,12 @@ isResizeActive && styles.graphCellResizeActive,
  isResizeActive,
  shouldDimOriginalCard,
  resizeTouchOpacity,
- resizeOverlay: resizeCornerOverlay,
+ resizeOverlay: (
+ <>
+ {temporaryLongPressResizeOverlay}
+ {resizeCornerOverlay}
+ </>
+ ),
  actionOverlay: removeActionOverlay,
  previewNode: (
  <DashboardWidgetPreview
@@ -4558,14 +4708,29 @@ isResizeActive && styles.graphCellResizeActive,
    const top = touchY ? touchY - touchOffsetY : 120;
    const overlayInnerHeight = Math.max(0, overlayH - RESIZE_FRAME_INSET * 2);
    const overlayCornerWidth = typeof overlayW === 'number' ? overlayW : 0;
+   const overlayInnerWidth = Math.max(
+     0,
+     overlayCornerWidth - RESIZE_FRAME_INSET * 2,
+   );
    const dragMoveCornerOverlay = overlayCornerWidth > 0 ? (
-     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+     <View
+       pointerEvents="none"
+       style={{
+         position: 'absolute',
+         left: RESIZE_FRAME_INSET,
+         top: RESIZE_FRAME_INSET,
+         width: overlayInnerWidth,
+         height: overlayInnerHeight,
+       }}
+     >
        {renderResizeCornerDiagonalSvg({
-         width: overlayCornerWidth,
-         height: overlayH,
+         width: overlayInnerWidth,
+         height: overlayInnerHeight,
          edgeOffset: RESIZE_CORNER_OUTSET,
          showDiagonal: false,
-         showGrid: false,
+         showGrid: true,
+         gridColumns: o.safeW,
+         gridRows: o.safeH,
        })}
      </View>
    ) : null;

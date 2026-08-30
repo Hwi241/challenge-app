@@ -1,0 +1,16 @@
+[Unit]
+Description=Challenge App Expo Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/hwi/challenge-app
+ExecStart=/home/hwi/.local/bin/challenge-app-expo-tunnel.sh
+Restart=always
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target

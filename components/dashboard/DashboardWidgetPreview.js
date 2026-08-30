@@ -297,7 +297,7 @@ const renderVisual = ({ family, compact, widgetId }) => {
   return <PlaceholderVisual compact={compact} />;
 };
 
-export default function DashboardWidgetPreview({
+function DashboardWidgetPreview({
   widgetId,
   kind,
   title,
@@ -379,6 +379,8 @@ export default function DashboardWidgetPreview({
     </View>
   );
 }
+
+export default React.memo(DashboardWidgetPreview);
 
 const styles = StyleSheet.create({
   root: {

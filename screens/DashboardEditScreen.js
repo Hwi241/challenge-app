@@ -770,8 +770,7 @@ const AUTO_SCROLL_STEP = 9;
 const AUTO_SCROLL_INTERVAL_MS = 16;
 const WIDE_GRID_COLUMNS = GRID_COLUMNS * 2;
 const WIDE_EDIT_MIN_WIDTH = 600;
-const WIDE_HALF_SWITCH_HYSTERESIS = 0.35;
-const WIDE_HALF_AWARE_MIN_CARD_WIDTH = 4;
+const WIDE_HALF_SWITCH_HYSTERESIS = 1;
 
 const getDashboardEditItemId = (item) => String(
  item?.widgetId ??
@@ -935,6 +934,8 @@ const [resizeDimWidgetId, setResizeDimWidgetId] = useState(null);
  const longPressVisualOpacityByWidgetRef = useRef(new Map());
  const previewTargetRef = useRef(null);
  const dragInsertionIndexRef = useRef(null);
+ const dragInsertionPreviewInputRef = useRef('');
+ const dragWideHalfRef = useRef(null);
  const previewLayoutSignatureRef = useRef('');
  const resizeOriginRef = useRef(null);
  const resizePreviewSignatureRef = useRef('');
@@ -1168,6 +1169,8 @@ const clearDragVisualState = useCallback(
  lastDropTargetRef.current = null;
  previewLayoutSignatureRef.current = '';
  dragInsertionIndexRef.current = null;
+ dragInsertionPreviewInputRef.current = '';
+ dragWideHalfRef.current = null;
 
  if (!preserveResize) {
  setActiveResizeCorner(null);
@@ -3486,10 +3489,18 @@ const buildResizeGesture = (corner) => Gesture.Pan()
  setResizeGhostFrame(null);
  });
 
-const topLeftResizeGesture = buildResizeGesture('topLeft');
-const topRightResizeGesture = buildResizeGesture('topRight');
-const bottomLeftResizeGesture = buildResizeGesture('bottomLeft');
-const bottomRightResizeGesture = buildResizeGesture('bottomRight');
+const topLeftResizeGesture = isResizeActive
+ ? buildResizeGesture('topLeft')
+ : null;
+const topRightResizeGesture = isResizeActive
+ ? buildResizeGesture('topRight')
+ : null;
+const bottomLeftResizeGesture = isResizeActive
+ ? buildResizeGesture('bottomLeft')
+ : null;
+const bottomRightResizeGesture = isResizeActive
+ ? buildResizeGesture('bottomRight')
+ : null;
 
 const canMoveCard =
  !resizeDraggingWidgetId &&
@@ -3569,7 +3580,8 @@ const startCardDragVisual = (event) => {
  });
 };
 
- const testGesture = Gesture.Pan()
+ const testGesture = (!activeResizeWidgetId || isResizeActive)
+   ? Gesture.Pan()
    .enabled(canMoveCard)
    .activateAfterLongPress(300)
    .runOnJS(true)
@@ -3589,6 +3601,8 @@ const startCardDragVisual = (event) => {
      clearScheduledDragVisualCleanup();
      previewLayoutSignatureRef.current = '';
      dragInsertionIndexRef.current = null;
+     dragInsertionPreviewInputRef.current = '';
+     dragWideHalfRef.current = null;
      const sourceCanonicalLayout =
  Array.isArray(layoutRef.current) &&
  layoutRef.current.length > 0
@@ -3769,6 +3783,9 @@ const startCardDragVisual = (event) => {
  if (!movedEnoughForInsertion) {
  dragInsertionIndexRef.current =
  null;
+ dragInsertionPreviewInputRef.current =
+ '';
+ dragWideHalfRef.current = null;
  previewTargetRef.current =
  null;
  lastDropTargetRef.current =
@@ -3808,9 +3825,7 @@ const startCardDragVisual = (event) => {
  const wideHalfAwareInsertion =
  isWideEditLayout &&
  displayGridColumns ===
- WIDE_GRID_COLUMNS &&
- displayOriginW >=
- WIDE_HALF_AWARE_MIN_CARD_WIDTH;
+ WIDE_GRID_COLUMNS;
 
  const wideMiddleColumn =
  WIDE_GRID_COLUMNS / 2;
@@ -3829,26 +3844,52 @@ const startCardDragVisual = (event) => {
  ? 'left'
  : 'right';
 
- let intendedWideHalf =
+ const currentWideHalf =
+ dragWideHalfRef.current ||
  originWideHalf;
+
+ let intendedWideHalf =
+ currentWideHalf;
 
  if (wideHalfAwareInsertion) {
  if (
- originWideHalf === 'left' &&
+ currentWideHalf === 'left' &&
  movingDisplayCenterX >=
  wideMiddleColumn +
  WIDE_HALF_SWITCH_HYSTERESIS
  ) {
  intendedWideHalf = 'right';
  } else if (
- originWideHalf === 'right' &&
+ currentWideHalf === 'right' &&
  movingDisplayCenterX <=
  wideMiddleColumn -
  WIDE_HALF_SWITCH_HYSTERESIS
  ) {
  intendedWideHalf = 'left';
  }
+
+ dragWideHalfRef.current =
+ intendedWideHalf;
+ } else {
+ dragWideHalfRef.current = null;
  }
+
+ const insertionPreviewInput = [
+ rawInsertionIndex,
+ wideHalfAwareInsertion
+ ? intendedWideHalf
+ : 'single',
+ ].join(':');
+
+ if (
+ dragInsertionPreviewInputRef.current ===
+ insertionPreviewInput
+ ) {
+ return;
+ }
+
+ dragInsertionPreviewInputRef.current =
+ insertionPreviewInput;
 
  const buildInsertionPreview =
  (candidateIndex) => {
@@ -4065,6 +4106,8 @@ const startCardDragVisual = (event) => {
  }
 
  dragInsertionIndexRef.current = null;
+ dragInsertionPreviewInputRef.current = '';
+ dragWideHalfRef.current = null;
 
  const rawGridDY =
  (
@@ -4310,6 +4353,9 @@ const startCardDragVisual = (event) => {
 
  dragInsertionIndexRef.current =
  null;
+ dragInsertionPreviewInputRef.current =
+ '';
+ dragWideHalfRef.current = null;
  previewTargetRef.current =
  null;
 
@@ -4482,13 +4528,16 @@ const startCardDragVisual = (event) => {
 
      dragGestureLayoutModeRef.current = null;
      dragInsertionIndexRef.current = null;
+     dragInsertionPreviewInputRef.current = '';
+     dragWideHalfRef.current = null;
 
      if (!isCurrentLayoutMode) {
       return;
      }
 
      scheduleDragVisualCleanup();
-   });
+   })
+   : null;
 
 const activateCardResizeMode = () => {
  if (
@@ -4509,9 +4558,11 @@ const activateCardResizeMode = () => {
  setActiveResizeWidgetId(widgetId);
 };
 
-const tapResizeGesture = Gesture.Tap()
+const tapResizeGesture = !activeResizeWidgetId
+ ? Gesture.Tap()
  .runOnJS(true)
- .onEnd(activateCardResizeMode);
+ .onEnd(activateCardResizeMode)
+ : null;
 
 const completeStationaryLongPress = () => {
  if (
@@ -4529,7 +4580,8 @@ const completeStationaryLongPress = () => {
  return true;
 };
 
-const longPressResizeGesture = Gesture.LongPress()
+const longPressResizeGesture = !activeResizeWidgetId
+ ? Gesture.LongPress()
  .minDuration(300)
  .runOnJS(true)
  .onStart(() => {
@@ -4549,15 +4601,18 @@ const longPressResizeGesture = Gesture.LongPress()
  }
 
  longPressVisualOpacity.setValue(0);
- });
+ })
+ : null;
 
-const dismissResizeGesture = Gesture.Tap()
+const dismissResizeGesture = activeResizeWidgetId
+ ? Gesture.Tap()
  .runOnJS(true)
  .onEnd((_event, success) => {
  if (success) {
  exitResizeMode();
  }
- });
+ })
+ : null;
 
 const cardGesture = activeResizeWidgetId
  ? (
@@ -4590,7 +4645,7 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  }
  : styles.resizeActiveOverlay;
 
-const temporaryLongPressResizeOverlay = (
+const temporaryLongPressResizeOverlay = !activeResizeWidgetId ? (
  <Animated.View
  pointerEvents="none"
  style={[
@@ -4608,7 +4663,7 @@ const temporaryLongPressResizeOverlay = (
  gridRows: safeH,
  })}
  </Animated.View>
-);
+) : null;
 
  const resizeCornerOverlay = isResizeActive ? (
  <View pointerEvents="box-none" style={resizeOverlayDynamicStyle}>

@@ -197,7 +197,7 @@ export default function SimpleNotificationScreen() {
           navigation.goBack();
           return;
         }
-        navigation.navigate(returnTo || 'AddChallenge', {
+        navigation.navigateDeprecated(returnTo || 'AddChallenge', {
           notificationResult: result,
           _nonce: Date.now(),
         });

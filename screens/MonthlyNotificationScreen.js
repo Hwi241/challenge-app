@@ -196,7 +196,7 @@ export default function MonthlyNotificationScreen() {
           navigation.goBack();
           return;
         }
-        navigation.navigate({
+        navigation.navigateDeprecated({
           name: returnTo || 'AddChallenge',
           params: { notificationResult: result, _nonce: Date.now() },
           merge: true,

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Linking, ScrollView  } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import * as Application from 'expo-application';
 import * as MailComposer from 'expo-mail-composer';
 import * as StoreReview from 'expo-store-review';
@@ -68,6 +68,15 @@ export default function SettingsScreen() {
   }, []);
 
   const toggleNotifications = useCallback(async () => {
+    if (Platform.OS === 'android' && isRunningInExpoGo()) {
+      Alert.alert(
+        'Expo Go 제한',
+        '알림 기능은 개발 빌드 또는 설치된 앱에서 확인할 수 있습니다.'
+      );
+      return;
+    }
+
+    const Notifications = await import('expo-notifications');
     const next = !enabled;
 
     if (next) {

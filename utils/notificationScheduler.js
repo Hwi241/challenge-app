@@ -1,15 +1,39 @@
 // utils/notificationScheduler.js
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
 import { getNotificationsEnabled } from './appSettings';
 
-// 알림 응답 핸들러 추가: 버튼 누르면 알림이 사라지도록 처리
-Notifications.addNotificationResponseReceivedListener(response => {
-  Notifications.dismissNotificationAsync(response.notification.request.identifier);
-});
+let notificationsModulePromise = null;
+let notificationResponseSubscription = null;
+
+async function getNotificationsModuleAsync() {
+  if (Platform.OS === 'android' && isRunningInExpoGo()) {
+    return null;
+  }
+
+  if (!notificationsModulePromise) {
+    notificationsModulePromise = import('expo-notifications');
+  }
+
+  const Notifications = await notificationsModulePromise;
+
+  if (!notificationResponseSubscription) {
+    notificationResponseSubscription =
+      Notifications.addNotificationResponseReceivedListener(response => {
+        Notifications.dismissNotificationAsync(
+          response.notification.request.identifier
+        );
+      });
+  }
+
+  return Notifications;
+}
 
 // ===== 권한 =====
 export async function ensureNotificationPermissionAsync() {
+  const Notifications = await getNotificationsModuleAsync();
+  if (!Notifications) return false;
+
   const settings = await Notifications.getPermissionsAsync();
   if (settings.status !== 'granted') {
     const ask = await Notifications.requestPermissionsAsync();
@@ -27,6 +51,9 @@ export async function cancelAllForChallenge(challenge) {
 
   if (!challengeId) return;
 
+  const Notifications = await getNotificationsModuleAsync();
+  if (!Notifications) return;
+
   const idsRaw = await Notifications.getAllScheduledNotificationsAsync();
   const toCancel = (idsRaw || []).filter(
     n => String(n.content?.data?.challengeId ?? '') === challengeId
@@ -40,6 +67,9 @@ export async function cancelAllForChallenge(challenge) {
 // ===== 등록(간단화) =====
 export async function registerNotificationsForChallenge(challenge) {
   if (!challenge?.id || !challenge?.notification?.mode) return;
+
+  const Notifications = await getNotificationsModuleAsync();
+  if (!Notifications) return;
 
   const notificationsEnabled = await getNotificationsEnabled();
   if (!notificationsEnabled) {
@@ -68,6 +98,7 @@ export async function registerNotificationsForChallenge(challenge) {
           categoryIdentifier: 'challenge', // 카테고리 식별자 추가
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
           weekday: mapKoWeekdayToExpo(d), // 1=Sun ... 7=Sat (Expo 기준)
           hour, minute, repeats: true,
         },
@@ -95,6 +126,9 @@ function mapKoWeekdayToExpo(label) {
 
 // 앱 시작시 권장: 채널/핸들러 기본 설정
 export async function initializeNotificationsAsync() {
+  const Notifications = await getNotificationsModuleAsync();
+  if (!Notifications) return;
+
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: '일반 알림',
@@ -110,7 +144,7 @@ export async function initializeNotificationsAsync() {
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true, shouldPlaySound: false, shouldSetBadge: false,
+      shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false,
     }),
   });
 }

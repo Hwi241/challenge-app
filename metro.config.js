@@ -11,7 +11,7 @@ config.resolver.sourceExts = [...config.resolver.sourceExts, 'svg'];
 // ✅ 기존 transformer 옵션 보존 + svg-transformer만 경로 주입
 config.transformer = {
   ...config.transformer,
-  babelTransformerPath: require.resolve('react-native-svg-transformer'),
+  babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
 };
 
 module.exports = config;

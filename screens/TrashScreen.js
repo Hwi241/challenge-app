@@ -67,7 +67,7 @@ export default function TrashScreen() {
  const sub = BackHandler.addEventListener(
  'hardwareBackPress',
  () => {
- navigation.navigate('Settings');
+ navigation.navigateDeprecated('Settings');
  return true;
  }
  );

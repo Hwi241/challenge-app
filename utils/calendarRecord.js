@@ -11,7 +11,7 @@ export const CALENDAR_RECORD_STATUS = {
 
 export function getCalendarRecordModule() {
  try {
- return require('expo-calendar');
+ return require('expo-calendar/legacy');
  } catch (error) {
  return null;
  }

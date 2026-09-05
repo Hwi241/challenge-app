@@ -391,7 +391,7 @@ const handleGoalChange = useCallback((txt)=>{
               }
 
               markAsSaved();
-              navigation.navigate('ChallengeList');
+              navigation.navigateDeprecated('ChallengeList');
             } catch (e) {
               Alert.alert('오류', '저장 실패');
             } finally {

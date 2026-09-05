@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { writeDonut1x1Image } from '../utils/widgetSnapshot';
 import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
 

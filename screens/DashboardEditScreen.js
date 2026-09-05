@@ -2548,7 +2548,7 @@ const getLayoutPreviewSignature = useCallback((items) => {
  return;
  }
 
- navigation.navigate('EntryList', entryListParams);
+ navigation.navigateDeprecated('EntryList', entryListParams);
  }, [challengeId, isRecordRoomDashboard, navigation, params, signalDashboardEditReturn, title]);
 
  useEffect(() => {

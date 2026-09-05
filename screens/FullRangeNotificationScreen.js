@@ -315,7 +315,7 @@ export default function FullRangeNotificationScreen(){
           return;
         }
 
-        navigation.navigate({
+        navigation.navigateDeprecated({
           name: returnTo || 'AddChallenge',
           params: { notificationResult: result, _nonce: Date.now() },
           merge: true,

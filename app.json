@@ -7,9 +7,6 @@
     "icon": "assets/icon.png",
     "scheme": "thepush",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#FFFFFF"
-    },
     "androidStatusBar": {
       "barStyle": "dark-content",
       "backgroundColor": "#FFFFFF",

@@ -1,5 +1,5 @@
 // stores/widgetSync.ts
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 type ChallengeLite = { id: string; title: string; progressPct: number; };

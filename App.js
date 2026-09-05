@@ -6,7 +6,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
+import { isRunningInExpoGo } from 'expo';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import NotificationDefaultsScreen from './screens/NotificationDefaultsScreen';
 import ChallengeListScreen from './screens/ChallengeListScreen';
@@ -30,7 +31,6 @@ import MyGraphScreen from './screens/MyGraphScreen';
 import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
 import { cleanExpiredTrash } from './utils/trash';
-import { initializeNotificationsAsync } from './utils/notificationScheduler';
 import DashboardEditScreen from './screens/DashboardEditScreen';
 
 const Stack = createNativeStackNavigator();
@@ -115,7 +115,13 @@ export default function App() {
 
   // 알림 초기화 설정
   useEffect(() => {
-    initializeNotificationsAsync();
+    if (Platform.OS === 'android' && isRunningInExpoGo()) return;
+
+    import('./utils/notificationScheduler')
+      .then(({ initializeNotificationsAsync }) => initializeNotificationsAsync())
+      .catch((e) => {
+        console.warn('notification initialization failed:', e);
+      });
   }, []);
 
   // 휴지통 만료 항목 자동 정리 (30일 경과)

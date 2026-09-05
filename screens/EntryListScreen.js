@@ -3,7 +3,7 @@
 const KILL_UI_AND_SHOW_RAW = false; // 필요 시 true로 전환(데이터 디버그용)
 
 import React, {
-  useState, useEffect, useRef, useMemo, useCallback, memo,
+  useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, memo,
 } from 'react';
 import {
   AppState,
@@ -34,7 +34,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ViewShot,
   { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import Svg,
   {
   Circle,
@@ -51,6 +51,8 @@ import Svg,
   } from 'react-native-svg';
 import Reanimated, {
   Easing as ReanimatedEasing,
+  cancelAnimation,
+  runOnJS,
   useAnimatedProps,
   useAnimatedStyle,
   useDerivedValue,
@@ -1429,24 +1431,42 @@ const LineGradientChart = memo(function LineGradientChart({
   const lineIntroProgress = useSharedValue(
     usesSharedLineIntro && lineIntroPhase !== 'complete' ? 0 : 1,
   );
+  const [completedLineIntroRunId, setCompletedLineIntroRunId] = useState(null);
+  const lineIntroRunSerialRef = useRef(0);
+  const finishLineIntro = useCallback((runId, serial) => {
+    if (lineIntroRunSerialRef.current !== serial) return;
+    setCompletedLineIntroRunId(runId);
+  }, []);
+  const shouldRenderAnimatedLineIntro = (
+    usesSharedLineIntro &&
+    lineIntroPhase !== 'complete' &&
+    (lineIntroPhase === 'pending' || completedLineIntroRunId !== lineIntroRunId)
+  );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const serial = ++lineIntroRunSerialRef.current;
+    const runId = lineIntroRunId;
+
     if (!usesSharedLineIntro) {
       lineIntroProgress.value = 1;
-      return;
-    }
-
-    if (lineIntroPhase === 'animate') {
+    } else if (lineIntroPhase === 'animate') {
+      setCompletedLineIntroRunId(null);
       lineIntroProgress.value = 0;
       lineIntroProgress.value = withTiming(1, {
         duration: 900,
         easing: ReanimatedEasing.inOut(ReanimatedEasing.cubic),
+      }, (finished) => {
+        if (finished) runOnJS(finishLineIntro)(runId, serial);
       });
-      return;
+    } else {
+      lineIntroProgress.value = lineIntroPhase === 'complete' ? 1 : 0;
     }
 
-    lineIntroProgress.value = lineIntroPhase === 'complete' ? 1 : 0;
-  }, [lineIntroPhase, lineIntroProgress, lineIntroRunId, usesSharedLineIntro]);
+    return () => {
+      lineIntroRunSerialRef.current += 1;
+      cancelAnimation(lineIntroProgress);
+    };
+  }, [finishLineIntro, lineIntroPhase, lineIntroProgress, lineIntroRunId, usesSharedLineIntro]);
 
   const today = useMemo(()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; },[]);
   const raw = useMemo(()=>aggregateByDate(entries),[entries]);
@@ -1930,12 +1950,12 @@ const finalSafeNodePts = useMemo(() => {
           </LinearGradient>
         </Defs>
 
-        {!!pts.length && (usesSharedLineIntro ? (
+        {!!pts.length && (shouldRenderAnimatedLineIntro ? (
           <ReanimatedSvgPath animatedProps={animatedAreaPathProps} fill={`url(#grad-${metric})`} />
         ) : (
           <Path d={areaD} fill={`url(#grad-${metric})`} />
         ))}
-        {!!pts.length && (usesSharedLineIntro ? (
+        {!!pts.length && (shouldRenderAnimatedLineIntro ? (
           <ReanimatedSvgPath animatedProps={animatedLinePathProps} fill="none" stroke={lineRenderColors.lineStroke} strokeWidth={LINE_STROKE_W} />
         ) : (
           <Path d={pathD} fill="none" stroke={lineRenderColors.lineStroke} strokeWidth={LINE_STROKE_W} />
@@ -1972,17 +1992,17 @@ const finalSafeNodePts = useMemo(() => {
         ) : null}
 
         {/* 마커/라벨 */}
-        {!selPoint && safeEndNode && (usesSharedLineIntro ? (
+        {!selPoint && safeEndNode && (shouldRenderAnimatedLineIntro ? (
           <ReanimatedSvgCircle cx={endPointX} animatedProps={animatedEndPointProps} r={EDGE_DEFAULT_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={EDGE_DEFAULT_MARKER_STROKE_W}/>
         ) : (
           <Circle cx={safeEndNode.x} cy={safeEndNode.y} r={EDGE_DEFAULT_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={EDGE_DEFAULT_MARKER_STROKE_W}/>
         ))}
-        {selPoint && (usesSharedLineIntro ? (
+        {selPoint && (shouldRenderAnimatedLineIntro ? (
           <ReanimatedSvgCircle cx={selectedPointX} animatedProps={animatedSelectedPointProps} r={SELECTED_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={SELECTED_MARKER_STROKE_W}/>
         ) : (
           <Circle cx={selPoint.x} cy={selPoint.y} r={SELECTED_MARKER_R} fill={lineRenderColors.markerFill} stroke={lineRenderColors.markerStroke} strokeWidth={SELECTED_MARKER_STROKE_W}/>
         ))}
-        {selPoint && selectedLabel && (usesSharedLineIntro ? (
+        {selPoint && selectedLabel && (shouldRenderAnimatedLineIntro ? (
           <>
             <ReanimatedSvgRect
               x={selectedLabelX}
@@ -2014,7 +2034,7 @@ const finalSafeNodePts = useMemo(() => {
             </>
           );
         })())}
-        {!selPoint && defaultLabel && safeEndNode && (usesSharedLineIntro ? (
+        {!selPoint && defaultLabel && safeEndNode && (shouldRenderAnimatedLineIntro ? (
           <>
             <ReanimatedSvgRect
               x={defaultLabelX}
@@ -2807,27 +2827,46 @@ const WeekView = memo(function WeekView({
   const weekIntroProgress = useSharedValue(
     usesSharedWeekIntro && weekIntroPhase !== 'complete' ? 0 : 1,
   );
+  const [completedWeekIntroRunId, setCompletedWeekIntroRunId] = useState(null);
+  const weekIntroRunSerialRef = useRef(0);
+  const finishWeekIntro = useCallback((runId, serial) => {
+    if (weekIntroRunSerialRef.current !== serial) return;
+    setCompletedWeekIntroRunId(runId);
+  }, []);
+  const shouldRenderAnimatedWeekIntro = (
+    usesSharedWeekIntro &&
+    weekIntroPhase !== 'complete' &&
+    (weekIntroPhase === 'pending' || completedWeekIntroRunId !== weekIntroRunId)
+  );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const serial = ++weekIntroRunSerialRef.current;
+    const runId = weekIntroRunId;
+
     if (!usesSharedWeekIntro) {
       const fallbackProgress = Number(introProgress);
       weekIntroProgress.value = Number.isFinite(fallbackProgress)
         ? Math.max(0, Math.min(1, fallbackProgress))
         : 1;
-      return;
-    }
-
-    if (weekIntroPhase === 'animate') {
+    } else if (weekIntroPhase === 'animate') {
+      setCompletedWeekIntroRunId(null);
       weekIntroProgress.value = 0;
       weekIntroProgress.value = withTiming(1, {
         duration: 900,
         easing: ReanimatedEasing.inOut(ReanimatedEasing.cubic),
+      }, (finished) => {
+        if (finished) runOnJS(finishWeekIntro)(runId, serial);
       });
-      return;
+    } else {
+      weekIntroProgress.value = weekIntroPhase === 'complete' ? 1 : 0;
     }
 
-    weekIntroProgress.value = weekIntroPhase === 'complete' ? 1 : 0;
+    return () => {
+      weekIntroRunSerialRef.current += 1;
+      cancelAnimation(weekIntroProgress);
+    };
   }, [
+    finishWeekIntro,
     introProgress,
     usesSharedWeekIntro,
     weekIntroPhase,
@@ -2835,19 +2874,24 @@ const WeekView = memo(function WeekView({
     weekIntroRunId,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       usesSharedWeekIntro &&
       Number.isInteger(resolvedWeekIntroTargetIndex) &&
       currentIndex !== resolvedWeekIntroTargetIndex
     ) {
+      weekIntroRunSerialRef.current += 1;
+      cancelAnimation(weekIntroProgress);
       weekIntroProgress.value = 1;
+      setCompletedWeekIntroRunId(weekIntroRunId);
     }
   }, [
     currentIndex,
     resolvedWeekIntroTargetIndex,
     usesSharedWeekIntro,
+    weekIntroPhase,
     weekIntroProgress,
+    weekIntroRunId,
   ]);
 
   const recordWeekDateTextWidth = useCallback((event) => {
@@ -2909,7 +2953,7 @@ const WeekView = memo(function WeekView({
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;
     const nextIndex = Math.max(0, Math.min(Number(targetIndex) || 0, weeksData.length - 1));
     const nextX = nextIndex * pageW;
-    scrollRef.current?.scrollTo({ x: nextX, animated: true });
+    scrollRef.current?.scrollToOffset?.({ offset: nextX, animated: true });
     scrollX.setValue(nextX);
     if (typeof onIndexChange === 'function') onIndexChange(nextIndex);
   }, [pageW, weeksData, onIndexChange, scrollX]);
@@ -3217,7 +3261,7 @@ return (
 const renderWeek = useCallback(({ dailyStats }, idx) => {
     const isStepValueMode = valueMode === 'steps';
     const shouldAnimateCurrentWeek = (
-      usesSharedWeekIntro &&
+      shouldRenderAnimatedWeekIntro &&
       idx === currentIndex &&
       idx === resolvedWeekIntroTargetIndex
     );
@@ -3459,7 +3503,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
         )) : null}
       </View>
     );
-  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE, weeklyRenderColors, weeklyRenderLayout, WEEK_BAR_W, valueMode, formatPrimaryValue, formatSecondaryValue, hasGoalLine, normalizedGoalValue, normalizedGoalLabel, currentIndex, resolvedWeekIntroTargetIndex, usesSharedWeekIntro, weekIntroProgress]);
+  }, [pageW, PADDING_H, ROW_W, COL_W, ROW_OFFSET_X, WEEK_GRAPH_BOTTOM_GAP, WEEK_BAR_TOP_GAP, WEEK_BAR_ROW_HEIGHT, WEEK_BAR_VALUE_BASE_H, WEEK_BAR_VALUE_RANGE_H, WEEK_BAR_VALUE_MAX_H, WEEK_EMPTY_DOT_SIZE, WEEK_BAR_VERTICAL_GAP, WEEK_BAR_TEXT_FONT_SIZE, WEEK_BAR_TEXT_LINE_H, WEEK_COUNT_FONT_SIZE, WEEK_COUNT_LINE_H, introProgress, weeksData, onTapBar, todayKey, WEEK_TODAY_EMPTY_DOT_COLOR, WEEK_TODAY_TEXT_STYLE, weeklyRenderColors, weeklyRenderLayout, WEEK_BAR_W, valueMode, formatPrimaryValue, formatSecondaryValue, hasGoalLine, normalizedGoalValue, normalizedGoalLabel, currentIndex, resolvedWeekIntroTargetIndex, usesSharedWeekIntro, weekIntroProgress, shouldRenderAnimatedWeekIntro]);
 
   useEffect(() => {
     if (!pageW || !Array.isArray(weeksData) || weeksData.length === 0) return;
@@ -3467,7 +3511,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
     const x = safeIndex * pageW;
 
     requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ x, animated: false });
+      scrollRef.current?.scrollToOffset?.({ offset: x, animated: false });
       scrollX.setValue(x);
     });
   }, [currentIndex, pageW, weeksData.length, scrollX]);
@@ -3489,9 +3533,21 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
         {!isWeekLayoutReady ? (
           <View style={{ height: WEEK_GRAPH_HEIGHT }} />
         ) : (
-        <Animated.ScrollView
+        <Animated.FlatList
           key={`week-${weeksData.length}`}
           ref={scrollRef}
+          data={weeksData}
+          renderItem={({ item, index }) => (
+            <View style={{ width: pageW }}>
+              {renderWeek(item, index)}
+            </View>
+          )}
+          keyExtractor={(week, index) => String(week?.ws ?? index)}
+          getItemLayout={(data, index) => ({
+            length: pageW,
+            offset: pageW * index,
+            index,
+          })}
           horizontal
           pagingEnabled
           snapToInterval={pageW}
@@ -3500,6 +3556,10 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
           showsHorizontalScrollIndicator={false}
           style={{ height: WEEK_GRAPH_HEIGHT }}
           contentOffset={{ x: initialOffsetX, y: 0 }}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          updateCellsBatchingPeriod={32}
+          windowSize={3}
           onMomentumScrollEnd={(e) => {
             const i = Math.round((e?.nativeEvent?.contentOffset?.x || 0) / pageW);
             if (typeof onIndexChange === 'function') onIndexChange(Math.max(0, Math.min(i, weeksData.length - 1)));
@@ -3516,13 +3576,7 @@ const renderWeek = useCallback(({ dailyStats }, idx) => {
             { useNativeDriver: true }
           )}
           onStartShouldSetResponderCapture={() => false}
-        >
-          {weeksData.map((w, idx) => (
-            <View key={`wk-${idx}`} style={{ width: pageW }}>
-              {renderWeek(w, idx)}
-            </View>
-          ))}
-        </Animated.ScrollView>
+        />
         )}
 
         <View style={[styles.weekPagerControl, { height: WEEK_CONTROL_HEIGHT }]}>
@@ -3597,6 +3651,12 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
   const [waveTrigger, setWaveTrigger] = useState(0);
   const [scrollPos, setScrollPos] = useState({ x: 0, w: 0 });
   const wavePosition = useSharedValue(0);
+  const [completedWaveRunId, setCompletedWaveRunId] = useState(null);
+  const waveRunSerialRef = useRef(0);
+  const finishGrassWave = useCallback((runId, serial) => {
+    if (waveRunSerialRef.current !== serial) return;
+    setCompletedWaveRunId(runId);
+  }, []);
 
   const onLayout = useCallback((e) => {
     const w = Math.floor(e?.nativeEvent?.layout?.width || 0);
@@ -3623,7 +3683,9 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     setWaveTrigger((t) => t + 1);
   }, [dashboardReturnTrigger]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const serial = ++waveRunSerialRef.current;
+    const runId = waveTrigger;
     const totalRows = grassRenderLayout.rows;
     const waveWidth = grassRenderLayout.waveWidth;
     const waveSpeed = grassRenderLayout.waveSpeed;
@@ -3631,12 +3693,20 @@ const GrassGraph = memo(function GrassGraph({ entries, startDate, endDate, intro
     const endPosition = GRASS_WAVE_COLS + waveWidth + totalRows * diagonal;
     const duration = waveSpeed > 0 ? endPosition / waveSpeed : 0;
 
+    setCompletedWaveRunId(null);
     wavePosition.value = 0;
     wavePosition.value = withTiming(endPosition, {
       duration,
       easing: ReanimatedEasing.linear,
+    }, (finished) => {
+      if (finished) runOnJS(finishGrassWave)(runId, serial);
     });
-  }, [grassRenderLayout, wavePosition, waveTrigger]);
+
+    return () => {
+      waveRunSerialRef.current += 1;
+      cancelAnimation(wavePosition);
+    };
+  }, [finishGrassWave, grassRenderLayout, wavePosition, waveTrigger]);
 
   const containerWidth = Math.max(1, containerSize.width);
   const containerHeight = Math.max(1, containerSize.height);
@@ -3918,6 +3988,7 @@ const GRASS_ARROW_SIZE = scaleGrass(grassRenderLayout.arrowSize, 12, 18);
             <TouchableOpacity onPress={handlePressGrass} activeOpacity={1}>
               <View style={{ width: graphWidth, height: gridHeight }}>
                 {GridContent}
+                {completedWaveRunId !== waveTrigger && (
                 <Svg
                   pointerEvents="none"
                   width={graphWidth}
@@ -3973,6 +4044,7 @@ const GRASS_ARROW_SIZE = scaleGrass(grassRenderLayout.arrowSize, 12, 18);
                     />
                   </G>
                 </Svg>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -4301,7 +4373,7 @@ export default function EntryListScreen({ route, navigation }) {
       const sub = require('react-native').BackHandler.addEventListener(
         'hardwareBackPress',
         () => {
-          navigation.navigate('ChallengeList');
+          navigation.navigateDeprecated('ChallengeList');
           return true;
         }
       );
@@ -5791,7 +5863,7 @@ const runWeek = useCallback(() => {
   };const HeaderCard = useMemo(()=>(<View style={styles.card}>
             <View style={styles.headerTop}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('ChallengeList')}
+          onPress={() => navigation.navigateDeprecated('ChallengeList')}
           style={styles.headerBackBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.7}
@@ -6017,9 +6089,10 @@ const runWeek = useCallback(() => {
         numColumns={isWideDashboardLayout ? 2 : 1}
         columnWrapperStyle={isWideDashboardLayout ? styles.entryGridWide : undefined}
         initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        updateCellsBatchingPeriod={32}
-        windowSize={7}
+        maxToRenderPerBatch={4}
+        updateCellsBatchingPeriod={50}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListHeaderComponent={(
           <ViewShot ref={shareRef} style={{ width: '100%' }} options={{ format: 'png', quality: 1 }}>
           <View collapsable={false} style={{ width: '100%', backgroundColor: '#fff' }}>

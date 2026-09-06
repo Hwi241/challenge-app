@@ -20,6 +20,8 @@ import {
 } from '../styles/common';
 import { cancelAllForChallenge } from '../utils/notificationScheduler';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
+import { isRotationRoutine } from '../utils/challengeType';
+import { getRotationRoutineSummary } from '../utils/rotationRoutine';
 import { moveToTrash } from '../utils/trash';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 
@@ -390,6 +392,16 @@ const EmptyState = memo(() => (
   </View>
 ));
 
+const rotationSummaryOf = (item) => {
+  if (!isRotationRoutine(item)) return null;
+  try { return getRotationRoutineSummary(item); } catch { return null; }
+};
+
+const rotationMinutes = (seconds) => {
+  const value = Math.round((Number(seconds) || 0) / 6) / 10;
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+};
+
 const ChallengeCardHeader = memo(function ChallengeCardHeader({
   item,
   pct,
@@ -452,8 +464,25 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
 
 const ChallengeCardMeta = memo(function ChallengeCardMeta({
   item,
+  rotationSummary,
   isCompactVariant = false,
 }) {
+  if (rotationSummary) {
+    const current = rotationSummary.currentItem;
+    return (
+      <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
+        <Text style={[canonicalTextStyles.meta, styles.meta]}>
+          현재 {current?.name ?? '-'} · {rotationMinutes(current?.progressSeconds)} / {rotationMinutes(current?.targetSeconds)}분
+        </Text>
+        <Text style={[canonicalTextStyles.meta, styles.meta]}>
+          다음 {rotationSummary.nextItem?.name ?? '회전 완료'}
+        </Text>
+        <Text style={[canonicalTextStyles.meta, styles.meta]}>
+          {rotationSummary.currentCycleNumber}번째 회전 · {rotationSummary.completedCycleCount}회 완료
+        </Text>
+      </View>
+    );
+  }
   return (
     <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
       <Text
@@ -558,10 +587,12 @@ const ChallengeCardReorderControls = memo(function ChallengeCardReorderControls(
               !showControls && { opacity: 0 },
             ]}
           >
-        <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
-          <Text style={styles.actionDarkText}>수정</Text>
-        </TouchableOpacity>
-        {!isExpired && (
+        {!isRotationRoutine(item) && (
+          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
+            <Text style={styles.actionDarkText}>수정</Text>
+          </TouchableOpacity>
+        )}
+        {!isExpired && !isRotationRoutine(item) && (
           <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
             <Text style={styles.actionDarkText}>복제</Text>
           </TouchableOpacity>
@@ -583,6 +614,18 @@ const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
   onPressCard,
   onPressClaim,
 }) {
+  if (isRotationRoutine(item)) {
+    return (
+      <TouchableOpacity
+        style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
+        disabled={!!showControls}
+        onPress={() => onPressCard?.(item)}
+        activeOpacity={0.9}
+      >
+        <Text style={styles.uploadNowText}>이어하기</Text>
+      </TouchableOpacity>
+    );
+  }
   if (item.type === 'habit') {
     return (
       <TouchableOpacity
@@ -637,7 +680,10 @@ const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
   return null;
 });
 
-const getCompactProgressLabel = (item, isDone = false, isExpired = false) => {
+const getCompactProgressLabel = (item, rotationSummary, isDone = false, isExpired = false) => {
+  if (rotationSummary?.currentItem) {
+    return `${rotationMinutes(rotationSummary.currentItem.progressSeconds)}/${rotationMinutes(rotationSummary.currentItem.targetSeconds)}분`;
+  }
   if (isDone) return '완료';
   if (isExpired) return '만료';
   if (item?.type === 'habit') return `${Number(item?.currentScore ?? 0)}회`;
@@ -647,6 +693,7 @@ const getCompactProgressLabel = (item, isDone = false, isExpired = false) => {
 const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
   item,
   pct,
+  rotationSummary,
   habitGrassColor = HABIT_GRASS_EMPTY,
   isDone = false,
   isExpired = false,
@@ -654,8 +701,11 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
   onPressCard,
   onPressClaim,
 }) {
-  const progressLabel = getCompactProgressLabel(item, isDone, isExpired);
-  const actionLabel = item.type === 'habit'
+  const progressLabel = getCompactProgressLabel(item, rotationSummary, isDone, isExpired);
+  const rotation = isRotationRoutine(item);
+  const actionLabel = rotation
+    ? '진행'
+    : item.type === 'habit'
     ? '기록'
     : isDone
     ? '보상'
@@ -663,9 +713,13 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
     ? '만료'
     : '인증';
 
-  const actionDisabled = item.type !== 'habit' && isExpired;
+  const actionDisabled = !rotation && item.type !== 'habit' && isExpired;
 
   const onPressAction = () => {
+    if (rotation) {
+      onPressCard?.(item);
+      return;
+    }
     if (item.type === 'habit') {
       onPressCard?.({ ...item, _upload: true });
       return;
@@ -756,7 +810,8 @@ const CardBody = React.forwardRef(function CardBody({
   const isExpired = !!item._isExpired;
   const isFloatingVariant = variant === CHALLENGE_CARD_VARIANTS.FLOATING;
   const isCompactVariant = (variant === CHALLENGE_CARD_VARIANTS.COMPACT || !!collapsed) && !isFloatingVariant && !showControls;
-  const pct = Math.min(100, Math.max(0,
+  const rotationSummary = useMemo(() => rotationSummaryOf(item), [item]);
+  const pct = rotationSummary?.currentItem?.progressPct ?? Math.min(100, Math.max(0,
     item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
   ));
 
@@ -773,6 +828,7 @@ const CardBody = React.forwardRef(function CardBody({
 
       <ChallengeCardMeta
         item={item}
+        rotationSummary={rotationSummary}
         isCompactVariant={isCompactVariant}
       />
 
@@ -806,6 +862,7 @@ const CardBody = React.forwardRef(function CardBody({
         <ChallengeCardCompactRow
           item={item}
           pct={pct}
+          rotationSummary={rotationSummary}
           habitGrassColor={habitGrassColor}
           isDone={isDone}
           isExpired={isExpired}
@@ -1260,6 +1317,10 @@ export default function ChallengeListScreen() {
   }, [animateList]);
 
   const goEntryList = useCallback((item) => {
+    if (isRotationRoutine(item)) {
+      navigationRef.current.navigate('RotationRoutineDetail', { routineId: item.id });
+      return;
+    }
     if (item?._upload) { navigationRef.current.navigate('Upload', { challengeId: item.id }); return; }
     navigationRef.current.navigate('EntryList', {
       challengeId: item.id,
@@ -1690,7 +1751,7 @@ export default function ChallengeListScreen() {
       {/* 플로팅 버튼 */}
       <TouchableOpacity
         style={[styles.addFloatingBtn, { bottom: Math.max(insets.bottom, 16) + EDGE }]}
-        onPress={() => navigationRef.current.navigate('AddChallenge', { resetNonce: Date.now() })}
+          onPress={() => navigationRef.current.navigate('CreateChallengeType')}
         activeOpacity={0.9}
         disabled={reorderActive}
       >

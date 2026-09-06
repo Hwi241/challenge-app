@@ -12,6 +12,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import NotificationDefaultsScreen from './screens/NotificationDefaultsScreen';
 import ChallengeListScreen from './screens/ChallengeListScreen';
 import AddChallengeScreen from './screens/AddChallengeScreen';
+import CreateChallengeTypeScreen from './screens/CreateChallengeTypeScreen';
+import AddRotationRoutineScreen from './screens/AddRotationRoutineScreen';
+import RotationRoutineDetailScreen from './screens/RotationRoutineDetailScreen';
 import EditChallengeScreen from './screens/EditChallengeScreen';
 import EntryListScreen from './screens/EntryListScreen';
 import EntryDetailScreen from './screens/EntryDetailScreen';
@@ -156,7 +159,10 @@ export default function App() {
             <Stack.Screen name="MonthlyNotification" component={MonthlyNotificationScreen} />
 
             {/* 도전 편집/상세/업로드 */}
-            <Stack.Screen name="AddChallenge" component={AddChallengeScreen} />
+<Stack.Screen name="AddChallenge" component={AddChallengeScreen} />
+            <Stack.Screen name="CreateChallengeType" component={CreateChallengeTypeScreen} />
+            <Stack.Screen name="AddRotationRoutine" component={AddRotationRoutineScreen} />
+            <Stack.Screen name="RotationRoutineDetail" component={RotationRoutineDetailScreen} />
             <Stack.Screen name="EditChallenge" component={EditChallengeScreen} />
             <Stack.Screen name="EntryList" component={EntryListScreen} />
             <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />

@@ -2,6 +2,7 @@
 import { Platform, NativeModules } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
+import { isRotationRoutine } from './challengeType';
 
 const BRIDGE = NativeModules?.WidgetBridge;
 const WIDGET_JSON_PATH = FileSystem.documentDirectory + 'widget_challenges.json';
@@ -26,6 +27,7 @@ async function updateAllWidgets() {
 }
 
 function shapeForWidget(c) {
+  if (isRotationRoutine(c)) return null;
   const id = String(c?.id ?? '').trim();
   if (!id) return null;
   const title = (c?.title ?? '').toString().trim() || id;

@@ -23,6 +23,7 @@ import {
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import { validateInput, saveAndSchedule } from '../utils/challengeStore';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
+import { CHALLENGE_TYPE } from '../utils/challengeType';
 import BackButton from '../components/BackButton';
 import { SettingSectionCard, GoalCyclePreview as SettingGoalCyclePreview, NotificationPreview as SettingNotificationPreview } from '../components/ChallengeSettingWidgets';
 
@@ -52,10 +53,19 @@ const parseDateForClone = (value) => {
 export default function AddChallengeScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const requestedInitialType = route.params?.initialType === CHALLENGE_TYPE.HABIT
+    ? CHALLENGE_TYPE.HABIT
+    : CHALLENGE_TYPE.CHALLENGE;
+  const lockType = [
+    CHALLENGE_TYPE.CHALLENGE,
+    CHALLENGE_TYPE.HABIT,
+  ].includes(route.params?.initialType);
   const duplicateTemplate = route.params?.duplicateTemplate || null;
   const duplicateNonce = route.params?.duplicateNonce || null;
   const [busy, setBusy] = useState(false);
-  const [habitMode, setHabitMode] = useState(false);
+  const [habitMode, setHabitMode] = useState(
+    requestedInitialType === CHALLENGE_TYPE.HABIT
+  );
 
   // 도전 탭 상태
   const [cTitle, setCTitle] = useState('');
@@ -410,7 +420,11 @@ const handleGoalChange = useCallback((txt)=>{
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-      <BackButton title="도전/습관 추가" onPress={handleBackPress} />
+      <BackButton
+        title={lockType ? (habitMode ? '습관 추가' : '도전 추가') : '도전/습관 추가'}
+        onPress={handleBackPress}
+      />
+      {!lockType && (
       <View style={styles.tabWrap}>
         <TouchableOpacity style={[styles.tabBtn, !habitMode && styles.tabBtnActive]} onPress={() => setHabitMode(false)}>
           <Text style={[styles.tabText, !habitMode && styles.tabTextActive]}>도전 기록</Text>
@@ -419,6 +433,7 @@ const handleGoalChange = useCallback((txt)=>{
           <Text style={[styles.tabText, habitMode && styles.tabTextActive]}>습관 기록</Text>
         </TouchableOpacity>
       </View>
+      )}
       <ScrollView
         ref={formScrollRef}
         contentContainerStyle={[

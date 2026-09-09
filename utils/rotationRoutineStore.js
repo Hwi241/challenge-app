@@ -1,4 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  editRotationEntry,
+  deleteRotationEntry,
+  cancelRotationCompletionEntry,
+} from './rotationRoutineEntryEditing';
 
 import { syncWidgetChallengeList } from './widgetSync';
 import {
@@ -8,6 +13,7 @@ import {
   getRotationRoutineSummary,
   normalizeRotationRoutine,
   recordRotationTime,
+  reorderRotationCycleItems,
   setRotationRoutinePaused,
   undoLastRotationAction,
 } from './rotationRoutine';
@@ -98,10 +104,22 @@ export function createRotationRoutineStore({
       fail('ROUTINE_TYPE_MISMATCH', '해당 항목은 순환 루틴이 아닙니다.');
     }
 
-    const cached = listed
-      ? null
-      : parseObject(valueByKey.get(challengeKey(id)), challengeKey(id));
-    const routine = normalizeRotationRoutine(listed || cached);
+    const cached = parseObject(
+      valueByKey.get(challengeKey(id)),
+      challengeKey(id)
+    );
+    const listedUpdatedAt = Number(listed?.updatedAt ?? 0);
+    const cachedUpdatedAt = Number(cached?.updatedAt ?? 0);
+    let routineSource = listed ?? cached;
+
+    if (cached) {
+      const shouldUseCached = !listed
+        ? true
+        : cachedUpdatedAt >= listedUpdatedAt;
+      if (shouldUseCached) routineSource = cached;
+    }
+
+    const routine = normalizeRotationRoutine(routineSource);
     if (!routine?.id) {
       fail('ROTATION_ROUTINE_NOT_FOUND', '순환 루틴을 찾을 수 없습니다.');
     }
@@ -204,11 +222,48 @@ export function createRotationRoutineStore({
   const recordTime = (routineId, durationSeconds, options = {}) =>
     enqueueMutation(async () => {
       const bundle = await readBundle(routineId);
+      const cycle = bundle.routine.rotation.activeCycle;
+      const currentItemId = cycle.queue[0];
+      const currentProgress = cycle.progressSecondsByItem[currentItemId];
+      const stateChanged = [
+        options.expectedItemId !== undefined
+          && cleanId(options.expectedItemId) !== cleanId(currentItemId),
+        options.expectedCycleNumber !== undefined
+          && Number(options.expectedCycleNumber) !== cycle.number,
+        options.expectedProgressSeconds !== undefined
+          && Number(options.expectedProgressSeconds) !== currentProgress,
+      ].some(Boolean);
+      if (stateChanged) {
+        fail(
+          'ROTATION_RECORD_STATE_CHANGED',
+          '현재 활동이나 진행 상태가 변경되었습니다. 입력 내용을 확인한 뒤 다시 기록해주세요.'
+        );
+      }
+
+      const entryContent = {};
+      if (Object.prototype.hasOwnProperty.call(options, 'text')) {
+        if (typeof options.text !== 'string') {
+          fail('ENTRY_TEXT_INVALID', '기록 내용이 올바르지 않습니다.');
+        }
+        const entryText = options.text.trim();
+        if (entryText.length > 500) {
+          fail('ENTRY_TEXT_TOO_LONG', '기록 내용은 500자 이내로 입력해주세요.');
+        }
+        entryContent.text = entryText;
+      }
+      if (Object.prototype.hasOwnProperty.call(options, 'imageUri')) {
+        if (options.imageUri != null && typeof options.imageUri !== 'string') {
+          fail('ENTRY_IMAGE_INVALID', '사진 정보가 올바르지 않습니다.');
+        }
+        entryContent.imageUri = options.imageUri == null ? null : options.imageUri;
+      }
+
       const transition = recordRotationTime(
         bundle.routine,
         durationSeconds,
         options
       );
+      transition.entry = { ...transition.entry, ...entryContent };
       if (
         bundle.entries.some(
           (entry) => cleanId(entry?.id) === transition.entry.id
@@ -296,7 +351,74 @@ export function createRotationRoutineStore({
       };
     });
 
+  const mutateEntry = (routineId, entryId, transitionFn) =>
+    enqueueMutation(async () => {
+      const bundle = await readBundle(routineId);
+      const transition = transitionFn(bundle.routine, bundle.entries, entryId);
+      const saved = await persistRoutine({
+        challenges: bundle.challenges,
+        routine: transition.routine,
+        entries: transition.entries,
+      });
+      return {
+        ...transition,
+        routine: saved,
+        summary: getRotationRoutineSummary(saved),
+      };
+    });
+
+  const editEntry = (routineId, entryId, changes, options = {}) =>
+    mutateEntry(routineId, entryId, (routine, entries, id) =>
+      editRotationEntry(routine, entries, id, changes, options));
+
+  const deleteEntry = (routineId, entryId, options = {}) =>
+    mutateEntry(routineId, entryId, (routine, entries, id) =>
+      deleteRotationEntry(routine, entries, id, options));
+
+  const cancelCompletionEntry = (routineId, entryId, options = {}) =>
+    mutateEntry(routineId, entryId, (routine, entries, id) =>
+      cancelRotationCompletionEntry(routine, entries, id, options));
+
+  const reorderCurrentCycle = (routineId, orderedItemIds, options = {}) => {
+    const requestedQueue = Array.isArray(orderedItemIds)
+      ? [...orderedItemIds]
+      : orderedItemIds;
+    const requestOptions = {
+      ...options,
+      expectedQueue: Array.isArray(options.expectedQueue)
+        ? [...options.expectedQueue]
+        : options.expectedQueue,
+    };
+    return enqueueMutation(async () => {
+      const bundle = await readBundle(routineId);
+      const transition = reorderRotationCycleItems(
+        bundle.routine,
+        requestedQueue,
+        requestOptions,
+      );
+      if (!transition.result.changed) {
+        return {
+          ...transition,
+          summary: getRotationRoutineSummary(bundle.routine),
+        };
+      }
+      const saved = await persistRoutine({
+        challenges: bundle.challenges,
+        routine: transition.routine,
+      });
+      return {
+        ...transition,
+        routine: saved,
+        summary: getRotationRoutineSummary(saved),
+      };
+    });
+  };
+
   return {
+    reorderCurrentCycle,
+    editEntry,
+    deleteEntry,
+    cancelCompletionEntry,
     createAndSave,
     load,
     loadEntries,
@@ -310,6 +432,18 @@ export function createRotationRoutineStore({
 }
 
 const defaultStore = createRotationRoutineStore();
+
+export const reorderRotationCycleItemsAndSave = (...args) =>
+  defaultStore.reorderCurrentCycle(...args);
+
+export const editRotationEntryAndSave = (...args) =>
+  defaultStore.editEntry(...args);
+
+export const deleteRotationEntryAndSave = (...args) =>
+  defaultStore.deleteEntry(...args);
+
+export const cancelRotationCompletionEntryAndSave = (...args) =>
+  defaultStore.cancelCompletionEntry(...args);
 
 export const createAndSaveRotationRoutine = (...args) =>
   defaultStore.createAndSave(...args);

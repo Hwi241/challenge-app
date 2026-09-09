@@ -569,6 +569,69 @@ toNonNegativeInteger(
   };
 }
 
+export function reorderRotationCycleItems(routine, orderedItemIds, options = {}) {
+  const now = toNonNegativeInteger(options.now, Date.now());
+  const base = requireRoutine(routine, { ...options, now });
+  const cycle = base.rotation.activeCycle;
+  const expectedQueue = options.expectedQueue;
+
+  if (!Array.isArray(expectedQueue)) {
+    fail('ORDER_EXPECTATION_REQUIRED', '순서를 변경하기 전 상태가 필요합니다.');
+  }
+  const sameExpectedQueue = expectedQueue.length === cycle.queue.length
+    && expectedQueue.every((id, index) => id === cycle.queue[index]);
+  if (options.expectedCycleNumber !== cycle.number) {
+    fail('ORDER_STATE_CHANGED', '회전이 변경되었습니다. 최신 순서를 확인하고 다시 변경해주세요.');
+  }
+  if (!sameExpectedQueue) {
+    fail('ORDER_STATE_CHANGED', '진행 순서가 변경되었습니다. 최신 순서를 확인하고 다시 변경해주세요.');
+  }
+  if (!Array.isArray(orderedItemIds)) {
+    fail('ORDER_INVALID', '활동 순서가 올바르지 않습니다.');
+  }
+  const requestedQueue = [...orderedItemIds];
+  const validIds = requestedQueue.every(
+    (id) => typeof id === 'string' && id.length > 0,
+  );
+  if (!validIds) {
+    fail('ORDER_INVALID', '활동 ID가 올바르지 않습니다.');
+  }
+  const uniqueIds = new Set(requestedQueue);
+  const currentIds = new Set(cycle.queue);
+  const completePermutation = requestedQueue.length === cycle.queue.length
+    && uniqueIds.size === cycle.queue.length
+    && requestedQueue.every((id) => currentIds.has(id));
+  if (!completePermutation) {
+    fail('ORDER_INVALID', '미완료 활동을 빠짐없이 한 번씩 포함해야 합니다.');
+  }
+  const unchanged = requestedQueue.every((id, index) => id === cycle.queue[index]);
+  if (unchanged) {
+    return {
+      routine: base,
+      result: { changed: false, currentItemId: cycle.queue[0] ?? null },
+    };
+  }
+  return {
+    routine: {
+      ...base,
+      updatedAt: now,
+      rotation: {
+        ...base.rotation,
+        activeCycle: {
+          ...cycle,
+          queue: requestedQueue,
+        },
+        lastAction: null,
+      },
+    },
+    result: {
+      changed: true,
+      currentItemId: requestedQueue[0] ?? null,
+      nextItemId: requestedQueue[1] ?? null,
+    },
+  };
+}
+
 export function deferCurrentRotationItem(routine, options = {}) {
   const now = toNonNegativeInteger(options.now, Date.now());
   const base = requireRoutine(routine, { ...options, now });

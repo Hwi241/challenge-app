@@ -27,6 +27,7 @@ import {
 } from '../styles/common';
 import { numericInputProps, toNumberOrZero } from '../utils/number';
 import BackButton from '../components/BackButton';
+import useRotationEntryEditor from '../hooks/useRotationEntryEditor';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { getAppSettings } from '../utils/appSettings';
@@ -54,6 +55,8 @@ export default function EntryDetailScreen() {
   const { challengeId, entryId, title: routeTitle } = route.params || {};
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [detectedRotation, setDetectedRotation] = useState(false);
+  const isRotation = detectedRotation ? true : route.params?.type === 'rotation';
   const originalRef = useRef({ text: "", duration: "", imageUri: null });
 
   const [text, setText] = useState('');
@@ -65,6 +68,7 @@ export default function EntryDetailScreen() {
 
   // 로드
   useEffect(() => {
+    if (isRotation) return;
     let mounted = true;
     (async () => {
       try {
@@ -79,6 +83,10 @@ export default function EntryDetailScreen() {
     const foundChallenge = Array.isArray(challenges)
       ? challenges.find(c => String(c.id) === String(challengeId))
       : null;
+    if (foundChallenge?.type === 'rotation') {
+      if (mounted) setDetectedRotation(true);
+      return;
+    }
     setChallengeTitle(foundChallenge?.title || routeTitle || '');
 
     const raw = await AsyncStorage.getItem(`entries_${challengeId}`);
@@ -108,7 +116,7 @@ export default function EntryDetailScreen() {
       }
     })();
     return () => { mounted = false; };
-  }, [challengeId, entryId, navigation]);
+  }, [challengeId, entryId, navigation, isRotation]);
 
   const hasUnsavedChanges = useCallback(() => {
     const orig = originalRef.current;
@@ -128,6 +136,26 @@ export default function EntryDetailScreen() {
     message: '뒤로 가면 수정한 내용이 저장되지 않습니다.',
     stayText: '계속 수정',
     leaveText: '나가기',
+  });
+
+  const rotationEditor = useRotationEntryEditor({
+    enabled: isRotation,
+    challengeId,
+    entryId,
+    navigation,
+    text,
+    duration,
+    imageUri,
+    busy,
+    setBusy,
+    setLoading,
+    setText,
+    setDuration,
+    setImageUri,
+    setTimestamp,
+    setChallengeTitle,
+    originalRef,
+    markAsSaved,
   });
 
   // 사진 선택(추가/교체)
@@ -480,6 +508,19 @@ export default function EntryDetailScreen() {
         )}
 
         <View style={canonicalCardStyles.list}>
+          {isRotation && rotationEditor.ready && (
+            <View style={styles.cardHeaderSpacing}>
+              <Text style={canonicalTextStyles.sectionTitle}>
+                {rotationEditor.entry.itemName ?? '활동'}
+              </Text>
+              <Text style={canonicalTextStyles.bodyMuted}>
+                {rotationEditor.entry.cycleNumber}번째 회전
+              </Text>
+              <Text style={canonicalTextStyles.bodyMuted}>
+                기록 날짜: {rotationEditor.dateText}
+              </Text>
+            </View>
+          )}
           {/* "내용" + "사진 선택"을 한 줄로 */}
           <View
           style={[
@@ -554,9 +595,14 @@ export default function EntryDetailScreen() {
             placeholder="숫자만 입력"
             style={canonicalInputStyles.compact}
             placeholderTextColor={color.textDisabled}
-            editable={!busy}
+            editable={!busy && (isRotation ? rotationEditor.canEditTime : true)}
             {...numericInputProps}
           />
+          {isRotation && rotationEditor.reason.length > 0 && (
+            <Text style={canonicalTextStyles.bodyMuted}>
+              {rotationEditor.reason}
+            </Text>
+          )}
         </View>
 
         {/* 저장 / 삭제 버튼 */}
@@ -566,9 +612,9 @@ export default function EntryDetailScreen() {
           styles.saveButton,
           busy && styles.busy,
         ]}
-          onPress={onSave}
+          onPress={isRotation ? rotationEditor.onSave : onSave}
           activeOpacity={0.9}
-          disabled={busy}
+          disabled={busy ? true : isRotation && !rotationEditor.ready}
         >
           <Text style={buttonStyles.primary.label}>저장</Text>
         </TouchableOpacity>
@@ -577,14 +623,28 @@ export default function EntryDetailScreen() {
           style={[
           buttonStyles.outlineSoft.container,
           styles.deleteButton,
-          busy && styles.busy,
+          (busy ? true : isRotation && !rotationEditor.canDelete) && styles.busy,
         ]}
-          onPress={onDelete}
+          onPress={isRotation ? rotationEditor.onDelete : onDelete}
           activeOpacity={0.9}
-          disabled={busy}
+          disabled={busy ? true : isRotation && !rotationEditor.canDelete}
         >
           <Text style={buttonStyles.outlineSoft.label}>삭제</Text>
         </TouchableOpacity>
+        {isRotation && rotationEditor.canCancelCompletion && (
+          <TouchableOpacity
+            style={[
+              buttonStyles.outlineSoft.container,
+              styles.deleteButton,
+              busy && styles.busy,
+            ]}
+            onPress={rotationEditor.onCancelCompletion}
+            activeOpacity={0.9}
+            disabled={busy}
+          >
+            <Text style={buttonStyles.outlineSoft.label}>방금 기록 취소</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

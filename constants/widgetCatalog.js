@@ -6,6 +6,7 @@ import {
 export const DASHBOARD_TARGETS = {
  CHALLENGE: 'challenge',
  HABIT: 'habit',
+ ROTATION: 'rotation',
  RECORD_ROOM: 'recordRoom',
 };
 
@@ -92,6 +93,15 @@ export const RECORD_ROOM_WIDGET_IDS = [
   'memo',
   'record-room-card-list',
 ];
+
+const ROTATION_DASHBOARD_WIDGET_IDS = new Set([
+  'overall_progress',
+  'month_calendar',
+  'weekly_bar',
+  'line_count_cumulative',
+  'line_minutes',
+  'grass_graph',
+]);
 
 export const WIDGET_CATALOG = [
   {
@@ -494,7 +504,13 @@ export const WIDGET_CATALOG = [
  features: ['탭', '카드 행', '상태 표시'],
  },
  },
-];
+].map((widget) => {
+  if (!ROTATION_DASHBOARD_WIDGET_IDS.has(widget.id)) return widget;
+  return {
+    ...widget,
+    supports: [...widget.supports, DASHBOARD_TARGETS.ROTATION],
+  };
+});
 
 export const getWidgetById = (id) =>
   WIDGET_CATALOG.find((item) => item.id === id) || null;

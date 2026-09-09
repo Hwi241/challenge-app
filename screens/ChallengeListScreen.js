@@ -22,6 +22,7 @@ import { cancelAllForChallenge } from '../utils/notificationScheduler';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import { isRotationRoutine } from '../utils/challengeType';
 import { getRotationRoutineSummary } from '../utils/rotationRoutine';
+import { loadRotationRoutine } from '../utils/rotationRoutineStore';
 import { moveToTrash } from '../utils/trash';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 
@@ -619,7 +620,7 @@ const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
       <TouchableOpacity
         style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
         disabled={!!showControls}
-        onPress={() => onPressCard?.(item)}
+        onPress={() => onPressCard?.(item, 'continue')}
         activeOpacity={0.9}
       >
         <Text style={styles.uploadNowText}>이어하기</Text>
@@ -717,7 +718,7 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
 
   const onPressAction = () => {
     if (rotation) {
-      onPressCard?.(item);
+      onPressCard?.(item, 'continue');
       return;
     }
     if (item.type === 'habit') {
@@ -811,7 +812,7 @@ const CardBody = React.forwardRef(function CardBody({
   const isFloatingVariant = variant === CHALLENGE_CARD_VARIANTS.FLOATING;
   const isCompactVariant = (variant === CHALLENGE_CARD_VARIANTS.COMPACT || !!collapsed) && !isFloatingVariant && !showControls;
   const rotationSummary = useMemo(() => rotationSummaryOf(item), [item]);
-  const pct = rotationSummary?.currentItem?.progressPct ?? Math.min(100, Math.max(0,
+  const pct = rotationSummary?.progressPct ?? Math.min(100, Math.max(0,
     item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
   ));
 
@@ -1027,9 +1028,21 @@ export default function ChallengeListScreen() {
       const raw = parseJson(rawStr) || [];
       const ensured = (Array.isArray(raw) ? raw : []).map(ensureItemId);
       const deduped = dedupeById(ensured);
+      const refreshed = await Promise.all(
+        deduped.map(async (item) => {
+          if (!isRotationRoutine(item)) return item;
+          try {
+            const latest = await loadRotationRoutine(item.id);
+            return latest ?? item;
+          } catch (error) {
+            console.warn('[ChallengeList][rotationRefresh] failed:', error);
+            return item;
+          }
+        })
+      );
 
       const orderMap = await readOrderMap();
-      const { arranged, newOrderMap } = normalizeWithOrder(deduped, orderMap, 'respectMap');
+      const { arranged, newOrderMap } = normalizeWithOrder(refreshed, orderMap, 'respectMap');
 
       console.log('[ChallengeList][load] rawIds=', (raw||[]).map(it=>safeStringId(it?.id||it?.challengeId)));
       console.log('[ChallengeList][load] arrangedIds=', arranged.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
@@ -1316,9 +1329,22 @@ export default function ChallengeListScreen() {
     });
   }, [animateList]);
 
-  const goEntryList = useCallback((item) => {
+  const goEntryList = useCallback((item, action) => {
     if (isRotationRoutine(item)) {
-      navigationRef.current.navigate('RotationRoutineDetail', { routineId: item.id });
+      if (action === 'continue') {
+        navigationRef.current.navigate('RotationRoutineDetail', {
+          routineId: item.id,
+        });
+        return;
+      }
+      navigationRef.current.navigate('EntryList', {
+        challengeId: item.id,
+        title: item.title,
+        type: 'rotation',
+        challengeType: 'rotation',
+        item,
+        challenge: item,
+      });
       return;
     }
     if (item?._upload) { navigationRef.current.navigate('Upload', { challengeId: item.id }); return; }
@@ -1601,14 +1627,14 @@ export default function ChallengeListScreen() {
             setReorderPrepared(false);
             enterReorder(item);
           }}
-          onPressCard={(it) => {
+          onPressCard={(it, action) => {
             if (reorderActive) return;
             if (it?._isExpired) {
               Alert.alert("기간 만료", "이 도전의 기간이 만료되었습니다.\n카드를 꾹 눌러 수정 또는 삭제해주세요.");
               return;
             }
             if (it?._upload) { navigationRef.current.navigate('Upload', { challengeId: it.id }); return; }
-            goEntryList(it);
+            goEntryList(it, action);
           }}
           onPressEdit={() => {}}
           onPressDuplicate={() => {}}

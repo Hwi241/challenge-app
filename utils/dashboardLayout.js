@@ -29,6 +29,7 @@ export const resolveDashboardTarget = (value) => {
   const v = String(value || '').toLowerCase();
   if (v === DASHBOARD_TARGETS.RECORD_ROOM) return DASHBOARD_TARGETS.RECORD_ROOM;
   if (v === DASHBOARD_TARGETS.HABIT) return DASHBOARD_TARGETS.HABIT;
+  if (v === DASHBOARD_TARGETS.ROTATION) return DASHBOARD_TARGETS.ROTATION;
   return DASHBOARD_TARGETS.CHALLENGE;
 };
 

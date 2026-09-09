@@ -30,6 +30,7 @@ import { SafeAreaView,
   useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadRotationRoutineSnapshot } from '../utils/rotationRoutineStore';
 
 import ViewShot,
   { captureRef } from 'react-native-view-shot';
@@ -4270,11 +4271,20 @@ export default function EntryListScreen({ route, navigation }) {
     readOnly = false,
   } = params;
 
+  const isRotation = [
+    params.type,
+    params.challengeType,
+    params.cardType,
+    params.item?.type,
+    params.challenge?.type,
+  ].includes(DASHBOARD_TARGETS.ROTATION);
+
+  const [rotationSummary, setRotationSummary] = useState(null);
     const [dashboardLayoutReady, setDashboardLayoutReady] = useState(false);
 
 
 
-  const dashboardTarget = (
+  const standardDashboardTarget = (
     params.type === 'habit' ||
     params.challengeType === 'habit' ||
     params.cardType === 'habit' ||
@@ -4284,6 +4294,10 @@ export default function EntryListScreen({ route, navigation }) {
   )
     ? DASHBOARD_TARGETS.HABIT
     : DASHBOARD_TARGETS.CHALLENGE;
+  const dashboardTarget = isRotation
+    ? DASHBOARD_TARGETS.ROTATION
+    : standardDashboardTarget;
+
   const [dashboardLayout, setDashboardLayout] = useState(() =>
     getDefaultDashboardLayout(dashboardTarget).map((item) => ({ ...item })),
   );
@@ -4474,7 +4488,7 @@ export default function EntryListScreen({ route, navigation }) {
         <DashboardWidgetShell
           header={
             <DashboardWidgetHeader
-              title="전체 진행률"
+              title={isRotation ? '이번 회전 진행률' : '전체 진행률'}
               hideSides
             />
           }
@@ -4997,6 +5011,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
   const enterDashboardEdit = useCallback(() => {
     navigation.navigate('DashboardEdit', {
       challengeId,
+      target: dashboardTarget,
       type: params.type || params.challengeType || params.item?.type || params.challenge?.type,
       title: displayTitle || meta?.title || params.title || params.challengeTitle || params.item?.title || params.challenge?.title,
       targetScore,
@@ -5005,7 +5020,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
       challenge: params.challenge,
       returnRouteKey: route?.key,
     });
-  }, [navigation, challengeId, params, displayTitle, meta, route?.key, targetScore, meta?.goalScore, meta?.targetScore]);
+  }, [navigation, challengeId, params, displayTitle, meta, route?.key, targetScore, meta?.goalScore, meta?.targetScore, dashboardTarget]);
 
   const totalCount = Array.isArray(entries) ? entries.length : 0;
 
@@ -5338,6 +5353,45 @@ const runWeek = useCallback(() => {
 
     loadingRef.current = true;
     (async () => {
+      if (isRotation) {
+        const snapshot = await loadRotationRoutineSnapshot(challengeId);
+        if (!aliveRef.current) return;
+
+        const normalized = normalizeEntries(snapshot.entries).map((entry) => {
+          const itemName = entry.itemName ?? '활동';
+          const cycleNumber = entry.cycleNumber ?? 1;
+          return {
+            ...entry,
+            text: `${itemName} · ${cycleNumber}번째 회전`,
+          };
+        });
+
+        const routineCreatedAt = Number(snapshot.routine?.createdAt);
+        const fallbackStartedAt = Number.isFinite(routineCreatedAt)
+          ? routineCreatedAt
+          : Date.now();
+        const startedAt = normalized.reduce(
+          (earliest, entry) => Math.min(earliest, entry.timestamp),
+          fallbackStartedAt,
+        );
+        const now = new Date();
+        const loadedMeta = {
+          ...snapshot.routine,
+          startDate: new Date(startedAt).toISOString(),
+          endDate: now.toISOString(),
+        };
+
+        setEntries(normalized);
+        setCurrentScore(normalized.length);
+        setRotationSummary(snapshot.summary);
+        setMeta(loadedMeta);
+        buildWeeks(normalized, loadedMeta.startDate);
+        setMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
+        setIntroReadyTick((tick) => tick + 1);
+        return;
+      }
+
+      setRotationSummary(null);
       const rawCID = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
       const numCID = (rawCID.match(/\d+/g) || []).join('');
       const chCID  = rawCID.startsWith('ch_') ? rawCID : (numCID ? `ch_${numCID}` : rawCID);
@@ -5489,7 +5543,7 @@ const runWeek = useCallback(() => {
       .finally(()=>{ loadingRef.current = false; });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFocused, challengeId, reloadTick, buildWeeks, reloadNonce]);
+  }, [isFocused, challengeId, reloadTick, buildWeeks, reloadNonce, isRotation]);
 
   // dashboardEditReturnedAt 감지 — 저장 복귀 시 intro 스킵
   useEffect(() => {
@@ -5657,8 +5711,13 @@ const runWeek = useCallback(() => {
   },[cancelIntroAnimations, cancelWidgetTapAnimations]);
 
   const overallPct = useMemo(
-    () => { if (!targetScore) return 0; const pct = Math.round((currentScore / targetScore) * 100); return isNaN(pct) ? 0 : Math.min(Math.max(0, pct), 100); },
-    [currentScore, targetScore]
+    () => {
+      if (isRotation) return rotationSummary?.progressPct ?? 0;
+      if (!targetScore) return 0;
+      const pct = Math.round((currentScore / targetScore) * 100);
+      return isNaN(pct) ? 0 : Math.min(Math.max(0, pct), 100);
+    },
+    [currentScore, targetScore, isRotation, rotationSummary?.progressPct]
   );
 
   const sortedEntries = useMemo(
@@ -5705,6 +5764,10 @@ const runWeek = useCallback(() => {
   );
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
+
+  const dashboardPeriodLabel = isRotation
+    ? `${rotationSummary?.currentCycleNumber ?? 1}번째 회전 · 날짜 제한 없음`
+    : `${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`;
 
   /* ===== 헤더 카드(화면용) : 보상 블록은 여기서 제거 ===== */
     const DashboardGraphArea = ({ isShare = false } = {}) => {
@@ -5872,7 +5935,7 @@ const runWeek = useCallback(() => {
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
           <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={headerTitleContainerWidth} />
-          <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
+          <Text style={[styles.period, { textAlign:'center' }]}>{dashboardPeriodLabel}</Text>
         </View>
         <TouchableOpacity
           onPress={()=>setShowInfo(true)}
@@ -5891,7 +5954,7 @@ const runWeek = useCallback(() => {
     lineIntroCommand.runId, lineIntroCommand.phase,
     weekIntroCommand.runId, weekIntroCommand.phase, weekIntroCommand.targetIndex
   , dashboardLayout, dashboardRowGap,
-    displayTitle, headerTitleContainerWidth
+    displayTitle, headerTitleContainerWidth, dashboardPeriodLabel
   ]);
 
   /* ===== 헤더 카드(공유 캡처용) ===== */
@@ -5902,7 +5965,7 @@ const runWeek = useCallback(() => {
         </View>
         <View style={styles.headerTitleWrap}>
           <TitleTwoLine text={displayTitle} style={styles.title} containerWidth={headerTitleContainerWidth} />
-          <Text style={[styles.period, { textAlign:'center' }]}>{`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}</Text>
+          <Text style={[styles.period, { textAlign:'center' }]}>{dashboardPeriodLabel}</Text>
         </View>
         <View style={styles.headerInfoBtn} />
       </View>
@@ -5913,7 +5976,7 @@ const runWeek = useCallback(() => {
     weeksData, monthDate, canPrevMonth, canNextMonth, entriesByDaySet,
     weekIndex, entries, overallPct,
     isWideDashboardLayout, dashboardLayout, dashboardRowGap,
-    displayTitle, headerTitleContainerWidth
+    displayTitle, headerTitleContainerWidth, dashboardPeriodLabel
   ]);
 
   const cidForDebug = String(route?.params?.challengeId ?? route?.params?.id ?? challengeId ?? '');
@@ -5943,8 +6006,17 @@ const runWeek = useCallback(() => {
 
   const renderEntryItem = useCallback(({ item, index }) => {
     const indexFromEnd = sortedEntries.length - index;
-    const onPress = readOnly ? undefined : () =>
-      navigation.navigate('EntryDetail', { challengeId, entryId: item.id, title: displayTitle });
+    const entryReadOnly = readOnly;
+    const onPress = entryReadOnly ? undefined : () =>
+      navigation.navigate(
+        'EntryDetail',
+        {
+          challengeId,
+          entryId: item.id,
+          title: displayTitle,
+          type: isRotation ? 'rotation' : undefined,
+        },
+      );
 
     if (isWideDashboardLayout) {
       return (
@@ -5954,18 +6026,18 @@ const runWeek = useCallback(() => {
             index % 2 === 0 ? styles.entryGridItemWideLeft : styles.entryGridItemWideRight,
           ]}
         >
-          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
+          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={entryReadOnly} onPress={onPress}/>
         </View>
       );
     }
 
     return (
       <View>
-        <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={readOnly} onPress={onPress}/>
+        <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={entryReadOnly} onPress={onPress}/>
         <View style={[styles.separator, styles.sectionPadNarrow]} />
       </View>
     );
-  }, [challengeId, displayTitle, isWideDashboardLayout, navigation, readOnly, sortedEntries.length]);
+  }, [challengeId, displayTitle, isWideDashboardLayout, navigation, readOnly, sortedEntries.length, isRotation]);
 
   const entryKeyExtractor = useCallback(
     (item, index) => String(item?.id ?? `${item?.timestamp ?? 0}-${index}`),
@@ -6037,10 +6109,10 @@ const runWeek = useCallback(() => {
             <Text style={styles.modalTitleCenter}>{displayTitle}</Text>
 
             <View style={styles.modalField}>
-              <Text style={styles.modalFieldTitle}>기간</Text>
+              <Text style={styles.modalFieldTitle}>{isRotation ? '운영' : '기간'}</Text>
               <View style={styles.modalFieldBox}>
                 <Text style={styles.modalFieldValue}>
-                  {`${fmtDate(meta.startDate)} ~ ${fmtDate(meta.endDate)}`}
+                  {dashboardPeriodLabel}
                 </Text>
               </View>
             </View>
@@ -6106,7 +6178,11 @@ const runWeek = useCallback(() => {
 {/* 누적시간 / 전체·남은 횟수 (postSummaryRow는 marginTop:0) */}
 <View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
   <Text style={styles.accumText}>누적시간 : {hours}시간 {minutes}분</Text>
-  <Text style={styles.countBelowText}>{`${currentScore}/${targetScore}`}</Text>
+  <Text style={styles.countBelowText}>
+    {isRotation
+      ? `${rotationSummary?.currentCycleNumber ?? 1}번째 회전 · ${rotationSummary?.completedCycleCount ?? 0}회 완료`
+      : `${currentScore}/${targetScore}`}
+  </Text>
 </View>
 
           <View style={{ height: EDGE }} />
@@ -6114,7 +6190,11 @@ const runWeek = useCallback(() => {
         </ViewShot>
         )}
         ListEmptyComponent={(
-          <Text style={[styles.empty, styles.sectionPadNarrow]}>등록된 인증이 없습니다.</Text>
+          <Text style={[styles.empty, styles.sectionPadNarrow]}>
+            {isRotation
+              ? '아직 기록이 없습니다. 이어하기에서 시간을 기록해보세요.'
+              : '등록된 인증이 없습니다.'}
+          </Text>
         )}
         ListFooterComponent={<View style={{ height: insets.bottom + 24 }} />}
       />
@@ -6122,10 +6202,16 @@ const runWeek = useCallback(() => {
             {!readOnly && (
         <TouchableOpacity
           style={[styles.uploadFloatingBtn, {bottom: Math.max(insets.bottom, 16) + EDGE}]}
-          onPress={() => navigation.navigate('Upload', { challengeId })}
+          onPress={() => {
+            if (isRotation) {
+              navigation.navigate('RotationRoutineDetail', { routineId: challengeId });
+              return;
+            }
+            navigation.navigate('Upload', { challengeId });
+          }}
           activeOpacity={0.9}
         >
-          <Text style={styles.uploadFloatingText}>인증</Text>
+          <Text style={styles.uploadFloatingText}>{isRotation ? '이어하기' : '인증'}</Text>
         </TouchableOpacity>
       )}
 

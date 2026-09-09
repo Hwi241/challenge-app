@@ -70,6 +70,12 @@ function resolveTarget(params) {
 
  const rawType = params?.type || params?.challengeType || params?.item?.type || params?.challenge?.type;
  const isHabit = rawType === 'habit' || params?.isHabit === true || params?.habitId;
+ if (rawTarget === DASHBOARD_TARGETS.ROTATION) {
+ return DASHBOARD_TARGETS.ROTATION;
+ }
+ if (rawType === DASHBOARD_TARGETS.ROTATION) {
+ return DASHBOARD_TARGETS.ROTATION;
+ }
  return isHabit ? DASHBOARD_TARGETS.HABIT : DASHBOARD_TARGETS.CHALLENGE;
 }
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { memo, useCallback, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RotationDraggableList } from './RotationDragScroll';
 import { buttonStyles, card, color, layout, space, text } from '../styles/common';
@@ -6,11 +6,51 @@ import { buttonStyles, card, color, layout, space, text } from '../styles/common
 const minutesOf = (seconds) => String(Math.round(Number(seconds) / 6) / 10);
 
 const ROTATION_ORDER_SPRING = {
-  damping: 13,
+  damping: 28,
   mass: 0.2,
-  stiffness: 200,
+  stiffness: 1000,
   overshootClamping: true,
 };
+
+const rotationItemKey = (item) => item.id;
+
+const RotationOrderRow = memo(function RotationOrderRow({
+  item, index, drag, active = false, done = false, locked, onMeasure,
+}) {
+  const handleLayout = useCallback((event) => {
+    if (!drag) return;
+    onMeasure?.(item.id, event.nativeEvent.layout.height);
+  }, [drag, item.id, onMeasure]);
+
+  return (
+    <View style={styles.row} onLayout={handleLayout}>
+      {!drag && (
+        <Text style={styles.number}>{done ? '✓' : index + 1}</Text>
+      )}
+      <View style={styles.body}>
+        <Text style={[text.body, !drag && !done && index === 0 && styles.current]}>
+          {item.name}
+        </Text>
+        <Text style={text.meta}>
+          {minutesOf(item.progressSeconds)} / {minutesOf(item.targetSeconds)}분
+        </Text>
+      </View>
+      {drag ? (
+        <TouchableOpacity
+          accessibilityLabel={item.name + ' 순서 이동 손잡이'}
+          onLongPress={drag}
+          delayLongPress={180}
+          disabled={locked ? true : active}
+          style={styles.handle}
+        >
+          <Text style={text.sectionTitle}>≡</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={text.meta}>{done ? '완료' : index === 0 ? '현재' : '대기'}</Text>
+      )}
+    </View>
+  );
+});
 
 export default function RotationCycleOrderEditor({
   summary, editing, disabled, onEditingChange, onApply,
@@ -18,6 +58,7 @@ export default function RotationCycleOrderEditor({
   const [draft, setDraft] = useState([]);
   const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [rowHeights, setRowHeights] = useState({});
   const baselineRef = useRef(null);
   const savingRef = useRef(false);
   const draggingRef = useRef(false);
@@ -61,32 +102,49 @@ export default function RotationCycleOrderEditor({
     }
   };
 
-  const row = (item, index, drag, active = false, done = false) => (
-    <View style={[styles.row, active && styles.active]}>
-      <Text style={styles.number}>{done ? '✓' : index + 1}</Text>
-      <View style={styles.body}>
-        <Text style={[text.body, !done && index === 0 && styles.current]}>
-          {item.name}
-        </Text>
-        <Text style={text.meta}>
-          {minutesOf(item.progressSeconds)} / {minutesOf(item.targetSeconds)}분
-        </Text>
-      </View>
-      {drag ? (
-        <TouchableOpacity
-          accessibilityLabel={item.name + ' 순서 이동 손잡이'}
-          onLongPress={drag}
-          delayLongPress={180}
-          disabled={locked ? true : active}
-          style={styles.handle}
-        >
-          <Text style={text.sectionTitle}>≡</Text>
-        </TouchableOpacity>
-      ) : (
-        <Text style={text.meta}>{done ? '완료' : index === 0 ? '현재' : '대기'}</Text>
-      )}
-    </View>
+  const handleRowMeasure = useCallback((id, height) => {
+    if (!Number.isFinite(height)) return;
+    if (height <= 0) return;
+    setRowHeights((previous) => {
+      const oldHeight = previous[id];
+      if (typeof oldHeight === 'number') {
+        if (Math.abs(oldHeight - height) < 0.5) return previous;
+      }
+      return { ...previous, [id]: height };
+    });
+  }, []);
+
+  const row = useCallback(
+    (item, index, drag, active = false, done = false) => (
+      <RotationOrderRow
+        item={item}
+        index={index}
+        drag={drag}
+        active={active}
+        done={done}
+        locked={locked}
+        onMeasure={handleRowMeasure}
+      />
+    ),
+    [locked, handleRowMeasure],
   );
+
+  const renderEditableRow = useCallback(
+    ({ item, getIndex, drag, isActive }) =>
+      row(item, getIndex() ?? -1, drag, isActive),
+    [row],
+  );
+
+  const handleDragBegin = useCallback(() => {
+    draggingRef.current = true;
+    setDragging(true);
+  }, []);
+
+  const handleDragEnd = useCallback(({ data }) => {
+    setDraft(data);
+    draggingRef.current = false;
+    setDragging(false);
+  }, []);
 
   return (
     <View style={[card.form, styles.section]}>
@@ -108,22 +166,37 @@ export default function RotationCycleOrderEditor({
       {editing ? (
         <>
           <Text style={styles.help}>손잡이를 길게 눌러 이동하세요. 맨 위 활동부터 진행합니다.</Text>
-          <RotationDraggableList
-            animationConfig={ROTATION_ORDER_SPRING}
-            data={draft}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, getIndex, drag, isActive }) =>
-              row(item, getIndex() ?? 0, drag, isActive)}
-            onDragBegin={() => {
-              draggingRef.current = true;
-              setDragging(true);
-            }}
-            onDragEnd={({ data }) => {
-              setDraft(data);
-              draggingRef.current = false;
-              setDragging(false);
-            }}
-          />
+          <View style={styles.editorColumns}>
+            <View
+              pointerEvents="none"
+              style={[
+                styles.numberColumn,
+                !draft.every((item) => rowHeights[item.id] > 0) && styles.unmeasured,
+              ]}
+            >
+              {draft.map((item, index) => (
+                <View
+                  key={'slot-' + index}
+                  style={[
+                    styles.numberSlot,
+                    { height: rowHeights[item.id] ?? 0 },
+                  ]}
+                >
+                  <Text style={styles.number}>{index + 1}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.activityColumn}>
+              <RotationDraggableList
+                animationConfig={ROTATION_ORDER_SPRING}
+                data={draft}
+                keyExtractor={rotationItemKey}
+                renderItem={renderEditableRow}
+                onDragBegin={handleDragBegin}
+                onDragEnd={handleDragEnd}
+              />
+            </View>
+          </View>
           <View style={styles.actions}>
             <TouchableOpacity
               style={[buttonStyles.secondary.container, styles.action, (locked ? true : dragging) && styles.disabled]}
@@ -160,7 +233,15 @@ const styles = StyleSheet.create({
   section: { marginTop: space.md, marginBottom: space.xl },
   help: { ...text.help, marginTop: space.sm },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.divider },
-  active: { backgroundColor: color.surfaceMuted },
+  editorColumns: { flexDirection: 'row', alignItems: 'flex-start' },
+  numberColumn: { width: 28 },
+  numberSlot: {
+    justifyContent: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.divider,
+  },
+  activityColumn: { flex: 1, minWidth: 0 },
+  unmeasured: { opacity: 0 },
   number: { ...text.meta, width: 28, textAlign: 'center' },
   body: { flex: 1, marginHorizontal: space.sm },
   current: { fontWeight: '700' },

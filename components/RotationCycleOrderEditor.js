@@ -1,18 +1,9 @@
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { RotationDraggableList } from './RotationDragScroll';
+import RotationStableOrderList from './RotationStableOrderList';
 import { buttonStyles, card, color, layout, space, text } from '../styles/common';
 
 const minutesOf = (seconds) => String(Math.round(Number(seconds) / 6) / 10);
-
-const ROTATION_ORDER_SPRING = {
-  damping: 28,
-  mass: 0.2,
-  stiffness: 1000,
-  overshootClamping: true,
-};
-
-const rotationItemKey = (item) => item.id;
 
 const RotationOrderRow = memo(function RotationOrderRow({
   item, index, drag, active = false, done = false, locked, onMeasure,
@@ -58,26 +49,13 @@ export default function RotationCycleOrderEditor({
   const [draft, setDraft] = useState([]);
   const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [rowHeights, setRowHeights] = useState({});
+  const engineRef = useRef(null);
   const baselineRef = useRef(null);
   const savingRef = useRef(false);
   const draggingRef = useRef(false);
   const pending = summary.remainingItems;
   const completed = summary.cycleItems.filter((item) => item.completed);
   const locked = disabled ? true : saving;
-
-  const separatorOffsets = useMemo(() => {
-    const offsets = [];
-    let bottom = 0;
-    for (const item of draft) {
-      const height = rowHeights[item.id];
-      if (!Number.isFinite(height)) return [];
-      if (height <= 0) return [];
-      bottom += height;
-      offsets.push(bottom);
-    }
-    return offsets;
-  }, [draft, rowHeights]);
 
   const close = () => {
     setDraft([]);
@@ -103,29 +81,20 @@ export default function RotationCycleOrderEditor({
     savingRef.current = true;
     setSaving(true);
     try {
+      const orderedIds = await engineRef.current?.lockOrder();
+      if (!orderedIds || !engineRef.current) return;
       const result = await onApply(
-        draft.map((item) => item.id),
+        orderedIds,
         baselineRef.current,
       );
       if (result === true) close();
       else if (result === 'stale') close();
     } finally {
+      engineRef.current?.unlock();
       savingRef.current = false;
       setSaving(false);
     }
   };
-
-  const handleRowMeasure = useCallback((id, height) => {
-    if (!Number.isFinite(height)) return;
-    if (height <= 0) return;
-    setRowHeights((previous) => {
-      const oldHeight = previous[id];
-      if (typeof oldHeight === 'number') {
-        if (Math.abs(oldHeight - height) < 0.5) return previous;
-      }
-      return { ...previous, [id]: height };
-    });
-  }, []);
 
   const row = useCallback(
     (item, index, drag, active = false, done = false) => (
@@ -136,16 +105,9 @@ export default function RotationCycleOrderEditor({
         active={active}
         done={done}
         locked={locked}
-        onMeasure={handleRowMeasure}
       />
     ),
-    [locked, handleRowMeasure],
-  );
-
-  const renderEditableRow = useCallback(
-    ({ item, getIndex, drag, isActive }) =>
-      row(item, getIndex() ?? -1, drag, isActive),
-    [row],
+    [locked],
   );
 
   const handleDragBegin = useCallback(() => {
@@ -179,52 +141,13 @@ export default function RotationCycleOrderEditor({
       {editing ? (
         <>
           <Text style={styles.help}>손잡이를 길게 눌러 이동하세요. 맨 위 활동부터 진행합니다.</Text>
-          <View style={styles.editorColumns}>
-            <View
-              pointerEvents="none"
-              style={[
-                styles.numberColumn,
-                !draft.every((item) => rowHeights[item.id] > 0) && styles.unmeasured,
-              ]}
-            >
-              {draft.map((item, index) => (
-                <View
-                  key={'slot-' + index}
-                  style={[
-                    styles.numberSlot,
-                    { height: rowHeights[item.id] ?? 0 },
-                  ]}
-                >
-                  <Text style={styles.number}>{index + 1}</Text>
-                </View>
-              ))}
-            </View>
-            <View style={styles.activityColumn}>
-              <RotationDraggableList
-                animationConfig={ROTATION_ORDER_SPRING}
-                data={draft}
-                keyExtractor={rotationItemKey}
-                renderItem={renderEditableRow}
-                onDragBegin={handleDragBegin}
-                onDragEnd={handleDragEnd}
-              />
-            </View>
-            <View
-              pointerEvents="none"
-              accessible={false}
-              style={styles.separatorOverlay}
-            >
-              {separatorOffsets.map((bottom, index) => (
-                <View
-                  key={'separator-' + index}
-                  style={[
-                    styles.fixedSeparator,
-                    { top: Math.max(0, bottom - StyleSheet.hairlineWidth) },
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
+          <RotationStableOrderList
+            ref={engineRef}
+            source={draft}
+            disabled={locked}
+            onDragBegin={handleDragBegin}
+            onDragEnd={handleDragEnd}
+          />
           <View style={styles.actions}>
             <TouchableOpacity
               style={[buttonStyles.secondary.container, styles.action, (locked ? true : dragging) && styles.disabled]}

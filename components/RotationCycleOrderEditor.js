@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RotationDraggableList } from './RotationDragScroll';
 import { buttonStyles, card, color, layout, space, text } from '../styles/common';
@@ -23,7 +23,7 @@ const RotationOrderRow = memo(function RotationOrderRow({
   }, [drag, item.id, onMeasure]);
 
   return (
-    <View style={styles.row} onLayout={handleLayout}>
+    <View style={[styles.row, drag && styles.editingRow]} onLayout={handleLayout}>
       {!drag && (
         <Text style={styles.number}>{done ? '✓' : index + 1}</Text>
       )}
@@ -65,6 +65,19 @@ export default function RotationCycleOrderEditor({
   const pending = summary.remainingItems;
   const completed = summary.cycleItems.filter((item) => item.completed);
   const locked = disabled ? true : saving;
+
+  const separatorOffsets = useMemo(() => {
+    const offsets = [];
+    let bottom = 0;
+    for (const item of draft) {
+      const height = rowHeights[item.id];
+      if (!Number.isFinite(height)) return [];
+      if (height <= 0) return [];
+      bottom += height;
+      offsets.push(bottom);
+    }
+    return offsets;
+  }, [draft, rowHeights]);
 
   const close = () => {
     setDraft([]);
@@ -196,6 +209,21 @@ export default function RotationCycleOrderEditor({
                 onDragEnd={handleDragEnd}
               />
             </View>
+            <View
+              pointerEvents="none"
+              accessible={false}
+              style={styles.separatorOverlay}
+            >
+              {separatorOffsets.map((bottom, index) => (
+                <View
+                  key={'separator-' + index}
+                  style={[
+                    styles.fixedSeparator,
+                    { top: Math.max(0, bottom - StyleSheet.hairlineWidth) },
+                  ]}
+                />
+              ))}
+            </View>
           </View>
           <View style={styles.actions}>
             <TouchableOpacity
@@ -233,12 +261,21 @@ const styles = StyleSheet.create({
   section: { marginTop: space.md, marginBottom: space.xl },
   help: { ...text.help, marginTop: space.sm },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.divider },
-  editorColumns: { flexDirection: 'row', alignItems: 'flex-start' },
+  editingRow: { borderBottomColor: 'transparent' },
+  editorColumns: { position: 'relative', flexDirection: 'row', alignItems: 'flex-start' },
   numberColumn: { width: 28 },
   numberSlot: {
     justifyContent: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: color.divider,
+    borderBottomColor: 'transparent',
+  },
+  separatorOverlay: { ...StyleSheet.absoluteFillObject },
+  fixedSeparator: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: color.divider,
   },
   activityColumn: { flex: 1, minWidth: 0 },
   unmeasured: { opacity: 0 },

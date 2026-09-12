@@ -56,6 +56,7 @@
     }
   },
   "scripts": {
+    "postinstall": "node scripts/patch-rotation-drag.cjs",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

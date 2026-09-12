@@ -588,11 +588,9 @@ const ChallengeCardReorderControls = memo(function ChallengeCardReorderControls(
               !showControls && { opacity: 0 },
             ]}
           >
-        {!isRotationRoutine(item) && (
           <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
             <Text style={styles.actionDarkText}>수정</Text>
           </TouchableOpacity>
-        )}
         {!isExpired && !isRotationRoutine(item) && (
           <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
             <Text style={styles.actionDarkText}>복제</Text>
@@ -1834,7 +1832,14 @@ export default function ChallengeListScreen() {
               if (it?.__move === 'up') { moveSelected('up'); return; }
               if (it?.__move === 'down') { moveSelected('down'); return; }
             }}
-            onPressEdit={(it) => { finalizeReorder(); navigationRef.current.navigate('EditChallenge', { challenge: it }); }}
+            onPressEdit={(it) => {
+              finalizeReorder();
+              if (isRotationRoutine(it)) {
+                navigationRef.current.navigate('EditRotationRoutine', { routineId: it.id });
+                return;
+              }
+              navigationRef.current.navigate('EditChallenge', { challenge: it });
+            }}
             onPressDuplicate={selected?._isExpired ? undefined : (it) => { onDuplicate(it); finalizeReorder(); }}
             onPressDelete={(it) => { onDelete(it); }}
             onPressClaim={() => {}}

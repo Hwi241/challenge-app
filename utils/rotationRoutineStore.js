@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  getRotationSettingsApplyRevision,
+  transitionRotationRoutineSettings,
+} from './rotationRoutineSettingsTransition';
+import {
   editRotationEntry,
   deleteRotationEntry,
   cancelRotationCompletionEntry,
@@ -219,6 +223,76 @@ export function createRotationRoutineStore({
       };
     });
 
+  const updateSettings = (routineId, input, options = {}) => {
+    const requested = {
+      title: input?.title,
+      description: input?.description,
+      items: Array.isArray(input?.items)
+        ? input.items.map((item) => ({
+            id: item?.id,
+            name: item?.name,
+            targetSeconds: item?.targetSeconds,
+          }))
+        : input?.items,
+    };
+    const requestOptions = { ...options };
+    return enqueueMutation(async () => {
+      const bundle = await readBundle(routineId);
+      const applyRevision = getRotationSettingsApplyRevision(bundle.routine);
+      if (
+        requestOptions.expectedApplyRevision !== undefined
+        && requestOptions.expectedApplyRevision !== applyRevision
+      ) {
+        fail(
+          'ROTATION_SETTINGS_APPLY_CHANGED',
+          '확인하는 동안 설정이나 진행 상태가 바뀌었습니다. 다시 저장해 변경 결과를 확인해주세요.',
+        );
+      }
+      const transition = transitionRotationRoutineSettings(
+        bundle.routine,
+        requested,
+        requestOptions,
+      );
+      if (
+        transition.result.requiresConfirmation
+        && requestOptions.expectedApplyRevision !== applyRevision
+      ) {
+        const confirmation = new RotationRoutineError(
+          'ROTATION_SETTINGS_CONFIRMATION_REQUIRED',
+          '활동 또는 회전 완료를 확인해주세요.',
+        );
+        confirmation.confirmation = {
+          revision: applyRevision,
+          completedCycle: transition.result.completedCycle,
+          cycleNumber: transition.result.previousCycleNumber,
+          completedItemNames: transition.result.completedItemIds.map((id) =>
+            transition.routine.rotation.items.find((item) => item.id === id)?.name
+              ?? bundle.routine.rotation.activeCycle.itemSnapshots.find(
+                (item) => item.id === id,
+              )?.name
+              ?? '활동'),
+          nextItemName: transition.summary.currentItem?.name ?? '',
+        };
+        throw confirmation;
+      }
+      if (!transition.result.changed) {
+        return {
+          ...transition,
+          summary: getRotationRoutineSummary(bundle.routine),
+        };
+      }
+      const saved = await persistRoutine({
+        challenges: bundle.challenges,
+        routine: transition.routine,
+      });
+      return {
+        ...transition,
+        routine: saved,
+        summary: getRotationRoutineSummary(saved),
+      };
+    });
+  };
+
   const recordTime = (routineId, durationSeconds, options = {}) =>
     enqueueMutation(async () => {
       const bundle = await readBundle(routineId);
@@ -415,6 +489,7 @@ export function createRotationRoutineStore({
   };
 
   return {
+    updateSettings,
     reorderCurrentCycle,
     editEntry,
     deleteEntry,
@@ -432,6 +507,9 @@ export function createRotationRoutineStore({
 }
 
 const defaultStore = createRotationRoutineStore();
+
+export const updateRotationRoutineSettingsAndSave = (...args) =>
+  defaultStore.updateSettings(...args);
 
 export const reorderRotationCycleItemsAndSave = (...args) =>
   defaultStore.reorderCurrentCycle(...args);

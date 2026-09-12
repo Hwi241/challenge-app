@@ -14,6 +14,7 @@ import ChallengeListScreen from './screens/ChallengeListScreen';
 import AddChallengeScreen from './screens/AddChallengeScreen';
 import CreateChallengeTypeScreen from './screens/CreateChallengeTypeScreen';
 import AddRotationRoutineScreen from './screens/AddRotationRoutineScreen';
+import EditRotationRoutineScreen from './screens/EditRotationRoutineScreen';
 import RotationRoutineDetailScreen from './screens/RotationRoutineDetailScreen';
 import EditChallengeScreen from './screens/EditChallengeScreen';
 import EntryListScreen from './screens/EntryListScreen';
@@ -162,6 +163,7 @@ export default function App() {
 <Stack.Screen name="AddChallenge" component={AddChallengeScreen} />
             <Stack.Screen name="CreateChallengeType" component={CreateChallengeTypeScreen} />
             <Stack.Screen name="AddRotationRoutine" component={AddRotationRoutineScreen} />
+            <Stack.Screen name="EditRotationRoutine" component={EditRotationRoutineScreen} />
             <Stack.Screen name="RotationRoutineDetail" component={RotationRoutineDetailScreen} />
             <Stack.Screen name="EditChallenge" component={EditChallengeScreen} />
             <Stack.Screen name="EntryList" component={EntryListScreen} />

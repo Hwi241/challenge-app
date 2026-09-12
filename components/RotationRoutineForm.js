@@ -20,6 +20,8 @@ export default function RotationRoutineForm({
   description,
   items,
   busy,
+  locked = false,
+  notice = '',
   onTitleChange,
   onDescriptionChange,
   onUpdateItem,
@@ -30,12 +32,13 @@ export default function RotationRoutineForm({
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {!!notice && <Text style={styles.help}>{notice}</Text>}
       <View style={card.form}>
         <Text style={text.sectionTitleSpaced}>기본 정보</Text>
         <Text style={text.label}>루틴 이름</Text>
-        <TextInput value={title} onChangeText={onTitleChange} placeholder="예: 나의 취미 순환" maxLength={50} style={styles.input} />
+        <TextInput value={title} onChangeText={onTitleChange} placeholder="예: 나의 취미 순환" maxLength={50} style={styles.input} editable={!locked} />
         <Text style={styles.label}>설명</Text>
-        <TextInput value={description} onChangeText={onDescriptionChange} placeholder="루틴의 목적이나 진행 방법" maxLength={500} multiline style={[styles.input, input.multilineCompact]} />
+        <TextInput value={description} onChangeText={onDescriptionChange} placeholder="루틴의 목적이나 진행 방법" maxLength={500} multiline style={[styles.input, input.multilineCompact]} editable={!locked} />
       </View>
 
       <View style={[card.form, styles.section]}>
@@ -49,15 +52,16 @@ export default function RotationRoutineForm({
             <View style={layout.rowBetween}>
               <Text style={styles.itemTitle}>{index + 1}번째 활동</Text>
               <View style={styles.actions}>
-                <MiniButton label="↑" disabled={index === 0} onPress={() => onMoveItem(index, -1)} />
-                <MiniButton label="↓" disabled={index === items.length - 1} onPress={() => onMoveItem(index, 1)} />
-                <MiniButton label="삭제" danger onPress={() => onRemoveItem(index)} />
+                <MiniButton label="↑" disabled={locked || index === 0} onPress={() => onMoveItem(index, -1)} />
+                <MiniButton label="↓" disabled={locked || index === items.length - 1} onPress={() => onMoveItem(index, 1)} />
+                <MiniButton label="삭제" danger disabled={locked} onPress={() => onRemoveItem(index)} />
               </View>
             </View>
-            <TextInput value={item.name} onChangeText={(value) => onUpdateItem(index, 'name', value)} placeholder="활동 이름" maxLength={50} style={styles.itemInput} />
+            <TextInput value={item.name} onChangeText={(value) => onUpdateItem(index, 'name', value)} placeholder="활동 이름" maxLength={50} style={styles.itemInput} editable={!locked} />
             <View style={styles.timeRow}>
               <TextInput
                 value={item.minutes}
+                editable={!locked}
                 onChangeText={(value) => onUpdateItem(index, 'minutes', sanitizeNumber(value))}
                 placeholder="목표 시간"
                 keyboardType="numeric"
@@ -69,7 +73,7 @@ export default function RotationRoutineForm({
             </View>
           </View>
         ))}
-        <TouchableOpacity style={buttonStyles.secondary.container} onPress={onAddItem}>
+        <TouchableOpacity style={buttonStyles.secondary.container} onPress={onAddItem} disabled={locked}>
           <Text style={buttonStyles.secondary.label}>+ 활동 추가</Text>
         </TouchableOpacity>
       </View>

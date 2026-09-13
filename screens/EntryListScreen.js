@@ -31,6 +31,7 @@ import { SafeAreaView,
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadRotationRoutineSnapshot } from '../utils/rotationRoutineStore';
+import RotationActivityListWidget from '../components/RotationActivityListWidget';
 
 import ViewShot,
   { captureRef } from 'react-native-view-shot';
@@ -4441,6 +4442,20 @@ export default function EntryListScreen({ route, navigation }) {
   ));
 
   const renderDashboardWidget = (item, isShare = false) => {
+    const rotationWidgetId = item?.widgetId || item?.id || item?.i;
+    if (rotationWidgetId === 'rotation_activity_list') {
+      if (!isRotation) return null;
+      return (
+        <DashboardWidgetShell
+          header={<DashboardWidgetHeader title="활동 리스트" hideSides />}
+        >
+          <RotationActivityListWidget
+            summary={rotationSummary}
+            interactive={!isShare}
+          />
+        </DashboardWidgetShell>
+      );
+    }
         // DASHBOARD_RENDER_NORMALIZED_WIDGET_META
     const widgetId = item?.widgetId || item?.id || item?.i;
     const catalogWidget = widgetId ? (getWidgetById(widgetId) || {}) : {};

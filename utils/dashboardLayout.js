@@ -320,10 +320,12 @@ const sanitizeDashboardLayout = (layout, target) => {
     })
     .filter((item) => item.id || item.widgetId);
 
-  return compactDashboardLayoutVertical(sanitizedLayout);
+  return resolveDashboardTarget(target) === DASHBOARD_TARGETS.ROTATION
+    ? sanitizedLayout
+    : compactDashboardLayoutVertical(sanitizedLayout);
 };
 
-export const getDashboardLayoutForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
+const getDashboardLayoutForChallengeInternal = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
   const storageKey = getDashboardStorageKey(challengeId, target);
   if (!storageKey) {
     return sanitizeDashboardLayout(getDefaultDashboardLayout(target), target);
@@ -345,7 +347,7 @@ export const getDashboardLayoutForChallenge = async (challengeId, target = DASHB
   }
 };
 
-export const saveDashboardLayoutForChallenge = async (challengeId, layout, target = DASHBOARD_TARGETS.CHALLENGE) => {
+const saveDashboardLayoutForChallengeInternal = async (challengeId, layout, target = DASHBOARD_TARGETS.CHALLENGE) => {
   const storageKey = getDashboardStorageKey(challengeId, target);
   if (!storageKey) return false;
 
@@ -365,7 +367,7 @@ export const saveDashboardLayoutForChallenge = async (challengeId, layout, targe
   }
 };
 
-export const resetDashboardLayoutForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
+const resetDashboardLayoutForChallengeInternal = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
   const normalizedTarget = resolveDashboardTarget(target);
   const defaults = normalizeDashboardLayout(getDefaultDashboardLayout(normalizedTarget), normalizedTarget);
   const storageKey = getDashboardStorageKey(challengeId, normalizedTarget);
@@ -378,7 +380,7 @@ export const resetDashboardLayoutForChallenge = async (challengeId, target = DAS
 };
 
 
-export const getDashboardLayoutStateForChallenge = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
+const getDashboardLayoutStateForChallengeInternal = async (challengeId, target = DASHBOARD_TARGETS.CHALLENGE) => {
   const storageKey = getDashboardStorageKey(challengeId, target);
   if (!storageKey) {
     return {
@@ -443,3 +445,110 @@ export const saveDashboardRowGapForChallenge = async (challengeId, rowGap, targe
     throw error;
   }
 };
+
+// 활동 리스트의 최초 제공 여부는 사용자 배치와 별도로 보존한다.
+const ROTATION_ACTIVITY_LIST_MARKER_PREFIX = 'rotation_activity_list_added_v1:';
+let dashboardMutationQueue = Promise.resolve();
+
+const enqueueDashboardOperation = (task) => {
+  const next = dashboardMutationQueue.catch(() => {}).then(task);
+  dashboardMutationQueue = next;
+  return next;
+};
+
+const ensureRotationActivityList = async (challengeId, target) => {
+  if (resolveDashboardTarget(target) !== DASHBOARD_TARGETS.ROTATION) return;
+  const storageKey = getDashboardStorageKey(challengeId, target);
+  if (!storageKey) return;
+
+  const markerKey = ROTATION_ACTIVITY_LIST_MARKER_PREFIX + storageKey;
+  if (await AsyncStorage.getItem(markerKey) === '1') return;
+
+  const raw = await AsyncStorage.getItem(DASHBOARD_LAYOUTS_KEY);
+  const map = raw == null ? {} : JSON.parse(raw);
+  if (!map || typeof map !== 'object' || Array.isArray(map)) {
+    throw new Error('저장된 대시보드 배치 형식이 올바르지 않습니다.');
+  }
+
+  const hasStoredLayout = Object.prototype.hasOwnProperty.call(map, storageKey);
+  if (hasStoredLayout) {
+    const stored = map[storageKey];
+    if (!Array.isArray(stored)) {
+      throw new Error('순환 루틴의 저장 배치를 확인할 수 없습니다.');
+    }
+
+    const alreadyAdded = stored.some(
+      (item) => getLayoutItemWidgetId(item) === 'rotation_activity_list',
+    );
+
+    if (!alreadyAdded) {
+      // 구형 좌표계만 기존 규칙에 맞춰 변환하고, 배치를 압축하지 않는다.
+      const layout = migrateDashboardLayoutToInternalGrid(stored);
+      let bottom = 0;
+      for (const item of layout) {
+        const y = Number(item?.y);
+        const h = Number(item?.h);
+        if (!Number.isFinite(y) || !Number.isFinite(h) || y < 0 || h <= 0) {
+          throw new Error('기존 위젯 위치를 확인할 수 없어 자동 추가를 중단했습니다.');
+        }
+        bottom = Math.max(bottom, y + h);
+      }
+      const next = [
+        ...layout,
+        {
+          widgetId: 'rotation_activity_list',
+          x: 0,
+          y: bottom,
+          w: 6,
+          h: 5,
+        },
+      ];
+      // 배치를 먼저 저장한다. 표시 저장 실패 후 재시도해도 중복되지 않는다.
+      await AsyncStorage.setItem(
+        DASHBOARD_LAYOUTS_KEY,
+        JSON.stringify({ ...map, [storageKey]: next }),
+      );
+    }
+  }
+
+  // 저장 배치가 없으면 기본 배치에 이미 포함되어 있으므로 표시만 남긴다.
+  await AsyncStorage.setItem(markerKey, '1');
+};
+
+export const getDashboardLayoutForChallenge = (
+  challengeId,
+  target = DASHBOARD_TARGETS.CHALLENGE,
+) => enqueueDashboardOperation(async () => {
+  await ensureRotationActivityList(challengeId, target);
+  return getDashboardLayoutForChallengeInternal(challengeId, target);
+});
+
+export const getDashboardLayoutStateForChallenge = (
+  challengeId,
+  target = DASHBOARD_TARGETS.CHALLENGE,
+) => enqueueDashboardOperation(async () => {
+  await ensureRotationActivityList(challengeId, target);
+  return getDashboardLayoutStateForChallengeInternal(challengeId, target);
+});
+
+export const saveDashboardLayoutForChallenge = (
+  challengeId,
+  layout,
+  target = DASHBOARD_TARGETS.CHALLENGE,
+) => {
+  const requested = Array.isArray(layout)
+    ? layout.map((item) => item ? { ...item } : item)
+    : layout;
+  return enqueueDashboardOperation(async () => {
+    await ensureRotationActivityList(challengeId, target);
+    return saveDashboardLayoutForChallengeInternal(challengeId, requested, target);
+  });
+};
+
+export const resetDashboardLayoutForChallenge = (
+  challengeId,
+  target = DASHBOARD_TARGETS.CHALLENGE,
+) => enqueueDashboardOperation(async () => {
+  await ensureRotationActivityList(challengeId, target);
+  return resetDashboardLayoutForChallengeInternal(challengeId, target);
+});

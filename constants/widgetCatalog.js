@@ -19,6 +19,7 @@ export const DEFAULT_WIDGET_IDS = [
 ];
 
 export const ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS = [
+  'rotation_activity_list',
   'overall_progress',
   'month_calendar',
   'goal_black_box',
@@ -45,6 +46,7 @@ export const ACTUAL_DASHBOARD_GRAPH_WIDGET_IDS = [
 ];
 
 export const DEFAULT_OWNED_DASHBOARD_GRAPH_WIDGET_IDS = [
+  'rotation_activity_list',
   'overall_progress',
   'month_calendar',
 ];
@@ -104,6 +106,21 @@ const ROTATION_DASHBOARD_WIDGET_IDS = new Set([
 ]);
 
 export const WIDGET_CATALOG = [
+  {
+    id: 'rotation_activity_list',
+    title: '활동 리스트',
+    tier: 0,
+    price: 0,
+    shop: false,
+    defaultOwned: true,
+    placeholder: false,
+    supports: ['rotation'],
+    defaultSize: { w: 6, h: 5 },
+    minSize: { w: 3, h: 3 },
+    maxSize: { w: 6, h: 10 },
+    kind: 'rotationActivityList',
+    previewFamily: 'board',
+  },
   {
     id: 'overall_progress',
     title: '전체 진행 카드',
@@ -566,6 +583,10 @@ export const getDefaultDashboardLayout = (target = DASHBOARD_TARGETS.CHALLENGE) 
  { widgetId: 'overall_progress', x: 0, y: 0, w: 2, h: 4 },
  { widgetId: 'month_calendar', x: 2, y: 0, w: 4, h: 4 },
  ];
+
+ if (target === DASHBOARD_TARGETS.ROTATION) {
+ base.push({ widgetId: 'rotation_activity_list', x: 0, y: 4, w: 6, h: 5 });
+ }
 
  if (target === DASHBOARD_TARGETS.CHALLENGE) {
  // goal_black_box는 기본 배치에서 제거 (구매 필요)

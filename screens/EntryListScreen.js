@@ -31,6 +31,7 @@ import { SafeAreaView,
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadRotationRoutineSnapshot } from '../utils/rotationRoutineStore';
+import { buildRotationEntryListRows } from '../utils/rotationEntryListRows';
 import RotationActivityListWidget from '../components/RotationActivityListWidget';
 
 import ViewShot,
@@ -5740,6 +5741,13 @@ const runWeek = useCallback(() => {
     [entries]
   );
 
+  const rotationEntryRows = useMemo(
+    () => isRotation
+      ? buildRotationEntryListRows(sortedEntries, isWideDashboardLayout ? 2 : 1)
+      : [],
+    [isRotation, sortedEntries, isWideDashboardLayout],
+  );
+
   const fmtDate = useCallback((dStr)=>{
     if (!dStr) return '-';
     const d = new Date(dStr);
@@ -6019,7 +6027,7 @@ const runWeek = useCallback(() => {
     }
   }, [ meta.title, offscreenRenderReady ]);
 
-  const renderEntryItem = useCallback(({ item, index }) => {
+  const renderEntryItem = useCallback(({ item, index, columnIndex = index }) => {
     const indexFromEnd = sortedEntries.length - index;
     const entryReadOnly = readOnly;
     const onPress = entryReadOnly ? undefined : () =>
@@ -6038,7 +6046,7 @@ const runWeek = useCallback(() => {
         <View
           style={[
             styles.entryGridItemWide,
-            index % 2 === 0 ? styles.entryGridItemWideLeft : styles.entryGridItemWideRight,
+            columnIndex % 2 === 0 ? styles.entryGridItemWideLeft : styles.entryGridItemWideRight,
           ]}
         >
           <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={entryReadOnly} onPress={onPress}/>
@@ -6058,6 +6066,40 @@ const runWeek = useCallback(() => {
     (item, index) => String(item?.id ?? `${item?.timestamp ?? 0}-${index}`),
     [],
   );
+
+  const renderRotationEntryRow = useCallback(({ item }) => {
+    if (item.kind === 'cycle') {
+      const current = item.cycleNumber === rotationSummary?.currentCycleNumber;
+      const label = String(item.cycleNumber) + '번째 회전'
+        + (current ? ' · 진행 중' : '');
+      return (
+        <View
+          style={[styles.sectionPadNarrow, styles.rotationCycleHeading]}
+          accessible
+          accessibilityRole="header"
+          accessibilityLabel={label}
+        >
+          <View style={styles.rotationCycleLine} />
+          <Text style={styles.rotationCycleText}>{label}</Text>
+          <View style={styles.rotationCycleLine} />
+        </View>
+      );
+    }
+    return (
+      <View style={isWideDashboardLayout
+        ? [styles.entryGridWide, styles.rotationRecordPair]
+        : undefined}
+      >
+        {item.records.map(({ entry, index }, columnIndex) => (
+          <React.Fragment key={entry.id}>
+            {renderEntryItem({ item: entry, index, columnIndex })}
+          </React.Fragment>
+        ))}
+      </View>
+    );
+  }, [isWideDashboardLayout, renderEntryItem, rotationSummary?.currentCycleNumber]);
+
+  const rotationEntryKeyExtractor = useCallback((item) => item.key, []);
 
   const handleEntryListLayout = useCallback((event) => {
     setEntryListFrameWidth(event.nativeEvent.layout.width || 0);
@@ -6164,17 +6206,19 @@ const runWeek = useCallback(() => {
 
       {/* 스크롤 콘텐츠 */}
       <FlatList
-        key={isWideDashboardLayout ? 'entry-list-wide' : 'entry-list-normal'}
+        key={isRotation
+          ? (isWideDashboardLayout ? 'rotation-list-wide' : 'rotation-list-normal')
+          : (isWideDashboardLayout ? 'entry-list-wide' : 'entry-list-normal')}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
         onLayout={handleEntryListLayout}
-        data={sortedEntries}
-        renderItem={renderEntryItem}
-        keyExtractor={entryKeyExtractor}
-        numColumns={isWideDashboardLayout ? 2 : 1}
-        columnWrapperStyle={isWideDashboardLayout ? styles.entryGridWide : undefined}
+        data={isRotation ? rotationEntryRows : sortedEntries}
+        renderItem={isRotation ? renderRotationEntryRow : renderEntryItem}
+        keyExtractor={isRotation ? rotationEntryKeyExtractor : entryKeyExtractor}
+        numColumns={!isRotation && isWideDashboardLayout ? 2 : 1}
+        columnWrapperStyle={!isRotation && isWideDashboardLayout ? styles.entryGridWide : undefined}
         initialNumToRender={8}
         maxToRenderPerBatch={4}
         updateCellsBatchingPeriod={50}
@@ -6674,6 +6718,29 @@ rewardBlockSpacing: {
 
   entryGridWide: {
     paddingHorizontal: EDGE + NARROW_PLUS,
+  },
+  rotationCycleHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  rotationCycleLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: canonicalColor.divider,
+  },
+  rotationCycleText: {
+    flexShrink: 1,
+    marginHorizontal: 12,
+    fontSize: 12,
+    fontWeight: '600',
+    color: canonicalColor.textSecondary,
+    textAlign: 'center',
+  },
+  rotationRecordPair: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   entryGridItemWide: {
     width: '50%',

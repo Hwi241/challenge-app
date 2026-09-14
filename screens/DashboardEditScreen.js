@@ -4649,7 +4649,14 @@ const resizeOverlayDynamicStyle = ghostVisualFrame
  height: ghostVisualFrame.height,
  zIndex: 12,
  }
- : styles.resizeActiveOverlay;
+ : {
+ position: 'absolute',
+ left: 0,
+ top: 0,
+ width: resizeFrameWidth,
+ height: cardHeight,
+ zIndex: 12,
+ };
 
 const temporaryLongPressResizeOverlay = !activeResizeWidgetId ? (
  <Animated.View

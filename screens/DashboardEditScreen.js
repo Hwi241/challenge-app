@@ -2944,11 +2944,11 @@ function MarqueeText({ text, style, enabled = true }) {
  margin: RESIZE_FRAME_INSET,
  },
  isCompactCard && styles.graphCardCompact,
+ isResizeActive && styles.graphCardResizeActiveBorder,
  ]}>
  <Animated.View
  pointerEvents="none"
  style={[
- canonicalSurfaceStyles.card,
   styles.graphCardVisualSurface,
  isResizeActive && styles.graphCardResizeActive,
  isResizeActive && resizeTouchOpacity && { opacity: resizeTouchOpacity },
@@ -5374,6 +5374,10 @@ graphCellResizeActive: {
 graphCard: {
  minHeight: 132,
  borderRadius: radius.sm,
+ borderWidth: 1,
+ borderColor: '#d8d8d8',
+ borderTopWidth: 3,
+ borderTopColor: color.primary,
  padding: space.sm,
  },
 graphCardCompact: {
@@ -5385,10 +5389,6 @@ graphCardCompact: {
 graphCardVisualSurface: {
  ...StyleSheet.absoluteFillObject,
  borderRadius: radius.sm,
- borderWidth: 1,
- borderColor: color.border,
- borderTopWidth: 3,
- borderTopColor: color.primary,
  backgroundColor: color.surface,
  zIndex: 0,
  elevation: 0,
@@ -5485,8 +5485,11 @@ graphCardVisualSurface: {
  lineHeight: 13,
  includeFontPadding: false,
  },
- graphCardResizeActive: {
+ graphCardResizeActiveBorder: {
  borderColor: color.borderStrong,
+ borderTopColor: color.primary,
+ },
+ graphCardResizeActive: {
  shadowColor: primitive.black,
  shadowOffset: { width: 0, height: 4 },
  shadowOpacity: 0.08,

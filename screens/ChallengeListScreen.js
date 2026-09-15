@@ -25,6 +25,8 @@ import { getRotationRoutineSummary } from '../utils/rotationRoutine';
 import { loadRotationRoutine } from '../utils/rotationRoutineStore';
 import { moveToTrash } from '../utils/trash';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
+import FocusSessionStartModal from '../components/FocusSessionStartModal';
+import { loadActiveFocusSession, startFocusSession } from '../utils/focusSessionStore';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -612,42 +614,81 @@ const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
   showControls,
   onPressCard,
   onPressClaim,
+  onPressFocus,
 }) {
   if (isRotationRoutine(item)) {
     return (
-      <TouchableOpacity
-        style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-        disabled={!!showControls}
-        onPress={() => onPressCard?.(item, 'continue')}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.uploadNowText}>이어하기</Text>
-      </TouchableOpacity>
+      <View style={styles.primaryActionRow}>
+        <TouchableOpacity
+          style={[styles.uploadNowBtn, styles.primaryActionMain, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressCard?.(item, 'continue')}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.uploadNowText}>이어하기</Text>
+        </TouchableOpacity>
+        {!isDone && !isExpired && (
+          <TouchableOpacity
+            style={[styles.focusPlayButton, showControls && styles.disabledBig]}
+            disabled={!!showControls}
+            onPress={() => onPressFocus?.(item)}
+            activeOpacity={0.9}
+            accessibilityRole="button"
+            accessibilityLabel="집중 타이머 시작"
+          >
+            <Text style={styles.focusPlayText}>▶</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     );
   }
   if (item.type === 'habit') {
     return (
-      <TouchableOpacity
-        style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-        disabled={!!showControls}
-        onPress={() => onPressCard?.({ ...item, _upload: true })}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.uploadNowText}>기록하기</Text>
-      </TouchableOpacity>
+      <View style={styles.primaryActionRow}>
+        <TouchableOpacity
+          style={[styles.uploadNowBtn, styles.primaryActionMain, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressCard?.({ ...item, _upload: true })}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.uploadNowText}>기록하기</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.focusPlayButton, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressFocus?.(item)}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="집중 타이머 시작"
+        >
+          <Text style={styles.focusPlayText}>▶</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   if (!isDone && !isExpired) {
     return (
-      <TouchableOpacity
-        style={[styles.uploadNowBtn, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-        disabled={!!showControls}
-        onPress={() => onPressCard?.({ ...item, _upload: true })}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.uploadNowText}>인증하기</Text>
-      </TouchableOpacity>
+      <View style={styles.primaryActionRow}>
+        <TouchableOpacity
+          style={[styles.uploadNowBtn, styles.primaryActionMain, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressCard?.({ ...item, _upload: true })}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.uploadNowText}>인증하기</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.focusPlayButton, showControls && styles.disabledBig]}
+          disabled={!!showControls}
+          onPress={() => onPressFocus?.(item)}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="집중 타이머 시작"
+        >
+          <Text style={styles.focusPlayText}>▶</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
@@ -699,6 +740,7 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
   onPressToggleCollapsed,
   onPressCard,
   onPressClaim,
+  onPressFocus,
 }) {
   const progressLabel = getCompactProgressLabel(item, rotationSummary, isDone, isExpired);
   const rotation = isRotationRoutine(item);
@@ -785,6 +827,17 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
           {actionLabel}
         </Text>
       </TouchableOpacity>
+      {!isDone && !isExpired && (
+        <TouchableOpacity
+          style={styles.compactFocusPlayButton}
+          onPress={() => onPressFocus?.(item)}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="집중 타이머 시작"
+        >
+          <Text style={styles.compactFocusPlayText}>▶</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
@@ -802,6 +855,7 @@ const CardBody = React.forwardRef(function CardBody({
   onPressDuplicate,
   onPressDelete,
   onPressClaim,
+  onPressFocus,
   onLongPress,
   onPressToggleCollapsed,
 }, ref) {
@@ -896,6 +950,7 @@ const CardBody = React.forwardRef(function CardBody({
         showControls={showControls}
         onPressCard={onPressCard}
         onPressClaim={onPressClaim}
+        onPressFocus={onPressFocus}
       />
     </TouchableOpacity>
   );
@@ -909,7 +964,7 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
   isWide = false,
   onLongPress,
   onPressToggleCollapsed,
-  onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim,
+  onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim, onPressFocus,
 }, ref) {
   return (
     <View style={[styles.cardWrap, isWide && styles.cardWrapWide, hidden && { opacity: 0 }]}>
@@ -925,6 +980,7 @@ const ItemCard = memo(React.forwardRef(function ItemCard({
         onPressDuplicate={onPressDuplicate}
         onPressDelete={onPressDelete}
         onPressClaim={onPressClaim}
+        onPressFocus={onPressFocus}
         onLongPress={onLongPress}
         onPressToggleCollapsed={onPressToggleCollapsed}
       />
@@ -942,6 +998,8 @@ export default function ChallengeListScreen() {
   const [data, setData] = useState([]);
   const [habitGrassColorMap, setHabitGrassColorMap] = useState({});
   const [listFrameWidth, setListFrameWidth] = useState(0);
+  const [focusTarget, setFocusTarget] = useState(null);
+  const [focusStarting, setFocusStarting] = useState(false);
 
   /* 정렬 상태 */
   const [reorderActive, setReorderActive] = useState(false);
@@ -1360,6 +1418,62 @@ export default function ChallengeListScreen() {
     });
   }, []);
 
+  const openFocusStart = useCallback(async (item) => {
+    try {
+      const active = await loadActiveFocusSession();
+      if (active) {
+        Alert.alert('집중 타이머 실행 중', `'${active.targetTitle}' 타이머가 이미 실행 중입니다.`, [
+          { text: '닫기', style: 'cancel' },
+          {
+            text: '현재 타이머 보기',
+            onPress: () => navigationRef.current.navigate('FocusTimer', { sessionId: active.id }),
+          },
+        ]);
+        return;
+      }
+      setFocusTarget(item);
+    } catch (error) {
+      Alert.alert('확인 실패', error?.message || '집중 타이머 상태를 확인하지 못했습니다.');
+    }
+  }, []);
+
+  const beginFocusSession = useCallback(async ({ mode, targetSeconds }) => {
+    if (!focusTarget || focusStarting) return;
+    setFocusStarting(true);
+    try {
+      const rotationSummary = rotationSummaryOf(focusTarget);
+      const session = await startFocusSession({
+        targetType: focusTarget.type === 'habit' ? 'habit' : 'challenge',
+        ...(rotationSummary ? {
+          targetSubtype: 'rotation',
+          rotationItemId: rotationSummary.currentItem?.id ?? null,
+          rotationItemTitle: rotationSummary.currentItem?.name ?? null,
+        } : {}),
+        targetId: String(focusTarget.id),
+        targetTitle: String(focusTarget.title || '').trim(),
+        mode,
+        targetSeconds,
+      });
+      setFocusTarget(null);
+      navigationRef.current.navigate('FocusTimer', { sessionId: session.id });
+    } catch (error) {
+      if (error?.code === 'FOCUS_SESSION_ACTIVE' && error.session) {
+        setFocusTarget(null);
+        Alert.alert('집중 타이머 실행 중', '새 타이머를 만들지 않고 기존 타이머로 이동합니다.', [
+          { text: '닫기', style: 'cancel' },
+          {
+            text: '현재 타이머 보기',
+            onPress: () => navigationRef.current.navigate('FocusTimer', { sessionId: error.session.id }),
+          },
+        ]);
+      } else {
+        Alert.alert('시작 실패', error?.message || '집중 타이머를 시작하지 못했습니다.');
+      }
+    } finally {
+      setFocusStarting(false);
+    }
+  }, [focusStarting, focusTarget]);
+
   /* 보상 수령 */
   const onClaimReward = useCallback(async (item) => {
     const flags = asDoneFlags(item);
@@ -1638,10 +1752,11 @@ export default function ChallengeListScreen() {
           onPressDuplicate={() => {}}
           onPressDelete={() => {}}
           onPressClaim={onClaimReward}
+          onPressFocus={openFocusStart}
         />
       );
     },
-    [reorderActive, selectedId, collapsedIds, reorderPrepared, reorderExpandVisualId, reorderFloatingHeight, updateReorderExpandVisualHeight, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
+    [reorderActive, selectedId, collapsedIds, reorderPrepared, reorderExpandVisualId, reorderFloatingHeight, updateReorderExpandVisualHeight, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, openFocusStart, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
   );
 
   const renderMasonryItem = useCallback((item) => renderRow({ item }), [renderRow]);
@@ -1848,6 +1963,13 @@ export default function ChallengeListScreen() {
         </Animated.View>
         </Modal>
       )}
+      <FocusSessionStartModal
+        visible={!!focusTarget}
+        target={focusTarget}
+        busy={focusStarting}
+        onClose={() => { if (!focusStarting) setFocusTarget(null); }}
+        onStart={beginFocusSession}
+      />
       {/* 정렬 모달 */}
       <Modal visible={showSortModal} transparent animationType="fade" onRequestClose={() => setShowSortModal(false)}>
         <TouchableWithoutFeedback onPress={() => setShowSortModal(false)}>
@@ -2071,6 +2193,16 @@ const styles = StyleSheet.create({
   compactActionTextDisabled: {
     color: primitive.black,
   },
+  compactFocusPlayButton: {
+    width: 36,
+    height: 36,
+    marginLeft: space.xs,
+    borderRadius: radius.md,
+    backgroundColor: color.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactFocusPlayText: { color: color.textInverse, fontSize: 13, marginLeft: 1 },
   titleCompact: {
     fontSize: 14,
   },
@@ -2103,6 +2235,17 @@ const styles = StyleSheet.create({
     marginTop: 10, height: 48, borderRadius: radius.lg,
     backgroundColor: color.primary, alignItems:'center', justifyContent:'center',
   },
+  primaryActionRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, marginTop: 10 },
+  primaryActionMain: { flex: 1, marginTop: 0 },
+  focusPlayButton: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.lg,
+    backgroundColor: color.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusPlayText: { color: color.textInverse, fontSize: 17, marginLeft: 2 },
   uploadNowText: { fontSize:16, fontWeight:'800', color: color.textInverse },
 
   selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },

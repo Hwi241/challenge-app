@@ -24,7 +24,12 @@ import {
  text as canonicalTextStyles,
 } from '../styles/common';
 import BackButton from '../components/BackButton';
-import { getNotificationsEnabled, setNotificationsEnabled } from '../utils/appSettings';
+import {
+  getFocusMiniTimerEnabled,
+  getNotificationsEnabled,
+  setFocusMiniTimerEnabled,
+  setNotificationsEnabled,
+} from '../utils/appSettings';
 
 // ▶︎ 설정 방법
 // 1) app.json/app.config.ts의 expo.extra에 값을 넣으면 자동으로 사용됩니다.
@@ -43,6 +48,8 @@ export default function SettingsScreen() {
 
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [miniTimerEnabled, setMiniTimerEnabledState] = useState(true);
+  const [miniTimerLoading, setMiniTimerLoading] = useState(true);
 
   const version = Application.nativeApplicationVersion ?? '-';
   const build = Application.nativeBuildVersion ?? '-';
@@ -66,6 +73,27 @@ export default function SettingsScreen() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getFocusMiniTimerEnabled()
+      .then((value) => { if (mounted) setMiniTimerEnabledState(value); })
+      .catch(() => { if (mounted) setMiniTimerEnabledState(true); })
+      .finally(() => { if (mounted) setMiniTimerLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  const toggleMiniTimer = useCallback(async () => {
+    const previous = miniTimerEnabled;
+    const next = !previous;
+    setMiniTimerEnabledState(next);
+    try {
+      await setFocusMiniTimerEnabled(next);
+    } catch {
+      setMiniTimerEnabledState(previous);
+      Alert.alert('저장 실패', '미니 타이머 설정을 저장하지 못했습니다.');
+    }
+  }, [miniTimerEnabled]);
 
   const toggleNotifications = useCallback(async () => {
     if (Platform.OS === 'android' && isRunningInExpoGo()) {
@@ -222,6 +250,24 @@ export default function SettingsScreen() {
         </View>
         <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
           앱 전체 알림을 켜거나 끕니다. 상세 스케줄은 각 도전에서 설정하세요.
+        </Text>
+      </View>
+
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>타이머</Text>
+        <View style={canonicalLayoutStyles.rowBetween}>
+          <Text style={canonicalTextStyles.bodyStrong}>앱 내 미니 타이머</Text>
+          <Switch
+            value={miniTimerEnabled}
+            onValueChange={toggleMiniTimer}
+            disabled={miniTimerLoading}
+            thumbColor={primitive.black}
+            trackColor={{ false: primitive.neutral[400], true: primitive.neutral[600] }}
+            ios_backgroundColor={primitive.neutral[400]}
+          />
+        </View>
+        <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
+          실행 중인 집중 타이머를 앱 화면 위에 표시합니다.
         </Text>
       </View>
 

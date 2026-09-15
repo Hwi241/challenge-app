@@ -2,7 +2,7 @@
 import 'react-native-gesture-handler'; // ✅ 반드시 최상단에!
 import React, { useEffect, useState } from 'react';
 import { Image, View, StyleSheet, Platform, StatusBar } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -31,6 +31,8 @@ import TrashScreen from './screens/TrashScreen';
 import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
 import MyGraphScreen from './screens/MyGraphScreen';
+import FocusTimerScreen from './screens/FocusTimerScreen';
+import FocusMiniTimer from './components/FocusMiniTimer';
 
 import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -38,6 +40,7 @@ import { cleanExpiredTrash } from './utils/trash';
 import DashboardEditScreen from './screens/DashboardEditScreen';
 
 const Stack = createNativeStackNavigator();
+const appNavigationRef = createNavigationContainerRef();
 
 // ✅ 딥링크 설정
 // - thepush://upload?challengeId=xxx  → Upload
@@ -88,6 +91,7 @@ function StartupScreen() {
 
 export default function App() {
   const [showStartup, setShowStartup] = useState(true);
+  const [currentRouteName, setCurrentRouteName] = useState('Startup');
 
   // 부팅 시 위젯 데이터 초기 동기화
   useEffect(() => {
@@ -137,7 +141,13 @@ export default function App() {
     <GestureHandlerRootView style={canonicalSurfaceStyles.screen}>
       <StatusBar translucent={false} backgroundColor={color.background} barStyle="dark-content" />
       <SafeAreaProvider>
-        <NavigationContainer linking={linking}>
+        <NavigationContainer
+          ref={appNavigationRef}
+          linking={linking}
+          onReady={() => setCurrentRouteName(appNavigationRef.getCurrentRoute()?.name ?? '')}
+          onStateChange={() => setCurrentRouteName(appNavigationRef.getCurrentRoute()?.name ?? '')}
+        >
+          <View style={canonicalSurfaceStyles.screen}>
           <Stack.Navigator
             initialRouteName={showStartup ? 'Startup' : 'ChallengeList'}
             screenOptions={{
@@ -169,6 +179,7 @@ export default function App() {
             <Stack.Screen name="EntryList" component={EntryListScreen} />
             <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
             <Stack.Screen name="Upload" component={UploadScreen} />
+            <Stack.Screen name="FocusTimer" component={FocusTimerScreen} />
 
             {/* 명예의 전당 */}
             <Stack.Screen name="HallOfFameScreen" component={HallOfFameScreen} />
@@ -195,6 +206,11 @@ export default function App() {
           options={{ headerShown: false }}
         />
           </Stack.Navigator>
+          <FocusMiniTimer
+            navigationRef={appNavigationRef}
+            routeName={currentRouteName}
+          />
+          </View>
         </NavigationContainer>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY = 'appSettings';
+const listeners = new Set();
 
 const DEFAULTS = {
   notificationsEnabled: true,
+  focusMiniTimerEnabled: true,
   dataIntegrations: {
     healthConnect: {
       enabled: false,
@@ -68,6 +70,7 @@ export async function setAppSettings(next) {
   const current = await getAppSettings();
   const merged = normalizeAppSettings({ ...current, ...(next || {}) });
   await AsyncStorage.setItem(KEY, JSON.stringify(merged));
+  listeners.forEach((listener) => listener(merged));
   return merged;
 }
 
@@ -99,4 +102,19 @@ export async function getNotificationsEnabled() {
 
 export async function setNotificationsEnabled(enabled) {
   return setAppSettings({ notificationsEnabled: !!enabled });
+}
+
+export async function getFocusMiniTimerEnabled() {
+  const settings = await getAppSettings();
+  return settings.focusMiniTimerEnabled !== false;
+}
+
+export async function setFocusMiniTimerEnabled(enabled) {
+  return setAppSettings({ focusMiniTimerEnabled: !!enabled });
+}
+
+export function subscribeAppSettings(listener) {
+  if (typeof listener !== 'function') return () => {};
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }

@@ -33,6 +33,7 @@ import GraphShopScreen from './screens/GraphShopScreen';
 import MyGraphScreen from './screens/MyGraphScreen';
 import FocusTimerScreen from './screens/FocusTimerScreen';
 import FocusMiniTimer from './components/FocusMiniTimer';
+import FocusOverlayController from './components/FocusOverlayController';
 
 import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -64,6 +65,10 @@ const linking = {
       AddChallenge: 'add',
       EditChallenge: 'edit',
       EntryDetail: 'entry-detail',
+      FocusTimer: {
+        path: 'focus-timer/:sessionId',
+        parse: { sessionId: v => String(v) },
+      },
       HallOfFameScreen: 'hall-of-fame',
       ProfileInventory: 'profile-inventory',
       GraphShop: 'graph-shop',
@@ -210,6 +215,7 @@ export default function App() {
             navigationRef={appNavigationRef}
             routeName={currentRouteName}
           />
+          <FocusOverlayController />
           </View>
         </NavigationContainer>
       </SafeAreaProvider>

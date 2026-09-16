@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // - 개선의견 메일: FEEDBACK_EMAIL을 설정(Expo extra → 상수)하고, 미설정/플레이스홀더면 안내
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Linking, ScrollView  } from 'react-native';
+import { AppState, View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Linking, ScrollView  } from 'react-native';
 import { isRunningInExpoGo } from 'expo';
 import * as Application from 'expo-application';
 import * as MailComposer from 'expo-mail-composer';
@@ -26,10 +26,17 @@ import {
 import BackButton from '../components/BackButton';
 import {
   getFocusMiniTimerEnabled,
+  getFocusOverlayTimerEnabled,
   getNotificationsEnabled,
   setFocusMiniTimerEnabled,
+  setFocusOverlayTimerEnabled,
   setNotificationsEnabled,
 } from '../utils/appSettings';
+import {
+  canDrawFocusOverlay,
+  isFocusOverlaySupported,
+  openFocusOverlayPermissionSettings,
+} from '../utils/focusOverlay';
 
 // ▶︎ 설정 방법
 // 1) app.json/app.config.ts의 expo.extra에 값을 넣으면 자동으로 사용됩니다.
@@ -50,6 +57,9 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [miniTimerEnabled, setMiniTimerEnabledState] = useState(true);
   const [miniTimerLoading, setMiniTimerLoading] = useState(true);
+  const [overlayTimerEnabled, setOverlayTimerEnabledState] = useState(false);
+  const [overlayTimerLoading, setOverlayTimerLoading] = useState(true);
+  const [overlayPermissionPending, setOverlayPermissionPending] = useState(false);
 
   const version = Application.nativeApplicationVersion ?? '-';
   const build = Application.nativeBuildVersion ?? '-';
@@ -76,6 +86,32 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     let mounted = true;
+    getFocusOverlayTimerEnabled()
+      .then((value) => { if (mounted) setOverlayTimerEnabledState(value); })
+      .catch(() => { if (mounted) setOverlayTimerEnabledState(false); })
+      .finally(() => { if (mounted) setOverlayTimerLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!overlayPermissionPending || Platform.OS !== 'android') return undefined;
+    const subscription = AppState.addEventListener('change', async (state) => {
+      if (state !== 'active') return;
+      setOverlayPermissionPending(false);
+      try {
+        const permitted = await canDrawFocusOverlay();
+        if (!permitted) return;
+        await setFocusOverlayTimerEnabled(true);
+        setOverlayTimerEnabledState(true);
+      } catch {
+        Alert.alert('저장 실패', '외부 플로팅 타이머 설정을 저장하지 못했습니다.');
+      }
+    });
+    return () => subscription.remove();
+  }, [overlayPermissionPending]);
+
+  useEffect(() => {
+    let mounted = true;
     getFocusMiniTimerEnabled()
       .then((value) => { if (mounted) setMiniTimerEnabledState(value); })
       .catch(() => { if (mounted) setMiniTimerEnabledState(true); })
@@ -94,6 +130,56 @@ export default function SettingsScreen() {
       Alert.alert('저장 실패', '미니 타이머 설정을 저장하지 못했습니다.');
     }
   }, [miniTimerEnabled]);
+
+  const toggleOverlayTimer = useCallback(async () => {
+    if (Platform.OS !== 'android') {
+      Alert.alert('Android 전용', '다른 앱 위 타이머는 Android 개발 빌드에서만 사용할 수 있습니다.');
+      return;
+    }
+    if (!isFocusOverlaySupported()) {
+      Alert.alert('개발 빌드 필요', '외부 플로팅 타이머는 Expo Go가 아닌 Android 개발 빌드에서 확인해주세요.');
+      return;
+    }
+    if (overlayTimerEnabled) {
+      setOverlayTimerEnabledState(false);
+      try {
+        await setFocusOverlayTimerEnabled(false);
+      } catch {
+        setOverlayTimerEnabledState(true);
+        Alert.alert('저장 실패', '외부 플로팅 타이머 설정을 저장하지 못했습니다.');
+      }
+      return;
+    }
+    try {
+      if (await canDrawFocusOverlay()) {
+        await setFocusOverlayTimerEnabled(true);
+        setOverlayTimerEnabledState(true);
+        return;
+      }
+      Alert.alert(
+        '다른 앱 위에 표시 권한',
+        '집중 타이머를 홈 화면과 다른 앱에서도 보여주기 위해 이 권한이 필요합니다.',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '권한 설정 열기',
+            onPress: async () => {
+              try {
+                setOverlayPermissionPending(true);
+                const opened = await openFocusOverlayPermissionSettings();
+                if (!opened) setOverlayPermissionPending(false);
+              } catch {
+                setOverlayPermissionPending(false);
+                Alert.alert('권한 설정 실패', '다른 앱 위에 표시 설정을 열지 못했습니다.');
+              }
+            },
+          },
+        ],
+      );
+    } catch {
+      Alert.alert('권한 확인 실패', '다른 앱 위에 표시 권한을 확인하지 못했습니다.');
+    }
+  }, [overlayTimerEnabled]);
 
   const toggleNotifications = useCallback(async () => {
     if (Platform.OS === 'android' && isRunningInExpoGo()) {
@@ -269,6 +355,20 @@ export default function SettingsScreen() {
         <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
           실행 중인 집중 타이머를 앱 화면 위에 표시합니다.
         </Text>
+        <View style={[canonicalLayoutStyles.rowBetween, styles.timerSettingSpacing]}>
+          <Text style={canonicalTextStyles.bodyStrong}>다른 앱 위에 표시</Text>
+          <Switch
+            value={overlayTimerEnabled}
+            onValueChange={toggleOverlayTimer}
+            disabled={overlayTimerLoading}
+            thumbColor={primitive.black}
+            trackColor={{ false: primitive.neutral[400], true: primitive.neutral[600] }}
+            ios_backgroundColor={primitive.neutral[400]}
+          />
+        </View>
+        <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
+          Android 권한을 허용하면 다른 앱을 사용할 때도 타이머를 표시합니다.
+        </Text>
       </View>
 
             {/* 데이터 연동 */}
@@ -362,6 +462,10 @@ const styles = StyleSheet.create({
 
  topSpacer: {
  marginTop: space.xs,
+ },
+
+ timerSettingSpacing: {
+ marginTop: space.md,
  },
 
  descriptionSpacing: {

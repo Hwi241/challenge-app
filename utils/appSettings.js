@@ -6,6 +6,7 @@ const listeners = new Set();
 const DEFAULTS = {
   notificationsEnabled: true,
   focusMiniTimerEnabled: true,
+  focusOverlayTimerEnabled: false,
   dataIntegrations: {
     healthConnect: {
       enabled: false,
@@ -111,6 +112,15 @@ export async function getFocusMiniTimerEnabled() {
 
 export async function setFocusMiniTimerEnabled(enabled) {
   return setAppSettings({ focusMiniTimerEnabled: !!enabled });
+}
+
+export async function getFocusOverlayTimerEnabled() {
+  const settings = await getAppSettings();
+  return settings.focusOverlayTimerEnabled === true;
+}
+
+export async function setFocusOverlayTimerEnabled(enabled) {
+  return setAppSettings({ focusOverlayTimerEnabled: !!enabled });
 }
 
 export function subscribeAppSettings(listener) {

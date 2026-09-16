@@ -15,6 +15,7 @@ import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 import com.hwiject.thepush.widgets.bridge.WidgetBridgePackage
 import com.hwiject.thepush.foldable.FoldableLayoutPackage
+import com.hwiject.thepush.focusoverlay.FocusOverlayPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -27,6 +28,7 @@ class MainApplication : Application(), ReactApplication {
         val packages = PackageList(this).packages.toMutableList()
       packages.add(WidgetBridgePackage())
       packages.add(FoldableLayoutPackage())
+      packages.add(FocusOverlayPackage())
       return packages
         // 수동으로 추가할 패키지가 있으면 여기에 add() 호출 (지금은 불필요)
       }

@@ -3,6 +3,8 @@
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <queries>
@@ -100,6 +102,15 @@
 
   
   <!-- Health Connect permission rationale -->
+  <service
+      android:name=".focusoverlay.FocusOverlayService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse">
+    <property
+        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="Displays the user's active focus timer over other apps" />
+  </service>
+
   <activity android:name=".PermissionsRationaleActivity" android:exported="true">
     <intent-filter>
       <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
@@ -135,4 +146,3 @@
 
   </application>
 </manifest>
-

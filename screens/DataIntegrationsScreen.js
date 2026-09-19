@@ -347,7 +347,7 @@ function showHealthConnectReconnectGuide() {
           });
           var next=await getAppSettings();
           ss(next);
-          Alert.alert('캘린더 기록 꺼짐','인증 완료 후 캘린더에 기록하지 않습니다.');
+          Alert.alert('캘린더 기록 꺼짐','기록을 완료해도 캘린더에는 남기지 않습니다.');
         }catch(err){
           Alert.alert('오류',(err&&err.message)||'캘린더 기록 설정을 변경하지 못했습니다.');
         }finally{
@@ -411,7 +411,7 @@ function showHealthConnectReconnectGuide() {
    canonicalTextStyles.bodyMuted,
    st.description,
   ]}
- >Health Connect 권한을 연결하면 Samsung Health, Strava 등에서 공유한 걸음, 운동, 수면, 심박 데이터를 인증 근거로 사용할 수 있습니다.</Text>
+ >Health Connect 권한을 연결하면 Samsung Health, Strava 등에서 공유한 걸음, 운동, 수면, 심박 데이터를 기록 근거로 사용할 수 있습니다.</Text>
           <TouchableOpacity style={[
    buttonStyles.primary.container,
    st.primaryButton,
@@ -442,7 +442,7 @@ function showHealthConnectReconnectGuide() {
    canonicalTextStyles.bodyMuted,
    st.description,
   ]}
- >인증 완료 후 휴대폰 캘린더에 기록을 남길 수 있습니다. Google Calendar, Samsung Calendar 등 동기화된 캘린더에서 확인할 수 있습니다.</Text>
+ >기록을 완료한 뒤 휴대폰 캘린더에도 남길 수 있습니다. Google Calendar, Samsung Calendar 등 동기화된 캘린더에서 확인할 수 있습니다.</Text>
           {!!calendarOk&&(
             <Text style={st.info}>저장 대상: {calendarRecord.selectedCalendarTitle||'선택된 캘린더'}</Text>
           )}
@@ -495,7 +495,7 @@ function showHealthConnectReconnectGuide() {
  >
   저장 대상 캘린더 선택
  </Text>
-              <Text style={st.modalDesc}>인증 기록을 저장할 캘린더를 선택하세요.</Text>
+              <Text style={st.modalDesc}>기록을 저장할 캘린더를 선택하세요.</Text>
               <Text style={st.modalGuide}>캘린더 이름이 헷갈리면 삼성 캘린더나 Google Calendar 앱에서 같은 캘린더로 테스트 일정을 만들어 실제 동기화 계정을 확인하세요.</Text>
               <ScrollView style={st.modalList}>
                 {calOptions.length===0?(

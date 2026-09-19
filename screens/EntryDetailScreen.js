@@ -73,7 +73,7 @@ export default function EntryDetailScreen() {
     (async () => {
       try {
         if (!challengeId || !entryId) {
-          Alert.alert('오류', '인증 정보를 찾을 수 없습니다.', [
+          Alert.alert('오류', '기록 정보를 찾을 수 없습니다.', [
             { text: '확인', onPress: () => navigation.goBack() },
           ]);
           return;
@@ -93,7 +93,7 @@ export default function EntryDetailScreen() {
         const list = raw ? JSON.parse(raw) : [];
         const found = list.find(e => e.id === entryId);
         if (!found) {
-          Alert.alert('오류', '인증 항목이 존재하지 않습니다.', [
+          Alert.alert('오류', '기록 항목이 존재하지 않습니다.', [
             { text: '확인', onPress: () => navigation.goBack() },
           ]);
           return;
@@ -110,7 +110,7 @@ export default function EntryDetailScreen() {
       originalRef.current = { text: loadedText, duration: loadedDuration, imageUri: loadedImageUri };
       } catch (e) {
         console.error(e);
-        Alert.alert('오류', '인증 정보를 불러오지 못했습니다.');
+        Alert.alert('오류', '기록 정보를 불러오지 못했습니다.');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -215,7 +215,7 @@ export default function EntryDetailScreen() {
         const idx = list.findIndex(e => e.id === entryId);
 
         if (idx < 0) {
-          Alert.alert('오류', '인증 항목이 존재하지 않습니다.');
+          Alert.alert('오류', '기록 항목이 존재하지 않습니다.');
           return;
         }
 
@@ -256,7 +256,7 @@ export default function EntryDetailScreen() {
           }
 
           if (calendarUpdateResult?.ok) {
-            Alert.alert('완료', '인증과 캘린더 일정이 수정되었습니다.', [
+            Alert.alert('완료', '기록과 캘린더 일정이 수정되었습니다.', [
               { text: '확인', onPress: () => navigation.goBack() },
             ]);
             return;
@@ -270,19 +270,19 @@ export default function EntryDetailScreen() {
 
           const reason = calendarUpdateResult?.error || '알 수 없는 오류';
           Alert.alert(
-            '인증 수정 완료',
-            `인증은 수정되었습니다.\n다만 캘린더 일정은 수정하지 못했습니다.\n\n원인: ${reason}`,
+            '기록 수정 완료',
+            `기록은 수정되었습니다.\n다만 캘린더 일정은 수정하지 못했습니다.\n\n원인: ${reason}`,
             [{ text: '확인', onPress: () => navigation.goBack() }]
           );
           return;
         }
 
-        Alert.alert('완료', '인증이 수정되었습니다.', [
+        Alert.alert('완료', '기록이 수정되었습니다.', [
           { text: '확인', onPress: () => navigation.goBack() },
         ]);
       } catch (e) {
         console.error(e);
-        Alert.alert('오류', '인증을 저장하지 못했습니다.');
+        Alert.alert('오류', '기록을 저장하지 못했습니다.');
       } finally {
         setBusy(false);
       }
@@ -290,7 +290,7 @@ export default function EntryDetailScreen() {
 
     Alert.alert(
       '저장하시겠습니까?',
-      '이 인증 수정을 저장할까요?',
+      '이 기록 수정을 저장할까요?',
       [
         {
           text: '취소',
@@ -307,7 +307,7 @@ export default function EntryDetailScreen() {
               const idx = list.findIndex(e => e.id === entryId);
 
               if (idx < 0) {
-                Alert.alert('오류', '인증 항목이 존재하지 않습니다.');
+                Alert.alert('오류', '기록 항목이 존재하지 않습니다.');
                 return;
               }
 
@@ -315,16 +315,16 @@ export default function EntryDetailScreen() {
 
               if (originalEntry?.calendarEventId) {
                 Alert.alert(
-                  '캘린더에 기록된 인증',
-                  '이 인증은 캘린더에도 기록되어 있습니다.\n수정 내용을 캘린더 일정에도 반영할까요?',
+                  '캘린더에 연결된 기록',
+                  '이 기록은 캘린더에도 기록되어 있습니다.\n수정 내용을 캘린더 일정에도 반영할까요?',
                   [
                     { text: '취소', style: 'cancel' },
                     {
-                      text: '인증만 수정',
+                      text: '기록만 수정',
                       onPress: () => saveEditedEntry({ updateCalendar: false }),
                     },
                     {
-                      text: '인증+캘린더 수정',
+                      text: '기록+캘린더 수정',
                       onPress: () => saveEditedEntry({ updateCalendar: true }),
                     },
                   ]
@@ -335,7 +335,7 @@ export default function EntryDetailScreen() {
               await saveEditedEntry({ updateCalendar: false });
             } catch (e) {
               console.error(e);
-              Alert.alert('오류', '인증 정보를 확인하지 못했습니다.');
+              Alert.alert('오류', '기록 정보를 확인하지 못했습니다.');
             }
           },
         },
@@ -403,8 +403,8 @@ export default function EntryDetailScreen() {
 
           if (calendarDeleteResult?.ok) {
             const message = calendarDeleteResult?.alreadyMissing
-              ? '인증이 삭제되었습니다.\n캘린더 일정은 이미 삭제된 상태였습니다.'
-              : '인증과 캘린더 일정이 삭제되었습니다.';
+              ? '기록이 삭제되었습니다.\n캘린더 일정은 이미 삭제된 상태였습니다.'
+              : '기록과 캘린더 일정이 삭제되었습니다.';
 
             Alert.alert('삭제됨', message, [
               { text: '확인', onPress: () => navigation.goBack() },
@@ -415,24 +415,24 @@ export default function EntryDetailScreen() {
           const reason = calendarDeleteResult?.error || '알 수 없는 오류';
           Alert.alert(
             '삭제 완료',
-            `인증은 삭제되었습니다.\n다만 캘린더 일정은 삭제하지 못했습니다.\n\n원인: ${reason}`,
+            `기록은 삭제되었습니다.\n다만 캘린더 일정은 삭제하지 못했습니다.\n\n원인: ${reason}`,
             [{ text: '확인', onPress: () => navigation.goBack() }]
           );
           return;
         }
 
-        Alert.alert('삭제됨', '인증이 삭제되었습니다.', [
+        Alert.alert('삭제됨', '기록이 삭제되었습니다.', [
           { text: '확인', onPress: () => navigation.goBack() },
         ]);
       } catch (e) {
         console.error(e);
-        Alert.alert('오류', '인증을 삭제하지 못했습니다.');
+        Alert.alert('오류', '기록을 삭제하지 못했습니다.');
       } finally {
         setBusy(false);
       }
     };
 
-    Alert.alert('삭제 확인', '이 인증을 삭제할까요?', [
+    Alert.alert('삭제 확인', '이 기록을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제',
@@ -445,17 +445,17 @@ export default function EntryDetailScreen() {
 
             if (originalEntry?.calendarEventId) {
               Alert.alert(
-                '캘린더에 기록된 인증',
-                '이 인증은 캘린더에도 기록되어 있습니다.\n캘린더 일정도 함께 삭제할까요?',
+                '캘린더에 연결된 기록',
+                '이 기록은 캘린더에도 기록되어 있습니다.\n캘린더 일정도 함께 삭제할까요?',
                 [
                   { text: '취소', style: 'cancel' },
                   {
-                    text: '인증만 삭제',
+                    text: '기록만 삭제',
                     style: 'destructive',
                     onPress: () => deleteEditedEntry({ deleteCalendar: false }),
                   },
                   {
-                    text: '인증+캘린더 삭제',
+                    text: '기록+캘린더 삭제',
                     style: 'destructive',
                     onPress: () => deleteEditedEntry({ deleteCalendar: true }),
                   },
@@ -467,7 +467,7 @@ export default function EntryDetailScreen() {
             await deleteEditedEntry({ deleteCalendar: false });
           } catch (e) {
             console.error(e);
-            Alert.alert('오류', '인증 정보를 확인하지 못했습니다.');
+            Alert.alert('오류', '기록 정보를 확인하지 못했습니다.');
           }
         },
       },
@@ -482,7 +482,7 @@ export default function EntryDetailScreen() {
           styles.loadingContent,
         ]}
       >
-        <BackButton title="인증 수정" onPress={handleBackPress} />
+        <BackButton title="기록 수정" onPress={handleBackPress} />
         <Text style={canonicalTextStyles.bodyMuted}>
           불러오는 중…
         </Text>
@@ -563,7 +563,7 @@ export default function EntryDetailScreen() {
           <TextInput
             value={text}
             onChangeText={(t) => setText((t || '').slice(0, MAX_TEXT_LEN))}
-            placeholder="인증 내용을 입력하세요"
+            placeholder="기록 내용을 입력하세요"
             style={[
             canonicalInputStyles.compact,
             styles.entryTextInput,

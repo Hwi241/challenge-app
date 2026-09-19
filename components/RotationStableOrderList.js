@@ -176,7 +176,11 @@ const PreviewRow = memo(function PreviewRow({
   );
 });
 
-const PreviewSlot = memo(function PreviewSlot({ index, state }) {
+const PreviewSlot = memo(function PreviewSlot({
+  index,
+  indexOffset = 0,
+  state,
+}) {
   const animatedStyle = useAnimatedStyle(() => {
     const id = state.order.value[index];
     return {
@@ -195,14 +199,18 @@ const PreviewSlot = memo(function PreviewSlot({ index, state }) {
       accessible={false}
       style={[styles.slot, animatedStyle]}
     >
-      <Text style={styles.number}>{index + 1}</Text>
+      <Text style={styles.number}>{indexOffset + index + 1}</Text>
       <View style={styles.separator} />
     </Animated.View>
   );
 });
 
 const RotationStableOrderList = forwardRef(function RotationStableOrderList({
-  source, disabled = false, onDragBegin, onDragEnd,
+  source,
+  indexOffset = 0,
+  disabled = false,
+  onDragBegin,
+  onDragEnd,
 }, ref) {
   // 편집 중에는 이 배열의 순서와 행의 실제 배치를 바꾸지 않는다.
   const [items] = useState(() => source.map((item) => ({ ...item })));
@@ -370,7 +378,12 @@ const RotationStableOrderList = forwardRef(function RotationStableOrderList({
       style={[styles.list, { height: totalHeight }]}
     >
       {items.map((_item, index) => (
-        <PreviewSlot key={'slot-' + index} index={index} state={state} />
+        <PreviewSlot
+          key={'slot-' + index}
+          index={index}
+          indexOffset={indexOffset}
+          state={state}
+        />
       ))}
       {items.map((item) => (
         <PreviewRow
@@ -401,7 +414,8 @@ const styles = StyleSheet.create({
   },
   rowBody: { flex: 1, minWidth: 0, marginHorizontal: space.sm },
   handle: {
-    width: 44, minHeight: 44,
+    width: 44,
+    alignSelf: 'stretch',
     alignItems: 'center', justifyContent: 'center',
   },
   slot: {

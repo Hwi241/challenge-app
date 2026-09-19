@@ -25,12 +25,19 @@ function minutesOf(seconds) {
 
 export default function RotationRoutineRecordForm({
   summary, minutes, content, imageUri, error, busy,
+  currentTimerActive = false,
   onMinutesChange, onContentChange, onPickImage, onRemoveImage,
   onRecord, onTogglePaused,
   orderEditing, onOrderEditingChange, onApplyOrder,
 }) {
   const [textHeight, setTextHeight] = useState(140);
   const current = summary.currentItem;
+  const hasDraft = Boolean(
+    String(content ?? '').trim()
+    || String(minutes ?? '').trim()
+    || imageUri
+  );
+  const currentReorderLocked = hasDraft || currentTimerActive;
   const blocked = busy ? true : orderEditing ? true : Boolean(error);
   const locked = blocked ? true : summary.paused;
   const cannotRecord = locked ? true : !current;
@@ -45,7 +52,7 @@ export default function RotationRoutineRecordForm({
         keyboardShouldPersistTaps="handled"
       >
         <View style={[card.form, styles.cardSpacing]}>
-          <Text style={text.bodyMuted}>{summary.paused ? '일시정지됨' : '현재 차례'}</Text>
+          <Text style={text.bodyMuted}>{summary.paused ? '일시정지됨' : '기록할 활동'}</Text>
           <Text style={text.sectionTitle}>{current?.name ?? '현재 활동 없음'}</Text>
           {current && (
             <>
@@ -54,6 +61,9 @@ export default function RotationRoutineRecordForm({
               </Text>
               <Text style={text.bodyMuted}>
                 남은 시간 {minutesOf(current.remainingSeconds)}분
+              </Text>
+              <Text style={[text.bodyMuted, styles.nextActivity]}>
+                다음 → {summary.nextItem?.name ?? '이번 회전 완료'}
               </Text>
             </>
           )}
@@ -91,7 +101,7 @@ export default function RotationRoutineRecordForm({
           <TextInput
             value={content}
             onChangeText={(value) => onContentChange(value.slice(0, 500))}
-            placeholder="인증 내용을 입력하세요"
+            placeholder="기록 내용을 입력하세요"
             style={[input.compact, styles.entryTextInput, { height: textHeight }, blocked && styles.busyInput]}
             multiline
             editable={!blocked}
@@ -122,7 +132,7 @@ export default function RotationRoutineRecordForm({
           activeOpacity={0.9}
           disabled={cannotRecord}
         >
-          <Text style={buttonStyles.primary.label}>제출하기</Text>
+          <Text style={buttonStyles.primary.label}>기록하기</Text>
         </TouchableOpacity>
           {summary.paused && (
             <TouchableOpacity
@@ -137,6 +147,7 @@ export default function RotationRoutineRecordForm({
           summary={summary}
           editing={orderEditing}
           disabled={busy ? true : Boolean(error)}
+          currentReorderLocked={currentReorderLocked}
           onEditingChange={onOrderEditingChange}
           onApply={onApplyOrder}
         />
@@ -176,6 +187,11 @@ const styles = StyleSheet.create({
   busy: { opacity: 0.6 },
   busyInput: { opacity: 0.75 },
   submitButton: { marginTop: space.xl },
+  nextActivity: {
+    marginTop: space.sm,
+    color: color.textPrimary,
+    fontWeight: '700',
+  },
   previewWrap: { position: 'relative', marginBottom: space.sm },
   preview: { width: '100%', height: 200, borderRadius: radius.md, backgroundColor: color.surfaceMuted },
   previewDeleteBtn: {

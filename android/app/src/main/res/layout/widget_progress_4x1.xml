@@ -69,7 +69,7 @@
     android:paddingRight="10dp"
     android:paddingTop="4dp"
     android:paddingBottom="4dp"
-    android:text="인증하기"
+    android:text="기록하기"
     android:textColor="#FFFFFF"
     android:textSize="12sp"
     android:textStyle="bold"

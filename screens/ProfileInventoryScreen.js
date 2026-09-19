@@ -715,7 +715,7 @@ const WeeklyBarCard = ({ data, label, onPrev, onNext }) => {
   const max = Math.max(1, ...data.map((item) => item.count));
 
   return (
-    <DashboardCard title="일주일 인증 횟수" subtitle={label || '최근 7일'}>
+    <DashboardCard title="일주일 기록 횟수" subtitle={label || '최근 7일'}>
       <View style={styles.cardPagerRow}>
         <TouchableOpacity style={styles.cardPagerBtn} onPress={onPrev} activeOpacity={0.8}>
           <Text style={styles.cardPagerText}>‹</Text>
@@ -828,7 +828,7 @@ const CalendarCard = ({ days, label, onPrev, onNext }) => {
   const max = Math.max(1, ...days.map((day) => day.count));
 
   return (
-    <DashboardCard title="인증 달력" subtitle={label}>
+    <DashboardCard title="기록 달력" subtitle={label}>
       <View style={styles.cardPagerRow}>
         <TouchableOpacity style={styles.cardPagerBtn} onPress={onPrev} activeOpacity={0.8}>
           <Text style={styles.cardPagerText}>‹</Text>
@@ -859,7 +859,7 @@ const HeatmapCard = ({ data, label, onPrev, onNext }) => {
   const max = Math.max(1, ...data.flatMap((row) => row.values.map((item) => item.count)));
 
   return (
-    <DashboardCard title="인증 시간 패턴" subtitle={label || '요일 × 시간대'}>
+    <DashboardCard title="기록 시간 패턴" subtitle={label || '요일 × 시간대'}>
       <View style={styles.cardPagerRow}>
         <TouchableOpacity style={styles.cardPagerBtn} onPress={onPrev} activeOpacity={0.8}>
           <Text style={styles.cardPagerText}>‹</Text>
@@ -897,7 +897,7 @@ const MonthlyBarCard = ({ data }) => {
   const max = Math.max(1, ...data.map((item) => item.count));
 
   return (
-    <DashboardCard title="월별 인증 갯수" subtitle="최근 6개월">
+    <DashboardCard title="월별 기록 갯수" subtitle="최근 6개월">
       <View style={styles.monthlyBarRow}>
         {data.map((item) => (
           <View key={item.key} style={styles.monthlyColumn}>
@@ -1430,7 +1430,7 @@ export default function ProfileInventoryScreen() {
     { id: 'total-cards', render: () => <KpiCard label="현재 도전/기록" value={stats.totalCards} note={`도전 ${stats.challengeCount} · 기록 ${stats.recordCount}`} dark /> },
     { id: 'hall-count', render: () => <KpiCard label="명예의 전당" value={stats.completedCount} note="완료 카드" /> },
     { id: 'stars', render: () => <KpiCard label="별 갯수" value={stats.stars} note="현재 보유" icon="★" /> },
-    { id: 'today-count', render: () => <KpiCard label="오늘 기록" value={stats.todayCount} note="오늘 인증/기록" /> },
+    { id: 'today-count', render: () => <KpiCard label="오늘 기록" value={stats.todayCount} note="오늘 기록" /> },
     { id: 'deleted-count', render: () => <KpiCard label="삭제 갯수" value={stats.deletedCount} note={stats.hasTrashSource ? '휴지통 기준' : '이력 없음'} /> },
     { id: 'expired-fail', render: () => <KpiCard label="만료 실패" value={stats.expiredFailedCount} note="미완료 만료" /> },
     { id: 'weekly-bars', render: () => <WeeklyBarCard data={stats.weekly} label={stats.weekLabel} onPrev={() => setWeekOffset((v) => v - 1)} onNext={() => setWeekOffset((v) => Math.min(0, v + 1))} /> },

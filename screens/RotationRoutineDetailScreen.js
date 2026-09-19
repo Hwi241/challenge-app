@@ -14,6 +14,10 @@ import {
   setRotationRoutinePausedAndSave,
   undoLastRotationActionAndSave,
 } from '../utils/rotationRoutineStore';
+import {
+  loadActiveFocusSession,
+  subscribeFocusSessions,
+} from '../utils/focusSessionStore';
 import { color, space, surface, text } from '../styles/common';
 
 function confirm(title, message, label) {
@@ -27,17 +31,25 @@ function confirm(title, message, label) {
 
 export default function RotationRoutineDetailScreen({ navigation, route }) {
   const routineId = String(route.params?.routineId ?? route.params?.challengeId ?? '').trim();
+  const timerSessionId = String(route.params?.timerSessionId ?? '').trim();
+  const timerPrefillSeconds = Math.floor(Number(route.params?.timerPrefillSeconds));
+  const timerExpectedItemId = String(route.params?.timerExpectedItemId ?? '').trim();
+  const timerExpectedCycleNumber = Number(route.params?.timerExpectedCycleNumber);
+  const timerExpectedProgressSeconds = Number(route.params?.timerExpectedProgressSeconds);
   const [snapshot, setSnapshot] = useState(null);
   const [minutes, setMinutes] = useState('');
+  const [timerDurationSeconds, setTimerDurationSeconds] = useState(null);
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [orderEditing, setOrderEditing] = useState(false);
   const [error, setError] = useState('');
+  const [activeFocusSession, setActiveFocusSession] = useState(null);
   const flightRef = useRef(false);
   const submittedRef = useRef(false);
   const activeRef = useRef(false);
+  const timerPrefillAppliedRef = useRef(false);
 
   const fetchSnapshot = useCallback(async () => {
     if (!routineId) throw new Error('순환 루틴 ID가 없습니다.');
@@ -52,6 +64,16 @@ export default function RotationRoutineDetailScreen({ navigation, route }) {
       .then((next) => {
         if (!active) return;
         setSnapshot(next);
+        if (
+          !timerPrefillAppliedRef.current
+          && Number.isSafeInteger(timerPrefillSeconds)
+          && timerPrefillSeconds > 0
+        ) {
+          timerPrefillAppliedRef.current = true;
+          setTimerDurationSeconds(timerPrefillSeconds);
+          const displayMinutes = Math.max(0.1, Math.round(timerPrefillSeconds / 6) / 10);
+          setMinutes(String(displayMinutes));
+        }
         setError('');
       })
       .catch((loadError) => {
@@ -64,7 +86,29 @@ export default function RotationRoutineDetailScreen({ navigation, route }) {
       active = false;
       activeRef.current = false;
     };
-  }, [fetchSnapshot]));
+  }, [fetchSnapshot, timerPrefillSeconds]));
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+
+    const refreshActiveFocusSession = () => {
+      loadActiveFocusSession()
+        .then((session) => {
+          if (active) setActiveFocusSession(session);
+        })
+        .catch(() => {
+          if (active) setActiveFocusSession(null);
+        });
+    };
+
+    refreshActiveFocusSession();
+    const unsubscribe = subscribeFocusSessions(refreshActiveFocusSession);
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []));
 
   const hasDraft = useCallback(() => {
     if (submittedRef.current) return false;
@@ -82,10 +126,12 @@ const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
   const clearDraft = () => {
     setContent('');
     setMinutes('');
+    setTimerDurationSeconds(null);
     setImageUri(null);
   };
 
   const changeMinutes = (value) => {
+    setTimerDurationSeconds(null);
     const digits = String(value).replace(/[^\d]/g, '');
     if (!digits) { setMinutes(''); return; }
     const number = Number(digits);
@@ -139,36 +185,78 @@ const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
     if (loading) return;
     if (!snapshot?.summary.currentItem) return;
     if (snapshot.summary.paused) return;
-    const value = Number(minutes);
-    if (!Number.isSafeInteger(value)) {
-      Alert.alert('확인', '기록할 시간을 분 단위 숫자로 입력해주세요.');
-      return;
-    }
-    if (value < 1) {
-      Alert.alert('확인', '기록할 시간을 입력해주세요.');
-      return;
-    }
-    if (value > 1440) {
-      Alert.alert('확인', '시간은 1440분 이내로 입력해주세요.');
-      return;
+    const measuredSeconds = Number(timerDurationSeconds);
+    let durationSeconds = 0;
+    let durationLabel = '';
+    if (Number.isSafeInteger(measuredSeconds) && measuredSeconds > 0) {
+      durationSeconds = measuredSeconds;
+      const wholeMinutes = Math.floor(measuredSeconds / 60);
+      const remainingSeconds = measuredSeconds % 60;
+      if (wholeMinutes > 0 && remainingSeconds > 0) {
+        durationLabel = `${wholeMinutes}분 ${remainingSeconds}초`;
+      } else if (wholeMinutes > 0) {
+        durationLabel = `${wholeMinutes}분`;
+      } else {
+        durationLabel = `${remainingSeconds}초`;
+      }
+    } else {
+      const value = Number(minutes);
+      if (!Number.isSafeInteger(value)) {
+        Alert.alert('확인', '기록할 시간을 분 단위 숫자로 입력해주세요.');
+        return;
+      }
+      if (value < 1) {
+        Alert.alert('확인', '기록할 시간을 입력해주세요.');
+        return;
+      }
+      if (value > 1440) {
+        Alert.alert('확인', '시간은 1440분 이내로 입력해주세요.');
+        return;
+      }
+      durationSeconds = value * 60;
+      durationLabel = `${value}분`;
     }
     const current = snapshot.summary.currentItem;
+    const hasTimerContext = !!timerSessionId;
+    const expectedItemId = hasTimerContext && timerExpectedItemId
+      ? timerExpectedItemId
+      : current.id;
+    const expectedCycleNumber = hasTimerContext && Number.isSafeInteger(timerExpectedCycleNumber)
+      ? timerExpectedCycleNumber
+      : snapshot.summary.currentCycleNumber;
+    const expectedProgressSeconds = hasTimerContext && Number.isSafeInteger(timerExpectedProgressSeconds)
+      ? timerExpectedProgressSeconds
+      : current.progressSeconds;
+    if (
+      hasTimerContext
+      && (
+        expectedItemId !== current.id
+        || expectedCycleNumber !== snapshot.summary.currentCycleNumber
+        || expectedProgressSeconds !== current.progressSeconds
+      )
+    ) {
+      Alert.alert(
+        '진행 상태가 변경되었습니다',
+        '타이머를 시작한 뒤 현재 활동이나 진행시간이 변경되었습니다. 잘못된 활동에 시간을 기록하지 않도록 자동 기록을 중단했습니다.',
+      );
+      return;
+    }
     flightRef.current = true;
     setBusy(true);
     try {
       const accepted = await confirm(
         '저장하시겠습니까?',
-        current.name + ' 활동 ' + value + '분을 기록할까요?',
+        `${current.name} 활동 ${durationLabel}을 기록할까요?`,
         '저장',
       );
       if (!accepted) return;
       if (!activeRef.current) return;
-      const transition = await recordRotationTimeAndSave(routineId, value * 60, {
+      const transition = await recordRotationTimeAndSave(routineId, durationSeconds, {
         text: content,
         imageUri,
-        expectedItemId: current.id,
-        expectedCycleNumber: snapshot.summary.currentCycleNumber,
-        expectedProgressSeconds: current.progressSeconds,
+        expectedItemId,
+        expectedCycleNumber,
+        expectedProgressSeconds,
       });
       submittedRef.current = true;
       markAsSaved();
@@ -213,19 +301,9 @@ const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
     if (loading) return false;
     if (!snapshot) return false;
     if (!expected) return false;
-    const changesCurrent = orderedItemIds[0] !== snapshot.summary.currentItem?.id;
-    const discard = changesCurrent && hasDraft();
     flightRef.current = true;
     setBusy(true);
     try {
-      if (discard) {
-        const accepted = await confirm(
-          '현재 활동 변경',
-          '현재 활동이 바뀝니다. 작성 중인 내용·사진·시간을 비우고 순서를 적용할까요?',
-          '비우고 적용',
-        );
-        if (!accepted) return false;
-      }
       if (!activeRef.current) return false;
       const result = await reorderRotationCycleItemsAndSave(
         routineId, orderedItemIds, expected,
@@ -235,7 +313,6 @@ const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
         routine: result.routine,
         summary: result.summary,
       }));
-      if (discard) clearDraft();
       setError('');
       return true;
     } catch (orderError) {
@@ -315,6 +392,16 @@ const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
     );
   }
 
+  const currentRotationItemId = snapshot?.summary.currentItem?.id ?? null;
+
+  const currentTimerActive = Boolean(
+    currentRotationItemId
+    && activeFocusSession
+    && activeFocusSession.targetSubtype === 'rotation'
+    && String(activeFocusSession.targetId ?? '') === routineId
+    && String(activeFocusSession.rotationItemId ?? '') === String(currentRotationItemId)
+  );
+
   return (
     <SafeAreaView style={surface.screen}>
       <BackButton title={snapshot.routine.title} onPress={handleBackPress} />
@@ -325,6 +412,7 @@ const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
         imageUri={imageUri}
         error={error}
         busy={busy ? true : loading}
+        currentTimerActive={currentTimerActive}
         onMinutesChange={changeMinutes}
         onContentChange={setContent}
         onPickImage={pickImage}

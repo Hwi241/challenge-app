@@ -31,7 +31,6 @@ class FocusOverlayService : Service() {
   private var timeView: TextView? = null
   private var toggleView: TextView? = null
   private val handler = Handler(Looper.getMainLooper())
-  private var completionSent = false
 
   private var sessionId = ""
   private var targetTitle = ""
@@ -71,7 +70,6 @@ class FocusOverlayService : Service() {
   }
 
   private fun readSession(intent: Intent) {
-    val previousId = sessionId
     sessionId = intent.getStringExtra(EXTRA_SESSION_ID).orEmpty()
     targetTitle = intent.getStringExtra(EXTRA_TARGET_TITLE).orEmpty()
     status = intent.getStringExtra(EXTRA_STATUS) ?: "running"
@@ -80,7 +78,6 @@ class FocusOverlayService : Service() {
     startedAt = intent.getLongExtra(EXTRA_STARTED_AT, 0L)
     pausedAt = intent.getLongExtra(EXTRA_PAUSED_AT, 0L)
     accumulatedPausedMs = intent.getLongExtra(EXTRA_ACCUMULATED_PAUSED_MS, 0L)
-    if (previousId != sessionId) completionSent = false
   }
 
   private fun createNotificationChannel() {
@@ -187,21 +184,59 @@ class FocusOverlayService : Service() {
   }
 
   private fun displaySeconds(now: Long = System.currentTimeMillis()): Long {
-    val end = if (status == "paused" && pausedAt > 0L) pausedAt else now
-    val elapsed = max(0L, (end - startedAt - max(0L, accumulatedPausedMs)) / 1000L)
-    return if (mode == "countdown") max(0L, targetSeconds - elapsed) else elapsed
+    val end =
+      if (status == "paused" && pausedAt > 0L) pausedAt
+      else now
+
+    val elapsed = max(
+      0L,
+      (
+        end
+          - startedAt
+          - max(0L, accumulatedPausedMs)
+      ) / 1000L,
+    )
+
+    return if (mode == "countdown") {
+      targetSeconds - elapsed
+    } else {
+      elapsed
+    }
   }
 
   private fun updateDisplayedTime() {
-    val seconds = displaySeconds()
+    val rawSeconds = displaySeconds()
+
+    val overtime =
+      mode == "countdown"
+        && rawSeconds < 0L
+
+    val seconds =
+      if (rawSeconds < 0L) -rawSeconds
+      else rawSeconds
+
     val hours = seconds / 3600L
     val minutes = (seconds % 3600L) / 60L
     val remaining = seconds % 60L
-    timeView?.text = String.format("%02d:%02d:%02d", hours, minutes, remaining)
-    if (mode == "countdown" && status == "running" && seconds == 0L && !completionSent) {
-      completionSent = true
-      sendCommand("complete")
-    }
+
+    val formatted = String.format(
+      "%02d:%02d:%02d",
+      hours,
+      minutes,
+      remaining,
+    )
+
+    timeView?.text =
+      if (overtime) "-$formatted"
+      else formatted
+
+    timeView?.setTextColor(
+      if (overtime) {
+        Color.rgb(220, 38, 38)
+      } else {
+        Color.WHITE
+      },
+    )
   }
 
   private fun sendCommand(command: String) {

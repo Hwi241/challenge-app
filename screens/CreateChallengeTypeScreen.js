@@ -5,8 +5,8 @@ import BackButton from '../components/BackButton';
 import { color, font, radius, space, surface } from '../styles/common';
 
 const TYPES = [
-  ['challenge', '도전', '기간과 목표를 정하고 인증합니다.'],
-  ['habit', '습관', '정한 주기에 맞춰 반복 인증합니다.'],
+  ['challenge', '도전', '기간과 목표를 정하고 기록합니다.'],
+  ['habit', '습관', '정한 주기에 맞춰 반복 기록합니다.'],
   ['rotation', '순환 루틴', '목표 시간을 채우며 차례대로 진행합니다.'],
 ];
 

@@ -1176,7 +1176,7 @@ var HealthSleepRhythmWidget = memo(function HealthSleepRhythmWidget(_ref) {
  fontWeight: '700',
  textAlign: 'center'
  }
- }, 'Health Connect 수면 데이터로 인증하면 표시됩니다.')
+ }, 'Health Connect 수면 데이터로 기록하면 표시됩니다.')
  )
  :
  React.createElement(React.Fragment, null,
@@ -4089,7 +4089,7 @@ const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress 
       )}
       <View style={styles.textContainer}>
         <Text style={styles.text}>{item?.text ?? ''}</Text>
-        <Text style={styles.time}>인증 시간: {new Date(item.timestamp).toLocaleString()}</Text>
+        <Text style={styles.time}>기록 시간: {new Date(item.timestamp).toLocaleString()}</Text>
         {(typeof item.duration === 'number' && item.duration > 0) && (
           <Text style={styles.duration}>소요 시간: {item.duration}분</Text>
         )}
@@ -6251,8 +6251,8 @@ const runWeek = useCallback(() => {
         ListEmptyComponent={(
           <Text style={[styles.empty, styles.sectionPadNarrow]}>
             {isRotation
-              ? '아직 기록이 없습니다. 이어하기에서 시간을 기록해보세요.'
-              : '등록된 인증이 없습니다.'}
+              ? '아직 기록이 없습니다. 활동 후 시간을 기록해보세요.'
+              : '등록된 기록이 없습니다.'}
           </Text>
         )}
         ListFooterComponent={<View style={{ height: insets.bottom + 24 }} />}
@@ -6270,7 +6270,7 @@ const runWeek = useCallback(() => {
           }}
           activeOpacity={0.9}
         >
-          <Text style={styles.uploadFloatingText}>{isRotation ? '이어하기' : '인증'}</Text>
+          <Text style={styles.uploadFloatingText}>기록하기</Text>
         </TouchableOpacity>
       )}
 

@@ -375,7 +375,7 @@ export default function SettingsScreen() {
       <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
         <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>데이터 연동</Text>
         <Text style={[canonicalTextStyles.bodyMuted, styles.descriptionSpacing]}>
-          Health Connect와 이후 추가될 외부 데이터 출처를 관리합니다. 연결된 데이터만 인증에 사용할 수 있어요.
+          Health Connect와 이후 추가될 외부 데이터 출처를 관리합니다. 연결된 데이터만 기록에 사용할 수 있어요.
         </Text>
         <TouchableOpacity
           style={buttonStyles.outlineSoft.container}

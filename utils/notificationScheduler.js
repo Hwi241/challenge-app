@@ -93,7 +93,7 @@ export async function registerNotificationsForChallenge(challenge) {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '도전 알림',
-          body: `${challenge.title} — 인증할 시간이에요!`,
+          body: `${challenge.title} — 기록할 시간이에요!`,
           data: { challengeId: challenge.id },
           categoryIdentifier: 'challenge', // 카테고리 식별자 추가
         },
@@ -139,12 +139,34 @@ export async function initializeNotificationsAsync() {
   // 알림 액션 카테고리 추가
   await Notifications.setNotificationCategoryAsync('challenge', [
     { identifier: 'dashboard', buttonTitle: '도전으로' },
-    { identifier: 'upload', buttonTitle: '인증하기' },
+    { identifier: 'upload', buttonTitle: '기록하기' },
   ]);
 
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      const data = notification?.request?.content?.data || {};
+
+      const isFocusTimerAlarm =
+        data.focusTimerAlarm === true
+        || data.focusTimerAlarm === '1';
+
+      const focusTimerSound =
+        String(data.focusTimerSound ?? '');
+
+      return {
+        shouldShowBanner: true,
+        shouldShowList: true,
+
+        // 기존 일반 알림은 현재와 동일하게 handler 단계에서는
+        // 소리를 강제로 재생하지 않는다.
+        // Focus Timer 알림 중 "시스템 기본"을 선택한 경우만
+        // 실제 sound 재생을 허용한다.
+        shouldPlaySound:
+          isFocusTimerAlarm
+          && focusTimerSound === 'system',
+
+        shouldSetBadge: false,
+      };
+    },
   });
 }

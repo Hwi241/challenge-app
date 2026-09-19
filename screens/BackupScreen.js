@@ -138,7 +138,7 @@ export default function BackupScreen() {
  </Text>
 
  <Text style={canonicalTextStyles.bodySmallMuted}>
- 현재 도전/명예의 전당/인증 기록을 하나의 JSON으로 저장합니다.
+ 현재 도전/명예의 전당/기록을 하나의 JSON으로 저장합니다.
  </Text>
 
  <TouchableOpacity

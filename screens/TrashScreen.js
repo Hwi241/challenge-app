@@ -104,7 +104,7 @@ export default function TrashScreen() {
  (item) => {
  Alert.alert(
  '영구 삭제',
- '이 도전을 영구 삭제할까요? 인증 기록도 함께 삭제되며 되돌릴 수 없습니다.',
+ '이 도전을 영구 삭제할까요? 기록도 함께 삭제되며 되돌릴 수 없습니다.',
  [
  { text: '취소', style: 'cancel' },
  {
@@ -126,7 +126,7 @@ export default function TrashScreen() {
 
  Alert.alert(
  '휴지통 비우기',
- '휴지통을 비울까요? 모든 도전과 인증 기록이 영구 삭제됩니다.',
+ '휴지통을 비울까요? 모든 도전과 기록이 영구 삭제됩니다.',
  [
  { text: '취소', style: 'cancel' },
  {

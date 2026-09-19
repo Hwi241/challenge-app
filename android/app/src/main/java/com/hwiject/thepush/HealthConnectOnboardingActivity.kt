@@ -26,7 +26,7 @@ class HealthConnectOnboardingActivity : Activity() {
         }
 
         container.addView(titleText("더푸시와 Health Connect 연결"))
-        container.addView(bodyText("더푸시는 Health Connect를 통해 건강 데이터를 인증의 근거로 첨부할 수 있도록 준비 중입니다."))
+        container.addView(bodyText("더푸시는 Health Connect를 통해 건강 데이터를 기록의 근거로 첨부할 수 있도록 준비 중입니다."))
         container.addView(bodyText("현재는 걸음 수 읽기 권한만 테스트합니다. 권한을 허용한 뒤 더푸시 앱에서 '걸음 수 권한 다시 확인'을 눌러 연결 상태를 갱신하세요."))
         container.addView(bodyText("Health Connect 데이터는 사용자의 허용 범위 안에서만 접근할 수 있으며, 언제든지 Android 설정의 Health Connect에서 권한을 해제할 수 있습니다."))
 

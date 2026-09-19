@@ -618,7 +618,7 @@ export function buildCalendarEventDraft({
  const notes = [
   '도전: ' + safeTitle,
   entry?.duration ? '소요 시간: ' + entry.duration + '분' : null,
-  entry?.text ? '인증 내용: ' + entry.text : null,
+  entry?.text ? '기록 내용: ' + entry.text : null,
   linkedRecords.length
    ? '건강 데이터: ' + linkedRecords.map((record) => record?.displayText || record?.label).filter(Boolean).join(' / ')
    : null,
@@ -626,7 +626,7 @@ export function buildCalendarEventDraft({
  ].filter(Boolean).join('\n');
 
  return {
-  title: 'THE PUSH 인증 완료 - ' + safeTitle,
+  title: 'THE PUSH 기록 완료 - ' + safeTitle,
   notes,
   startDate,
   endDate,
@@ -736,7 +736,7 @@ export async function createCalendarRecordEvent({
       eventId: null,
       draft: eventDraft,
       selectedCalendar: null,
-      error: error?.message || '캘린더에 인증 기록을 저장하는 중 오류가 발생했습니다.',
+      error: error?.message || '캘린더에 기록을 저장하는 중 오류가 발생했습니다.',
     };
   }
 }

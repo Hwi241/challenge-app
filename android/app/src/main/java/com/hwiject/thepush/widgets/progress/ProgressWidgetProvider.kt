@@ -155,7 +155,7 @@ views.setProgressBar(R.id.progressBar, 100, percent, false)
 val isCompleted = (percent >= 100)
 views.setTextViewText(
     R.id.btnAction,
-    if (isCompleted) "도전 완료" else "인증하기"
+    if (isCompleted) "도전 완료" else "기록하기"
 )
 
 val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

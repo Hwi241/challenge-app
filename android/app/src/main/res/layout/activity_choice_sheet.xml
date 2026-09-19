@@ -18,7 +18,7 @@
       android:layout_width="match_parent"
       android:layout_height="48dp"
       android:gravity="center"
-      android:text="인증하기"
+      android:text="기록하기"
       android:textColor="#FFFFFF"
       android:background="@drawable/btn_black_round"/>
 

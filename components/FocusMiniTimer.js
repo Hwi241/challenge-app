@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   AppState, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  finishFocusSession,
   formatFocusSessionTime,
   getFocusSessionDisplaySeconds,
   loadActiveFocusSession,
@@ -24,14 +23,12 @@ export default function FocusMiniTimer({ navigationRef, routeName }) {
   const [enabled, setEnabled] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
-  const completingRef = useRef(false);
 
   const refreshSession = useCallback(() => {
     loadActiveFocusSession()
       .then((active) => {
         setSession(active);
         setNow(Date.now());
-        if (!active) completingRef.current = false;
       })
       .catch(() => setSession(null));
   }, []);
@@ -68,18 +65,7 @@ export default function FocusMiniTimer({ navigationRef, routeName }) {
     ? getFocusSessionDisplaySeconds(session, now)
     : 0;
 
-  useEffect(() => {
-    if (
-      !session
-      || session.status !== 'running'
-      || session.mode !== 'countdown'
-      || displaySeconds !== 0
-      || completingRef.current
-    ) return;
-    completingRef.current = true;
-    finishFocusSession(session.id)
-      .catch(() => { completingRef.current = false; });
-  }, [displaySeconds, session]);
+  const overtime = session?.mode === 'countdown' && displaySeconds < 0;
 
   if (!enabled || !session || routeName === 'FocusTimer') return null;
 
@@ -118,9 +104,13 @@ export default function FocusMiniTimer({ navigationRef, routeName }) {
         <View style={styles.statusDot} />
         <View style={styles.titleWrap}>
           <Text style={styles.title} numberOfLines={1}>{session.targetTitle}</Text>
-          <Text style={styles.state}>{session.status === 'paused' ? '일시정지' : '집중 중'}</Text>
+          <Text style={styles.state}>
+            {session.status === 'paused' ? '일시정지' : overtime ? '초과 중' : '집중 중'}
+          </Text>
         </View>
-        <Text style={styles.time}>{formatFocusSessionTime(displaySeconds)}</Text>
+        <Text style={[styles.time, overtime && styles.overtimeTime]}>
+          {formatFocusSessionTime(displaySeconds)}
+        </Text>
         <TouchableOpacity
           style={styles.toggle}
           onPress={togglePause}
@@ -171,6 +161,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     marginHorizontal: space.sm,
   },
+  overtimeTime: { color: color.danger },
   toggle: {
     width: 38,
     height: 38,

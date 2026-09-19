@@ -474,11 +474,19 @@ const ChallengeCardMeta = memo(function ChallengeCardMeta({
     const current = rotationSummary.currentItem;
     return (
       <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
-        <Text style={[canonicalTextStyles.meta, styles.meta]}>
-          현재 {current?.name ?? '-'} · {rotationMinutes(current?.progressSeconds)} / {rotationMinutes(current?.targetSeconds)}분
+        <Text
+          style={[
+            canonicalTextStyles.meta,
+            styles.meta,
+            { color: color.textPrimary, fontWeight: font.weight.bold },
+          ]}
+        >
+          지금 할 일 · {current?.name ?? '-'}
         </Text>
         <Text style={[canonicalTextStyles.meta, styles.meta]}>
-          다음 {rotationSummary.nextItem?.name ?? '회전 완료'}
+          {rotationMinutes(current?.progressSeconds)} / {rotationMinutes(current?.targetSeconds)}분
+          {' · '}
+          다음 → {rotationSummary.nextItem?.name ?? '이번 회전 완료'}
         </Text>
         <Text style={[canonicalTextStyles.meta, styles.meta]}>
           {rotationSummary.currentCycleNumber}번째 회전 · {rotationSummary.completedCycleCount}회 완료
@@ -625,7 +633,7 @@ const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
           onPress={() => onPressCard?.(item, 'continue')}
           activeOpacity={0.9}
         >
-          <Text style={styles.uploadNowText}>이어하기</Text>
+          <Text style={styles.uploadNowText}>기록하기</Text>
         </TouchableOpacity>
         {!isDone && !isExpired && (
           <TouchableOpacity
@@ -676,7 +684,7 @@ const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
           onPress={() => onPressCard?.({ ...item, _upload: true })}
           activeOpacity={0.9}
         >
-          <Text style={styles.uploadNowText}>인증하기</Text>
+          <Text style={styles.uploadNowText}>기록하기</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.focusPlayButton, showControls && styles.disabledBig]}
@@ -745,14 +753,14 @@ const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
   const progressLabel = getCompactProgressLabel(item, rotationSummary, isDone, isExpired);
   const rotation = isRotationRoutine(item);
   const actionLabel = rotation
-    ? '진행'
+    ? '기록하기'
     : item.type === 'habit'
     ? '기록'
     : isDone
     ? '보상'
     : isExpired
     ? '만료'
-    : '인증';
+    : '기록하기';
 
   const actionDisabled = !rotation && item.type !== 'habit' && isExpired;
 
@@ -1431,28 +1439,43 @@ export default function ChallengeListScreen() {
         ]);
         return;
       }
-      setFocusTarget(item);
+      let nextTarget = item;
+      if (isRotationRoutine(item)) {
+        nextTarget = await loadRotationRoutine(String(item.id));
+      }
+      setFocusTarget(nextTarget);
     } catch (error) {
       Alert.alert('확인 실패', error?.message || '집중 타이머 상태를 확인하지 못했습니다.');
     }
   }, []);
 
-  const beginFocusSession = useCallback(async ({ mode, targetSeconds }) => {
+  const beginFocusSession = useCallback(async ({ mode, targetSeconds, alarmEnabled }) => {
     if (!focusTarget || focusStarting) return;
     setFocusStarting(true);
     try {
-      const rotationSummary = rotationSummaryOf(focusTarget);
+      let targetForSession = focusTarget;
+      let rotationSummary = null;
+      if (isRotationRoutine(focusTarget)) {
+        targetForSession = await loadRotationRoutine(String(focusTarget.id));
+        rotationSummary = getRotationRoutineSummary(targetForSession);
+        if (!rotationSummary.currentItem) {
+          throw new Error('현재 실행할 순환루틴 활동이 없습니다.');
+        }
+      }
       const session = await startFocusSession({
-        targetType: focusTarget.type === 'habit' ? 'habit' : 'challenge',
+        targetType: targetForSession.type === 'habit' ? 'habit' : 'challenge',
         ...(rotationSummary ? {
           targetSubtype: 'rotation',
-          rotationItemId: rotationSummary.currentItem?.id ?? null,
-          rotationItemTitle: rotationSummary.currentItem?.name ?? null,
+          rotationItemId: rotationSummary.currentItem.id,
+          rotationItemTitle: rotationSummary.currentItem.name,
+          rotationCycleNumber: rotationSummary.currentCycleNumber,
+          rotationStartProgressSeconds: rotationSummary.currentItem.progressSeconds,
         } : {}),
-        targetId: String(focusTarget.id),
-        targetTitle: String(focusTarget.title || '').trim(),
+        targetId: String(targetForSession.id),
+        targetTitle: String(targetForSession.title || '').trim(),
         mode,
         targetSeconds,
+        alarmEnabled,
       });
       setFocusTarget(null);
       navigationRef.current.navigate('FocusTimer', { sessionId: session.id });

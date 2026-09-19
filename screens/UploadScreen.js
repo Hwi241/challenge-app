@@ -612,7 +612,7 @@ async function markEntryCalendarRecorded(challengeId, entryId, result = {}, cale
   const list = raw ? JSON.parse(raw) : [];
 
   if (!Array.isArray(list)) {
-    throw new Error('저장된 인증 목록을 읽지 못했습니다.');
+    throw new Error('저장된 기록 목록을 읽지 못했습니다.');
   }
 
   let updatedEntry = null;
@@ -635,7 +635,7 @@ async function markEntryCalendarRecorded(challengeId, entryId, result = {}, cale
   });
 
   if (!updatedEntry) {
-    throw new Error('저장된 인증 기록을 찾지 못했습니다.');
+    throw new Error('저장된 기록을 찾지 못했습니다.');
   }
 
   await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(nextList));
@@ -647,7 +647,7 @@ export default function UploadScreen() {
 const MAX_MINUTES = 1440; // 24시간
   const navigation = useNavigation();
   const route = useRoute();
-  const { challengeId } = route.params || {};
+  const { challengeId, timerPrefillSeconds } = route.params || {};
 
   const [text, setText] = useState('');
   const [textHeight, setTextHeight] = useState(140); // 자동 확장용 높이 상태
@@ -742,7 +742,11 @@ const MAX_MINUTES = 1440; // 24시간
     useCallback(() => {
       setText('');
       setTextHeight(140);
-      setDuration('');
+      const measuredSeconds = Math.max(0, Math.floor(Number(timerPrefillSeconds) || 0));
+      const measuredMinutes = measuredSeconds > 0
+        ? Math.min(MAX_MINUTES, Math.max(1, Math.round(measuredSeconds / 60)))
+        : 0;
+      setDuration(measuredMinutes > 0 ? String(measuredMinutes) : '');
       setImageUri(null);
       setBusy(false);
       setSelectedEntryDate(toLocalDateOnly(new Date()));
@@ -766,7 +770,7 @@ const MAX_MINUTES = 1440; // 24시간
         }).catch(() => {});
       }
       getAppSettings().then(function(s){setHealthConnectSettings(s?.dataIntegrations?.healthConnect||{});}).catch(function(){setHealthConnectSettings({});});
-    }, [challengeId])
+    }, [challengeId, timerPrefillSeconds])
   );
 
   // 사진 선택 (카메라/앨범 선택지)
@@ -891,7 +895,7 @@ const MAX_MINUTES = 1440; // 24시간
   }
 }, [busy, selectedEntryDateKey, healthConnectSettings]);
   const toggleHealthRecordSelection = useCallback(function(id){setSelectedHealthRecordIds(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):p.concat([id]);});},[]);
-  const confirmSelectedHealthData = useCallback(function(){if(selectedHealthRecordIds.length===0){Alert.alert('선택 필요','인증에 사용할 데이터를 선택해주세요.');return;}Alert.alert('선택 완료','선택한 데이터가 인증 근거로 저장됩니다.');},[selectedHealthRecordIds.length]);
+  const confirmSelectedHealthData = useCallback(function(){if(selectedHealthRecordIds.length===0){Alert.alert('선택 필요','기록에 사용할 데이터를 선택해주세요.');return;}Alert.alert('선택 완료','선택한 데이터가 기록 근거로 저장됩니다.');},[selectedHealthRecordIds.length]);
 
   const openEntryDatePicker = useCallback(() => {
     if (busy) return;
@@ -1009,10 +1013,10 @@ const MAX_MINUTES = 1440; // 24시간
       }
 
       const completeMessage = isPastEntry
-        ? '과거 기록이 등록되었습니다.\n-1★ 사용\n과거 기록은 인증 보상이 지급되지 않습니다.'
+        ? '과거 기록이 등록되었습니다.\n-1★ 사용\n과거 기록은 보상이 지급되지 않습니다.'
         : starReward?.granted && starReward?.amount > 0
-          ? `인증이 등록되었습니다.\n+${starReward?.amount}★ 획득`
-          : '인증이 등록되었습니다.';
+          ? `기록이 등록되었습니다.\n+${starReward?.amount}★ 획득`
+          : '기록이 등록되었습니다.';
 
       const finishSavedEntryFlow = () => {
         submittedRef.current = true;
@@ -1048,7 +1052,7 @@ const MAX_MINUTES = 1440; // 24시간
           if (existingCalendarEventId) {
             Alert.alert(
               '이미 기록됨',
-              '이 인증은 이미 캘린더에 기록되어 있습니다.',
+              '이 기록은 이미 캘린더에 기록되어 있습니다.',
               [{ text: '확인', onPress: finishSavedEntryFlow }]
             );
             return;
@@ -1076,7 +1080,7 @@ const MAX_MINUTES = 1440; // 24시간
 
             Alert.alert(
               '캘린더 기록 완료',
-              '선택한 캘린더에 인증 기록을 추가했습니다.',
+              '선택한 캘린더에 기록을 추가했습니다.',
               [{ text: '확인', onPress: finishSavedEntryFlow }]
             );
             return;
@@ -1110,7 +1114,7 @@ const MAX_MINUTES = 1440; // 24시간
       ]);
     } catch (e) {
       console.error(e);
-      Alert.alert('오류', '인증을 저장하지 못했습니다.');
+      Alert.alert('오류', '기록을 저장하지 못했습니다.');
     } finally {
       setBusy(false);
       submittedRef.current = false;
@@ -1148,7 +1152,7 @@ const MAX_MINUTES = 1440; // 24시간
     if (isPastEntryDate) {
       Alert.alert(
         '과거 기록 등록',
-        '선택한 날짜로 과거 기록을 등록합니다.\n과거 기록은 인증 보상 없이 1★가 차감됩니다.\n계속할까요?',
+        '선택한 날짜로 과거 기록을 등록합니다.\n과거 기록은 보상 없이 1★가 차감됩니다.\n계속할까요?',
         [
           { text: '취소', style: 'cancel' },
           {
@@ -1163,7 +1167,7 @@ const MAX_MINUTES = 1440; // 24시간
 
     Alert.alert(
       '저장하시겠습니까?',
-      '이 인증을 저장할까요?',
+      '이 기록을 저장할까요?',
       [
         {
           text: '취소',
@@ -1186,7 +1190,7 @@ const MAX_MINUTES = 1440; // 24시간
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-      <BackButton title="인증/기록 하기" onPress={handleBackPress} />
+      <BackButton title="기록하기" onPress={handleBackPress} />
       <ScrollView
         ref={formScrollRef}
         contentContainerStyle={[
@@ -1316,7 +1320,7 @@ const MAX_MINUTES = 1440; // 24시간
           ref={entryTextInputRef}
           value={text}
           onChangeText={(t) => setText((t || '').slice(0, MAX_TEXT_LEN))}
-          placeholder="인증 내용을 입력하세요"
+          placeholder="기록 내용을 입력하세요"
           style={[
             canonicalInputStyles.compact,
             styles.entryTextInput,
@@ -1382,7 +1386,7 @@ const MAX_MINUTES = 1440; // 24시간
                   <Text style={styles.healthRecCheck}>{c?'☑':'□'}</Text><Text style={styles.healthRecText}>{r.displayText}</Text>
                 </TouchableOpacity>);})}
                 <TouchableOpacity style={[styles.healthUseButton,selectedHealthRecordIds.length===0&&styles.healthButtonDisabled]} onPress={confirmSelectedHealthData} activeOpacity={0.9} disabled={selectedHealthRecordIds.length===0||busy}>
-                  <Text style={styles.healthUseButtonText}>선택한 데이터로 인증</Text>
+                  <Text style={styles.healthUseButtonText}>선택한 데이터로 기록</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1390,7 +1394,7 @@ const MAX_MINUTES = 1440; // 24시간
         ) : (
           <>
             <Text style={styles.healthEmptyTitle}>연동된 앱이 없어요.</Text>
-            <Text style={styles.healthEmptyText}>Health Connect를 연결하면 걸음 수와 운동 시간을 불러와 인증할 수 있어요.</Text>
+            <Text style={styles.healthEmptyText}>Health Connect를 연결하면 걸음 수와 운동 시간을 불러와 기록할 수 있어요.</Text>
             <TouchableOpacity style={styles.healthLoadButton} onPress={goToDataIntegrations} activeOpacity={0.9} disabled={busy}>
               <Text style={styles.healthLoadButtonText}>어플 연동하러 가기</Text>
             </TouchableOpacity>

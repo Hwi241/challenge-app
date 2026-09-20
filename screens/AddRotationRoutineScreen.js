@@ -8,7 +8,11 @@ import { createAndSaveRotationRoutine } from '../utils/rotationRoutineStore';
 import { surface } from '../styles/common';
 
 let draftSequence = 1;
-const newItem = () => ({ id: 'rotation_draft_' + draftSequence++, name: '', minutes: '' });
+const newItem = () => ({
+  id: 'rotation_draft_' + draftSequence++,
+  name: '',
+  minutes: '30',
+});
 
 export default function AddRotationRoutineScreen({ navigation }) {
   const [title, setTitle] = useState('');
@@ -16,7 +20,12 @@ export default function AddRotationRoutineScreen({ navigation }) {
   const [items, setItems] = useState(() => [newItem(), newItem()]);
   const [busy, setBusy] = useState(false);
   const dirty = useMemo(() => Boolean(
-    title.trim() || description.trim() || items.some((item) => item.name.trim() || item.minutes)
+    title.trim()
+      || description.trim()
+      || items.length !== 2
+      || items.some(
+        (item) => item.name.trim() || String(item.minutes) !== '30'
+      )
   ), [description, items, title]);
   const guard = useUnsavedChangesGuard({ navigation, hasUnsavedChanges: dirty });
 
@@ -74,8 +83,12 @@ export default function AddRotationRoutineScreen({ navigation }) {
   return (
     <SafeAreaView style={surface.screen}>
       <KeyboardAvoidingView style={surface.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <BackButton title="순환 루틴 추가" onPress={guard.handleBackPress} />
+        <BackButton
+          title="순환 루틴 추가"
+          onPress={guard.handleBackPress}
+        />
         <RotationRoutineForm
+          createMode
           title={title}
           description={description}
           items={items}

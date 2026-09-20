@@ -1495,6 +1495,7 @@ export const appHeader = StyleSheet.create({
  standardBackButton: {
  padding: spacing.xxs,
  marginRight: spacing.xxs,
+ zIndex: 1,
  },
 
  compactContainer: {
@@ -1533,7 +1534,6 @@ export const appHeader = StyleSheet.create({
  fontSize: font.size.title,
  fontWeight: font.weight.heavy,
  color: color.textPrimary,
- zIndex: -1,
  },
 
  compactTitle: {

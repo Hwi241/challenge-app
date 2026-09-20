@@ -31,9 +31,10 @@ export function SettingSectionCard({
   clearAccessibilityLabel,
   children,
   style,
+  flat = false,
 }) {
   return (
-    <View style={[canonicalCardStyles.base, style]}>
+    <View style={[!flat && canonicalCardStyles.base, style]}>
       <View style={[canonicalLayoutStyles.rowBetween, styles.cardHeaderSpacing]}>
         <Text style={canonicalTextStyles.sectionTitle}>{title}</Text>
         <View style={[canonicalLayoutStyles.row, styles.headerActionGap]}>

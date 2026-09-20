@@ -163,6 +163,73 @@ const pad2 = (n)=>String(n).padStart(2,'0');
 const keyOf = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 const clamp = (v, a, b)=>Math.max(a, Math.min(b, v));
 
+const entryDurationSeconds = (entry) => {
+  const exactSeconds = Number(entry?.durationSeconds);
+
+  if (
+    Number.isFinite(exactSeconds)
+    && exactSeconds > 0
+  ) {
+    return Math.round(exactSeconds);
+  }
+
+  const minutes = Number(entry?.duration);
+
+  if (
+    Number.isFinite(minutes)
+    && minutes > 0
+  ) {
+    return Math.round(minutes * 60);
+  }
+
+  return 0;
+};
+
+const formatDetailedDuration = (seconds) => {
+  const total = Math.max(
+    0,
+    Math.round(Number(seconds) || 0),
+  );
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remainingSeconds = total % 60;
+
+  if (hours > 0) {
+    const minuteText = String(minutes).padStart(2, '0');
+
+    if (remainingSeconds > 0) {
+      return `${hours}시간 ${minuteText}분 ${String(remainingSeconds).padStart(2, '0')}초`;
+    }
+
+    return `${hours}시간 ${minuteText}분`;
+  }
+
+  if (minutes > 0) {
+    if (remainingSeconds > 0) {
+      return `${minutes}분 ${remainingSeconds}초`;
+    }
+
+    return `${minutes}분`;
+  }
+
+  return `${remainingSeconds}초`;
+};
+
+const formatSummaryDuration = (seconds) => {
+  const total = Math.max(
+    0,
+    Math.floor(Number(seconds) || 0),
+  );
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+
+  if (hours > 0) {
+    return `${hours}시간 ${String(minutes).padStart(2, '0')}분`;
+  }
+
+  return `${minutes}분`;
+};
+
 /* ───────── (신규) 스토리지 전수 스캔 백업 로더 ───────── */
 const scoreAsEntries = (arr=[], {rawCID, numCID, chCID})=>{
   if (!Array.isArray(arr) || arr.length === 0) return -1;
@@ -4104,6 +4171,85 @@ const EntryRow = memo(function EntryRow({ item, indexFromEnd, readOnly, onPress 
   );
 });
 
+const RotationEntryRow = memo(function RotationEntryRow({
+  item,
+  indexFromEnd,
+  readOnly,
+  onPress,
+}) {
+  const durationSeconds = entryDurationSeconds(item);
+  const content = typeof item?.text === 'string'
+    ? item.text.trim()
+    : '';
+  const completedCycle = item?.completedCycle === true;
+  const completedItem = item?.completedItem === true;
+  const statusText = completedCycle
+    ? '이번 회전 완료'
+    : completedItem
+      ? '활동 완료'
+      : '진행 기록';
+  const timestamp = new Date(item?.timestamp);
+  const timestampText = Number.isNaN(timestamp.getTime())
+    ? '기록 시간 정보 없음'
+    : timestamp.toLocaleString();
+
+  const body = (
+    <>
+      <Text style={styles.number}>{indexFromEnd}</Text>
+      {!!item?.imageUri
+        && typeof item.imageUri === 'string'
+        && item.imageUri.length > 0 && (
+          <Image
+            source={{ uri: item.imageUri }}
+            style={styles.thumbnail}
+            onError={() => {}}
+          />
+        )}
+      <View style={styles.textContainer}>
+        <View style={styles.rotationEntryTopRow}>
+          <Text
+            style={styles.rotationEntryItemName}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {item?.itemName || '활동'}
+          </Text>
+          {durationSeconds > 0 && (
+            <Text style={styles.rotationEntryDuration}>
+              {formatDetailedDuration(durationSeconds)}
+            </Text>
+          )}
+        </View>
+        {content.length > 0 && (
+          <Text style={styles.rotationEntryContent}>{content}</Text>
+        )}
+        <View style={styles.rotationEntryMetaRow}>
+          <Text style={styles.rotationEntryTime} numberOfLines={1}>
+            {timestampText}
+          </Text>
+          <Text
+            style={[
+              styles.rotationEntryStatus,
+              (completedItem || completedCycle)
+                && styles.rotationEntryStatusCompleted,
+            ]}
+          >
+            {statusText}
+          </Text>
+        </View>
+      </View>
+    </>
+  );
+
+  if (readOnly) return <View style={styles.entry}>{body}</View>;
+
+  return (
+    <TouchableOpacity style={styles.entry} onPress={onPress} activeOpacity={0.85}>
+      {body}
+    </TouchableOpacity>
+  );
+});
+
 /* ───────── 공유 아이콘 ───────── */
 const ShadowIcon = ({ forShare=false }) => {
   if (!forShare) {
@@ -5373,14 +5519,7 @@ const runWeek = useCallback(() => {
         const snapshot = await loadRotationRoutineSnapshot(challengeId);
         if (!aliveRef.current) return;
 
-        const normalized = normalizeEntries(snapshot.entries).map((entry) => {
-          const itemName = entry.itemName ?? '활동';
-          const cycleNumber = entry.cycleNumber ?? 1;
-          return {
-            ...entry,
-            text: `${itemName} · ${cycleNumber}번째 회전`,
-          };
-        });
+        const normalized = normalizeEntries(snapshot.entries);
 
         const routineCreatedAt = Number(snapshot.routine?.createdAt);
         const fallbackStartedAt = Number.isFinite(routineCreatedAt)
@@ -5781,12 +5920,18 @@ const runWeek = useCallback(() => {
   }, [entries]);
 
   // 누적 시간
-  const totalMinutes = useMemo(
-    () => entries.reduce((sum, e) => sum + (typeof e.duration === 'number' && e.duration > 0 ? e.duration : 0), 0),
-    [entries]
+  // durationSeconds가 있으면 exact seconds를 우선하고,
+  // 기존 기록은 duration(분)을 seconds로 환산해 호환한다.
+  const totalDurationSeconds = useMemo(
+    () => entries.reduce(
+      (sum, entry) => sum + entryDurationSeconds(entry),
+      0,
+    ),
+    [entries],
   );
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  const totalMinutes = totalDurationSeconds / 60;
+  const hours = Math.floor(totalDurationSeconds / 3600);
+  const minutes = Math.floor((totalDurationSeconds % 3600) / 60);
 
   const dashboardPeriodLabel = isRotation
     ? `${rotationSummary?.currentCycleNumber ?? 1}번째 회전 · 날짜 제한 없음`
@@ -6040,6 +6185,9 @@ const runWeek = useCallback(() => {
           type: isRotation ? 'rotation' : undefined,
         },
       );
+    const EntryComponent = isRotation
+      ? RotationEntryRow
+      : EntryRow;
 
     if (isWideDashboardLayout) {
       return (
@@ -6049,14 +6197,14 @@ const runWeek = useCallback(() => {
             columnIndex % 2 === 0 ? styles.entryGridItemWideLeft : styles.entryGridItemWideRight,
           ]}
         >
-          <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={entryReadOnly} onPress={onPress}/>
+          <EntryComponent item={item} indexFromEnd={indexFromEnd} readOnly={entryReadOnly} onPress={onPress}/>
         </View>
       );
     }
 
     return (
       <View>
-        <EntryRow item={item} indexFromEnd={indexFromEnd} readOnly={entryReadOnly} onPress={onPress}/>
+        <EntryComponent item={item} indexFromEnd={indexFromEnd} readOnly={entryReadOnly} onPress={onPress}/>
         <View style={[styles.separator, styles.sectionPadNarrow]} />
       </View>
     );
@@ -6236,7 +6384,7 @@ const runWeek = useCallback(() => {
 
 {/* 누적시간 / 전체·남은 횟수 (postSummaryRow는 marginTop:0) */}
 <View style={[styles.postSummaryRow, styles.sectionPadNarrow]}>
-  <Text style={styles.accumText}>누적시간 : {hours}시간 {minutes}분</Text>
+  <Text style={styles.accumText}>누적시간 : {formatSummaryDuration(totalDurationSeconds)}</Text>
   <Text style={styles.countBelowText}>
     {isRotation
       ? `${rotationSummary?.currentCycleNumber ?? 1}번째 회전 · ${rotationSummary?.completedCycleCount ?? 0}회 완료`
@@ -6711,6 +6859,58 @@ rewardBlockSpacing: {
   text: { fontSize: 12, color:'#111' },
   time: { fontSize: 12, color: textGrey, marginTop: 2 },
   duration: { fontSize: 12, color: '#000', marginTop: 4 },
+  rotationEntryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  rotationEntryItemName: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
+    color: canonicalColor.textPrimary,
+  },
+  rotationEntryDuration: {
+    flexShrink: 0,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: canonicalColor.textPrimary,
+  },
+  rotationEntryContent: {
+    marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
+    color: canonicalColor.textPrimary,
+  },
+  rotationEntryMetaRow: {
+    marginTop: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  rotationEntryTime: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 11,
+    lineHeight: 16,
+    color: textGrey,
+  },
+  rotationEntryStatus: {
+    flexShrink: 0,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: textGrey,
+  },
+  rotationEntryStatusCompleted: {
+    color: canonicalColor.textPrimary,
+    fontWeight: '800',
+  },
 
   empty: { fontSize: 12,textAlign: 'center', marginTop: 50, color: textGrey },
 

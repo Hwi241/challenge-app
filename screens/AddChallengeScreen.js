@@ -8,7 +8,6 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
 import {
   buttonStyles,
-  card as canonicalCardStyles,
   color,
   font,
   input as canonicalInputStyles,
@@ -427,10 +426,10 @@ const handleGoalChange = useCallback((txt)=>{
       {!lockType && (
       <View style={styles.tabWrap}>
         <TouchableOpacity style={[styles.tabBtn, !habitMode && styles.tabBtnActive]} onPress={() => setHabitMode(false)}>
-          <Text style={[styles.tabText, !habitMode && styles.tabTextActive]}>도전 기록</Text>
+          <Text style={[styles.tabText, !habitMode && styles.tabTextActive]}>도전</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabBtn, habitMode && styles.tabBtnActive]} onPress={() => setHabitMode(true)}>
-          <Text style={[styles.tabText, habitMode && styles.tabTextActive]}>습관 기록</Text>
+          <Text style={[styles.tabText, habitMode && styles.tabTextActive]}>습관</Text>
         </TouchableOpacity>
       </View>
       )}
@@ -452,65 +451,83 @@ const handleGoalChange = useCallback((txt)=>{
         }}
         scrollEventThrottle={16}
       >
-        <View style={canonicalCardStyles.form}>
-          <Text style={canonicalTextStyles.sectionTitleSpaced}>기본 정보</Text>
-          <Text
-          style={[
-            canonicalTextStyles.label,
-            styles.fieldLabelSpacing,
-          ]}
-        >{habitMode ? '습관 제목' : '도전 제목'}</Text>
-          <TextInput value={title} onChangeText={setTitle} placeholder={habitMode ? '습관의 제목을 입력하세요' : '도전의 제목을 입력하세요'} style={canonicalInputStyles.compact} />
+        <View style={styles.basicSection}>
+          <Text style={styles.formLabel}>
+            {habitMode ? '습관 이름' : '도전 이름'}
+          </Text>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder={habitMode ? '습관의 이름을 입력하세요' : '도전의 이름을 입력하세요'}
+            style={[canonicalInputStyles.compact, styles.inputSpacing]}
+          />
           {!habitMode && (
             <>
-              <Text
-          style={[
-            canonicalTextStyles.label,
-            styles.fieldLabelSpacing,
-            styles.fieldSpacing,
-          ]}
-        >목표 점수 혹은 횟수</Text>
-              <TextInput value={goalScore} onChangeText={handleGoalChange} placeholder="숫자만 입력" style={canonicalInputStyles.compact} keyboardType="numeric" inputMode="numeric" maxLength={4} />
+              <Text style={[styles.formLabel, styles.formFieldSpacing]}>
+                목표 점수 혹은 횟수
+              </Text>
+              <TextInput
+                value={goalScore}
+                onChangeText={handleGoalChange}
+                placeholder="숫자만 입력"
+                style={[canonicalInputStyles.compact, styles.inputSpacing]}
+                keyboardType="numeric"
+                inputMode="numeric"
+                maxLength={4}
+              />
             </>
           )}
-          <Text
-          style={[
-            canonicalTextStyles.label,
-            styles.fieldLabelSpacing,
-            styles.fieldSpacing,
-          ]}
-        >{habitMode ? '습관 내용' : '도전 내용'}</Text>
-          <TextInput ref={descriptionInputRef} value={description} onChangeText={setDescription} placeholder="도전의 구체적인 내용을 적어주세요" style={[
-            canonicalInputStyles.compact,
-            canonicalInputStyles.multilineCompact,
-          ]} multiline textAlignVertical="top" maxLength={LIMITS.description} onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)} />
-          <View style={styles.row}>
-            <View style={styles.col}>
-              <Text
-          style={[
-            canonicalTextStyles.label,
-            styles.fieldLabelSpacing,
-          ]}
-        >시작일</Text>
-              <TouchableOpacity onPress={() => { setShowStartPicker(true); lastChangedRef.current='start'; }} style={buttonStyles.compactRight}>
-                <Text style={buttonStyles.compactRightText}>{startDate ? fmtDate(startDate) : '날짜 선택'}</Text>
+
+          <View style={[styles.labelRow, styles.formFieldSpacing]}>
+            <Text style={styles.formLabel}>설명</Text>
+            <Text style={styles.optionalText}>선택</Text>
+          </View>
+          <TextInput
+            ref={descriptionInputRef}
+            value={description}
+            onChangeText={setDescription}
+            placeholder={habitMode ? '습관의 내용을 적어주세요' : '도전의 내용을 적어주세요'}
+            style={[
+              canonicalInputStyles.compact,
+              canonicalInputStyles.multilineCompact,
+              styles.inputSpacing,
+            ]}
+            multiline
+            textAlignVertical="top"
+            maxLength={LIMITS.description}
+            onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)}
+          />
+
+          <View style={styles.dateRow}>
+            <View style={styles.dateColumn}>
+              <Text style={styles.formLabel}>시작일</Text>
+              <TouchableOpacity
+                onPress={() => { setShowStartPicker(true); lastChangedRef.current='start'; }}
+                style={styles.dateButton}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.dateButtonText, !startDate && styles.dateButtonPlaceholder]}>
+                  {startDate ? fmtDate(startDate) : '날짜 선택'}
+                </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.col}>
-              <Text
-          style={[
-            canonicalTextStyles.label,
-            styles.fieldLabelSpacing,
-          ]}
-        >종료일</Text>
-              <TouchableOpacity onPress={() => { setShowEndPicker(true); lastChangedRef.current='end'; }} style={buttonStyles.compactRight}>
-                <Text style={buttonStyles.compactRightText}>{endDate ? fmtDate(endDate) : '날짜 선택'}</Text>
+            <View style={styles.dateColumn}>
+              <Text style={styles.formLabel}>종료일</Text>
+              <TouchableOpacity
+                onPress={() => { setShowEndPicker(true); lastChangedRef.current='end'; }}
+                style={styles.dateButton}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.dateButtonText, !endDate && styles.dateButtonPlaceholder]}>
+                  {endDate ? fmtDate(endDate) : '날짜 선택'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
         {habitMode ? (
           <SettingSectionCard
+            flat
             title="목표 주기"
             actionLabel={habitCycle ? '변경' : '선택'}
             onActionPress={() => setShowCycleModal(true)}
@@ -528,17 +545,23 @@ const handleGoalChange = useCallback((txt)=>{
           </SettingSectionCard>
 
         ) : (
-          <View
-          style={[
-            canonicalCardStyles.form,
-            styles.sectionSpacing,
-          ]}
-        >
-            <Text style={canonicalTextStyles.sectionTitleSpaced}>보상</Text>
-            <TextInput ref={rewardInputRef} value={reward} onChangeText={setReward} placeholder="보상을 입력하세요" style={canonicalInputStyles.compact} onFocus={() => scrollToFocusedInput(rewardInputRef, 48)} />
+          <View style={styles.sectionSpacing}>
+            <View style={styles.labelRow}>
+              <Text style={styles.sectionTitle}>보상</Text>
+              <Text style={styles.optionalText}>선택</Text>
+            </View>
+            <TextInput
+              ref={rewardInputRef}
+              value={reward}
+              onChangeText={setReward}
+              placeholder="보상을 입력하세요"
+              style={[canonicalInputStyles.compact, styles.inputSpacing]}
+              onFocus={() => scrollToFocusedInput(rewardInputRef, 48)}
+            />
           </View>
         )}
         <SettingSectionCard
+          flat
           title="알림"
           actionLabel={notification?.mode ? '변경' : '설정'}
           onActionPress={() => setShowNotifPicker(true)}
@@ -560,7 +583,9 @@ const handleGoalChange = useCallback((txt)=>{
           onPress={onSave}
           disabled={busy}
         >
-          <Text style={buttonStyles.primary.label}>저장하기</Text>
+          <Text style={buttonStyles.primary.label}>
+            {busy ? '저장 중...' : habitMode ? '습관 만들기' : '도전 만들기'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -819,26 +844,65 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  fieldLabelSpacing: {
-    marginBottom: space.xxs + 2,
+  basicSection: {
+    marginBottom: space.xl,
   },
-
-  fieldSpacing: {
-    marginTop: space.md - 1,
+  formLabel: {
+    color: color.textPrimary,
+    fontSize: font.size.body,
+    fontWeight: font.weight.bold,
   },
-
-  row: {
+  sectionTitle: {
+    color: color.textPrimary,
+    fontSize: font.size.bodyLarge,
+    fontWeight: font.weight.heavy,
+  },
+  labelRow: {
     flexDirection: 'row',
-    marginTop: space.sm,
-    gap: 10,
+    alignItems: 'center',
   },
-
-  col: {
+  optionalText: {
+    marginLeft: space.xs,
+    color: color.textTertiary,
+    fontSize: font.size.meta,
+    fontWeight: font.weight.medium,
+  },
+  inputSpacing: {
+    marginTop: space.xs,
+  },
+  formFieldSpacing: {
+    marginTop: space.md,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    marginTop: space.md,
+    gap: space.sm,
+  },
+  dateColumn: {
     flex: 1,
   },
-
+  dateButton: {
+    minHeight: 42,
+    marginTop: space.xs,
+    paddingHorizontal: space.sm,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateButtonText: {
+    color: color.textPrimary,
+    fontSize: font.size.body,
+    fontWeight: font.weight.bold,
+  },
+  dateButtonPlaceholder: {
+    color: color.textTertiary,
+    fontWeight: font.weight.regular,
+  },
   sectionSpacing: {
-    marginTop: space.lg,
+    marginTop: space.xl,
   },
 
   tabWrap: {
@@ -872,7 +936,7 @@ const styles = StyleSheet.create({
   },
 
   saveButton: {
-    marginTop: space.xxl - 2,
+    marginTop: space.xl,
   },
 
   busy: {

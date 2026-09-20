@@ -28,6 +28,7 @@ export default function BackButton({
 
  {!!title && (
  <Text
+ pointerEvents="none"
  style={[canonicalAppHeaderStyles.title, { color }]}
  numberOfLines={1}
  >

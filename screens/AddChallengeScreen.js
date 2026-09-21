@@ -52,14 +52,31 @@ const parseDateForClone = (value) => {
 export default function AddChallengeScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const requestedInitialType = route.params?.initialType === CHALLENGE_TYPE.HABIT
+  const editChallenge = (
+    route.params?.editChallenge
+    || null
+  );
+  const editNonce = (
+    route.params?.editNonce
+    || null
+  );
+  const isEditMode = !!editChallenge;
+  const requestedTypeSource = isEditMode
+    ? editChallenge?.type
+    : route.params?.initialType;
+  const requestedInitialType = requestedTypeSource === CHALLENGE_TYPE.HABIT
     ? CHALLENGE_TYPE.HABIT
     : CHALLENGE_TYPE.CHALLENGE;
-  const lockType = [
-    CHALLENGE_TYPE.CHALLENGE,
-    CHALLENGE_TYPE.HABIT,
-  ].includes(route.params?.initialType);
-  const duplicateTemplate = route.params?.duplicateTemplate || null;
+  const lockType = (
+    isEditMode
+    || [
+      CHALLENGE_TYPE.CHALLENGE,
+      CHALLENGE_TYPE.HABIT,
+    ].includes(route.params?.initialType)
+  );
+  const duplicateTemplate = isEditMode
+    ? null
+    : route.params?.duplicateTemplate || null;
   const duplicateNonce = route.params?.duplicateNonce || null;
   const [busy, setBusy] = useState(false);
   const [habitMode, setHabitMode] = useState(
@@ -120,6 +137,96 @@ export default function AddChallengeScreen() {
   const scrollYRef = useRef(0);
   const [keyboardBottomInset, setKeyboardBottomInset] = useState(0);
 
+  const currentEditSignature = useMemo(
+    () => JSON.stringify({
+      habitMode,
+      title: String(title || ''),
+      description: String(description || ''),
+      startDate: fmtDate(startDate),
+      endDate: fmtDate(endDate),
+      goalScore: habitMode
+        ? ''
+        : String(goalScore || ''),
+      reward: habitMode
+        ? ''
+        : String(reward || ''),
+      notification: notification || {
+        mode: null,
+        payload: null,
+      },
+      habitCycle: habitMode
+        ? habitCycle || null
+        : null,
+    }),
+    [
+      habitMode,
+      title,
+      description,
+      startDate,
+      endDate,
+      goalScore,
+      reward,
+      notification,
+      habitCycle,
+    ]
+  );
+
+  const editInitialSignature = useMemo(
+    () => {
+      if (!editChallenge) return '';
+
+      const editHabit = (
+        editChallenge?.type === 'habit'
+      );
+
+      return JSON.stringify({
+        habitMode: editHabit,
+        title: String(editChallenge?.title || ''),
+        description: String(editChallenge?.description || ''),
+        startDate: fmtDate(
+          parseDateForClone(editChallenge?.startDate)
+        ),
+        endDate: fmtDate(
+          parseDateForClone(editChallenge?.endDate)
+        ),
+        goalScore: editHabit
+          ? ''
+          : (
+              Number(editChallenge?.goalScore) > 0
+                ? String(
+                    Math.min(
+                      LIMITS.maxGoal,
+                      Number(editChallenge.goalScore)
+                    )
+                  )
+                : ''
+            ),
+        reward: editHabit
+          ? ''
+          : String(
+              editChallenge?.reward
+              ?? editChallenge?.rewardTitle
+              ?? ''
+            ).slice(0, LIMITS.reward),
+        notification: (
+          editChallenge?.notification?.mode
+            ? editChallenge.notification
+            : {
+                mode: null,
+                payload: null,
+              }
+        ),
+        habitCycle: editHabit
+          ? editChallenge?.habitCycle || null
+          : null,
+      });
+    },
+    [
+      editChallenge,
+      editNonce,
+    ]
+  );
+
   const hasUnsavedChanges = useMemo(() => {
     const hasNotification = !!notification?.mode;
     const hasChallengeDraft =
@@ -139,8 +246,18 @@ export default function AddChallengeScreen() {
       !!habitNotification?.mode ||
       !!habitCycle;
 
+    if (isEditMode) {
+      return (
+        currentEditSignature
+        !== editInitialSignature
+      );
+    }
+
     return !!duplicateTemplate || hasNotification || hasChallengeDraft || hasHabitDraft;
   }, [
+    isEditMode,
+    currentEditSignature,
+    editInitialSignature,
     duplicateTemplate,
     notification,
     cTitle,
@@ -238,7 +355,92 @@ const handleGoalChange = useCallback((txt)=>{
   }, [measureAndScrollToInput]);
 
   useEffect(() => {
-    if (!duplicateTemplate) return;
+    if (!editChallenge) return;
+
+    const editHabit = (
+      editChallenge?.type === 'habit'
+    );
+    const editStartDate = parseDateForClone(
+      editChallenge?.startDate
+    );
+    const editEndDate = parseDateForClone(
+      editChallenge?.endDate
+    );
+    const editNotification = (
+      editChallenge?.notification?.mode
+        ? editChallenge.notification
+        : {
+            mode: null,
+            payload: null,
+          }
+    );
+
+    suppressDraftRef.current = true;
+    setHabitMode(editHabit);
+
+    if (editHabit) {
+      setHTitle(String(editChallenge?.title ?? '').slice(0, LIMITS.title));
+      setHDescription(String(editChallenge?.description ?? '').slice(0, LIMITS.description));
+      setHStartDate(editStartDate);
+      setHEndDate(editEndDate);
+      setHabitNotification(editNotification);
+
+      const nextCycle = editChallenge?.habitCycle || null;
+      setHabitCycle(nextCycle);
+
+      if (nextCycle?.type === 'weekly') {
+        setCycleTab('weekly');
+        setCycleDays(new Set(nextCycle.days || []));
+        setCycleDates(new Set());
+      } else if (nextCycle?.type === 'monthly') {
+        setCycleTab('monthly');
+        setCycleDates(new Set(nextCycle.dates || []));
+        setCycleDays(new Set());
+      } else {
+        setCycleDays(new Set());
+        setCycleDates(new Set());
+      }
+
+      setCTitle('');
+      setCGoalScore('');
+      setCReward('');
+      setCDescription('');
+      setCStartDate(null);
+      setCEndDate(null);
+      setChallengeNotification({ mode: null, payload: null });
+      return;
+    }
+
+    setCTitle(String(editChallenge?.title ?? '').slice(0, LIMITS.title));
+    setCGoalScore(
+      Number(editChallenge?.goalScore) > 0
+        ? String(Math.min(LIMITS.maxGoal, Number(editChallenge.goalScore)))
+        : ''
+    );
+    setCReward(
+      String(
+        editChallenge?.reward
+        ?? editChallenge?.rewardTitle
+        ?? ''
+      ).slice(0, LIMITS.reward)
+    );
+    setCDescription(String(editChallenge?.description ?? '').slice(0, LIMITS.description));
+    setCStartDate(editStartDate);
+    setCEndDate(editEndDate);
+    setChallengeNotification(editNotification);
+
+    setHTitle('');
+    setHDescription('');
+    setHStartDate(null);
+    setHEndDate(null);
+    setHabitNotification({ mode: null, payload: null });
+    setHabitCycle(null);
+    setCycleDays(new Set());
+    setCycleDates(new Set());
+  }, [editChallenge, editNonce]);
+
+  useEffect(() => {
+    if (!duplicateTemplate || isEditMode) return;
 
     const isDuplicateHabit = duplicateTemplate?.type === 'habit';
     const nextStartDate = parseDateForClone(duplicateTemplate?.startDate);
@@ -301,7 +503,7 @@ const handleGoalChange = useCallback((txt)=>{
     setHabitCycle(null);
     setCycleDays(new Set());
     setCycleDates(new Set());
-  }, [duplicateTemplate, duplicateNonce]);
+  }, [duplicateTemplate, duplicateNonce, isEditMode]);
 
   useEffect(() => {
     if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
@@ -315,8 +517,12 @@ const handleGoalChange = useCallback((txt)=>{
 
     const t = title.trim();
     const desc = description.trim();
-    const id = `ch_${Date.now()}`;
+    const id = isEditMode
+      ? String(editChallenge?.id || '')
+      : `ch_${Date.now()}`;
     let item;
+
+    if (!id) return;
 
     if (habitMode) {
       if (!t) {
@@ -328,20 +534,30 @@ const handleGoalChange = useCallback((txt)=>{
         return;
       }
       item = {
+        ...(isEditMode ? editChallenge : {}),
         id,
         type: 'habit',
         title: t,
         description: desc,
         goalScore: 0,
-        currentScore: 0,
+        currentScore: isEditMode
+          ? Number(editChallenge?.currentScore || 0)
+          : 0,
         startDate: startDate ? fmtDate(startDate) : null,
         endDate: endDate ? fmtDate(endDate) : null,
         habitCycle,
         notification,
         reward: '',
-        status: 'active',
-        createdAt: Date.now(),
-        completedAt: 0,
+        status: isEditMode
+          ? editChallenge?.status || 'active'
+          : 'active',
+        createdAt: isEditMode
+          ? editChallenge?.createdAt || Date.now()
+          : Date.now(),
+        completedAt: isEditMode
+          ? editChallenge?.completedAt || 0
+          : 0,
+        updatedAt: Date.now(),
       };
     } else {
       if (!t) {
@@ -354,24 +570,38 @@ const handleGoalChange = useCallback((txt)=>{
         return;
       }
       item = {
+        ...(isEditMode ? editChallenge : {}),
         id,
         title: t,
         goalScore: goalNum,
-        currentScore: 0,
+        currentScore: isEditMode
+          ? Number(editChallenge?.currentScore || 0)
+          : 0,
         startDate: fmtDate(startDate),
         endDate: fmtDate(endDate),
         reward: reward.trim(),
         description: desc,
         notification,
-        status: 'active',
-        createdAt: Date.now(),
-        completedAt: 0,
+        status: isEditMode
+          ? editChallenge?.status || 'active'
+          : 'active',
+        createdAt: isEditMode
+          ? editChallenge?.createdAt || Date.now()
+          : Date.now(),
+        completedAt: isEditMode
+          ? editChallenge?.completedAt || 0
+          : 0,
+        updatedAt: Date.now(),
       };
     }
 
     Alert.alert(
       '저장하시겠습니까?',
-      habitMode ? '이 습관을 저장할까요?' : '이 도전을 저장할까요?',
+      isEditMode
+        ? '수정한 내용을 저장할까요?'
+        : habitMode
+          ? '이 습관을 저장할까요?'
+          : '이 도전을 저장할까요?',
       [
         {
           text: '취소',
@@ -383,7 +613,9 @@ const handleGoalChange = useCallback((txt)=>{
             setBusy(true);
             try {
               await saveAndSchedule(item, { replaceSchedules: true });
-              await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
+              if (!isEditMode) {
+                await AsyncStorage.setItem(`entries_${id}`, JSON.stringify([]));
+              }
               await syncWidgetChallengeList();
 
               suppressDraftRef.current = false;
@@ -400,7 +632,11 @@ const handleGoalChange = useCallback((txt)=>{
               }
 
               markAsSaved();
-              navigation.navigateDeprecated('ChallengeList');
+              if (typeof navigation.popTo === 'function') {
+                navigation.popTo('ChallengeList');
+              } else {
+                navigation.navigateDeprecated('ChallengeList');
+              }
             } catch (e) {
               Alert.alert('오류', '저장 실패');
             } finally {
@@ -410,7 +646,7 @@ const handleGoalChange = useCallback((txt)=>{
         },
       ]
     );
-  }, [busy, title, description, habitMode, startDate, endDate, habitCycle, notification, goalScore, reward, saveAndSchedule, syncWidgetChallengeList, markAsSaved, navigation]);
+  }, [busy, title, description, habitMode, startDate, endDate, habitCycle, notification, goalScore, reward, saveAndSchedule, syncWidgetChallengeList, markAsSaved, navigation, isEditMode, editChallenge]);
 
   return (
     <SafeAreaView style={canonicalSurfaceStyles.screen}>
@@ -420,7 +656,13 @@ const handleGoalChange = useCallback((txt)=>{
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
       <BackButton
-        title={lockType ? (habitMode ? '습관 추가' : '도전 추가') : '도전/습관 추가'}
+        title={
+          isEditMode
+            ? (habitMode ? '습관 수정' : '도전 수정')
+            : lockType
+              ? (habitMode ? '습관 추가' : '도전 추가')
+              : '도전/습관 추가'
+        }
         onPress={handleBackPress}
       />
       {!lockType && (
@@ -584,7 +826,13 @@ const handleGoalChange = useCallback((txt)=>{
           disabled={busy}
         >
           <Text style={buttonStyles.primary.label}>
-            {busy ? '저장 중...' : habitMode ? '습관 만들기' : '도전 만들기'}
+            {busy
+              ? '저장 중...'
+              : isEditMode
+                ? (habitMode ? '습관 수정 완료' : '도전 수정 완료')
+                : habitMode
+                  ? '습관 만들기'
+                  : '도전 만들기'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

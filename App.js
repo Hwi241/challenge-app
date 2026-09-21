@@ -41,6 +41,18 @@ import { cleanExpiredTrash } from './utils/trash';
 import DashboardEditScreen from './screens/DashboardEditScreen';
 
 const Stack = createNativeStackNavigator();
+
+const getDockScreenOptions = ({ route }) => ({
+  headerShown: false,
+  presentation: 'card',
+  animation: (
+    route?.params?.__dockDirection === 'backward'
+      ? 'slide_from_left'
+      : 'slide_from_right'
+  ),
+  contentStyle: canonicalSurfaceStyles.navigationContent,
+});
+
 const appNavigationRef = createNavigationContainerRef();
 
 // ✅ 딥링크 설정
@@ -164,9 +176,21 @@ export default function App() {
             {showStartup && <Stack.Screen name="Startup" component={StartupScreen} />}
 
             {/* 메인 */}
-            <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
-        <Stack.Screen name="ProfileInventory" component={ProfileInventoryScreen} />
-        <Stack.Screen name="GraphShop" component={GraphShopScreen} />
+            <Stack.Screen
+              name="ChallengeList"
+              component={ChallengeListScreen}
+              options={getDockScreenOptions}
+            />
+        <Stack.Screen
+          name="ProfileInventory"
+          component={ProfileInventoryScreen}
+          options={getDockScreenOptions}
+        />
+        <Stack.Screen
+          name="GraphShop"
+          component={GraphShopScreen}
+          options={getDockScreenOptions}
+        />
         <Stack.Screen name="MyGraphs" component={MyGraphScreen} />
 
             {/* 알림 설정들 */}

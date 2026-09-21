@@ -1,10 +1,10 @@
 // screens/ChallengeListScreen.js
 import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
-import { AppState, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, ScrollView, UIManager, LayoutAnimation, Animated, Modal, useWindowDimensions } from 'react-native';
+import { AppState, View, Text, StyleSheet, TouchableOpacity, Alert, BackHandler, Platform, ScrollView, UIManager, LayoutAnimation, Animated, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import {
   Gesture,
   GestureDetector,
@@ -14,7 +14,6 @@ import {
   buttonStyles,
   card as canonicalCardStyles,
   color,
-  font,
   layout as canonicalLayoutStyles,
   primitive,
   radius,
@@ -59,42 +58,139 @@ const HERO_RING_CIRCUMFERENCE = (
   2 * Math.PI * HERO_RING_RADIUS
 );
 
+const MINI_RING_SIZE = 34;
+const MINI_RING_STROKE = 3;
+const MINI_RING_RADIUS = 13;
+const MINI_RING_CENTER = MINI_RING_SIZE / 2;
+const MINI_RING_CIRCUMFERENCE = (
+  2 * Math.PI * MINI_RING_RADIUS
+);
+
 const CHALLENGE_CARD_VARIANTS = {
   LIST: 'list',
   COMPACT: 'compact',
 };
 
-const FILTER_SORT_MODES = new Set();
-const isFilterSortMode = (mode) => FILTER_SORT_MODES.has(mode);
+const SORT_LABELS = {
+  manual: '사용자 지정',
+  newest: '최신순',
+  oldest: '오래된순',
+  challengeFirst: '도전 먼저',
+  habitFirst: '습관 먼저',
+  rotationFirst: '순환루틴 먼저',
+};
 
-const buildDisplayData = (source = [], mode = 'manual') => {
-  let arr = Array.isArray(source) ? [...source] : [];
+const SORT_OPTIONS = [
+  { key: 'manual', label: SORT_LABELS.manual },
+  { key: 'newest', label: SORT_LABELS.newest },
+  { key: 'oldest', label: SORT_LABELS.oldest },
+  {
+    key: 'challengeFirst',
+    label: SORT_LABELS.challengeFirst,
+  },
+  {
+    key: 'habitFirst',
+    label: SORT_LABELS.habitFirst,
+  },
+  {
+    key: 'rotationFirst',
+    label: SORT_LABELS.rotationFirst,
+  },
+];
 
+const FILTER_SORT_MODES = new Set([
+  'newest',
+  'oldest',
+  'challengeFirst',
+  'habitFirst',
+  'rotationFirst',
+]);
 
-  if (mode === 'habitFirst') {
-    const habits = arr.filter(c => c.type === 'habit');
-    const challenges = arr.filter(c => c.type !== 'habit');
-    return [...habits, ...challenges];
+const isFilterSortMode = (mode) => (
+  FILTER_SORT_MODES.has(mode)
+);
+
+const itemKind = (item) => {
+  if (isRotationRoutine(item)) return 'rotation';
+  if (item?.type === 'habit') return 'habit';
+  return 'challenge';
+};
+
+const buildDisplayData = (
+  source = [],
+  mode = 'manual'
+) => {
+  const arr = Array.isArray(source)
+    ? [...source]
+    : [];
+
+  if (mode === 'manual') {
+    return arr;
   }
 
-  if (mode === 'challengeFirst') {
-    const habits = arr.filter(c => c.type === 'habit');
-    const challenges = arr.filter(c => c.type !== 'habit');
-    return [...challenges, ...habits];
-  }
+  const active = arr.filter(isCurrentCard);
 
-  if (mode === 'newest' || mode === 'oldest') {
-    const active = arr.filter(c => !c._isDone && !c.archived && !c._isExpired);
-    const expired = arr.filter(c => !c._isDone && !c.archived && c._isExpired);
-    const done = arr.filter(c => c._isDone || c.archived);
+  const expired = arr.filter((item) => {
+    const flags = asDoneFlags(item);
 
+    return (
+      !flags._isDone
+      && !item?.archived
+      && flags._isExpired
+    );
+  });
+
+  const done = arr.filter((item) => {
+    const flags = asDoneFlags(item);
+
+    return (
+      flags._isDone
+      || !!item?.archived
+    );
+  });
+
+  if (
+    mode === 'newest'
+    || mode === 'oldest'
+  ) {
     active.sort((a, b) => (
       mode === 'newest'
         ? (b.createdAt || 0) - (a.createdAt || 0)
         : (a.createdAt || 0) - (b.createdAt || 0)
     ));
 
-    return [...active, ...expired, ...done];
+    return [
+      ...active,
+      ...expired,
+      ...done,
+    ];
+  }
+
+  const firstKind = (
+    mode === 'challengeFirst'
+      ? 'challenge'
+      : mode === 'habitFirst'
+        ? 'habit'
+        : mode === 'rotationFirst'
+          ? 'rotation'
+          : null
+  );
+
+  if (firstKind) {
+    const first = active.filter(
+      (item) => itemKind(item) === firstKind
+    );
+
+    const rest = active.filter(
+      (item) => itemKind(item) !== firstKind
+    );
+
+    return [
+      ...first,
+      ...rest,
+      ...expired,
+      ...done,
+    ];
   }
 
   return arr;
@@ -417,11 +513,49 @@ const rotationSummaryOf = (item) => {
   try { return getRotationRoutineSummary(item); } catch { return null; }
 };
 
-const rotationMinutes = (seconds) => {
-  const value = Math.round((Number(seconds) || 0) / 6) / 10;
-  return Number.isInteger(value)
-    ? String(value)
-    : value.toFixed(1);
+const formatRotationDuration = (seconds) => {
+  const totalSeconds = Math.max(
+    0,
+    Math.round(Number(seconds) || 0)
+  );
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainSeconds = totalSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${remainSeconds}초`;
+  }
+
+  if (remainSeconds === 0) {
+    return `${minutes}분`;
+  }
+
+  return `${minutes}분 ${remainSeconds}초`;
+};
+
+const formatRotationProgress = (
+  progressSeconds,
+  targetSeconds
+) => {
+  const progress = Math.max(
+    0,
+    Math.round(Number(progressSeconds) || 0)
+  );
+
+  const target = Math.max(
+    0,
+    Math.round(Number(targetSeconds) || 0)
+  );
+
+  if (progress <= 0) {
+    return formatRotationDuration(target);
+  }
+
+  return (
+    `${formatRotationDuration(progress)}`
+    + '/'
+    + `${formatRotationDuration(target)}`
+  );
 };
 
 const clampProgress = (value) => (
@@ -455,6 +589,7 @@ const HeroProgressRing = memo(function HeroProgressRing({
   value = null,
   mainText,
   subText,
+  dark = false,
 }) {
   const hasProgress = Number.isFinite(Number(value));
   const pct = hasProgress
@@ -465,6 +600,14 @@ const HeroProgressRing = memo(function HeroProgressRing({
     HERO_RING_CIRCUMFERENCE
     * (1 - pct / 100)
   );
+
+  const trackColor = dark
+    ? primitive.neutral[700]
+    : color.border;
+
+  const progressColor = dark
+    ? color.textInverse
+    : color.primary;
 
   return (
     <View style={styles.heroRingWrap}>
@@ -478,7 +621,7 @@ const HeroProgressRing = memo(function HeroProgressRing({
           cy={HERO_RING_CENTER}
           r={HERO_RING_RADIUS}
           fill="none"
-          stroke={color.border}
+          stroke={trackColor}
           strokeWidth={HERO_RING_STROKE}
         />
 
@@ -488,7 +631,7 @@ const HeroProgressRing = memo(function HeroProgressRing({
             cy={HERO_RING_CENTER}
             r={HERO_RING_RADIUS}
             fill="none"
-            stroke={color.primary}
+            stroke={progressColor}
             strokeWidth={HERO_RING_STROKE}
             strokeLinecap="round"
             strokeDasharray={
@@ -503,7 +646,10 @@ const HeroProgressRing = memo(function HeroProgressRing({
 
       <View style={styles.heroRingTextLayer}>
         <Text
-          style={styles.heroRingMainText}
+          style={[
+            styles.heroRingMainText,
+            dark && styles.heroRingMainTextDark,
+          ]}
           numberOfLines={1}
         >
           {mainText}
@@ -511,7 +657,10 @@ const HeroProgressRing = memo(function HeroProgressRing({
 
         {!!subText && (
           <Text
-            style={styles.heroRingSubText}
+            style={[
+              styles.heroRingSubText,
+              dark && styles.heroRingSubTextDark,
+            ]}
             numberOfLines={1}
           >
             {subText}
@@ -519,6 +668,93 @@ const HeroProgressRing = memo(function HeroProgressRing({
         )}
       </View>
     </View>
+  );
+});
+
+const MiniProgressRing = memo(function MiniProgressRing({
+  value = 0,
+}) {
+  const pct = clampProgress(Number(value) || 0);
+
+  const dashOffset = (
+    MINI_RING_CIRCUMFERENCE
+    * (1 - pct / 100)
+  );
+
+  return (
+    <View style={styles.miniRing}>
+      <Svg
+        width={MINI_RING_SIZE}
+        height={MINI_RING_SIZE}
+        viewBox={`0 0 ${MINI_RING_SIZE} ${MINI_RING_SIZE}`}
+      >
+        <Circle
+          cx={MINI_RING_CENTER}
+          cy={MINI_RING_CENTER}
+          r={MINI_RING_RADIUS}
+          fill="none"
+          stroke={color.border}
+          strokeWidth={MINI_RING_STROKE}
+        />
+
+        <Circle
+          cx={MINI_RING_CENTER}
+          cy={MINI_RING_CENTER}
+          r={MINI_RING_RADIUS}
+          fill="none"
+          stroke={color.primary}
+          strokeWidth={MINI_RING_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={MINI_RING_CIRCUMFERENCE}
+          strokeDashoffset={dashOffset}
+          rotation="-90"
+          origin={`${MINI_RING_CENTER},${MINI_RING_CENTER}`}
+        />
+      </Svg>
+
+      <Text style={styles.miniRingText}>
+        {pct}
+      </Text>
+    </View>
+  );
+});
+
+const CompactHabitStrip = memo(
+  function CompactHabitStrip({
+    last7 = EMPTY_HABIT_DAILY_STATE.last7,
+  }) {
+    const source = Array.isArray(last7)
+      ? last7.slice(-7)
+      : EMPTY_HABIT_DAILY_STATE.last7;
+
+    return (
+      <View style={styles.compactHabitStrip}>
+        {source.map((done, index) => (
+          <View
+            key={`compact-habit-${index}`}
+            style={[
+              styles.compactHabitCell,
+              done && styles.compactHabitCellDone,
+            ]}
+          />
+        ))}
+      </View>
+    );
+  }
+);
+
+const CompactPlayIcon = memo(function CompactPlayIcon() {
+  return (
+    <Svg
+      width={14}
+      height={14}
+      viewBox="0 0 14 14"
+    >
+      <Path
+        d="M4 2.6L11 7 4 11.4Z"
+        fill={color.textInverse}
+      />
+    </Svg>
   );
 });
 
@@ -585,35 +821,38 @@ const CardFoldHandle = memo(function CardFoldHandle({
   collapsed = false,
   onPress,
 }) {
-  const glyph = collapsed ? '⌄' : '⌃';
-
   return (
     <TouchableOpacity
       style={styles.cardFoldHandle}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.65}
       hitSlop={{
         top: 6,
         bottom: 6,
-        left: 16,
-        right: 16,
+        left: 18,
+        right: 18,
       }}
       accessibilityRole="button"
       accessibilityLabel={
         collapsed ? '카드 펼치기' : '카드 접기'
       }
     >
-      <Text style={styles.cardFoldChevron}>
-        {glyph}
-      </Text>
-
       <Text
         style={[
           styles.cardFoldChevron,
-          styles.cardFoldChevronSecond,
+          {
+            transform: [
+              {
+                rotate: collapsed
+                  ? '-90deg'
+                  : '90deg',
+              },
+              { scaleY: 0.82 },
+            ],
+          },
         ]}
       >
-        {glyph}
+        ‹
       </Text>
     </TouchableOpacity>
   );
@@ -639,26 +878,26 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
 
     return (
       <View style={styles.cardInfoPanel}>
-        <View style={styles.cardInfoMainRow}>
-          <View style={styles.cardInfoMainText}>
-            <Text style={styles.cardInfoLabel}>
-              현재
-            </Text>
+        <Text style={styles.cardInfoLabel}>
+          현재
+        </Text>
 
-            <Text
-              style={styles.cardInfoValue}
-              numberOfLines={1}
-            >
-              {current?.name ?? '-'}
-            </Text>
-          </View>
+        <Text
+          style={styles.rotationCurrentName}
+          numberOfLines={1}
+        >
+          {current?.name ?? '-'}
+        </Text>
 
-          <Text style={styles.cardInfoMetric}>
-            {rotationMinutes(progressSeconds)}
-            {' / '}
-            {rotationMinutes(targetSeconds)}분
-          </Text>
-        </View>
+        <Text
+          style={styles.rotationTimeText}
+          numberOfLines={1}
+        >
+          {formatRotationProgress(
+            progressSeconds,
+            targetSeconds
+          )}
+        </Text>
 
         <CardProgressBar
           value={rotationSummary.progressPct ?? 0}
@@ -862,37 +1101,6 @@ const ChallengeCardPrimaryAction = memo(
   }
 );
 
-const getCompactProgressLabel = (
-  item,
-  pct,
-  rotationSummary,
-  habitDailyState = EMPTY_HABIT_DAILY_STATE,
-  isDone = false,
-  isExpired = false
-) => {
-  if (isDone) return '완료';
-  if (isExpired) return '만료';
-
-  if (rotationSummary) {
-    return (
-      `${rotationSummary.currentCycleNumber}회차 · `
-      + `${rotationSummary.progressPct ?? 0}%`
-    );
-  }
-
-  if (item?.type === 'habit') {
-    if (!habitDailyState.scheduledToday) {
-      return '오늘 쉬는 날';
-    }
-
-    return habitDailyState.hasToday
-      ? '오늘 완료'
-      : '오늘 미기록';
-  }
-
-  return `${pct}%`;
-};
-
 const ChallengeCardCompactRow = memo(
   function ChallengeCardCompactRow({
     item,
@@ -902,38 +1110,101 @@ const ChallengeCardCompactRow = memo(
     isDone = false,
     isExpired = false,
     onPressToggleCollapsed,
+    onPressCard,
+    onPressClaim,
+    onPressFocus,
   }) {
-    const progressLabel = getCompactProgressLabel(
-      item,
-      pct,
-      rotationSummary,
-      habitDailyState,
-      isDone,
-      isExpired
-    );
+    const rotation = !!rotationSummary;
+
+    const onRecord = () => {
+      if (isExpired && !isDone) return;
+
+      if (isDone) {
+        onPressClaim?.(item);
+        return;
+      }
+
+      if (rotation) {
+        onPressCard?.(item, 'continue');
+        return;
+      }
+
+      onPressCard?.({
+        ...item,
+        _upload: true,
+      });
+    };
+
+    const recordLabel = isDone
+      ? '보상'
+      : isExpired
+        ? '만료'
+        : '기록';
 
     return (
       <View style={styles.compactCardContent}>
-        <View style={styles.compactCardMainRow}>
-          <View style={styles.compactCardIdentity}>
-            <Text style={styles.compactCardType}>
-              {getCardTypeLabel(item)}
-            </Text>
-
-            <Text
-              style={styles.compactCardTitle}
-              numberOfLines={1}
-            >
-              {item?.title ?? '(제목 없음)'}
-            </Text>
-          </View>
+        <View style={styles.compactCardIdentity}>
+          <Text style={styles.compactCardType}>
+            {getCardTypeLabel(item)}
+          </Text>
 
           <Text
-            style={styles.compactProgressText}
+            style={styles.compactCardTitle}
             numberOfLines={1}
           >
-            {progressLabel}
+            {item?.title ?? '(제목 없음)'}
           </Text>
+        </View>
+
+        <View style={styles.compactActionRow}>
+          {item?.type === 'habit' ? (
+            <CompactHabitStrip
+              last7={habitDailyState.last7}
+            />
+          ) : (
+            <MiniProgressRing
+              value={
+                rotation
+                  ? rotationSummary?.progressPct ?? 0
+                  : pct
+              }
+            />
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.compactRecordButton,
+              isExpired
+                && !isDone
+                && styles.compactActionDisabled,
+            ]}
+            disabled={isExpired && !isDone}
+            onPress={onRecord}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.compactRecordText,
+                isExpired
+                  && !isDone
+                  && styles.compactActionDisabledText,
+              ]}
+            >
+              {recordLabel}
+            </Text>
+          </TouchableOpacity>
+
+          {!isDone && !isExpired && (
+            <TouchableOpacity
+              style={styles.compactPlayButton}
+              onPress={() => onPressFocus?.(item)}
+              activeOpacity={0.82}
+              accessibilityRole="button"
+              accessibilityLabel="타이머 시작"
+            >
+              <CompactPlayIcon />
+            </TouchableOpacity>
+          )}
         </View>
 
         <CardFoldHandle
@@ -1006,6 +1277,9 @@ const CardBody = React.forwardRef(function CardBody({
           isDone={isDone}
           isExpired={isExpired}
           onPressToggleCollapsed={onPressToggleCollapsed}
+          onPressCard={onPressCard}
+          onPressClaim={onPressClaim}
+          onPressFocus={onPressFocus}
         />
       </TouchableOpacity>
     );
@@ -1064,7 +1338,6 @@ const ItemCard = memo(
     habitDailyState = EMPTY_HABIT_DAILY_STATE,
     variant = CHALLENGE_CARD_VARIANTS.LIST,
     collapsed = false,
-    isWide = false,
     onPressToggleCollapsed,
     onPressCard,
     onPressClaim,
@@ -1072,10 +1345,7 @@ const ItemCard = memo(
   }, ref) {
     return (
       <View
-        style={[
-          styles.cardWrap,
-          isWide && styles.cardWrapWide,
-        ]}
+        style={styles.cardWrap}
       >
         <CardBody
           ref={ref}
@@ -1208,17 +1478,15 @@ const ManageCardRow = memo(function ManageCardRow({
           </Text>
         </TouchableOpacity>
 
-        {!isRotationRoutine(item) && (
-          <TouchableOpacity
-            style={styles.manageActionButton}
-            onPress={() => onDuplicate?.(item)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.manageActionText}>
-              복제
-            </Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.manageActionButton}
+          onPress={() => onDuplicate?.(item)}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.manageActionText}>
+            복제
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.manageActionButton}
@@ -1256,8 +1524,8 @@ const HomeHero = memo(function HomeHero({
 }) {
   if (!item) {
     return (
-      <View style={styles.homeHero}>
-        <Text style={styles.heroEyebrow}>
+      <View style={styles.homeHeroEmptySection}>
+        <Text style={styles.heroEmptyEyebrow}>
           오늘의 PUSH
         </Text>
 
@@ -1276,33 +1544,36 @@ const HomeHero = memo(function HomeHero({
     const pct = rotationSummary?.progressPct ?? 0;
 
     return (
-      <View style={styles.homeHero}>
-        <Text style={styles.heroEyebrow}>
-          오늘의 PUSH
-        </Text>
+      <View style={styles.homeHeroSpotlight}>
+        <View style={styles.heroSpotlightTop}>
+          <Text style={styles.heroSpotlightEyebrow}>
+            TODAY'S PUSH
+          </Text>
+          <Text style={styles.heroSpotlightStar}>★</Text>
+        </View>
 
         <View style={styles.heroMainRow}>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroTypeText}>
+            <Text style={styles.heroSpotlightType}>
               순환루틴
             </Text>
 
             <Text
-              style={styles.heroTitle}
+              style={styles.heroSpotlightTitle}
               numberOfLines={2}
             >
               {item?.title ?? '순환루틴'}
             </Text>
 
             <Text
-              style={styles.heroMessage}
+              style={styles.heroSpotlightMessage}
               numberOfLines={1}
             >
               현재 · {current?.name ?? '-'}
             </Text>
 
             <Text
-              style={styles.heroSubMessage}
+              style={styles.heroSpotlightSub}
               numberOfLines={1}
             >
               다음 · {next?.name ?? '이번 회전 완료'}
@@ -1310,6 +1581,7 @@ const HomeHero = memo(function HomeHero({
           </View>
 
           <HeroProgressRing
+            dark
             value={pct}
             mainText={`${pct}%`}
             subText={
@@ -1319,13 +1591,13 @@ const HomeHero = memo(function HomeHero({
         </View>
 
         <TouchableOpacity
-          style={styles.heroActionButton}
+          style={styles.heroSpotlightAction}
           onPress={() => onFocus?.(item)}
           activeOpacity={0.9}
           accessibilityRole="button"
           accessibilityLabel="타이머 시작"
         >
-          <Text style={styles.heroActionText}>
+          <Text style={styles.heroSpotlightActionText}>
             타이머 시작
           </Text>
         </TouchableOpacity>
@@ -1347,26 +1619,29 @@ const HomeHero = memo(function HomeHero({
         : '오늘 아직 기록하지 않았어요';
 
     return (
-      <View style={styles.homeHero}>
-        <Text style={styles.heroEyebrow}>
-          오늘의 PUSH
-        </Text>
+      <View style={styles.homeHeroSpotlight}>
+        <View style={styles.heroSpotlightTop}>
+          <Text style={styles.heroSpotlightEyebrow}>
+            TODAY'S PUSH
+          </Text>
+          <Text style={styles.heroSpotlightStar}>★</Text>
+        </View>
 
         <View style={styles.heroMainRow}>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroTypeText}>
+            <Text style={styles.heroSpotlightType}>
               습관
             </Text>
 
             <Text
-              style={styles.heroTitle}
+              style={styles.heroSpotlightTitle}
               numberOfLines={2}
             >
               {item?.title ?? '(제목 없음)'}
             </Text>
 
             <Text
-              style={styles.heroMessage}
+              style={styles.heroSpotlightMessage}
               numberOfLines={2}
             >
               {todayMessage}
@@ -1374,6 +1649,7 @@ const HomeHero = memo(function HomeHero({
           </View>
 
           <HeroProgressRing
+            dark
             value={null}
             mainText={`${streak}`}
             subText="일 연속"
@@ -1381,11 +1657,11 @@ const HomeHero = memo(function HomeHero({
         </View>
 
         <TouchableOpacity
-          style={styles.heroActionButton}
+          style={styles.heroSpotlightAction}
           onPress={() => onRecord?.(item)}
           activeOpacity={0.9}
         >
-          <Text style={styles.heroActionText}>
+          <Text style={styles.heroSpotlightActionText}>
             {hasToday
               ? '기록하기'
               : '오늘 기록하기'}
@@ -1417,38 +1693,42 @@ const HomeHero = memo(function HomeHero({
     : null;
 
   return (
-    <View style={styles.homeHero}>
-      <Text style={styles.heroEyebrow}>
-        오늘의 PUSH
-      </Text>
+    <View style={styles.homeHeroSpotlight}>
+      <View style={styles.heroSpotlightTop}>
+        <Text style={styles.heroSpotlightEyebrow}>
+          TODAY'S PUSH
+        </Text>
+        <Text style={styles.heroSpotlightStar}>★</Text>
+      </View>
 
       <View style={styles.heroMainRow}>
         <View style={styles.heroCopy}>
-          <Text style={styles.heroTypeText}>
+          <Text style={styles.heroSpotlightType}>
             도전
           </Text>
 
           <Text
-            style={styles.heroTitle}
+            style={styles.heroSpotlightTitle}
             numberOfLines={2}
           >
             {item?.title ?? '(제목 없음)'}
           </Text>
 
-          <Text style={styles.heroMessage}>
+          <Text style={styles.heroSpotlightMessage}>
             {validGoal
               ? `${current}회 완료`
               : `현재 ${current}회`}
           </Text>
 
           {validGoal && (
-            <Text style={styles.heroSubMessage}>
+            <Text style={styles.heroSpotlightSub}>
               목표까지 {remaining}회 남음
             </Text>
           )}
         </View>
 
         <HeroProgressRing
+          dark
           value={validGoal ? pct : null}
           mainText={
             validGoal ? `${pct}%` : `${current}`
@@ -1460,11 +1740,11 @@ const HomeHero = memo(function HomeHero({
       </View>
 
       <TouchableOpacity
-        style={styles.heroActionButton}
+        style={styles.heroSpotlightAction}
         onPress={() => onRecord?.(item)}
         activeOpacity={0.9}
       >
-        <Text style={styles.heroActionText}>
+        <Text style={styles.heroSpotlightActionText}>
           기록하기
         </Text>
       </TouchableOpacity>
@@ -1475,6 +1755,7 @@ const HomeHero = memo(function HomeHero({
 const ChallengeListControls = memo(
   function ChallengeListControls({
     editing = false,
+    sortLabel,
     onPressSort,
     onPressEdit,
   }) {
@@ -1491,7 +1772,7 @@ const ChallengeListControls = memo(
           activeOpacity={0.75}
         >
           <Text style={styles.sectionControlText}>
-            정렬
+            정렬 · {sortLabel}
           </Text>
 
           <Text style={styles.sectionControlArrow}>
@@ -1508,6 +1789,57 @@ const ChallengeListControls = memo(
             {editing ? '완료' : '카드 수정'}
           </Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+);
+
+const ChallengeSortDropdown = memo(
+  function ChallengeSortDropdown({
+    visible,
+    sortMode,
+    onSelect,
+  }) {
+    if (!visible) return null;
+
+    return (
+      <View style={styles.sortDropdown}>
+        {SORT_OPTIONS.map((option, index) => {
+          const selected = (
+            sortMode === option.key
+          );
+
+          return (
+            <TouchableOpacity
+              key={option.key}
+              style={[
+                styles.sortDropdownOption,
+                index === SORT_OPTIONS.length - 1
+                  && styles.sortDropdownOptionLast,
+                selected
+                  && styles.sortDropdownOptionSelected,
+              ]}
+              onPress={() => onSelect(option.key)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.sortDropdownText,
+                  selected
+                    && styles.sortDropdownTextSelected,
+                ]}
+              >
+                {option.label}
+              </Text>
+
+              {selected && (
+                <Text style={styles.sortDropdownCheck}>
+                  ✓
+                </Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     );
   }
@@ -1530,10 +1862,14 @@ export default function ChallengeListScreen() {
   const [draggingManageId, setDraggingManageId] = useState(null);
 
   const briefNoticeTimerRef = useRef(null);
+  const responsiveFade = useRef(
+    new Animated.Value(1)
+  ).current;
+  const previousWideLayoutRef = useRef(null);
 
   /* 정렬 상태 */
-  const [showSortModal, setShowSortModal] = useState(false);
-  const [sortMode, setSortMode] = useState('manual'); // manual|newest|oldest|habitFirst|challengeFirst
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [sortMode, setSortMode] = useState('manual');
   const [collapsedIds, setCollapsedIds] = useState({});
   const collapsedIdsRef = useRef({});
 
@@ -1797,28 +2133,15 @@ export default function ChallengeListScreen() {
   }, [isFocused, persistChallenges]);
 
   const applySortMode = useCallback((mode) => {
-    setShowSortModal(false);
+    setShowSortDropdown(false);
 
-    if (isFilterSortMode(mode)) {
+    if (
+      mode === 'manual'
+      || isFilterSortMode(mode)
+    ) {
       setSortMode(mode);
-      return;
     }
-    
-    const sorted = buildDisplayData(dataRef.current || [], mode);
-    dataRef.current = sorted;
-
-    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
-    setData(sorted);
-    setSortMode(mode);
-
-    (async () => {
-      try {
-        const arranged = await persistChallenges(sorted, `sort:${mode}`);
-        dataRef.current = arranged;
-        setData(arranged);
-      } catch {}
-    })();
-  }, [persistChallenges]);
+  }, []);
 
 
   useEffect(() => {
@@ -1898,10 +2221,27 @@ export default function ChallengeListScreen() {
   }, [animateList, persistChallenges, clearFeaturedPushIfNeeded]);
 
   const onDuplicate = useCallback((item) => {
-    if (asDoneFlags(item)._isDone) return;
+    if (!isCurrentCard(item)) return;
     animateList();
 
     const source = ensureItemId(item);
+
+    setCardEditMode(false);
+    setDraggingManageId(null);
+    setShowSortDropdown(false);
+
+    if (isRotationRoutine(source)) {
+      navigationRef.current.push(
+        'AddRotationRoutine',
+        {
+          duplicateTemplate: source,
+          duplicateNonce: Date.now(),
+        }
+      );
+
+      return;
+    }
+
     const duplicateTemplate = {
       ...source,
       id: undefined,
@@ -1926,9 +2266,6 @@ export default function ChallengeListScreen() {
       type: duplicateTemplate.type || 'challenge',
     });
 
-    setCardEditMode(false);
-    setDraggingManageId(null);
-
     navigationRef.current.navigate('AddChallenge', {
       duplicateTemplate,
       duplicateSourceId: safeStringId(source?.id),
@@ -1941,6 +2278,7 @@ export default function ChallengeListScreen() {
 
     setCardEditMode(false);
     setDraggingManageId(null);
+    setShowSortDropdown(false);
 
     if (isRotationRoutine(item)) {
       navigationRef.current.navigate(
@@ -1954,9 +2292,15 @@ export default function ChallengeListScreen() {
     }
 
     navigationRef.current.navigate(
-      'EditChallenge',
+      'AddChallenge',
       {
-        challenge: item,
+        editChallenge: item,
+        editNonce: Date.now(),
+        initialType: (
+          item?.type === 'habit'
+            ? 'habit'
+            : 'challenge'
+        ),
       }
     );
   }, []);
@@ -2122,13 +2466,10 @@ export default function ChallengeListScreen() {
   }, [persistChallenges, clearFeaturedPushIfNeeded]);
 
   /* 렌더 */
-    // sortMode에 따라 표시할 데이터 계산
-  const displayData = useMemo(() => {
-    if (isFilterSortMode(sortMode)) {
-      return buildDisplayData(data, sortMode);
-    }
-    return data;
-  }, [data, sortMode]);
+  const displayData = useMemo(
+    () => buildDisplayData(data, sortMode),
+    [data, sortMode]
+  );
 
   const heroItem = useMemo(() => {
     const id = safeStringId(featuredPushId);
@@ -2279,6 +2620,7 @@ export default function ChallengeListScreen() {
       dataRef.current = next;
       setData(next);
       setSortMode('manual');
+      setShowSortDropdown(false);
 
       persistChallenges(
         next,
@@ -2298,8 +2640,57 @@ export default function ChallengeListScreen() {
   const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
   const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
   const layoutWidth = listFrameWidth || windowWidth;
-  const layoutWidthKey = Math.round(Number(layoutWidth || 0));
   const isWideChallengeList = layoutWidth >= 600;
+
+  useEffect(() => {
+    if (previousWideLayoutRef.current == null) {
+      previousWideLayoutRef.current = (
+        isWideChallengeList
+      );
+      return;
+    }
+
+    if (
+      previousWideLayoutRef.current
+      === isWideChallengeList
+    ) {
+      return;
+    }
+
+    previousWideLayoutRef.current = (
+      isWideChallengeList
+    );
+
+    LayoutAnimation.configureNext({
+      duration: 230,
+      create: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+      update: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+      },
+      delete: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+    });
+
+    responsiveFade.stopAnimation();
+    responsiveFade.setValue(0.86);
+
+    Animated.timing(
+      responsiveFade,
+      {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }
+    ).start();
+  }, [
+    isWideChallengeList,
+    responsiveFade,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2360,7 +2751,6 @@ export default function ChallengeListScreen() {
           }
           variant={CHALLENGE_CARD_VARIANTS.LIST}
           collapsed={isCollapsed}
-          isWide={isWideChallengeList}
           onPressToggleCollapsed={() => (
             toggleCollapsed(item)
           )}
@@ -2397,13 +2787,7 @@ export default function ChallengeListScreen() {
       onClaimReward,
       openFocusStart,
       toggleCollapsed,
-      isWideChallengeList,
     ]
-  );
-
-  const renderMasonryItem = useCallback(
-    (item) => renderRow({ item }),
-    [renderRow]
   );
 
   const renderManageRow = useCallback(
@@ -2433,20 +2817,6 @@ export default function ChallengeListScreen() {
     ]
   );
 
-  const masonryLeftData = useMemo(
-    () => displayData.filter(
-      (_, index) => index % 2 === 0
-    ),
-    [displayData]
-  );
-
-  const masonryRightData = useMemo(
-    () => displayData.filter(
-      (_, index) => index % 2 === 1
-    ),
-    [displayData]
-  );
-
   const homeListHeader = (
     <>
       <HomeHero
@@ -2457,11 +2827,33 @@ export default function ChallengeListScreen() {
         onFocus={openFocusStart}
       />
 
-      <ChallengeListControls
-        editing={cardEditMode}
-        onPressSort={() => setShowSortModal(true)}
-        onPressEdit={toggleCardEditMode}
-      />
+      <View style={styles.sectionControlsWrap}>
+        <ChallengeListControls
+          editing={cardEditMode}
+          sortLabel={
+            SORT_LABELS[sortMode]
+            || SORT_LABELS.manual
+          }
+          onPressSort={() => (
+            setShowSortDropdown(
+              (current) => !current
+            )
+          )}
+          onPressEdit={() => {
+            setShowSortDropdown(false);
+            toggleCardEditMode();
+          }}
+        />
+
+        <ChallengeSortDropdown
+          visible={
+            showSortDropdown
+            && !cardEditMode
+          }
+          sortMode={sortMode}
+          onSelect={applySortMode}
+        />
+      </View>
     </>
   );
 
@@ -2540,124 +2932,73 @@ export default function ChallengeListScreen() {
           )
         )}
       >
-        {cardEditMode ? (
-          <FlatList
-            key={`challenge-manage-${layoutWidthKey}`}
-            data={editableItems}
-            keyExtractor={keyExtractor}
-            renderItem={renderManageRow}
-            scrollEnabled={!draggingManageId}
-            removeClippedSubviews={false}
-            style={styles.listFlex}
-            contentContainerStyle={[
-              styles.manageListContent,
-              isWideChallengeList
-                && styles.manageListContentWide,
-            ]}
-            ListHeaderComponent={homeListHeader}
-            ListEmptyComponent={
+        <ScrollView
+          style={styles.listFlex}
+          scrollEnabled={!draggingManageId}
+          contentContainerStyle={[
+            styles.challengeResponsiveContent,
+            {
+              paddingBottom: listBottomPad,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {homeListHeader}
+
+          {cardEditMode ? (
+            editableItems.length === 0 ? (
               <View style={styles.manageEmptyWrap}>
                 <Text style={styles.manageEmptyText}>
                   수정할 현재 카드가 없어요.
                 </Text>
               </View>
-            }
-          />
-        ) : isWideChallengeList ? (
-          <ScrollView
-            key={`challenge-list-wide-${layoutWidthKey}`}
-            style={styles.listFlex}
-            scrollEnabled
-            contentContainerStyle={[
-              styles.challengeListWideContent,
-              {
-                paddingBottom: listBottomPad,
-              },
-            ]}
-          >
-            <HomeHero
-              item={heroItem}
-              habitDailyState={
-                heroHabitDailyState
-              }
-              rotationSummary={
-                heroRotationSummary
-              }
-              onRecord={onHeroRecord}
-              onFocus={openFocusStart}
-            />
-
-            <ChallengeListControls
-              editing={cardEditMode}
-              onPressSort={() => (
-                setShowSortModal(true)
-              )}
-              onPressEdit={toggleCardEditMode}
-            />
-
-            {displayData.length === 0 ? (
+            ) : (
+              <Animated.View
+                style={[
+                  styles.manageResponsiveWrap,
+                  {
+                    opacity: responsiveFade,
+                  },
+                ]}
+              >
+                {editableItems.map((item, index) => (
+                  <View key={keyExtractor(item)}>
+                    {renderManageRow({
+                      item,
+                      index,
+                    })}
+                  </View>
+                ))}
+              </Animated.View>
+            )
+          ) : (
+            displayData.length === 0 ? (
               <EmptyState />
             ) : (
-              <View
-                style={
-                  styles.challengeListMasonryRow
-                }
+              <Animated.View
+                style={[
+                  styles.challengeResponsiveGrid,
+                  {
+                    opacity: responsiveFade,
+                  },
+                ]}
               >
-                <View
-                  style={
-                    styles.challengeListMasonryColumn
-                  }
-                >
-                  {masonryLeftData.map(
-                    (item) => (
-                      <View
-                        key={keyExtractor(item)}
-                      >
-                        {renderMasonryItem(item)}
-                      </View>
-                    )
-                  )}
-                </View>
-
-                <View
-                  style={
-                    styles.challengeListMasonryColumn
-                  }
-                >
-                  {masonryRightData.map(
-                    (item) => (
-                      <View
-                        key={keyExtractor(item)}
-                      >
-                        {renderMasonryItem(item)}
-                      </View>
-                    )
-                  )}
-                </View>
-              </View>
-            )}
-          </ScrollView>
-        ) : (
-          <FlatList
-            key={`challenge-list-normal-${layoutWidthKey}`}
-            data={displayData}
-            keyExtractor={keyExtractor}
-            renderItem={renderRow}
-            scrollEnabled
-            removeClippedSubviews={false}
-            style={styles.listFlex}
-            contentContainerStyle={[
-              styles.challengeListContent,
-              {
-                paddingBottom: listBottomPad,
-              },
-            ]}
-            ListHeaderComponent={homeListHeader}
-            ListEmptyComponent={EmptyState}
-            initialNumToRender={12}
-            windowSize={15}
-          />
-        )}
+                {displayData.map((item) => (
+                  <View
+                    key={keyExtractor(item)}
+                    style={[
+                      styles.challengeResponsiveCell,
+                      isWideChallengeList
+                        && styles.challengeResponsiveCellWide,
+                    ]}
+                  >
+                    {renderRow({ item })}
+                  </View>
+                ))}
+              </Animated.View>
+            )
+          )}
+        </ScrollView>
       </View>
 
       <MainDock active="home" />
@@ -2680,51 +3021,6 @@ export default function ChallengeListScreen() {
         onClose={() => { if (!focusStarting) setFocusTarget(null); }}
         onStart={beginFocusSession}
       />
-      {/* 정렬 모달 */}
-      <Modal visible={showSortModal} transparent animationType="fade" onRequestClose={() => setShowSortModal(false)}>
-        <TouchableWithoutFeedback onPress={() => setShowSortModal(false)}>
-          <View style={styles.sortModalBackdrop} />
-        </TouchableWithoutFeedback>
-        <View
-        style={[
-          canonicalCardStyles.base,
-          styles.sortModalCard,
-        ]}
-      >
-          <Text
-          style={[
-            canonicalTextStyles.value,
-            canonicalTextStyles.center,
-            styles.sortModalTitle,
-          ]}
-        >
-          정렬 / 필터
-        </Text>
-          {[
-            { key: 'newest', label: '최신순' },
-            { key: 'oldest', label: '오래된순' },
-            { key: 'habitFirst', label: '습관/도전' },
-            { key: 'challengeFirst', label: '도전/습관' },
-          ].map(opt => (
-            <TouchableOpacity
-              key={opt.key}
-              style={[
-            canonicalLayoutStyles.rowBetween,
-            styles.sortOption,
-            sortMode === opt.key && styles.sortOptionOn,
-          ]}
-              onPress={() => applySortMode(opt.key)}
-              activeOpacity={0.9}
-            >
-              <Text style={[styles.sortOptionText, sortMode === opt.key && styles.sortOptionTextOn]}>
-                {opt.label}
-              </Text>
-              {sortMode === opt.key && <Text style={styles.sortOptionCheck}>✓</Text>}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Modal>
-
     </SafeAreaView>
   );
 }
@@ -2740,16 +3036,16 @@ const styles = StyleSheet.create({
   },
 
   /* Home Hero */
-  homeHero: {
+  homeHeroEmptySection: {
     paddingTop: space.xl,
     paddingBottom: space.xl,
   },
 
-  heroEyebrow: {
+  heroEmptyEyebrow: {
     marginBottom: space.md,
+    color: color.textSecondary,
     fontSize: 12,
     fontWeight: '900',
-    color: color.textSecondary,
   },
 
   heroEmptyBox: {
@@ -2771,10 +3067,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  homeHeroSpotlight: {
+    marginTop: space.lg,
+    marginBottom: space.xl,
+    padding: 18,
+    borderRadius: 24,
+    backgroundColor: primitive.black,
+  },
+
+  heroSpotlightTop: {
+    minHeight: 22,
+    marginBottom: space.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  heroSpotlightEyebrow: {
+    color: primitive.neutral[400],
+    fontSize: 10,
+    letterSpacing: 0.8,
+    fontWeight: '900',
+  },
+
+  heroSpotlightStar: {
+    color: color.textInverse,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+
   heroMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: space.lg,
+    columnGap: space.md,
   },
 
   heroCopy: {
@@ -2782,34 +3107,34 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
-  heroTypeText: {
+  heroSpotlightType: {
     marginBottom: 5,
-    color: color.textSecondary,
+    color: primitive.neutral[400],
     fontSize: 11,
     fontWeight: '900',
   },
 
-  heroTitle: {
-    fontSize: 27,
-    lineHeight: 33,
+  heroSpotlightTitle: {
+    color: color.textInverse,
+    fontSize: 29,
+    lineHeight: 35,
     fontWeight: '900',
-    color: color.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
 
-  heroMessage: {
+  heroSpotlightMessage: {
     marginTop: space.sm,
-    color: color.textPrimary,
-    fontSize: 15,
-    lineHeight: 21,
+    color: color.textInverse,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '800',
   },
 
-  heroSubMessage: {
+  heroSpotlightSub: {
     marginTop: 4,
-    color: color.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
+    color: primitive.neutral[400],
+    fontSize: 11,
+    lineHeight: 17,
     fontWeight: '700',
   },
 
@@ -2846,20 +3171,27 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  heroActionButton: {
-    minHeight: 50,
+  heroRingMainTextDark: {
+    color: color.textInverse,
+  },
+
+  heroRingSubTextDark: {
+    color: primitive.neutral[400],
+  },
+
+  heroSpotlightAction: {
+    height: 48,
     marginTop: space.lg,
-    paddingHorizontal: space.lg,
     borderRadius: radius.lg,
-    backgroundColor: color.primary,
+    backgroundColor: color.textInverse,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  heroActionText: {
-    fontSize: 16,
+  heroSpotlightActionText: {
+    color: primitive.black,
+    fontSize: 14,
     fontWeight: '900',
-    color: color.textInverse,
   },
 
   /* 목록 Section Header */
@@ -2893,6 +3225,69 @@ const styles = StyleSheet.create({
     color: color.textDisabled,
     fontSize: 10,
     fontWeight: '700',
+  },
+
+  sectionControlsWrap: {
+    position: 'relative',
+    zIndex: 100,
+    elevation: 100,
+    overflow: 'visible',
+  },
+
+  sortDropdown: {
+    position: 'absolute',
+    top: 38,
+    left: 0,
+    width: 176,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+    overflow: 'hidden',
+    zIndex: 500,
+    elevation: 500,
+    shadowColor: primitive.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+  },
+
+  sortDropdownOption: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: color.border,
+  },
+
+  sortDropdownOptionLast: {
+    borderBottomWidth: 0,
+  },
+
+  sortDropdownOptionSelected: {
+    backgroundColor: color.surfaceMuted,
+  },
+
+  sortDropdownText: {
+    color: color.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  sortDropdownTextSelected: {
+    color: color.textPrimary,
+    fontWeight: '900',
+  },
+
+  sortDropdownCheck: {
+    color: color.textPrimary,
+    fontSize: 12,
+    fontWeight: '900',
   },
 
   /* 새 카드 정보계층 */
@@ -2938,13 +3333,6 @@ const styles = StyleSheet.create({
     columnGap: space.sm,
   },
 
-  cardInfoMainText: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
   cardInfoLabel: {
     marginRight: 7,
     color: color.textSecondary,
@@ -2972,6 +3360,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  rotationCurrentName: {
+    marginTop: 2,
+    color: color.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '900',
+  },
+
+  rotationTimeText: {
+    marginTop: 4,
+    color: color.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+
   cardInfoFooterRow: {
     marginTop: space.xs,
     flexDirection: 'row',
@@ -2995,24 +3400,19 @@ const styles = StyleSheet.create({
 
   cardFoldHandle: {
     alignSelf: 'center',
-    width: 52,
-    minHeight: 25,
-    marginTop: 6,
+    width: 48,
+    height: 22,
+    marginTop: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   cardFoldChevron: {
-    height: 9,
     color: color.textTertiary,
-    fontSize: 12,
-    lineHeight: 10,
-    fontWeight: '800',
+    fontSize: 27,
+    lineHeight: 27,
+    fontWeight: '300',
     includeFontPadding: false,
-  },
-
-  cardFoldChevronSecond: {
-    marginTop: -3,
   },
 
   rewardText: {
@@ -3058,6 +3458,42 @@ const styles = StyleSheet.create({
     backgroundColor: color.primary,
   },
 
+  miniRing: {
+    width: MINI_RING_SIZE,
+    height: MINI_RING_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  miniRingText: {
+    position: 'absolute',
+    color: color.textPrimary,
+    fontSize: 8,
+    fontWeight: '900',
+    includeFontPadding: false,
+  },
+
+  compactHabitStrip: {
+    height: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 2,
+  },
+
+  compactHabitCell: {
+    width: 7,
+    height: 7,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: color.border,
+    backgroundColor: color.surfaceMuted,
+  },
+
+  compactHabitCellDone: {
+    borderColor: color.primary,
+    backgroundColor: color.primary,
+  },
+
   hofBtn: {
     paddingVertical: 4,
     paddingHorizontal: 10,
@@ -3068,33 +3504,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: color.overlay },
-  sortModalCard: {
-    position: 'absolute',
-    top: 100,
-    left: space.md,
-    right: space.md,
-    elevation: 8,
-  },
-  sortModalTitle: {
-    marginBottom: space.sm,
-  },
-  sortOption: {
-    paddingVertical: 12,
-    paddingHorizontal: space.sm,
-    borderRadius: radius.md,
-  },
-  sortOptionOn: { backgroundColor: color.surfaceMuted },
-  sortOptionText: {
-    fontSize: font.size.body,
-    color: color.textPrimary,
-    fontWeight: font.weight.semibold,
-  },
-  sortOptionTextOn: {
-    fontWeight: font.weight.heavy,
-    color: color.textPrimary,
-  },
-  sortOptionCheck: { fontSize: 14, color: color.textPrimary, fontWeight: '900' },
   header: {
     paddingHorizontal: space.md,
     paddingTop: space.md,
@@ -3111,62 +3520,99 @@ const styles = StyleSheet.create({
 
   /* 카드 */
   cardWrap: { marginTop: space.sm },
-  cardWrapWide: {
+  challengeResponsiveContent: {
+    paddingHorizontal: space.md,
+  },
+
+  challengeResponsiveGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+
+  challengeResponsiveCell: {
+    width: '100%',
     paddingHorizontal: 4,
   },
-  challengeListContent: {
-    paddingHorizontal: space.md,
-    paddingBottom: 0,
+
+  challengeResponsiveCellWide: {
+    width: '50%',
   },
-  challengeListWideContent: {
-    paddingHorizontal: space.sm,
-    paddingBottom: 0,
-  },
-  challengeListMasonryRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  challengeListMasonryColumn: {
-    flex: 1,
+
+  manageResponsiveWrap: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   cardCompact: {
-    paddingVertical: 8,
+    paddingTop: 10,
+    paddingBottom: 5,
   },
 
   compactCardContent: {
-    minHeight: 45,
-  },
-
-  compactCardMainRow: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: space.sm,
+    minHeight: 76,
   },
 
   compactCardIdentity: {
-    flex: 1,
     minWidth: 0,
   },
 
   compactCardType: {
-    marginBottom: 1,
-    color: color.textTertiary,
-    fontSize: 9,
+    marginBottom: 2,
+    color: color.textSecondary,
+    fontSize: 11,
     fontWeight: '900',
   },
 
   compactCardTitle: {
     color: color.textPrimary,
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 21,
     fontWeight: '900',
   },
 
-  compactProgressText: {
-    flexShrink: 0,
-    color: color.textSecondary,
+  compactActionRow: {
+    minHeight: 36,
+    marginTop: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    columnGap: 7,
+  },
+
+  compactRecordButton: {
+    minWidth: 46,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    backgroundColor: color.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  compactRecordText: {
+    color: color.textInverse,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
+  },
+
+  compactPlayButton: {
+    width: 32,
+    height: 30,
+    borderRadius: radius.md,
+    backgroundColor: color.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  compactActionDisabled: {
+    backgroundColor: color.surfaceMuted,
+    borderWidth: 1,
+    borderColor: color.border,
+  },
+
+  compactActionDisabledText: {
+    color: color.textDisabled,
   },
   cardContent: { },
   dimmedContent: { opacity: 0.55 },
@@ -3222,17 +3668,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: space.xs,
   },
   expiredBtnText: { color: primitive.black, fontSize: 16, fontWeight: '800', textAlign: 'center' },
-
-  manageListContent: {
-    paddingHorizontal: space.md,
-    paddingBottom: space.lg,
-  },
-
-  manageListContentWide: {
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-  },
 
   manageCardRow: {
     height: MANAGE_ROW_HEIGHT,

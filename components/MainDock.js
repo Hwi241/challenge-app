@@ -1,11 +1,15 @@
-import React, { memo } from 'react';
+import React, {
+  memo,
+} from 'react';
 import {
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import {
+  StackActions,
+  useNavigation,
+} from '@react-navigation/native';
 import Svg, {
   Circle,
   Path,
@@ -18,32 +22,37 @@ import {
   space,
 } from '../styles/common';
 
-const ICON_SIZE = 23;
+const ICON_SIZE = 24;
+
+const DOCK_ITEMS = [
+  { key: 'home', route: 'ChallengeList', accessibilityLabel: '홈' },
+  { key: 'record', route: 'ProfileInventory', accessibilityLabel: '기록실' },
+  { key: 'shop', route: 'GraphShop', accessibilityLabel: '상점' },
+];
+
+const DOCK_INDEX = {
+  home: 0,
+  record: 1,
+  shop: 2,
+};
 
 const DockIcon = memo(function DockIcon({
   name,
   active = false,
 }) {
-  const stroke = active
-    ? color.textPrimary
-    : color.textSecondary;
-
-  const strokeWidth = active ? 2.2 : 1.8;
+  const stroke = active ? color.textPrimary : color.textSecondary;
+  const strokeWidth = 1.9;
 
   if (name === 'home') {
     return (
-      <Svg
-        width={ICON_SIZE}
-        height={ICON_SIZE}
-        viewBox="0 0 24 24"
-      >
+      <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24">
         <Path
-          d="M3.5 10.5L12 3.5l8.5 7v9.5h-5.2v-6.2H8.7V20H3.5z"
+          d="M4 10.5L12 4l8 6.5V20h-5.2v-5.8H9.2V20H4z"
           fill="none"
           stroke={stroke}
           strokeWidth={strokeWidth}
-          strokeLinejoin="round"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </Svg>
     );
@@ -51,21 +60,17 @@ const DockIcon = memo(function DockIcon({
 
   if (name === 'record') {
     return (
-      <Svg
-        width={ICON_SIZE}
-        height={ICON_SIZE}
-        viewBox="0 0 24 24"
-      >
+      <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24">
         <Circle
           cx="12"
-          cy="7.2"
-          r="3.2"
+          cy="8"
+          r="3.3"
           fill="none"
           stroke={stroke}
           strokeWidth={strokeWidth}
         />
         <Path
-          d="M5.2 20c.35-4.25 2.7-6.5 6.8-6.5s6.45 2.25 6.8 6.5"
+          d="M5.7 20c.4-4 2.7-6 6.3-6s5.9 2 6.3 6"
           fill="none"
           stroke={stroke}
           strokeWidth={strokeWidth}
@@ -77,34 +82,17 @@ const DockIcon = memo(function DockIcon({
 
   if (name === 'shop') {
     return (
-      <Svg
-        width={ICON_SIZE}
-        height={ICON_SIZE}
-        viewBox="0 0 24 24"
-      >
+      <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24">
         <Path
-          d="M4 9.2h16l-1.4-4.4H5.4z"
+          d="M6.5 8.5h11l1 11h-13z"
           fill="none"
           stroke={stroke}
           strokeWidth={strokeWidth}
+          strokeLinecap="round"
           strokeLinejoin="round"
         />
         <Path
-          d="M5.2 9.2V20h13.6V9.2"
-          fill="none"
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          strokeLinejoin="round"
-        />
-        <Path
-          d="M9 20v-5.5h6V20"
-          fill="none"
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          strokeLinejoin="round"
-        />
-        <Path
-          d="M4 9.2c0 1.5 1 2.4 2.4 2.4S9 10.7 9 9.2c0 1.5 1 2.4 3 2.4s3-0.9 3-2.4c0 1.5 1.2 2.4 2.6 2.4S20 10.7 20 9.2"
+          d="M9 9V7.3C9 5.5 10.2 4.5 12 4.5s3 1 3 2.8V9"
           fill="none"
           stroke={stroke}
           strokeWidth={strokeWidth}
@@ -117,54 +105,68 @@ const DockIcon = memo(function DockIcon({
   return null;
 });
 
-const DOCK_ITEMS = [
-  {
-    key: 'home',
-    route: 'ChallengeList',
-    accessibilityLabel: '홈',
-  },
-  {
-    key: 'record',
-    route: 'ProfileInventory',
-    accessibilityLabel: '기록실',
-  },
-  {
-    key: 'shop',
-    route: 'GraphShop',
-    accessibilityLabel: '상점',
-  },
-];
+const PlusIcon = memo(function PlusIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path
+        d="M10 4v12M4 10h12"
+        fill="none"
+        stroke={color.textInverse}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+});
 
 function MainDock({
   active = null,
 }) {
   const navigation = useNavigation();
 
+  const goDock = (item) => {
+    if (item.key === active) return;
+
+    const fromIndex = DOCK_INDEX[active] ?? 0;
+    const toIndex = DOCK_INDEX[item.key] ?? 0;
+    const direction = toIndex > fromIndex ? 'forward' : 'backward';
+    const state = navigation.getState?.();
+    const routes = Array.isArray(state?.routes) ? state.routes : [];
+    const currentIndex = Number.isFinite(state?.index)
+      ? state.index
+      : routes.length - 1;
+
+    let existingIndex = -1;
+    for (let index = currentIndex - 1; index >= 0; index -= 1) {
+      if (routes[index]?.name === item.route) {
+        existingIndex = index;
+        break;
+      }
+    }
+
+    if (existingIndex >= 0) {
+      navigation.dispatch(StackActions.pop(currentIndex - existingIndex));
+      return;
+    }
+
+    navigation.navigate(item.route, { __dockDirection: direction });
+  };
+
   return (
     <View style={styles.root}>
       {DOCK_ITEMS.map((item) => {
         const selected = active === item.key;
-
         return (
-          <View
-            key={item.key}
-            style={styles.slot}
-          >
+          <View key={item.key} style={styles.slot}>
             <TouchableOpacity
               style={styles.iconButton}
-              activeOpacity={0.75}
+              activeOpacity={0.7}
               disabled={selected}
-              onPress={() => {
-                if (selected) return;
-                navigation.navigate(item.route);
-              }}
+              onPress={() => goDock(item)}
               accessibilityRole="button"
               accessibilityLabel={item.accessibilityLabel}
             >
-              <DockIcon
-                name={item.key}
-                active={selected}
-              />
+              <DockIcon name={item.key} active={selected} />
             </TouchableOpacity>
           </View>
         );
@@ -172,20 +174,13 @@ function MainDock({
 
       <View style={styles.slot}>
         <TouchableOpacity
-          style={[
-            styles.iconButton,
-            styles.createButton,
-          ]}
-          activeOpacity={0.88}
-          onPress={() => (
-            navigation.navigate('CreateChallengeType')
-          )}
+          style={[styles.iconButton, styles.createButton]}
+          activeOpacity={0.86}
+          onPress={() => navigation.navigate('CreateChallengeType')}
           accessibilityRole="button"
           accessibilityLabel="새로 만들기"
         >
-          <Text style={styles.createText}>
-            +
-          </Text>
+          <PlusIcon />
         </TouchableOpacity>
       </View>
     </View>
@@ -200,37 +195,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.md,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderTopWidth: 1,
     borderTopColor: color.border,
     backgroundColor: color.background,
   },
-
   slot: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   iconButton: {
     width: 48,
-    height: 44,
+    height: 40,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: color.background,
   },
-
   createButton: {
+    width: 58,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: primitive.black,
-  },
-
-  createText: {
-    marginTop: -2,
-    color: color.textInverse,
-    fontSize: 28,
-    lineHeight: 30,
-    fontWeight: '500',
-    includeFontPadding: false,
   },
 });

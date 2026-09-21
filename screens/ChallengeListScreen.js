@@ -4,10 +4,8 @@ import { AppState, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFee
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
 
 import {
-  buttonStyles,
   card as canonicalCardStyles,
   color,
   font,
@@ -33,7 +31,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 /* ---------- 상수 ---------- */
-const EDGE = 8;
 const CARD_BORDER = color.border;
 const ARROW_SIZE = 40;
 const ARROW_GAP = 12;
@@ -157,36 +154,6 @@ function asDoneFlags(c) {
   return { _isDone: !!done, _completedAt: c?.completedAt ?? 0, _isExpired: isExpired };
 }
 
-/* ---- 습관 카드 배터리 레벨 계산 ---- */
-function getHabitBatteryLevel(item) {
-  if (typeof item.lastStreakLevel === 'number') {
-    return Math.max(0, Math.min(4, item.lastStreakLevel));
-  }
-  const score = Number(item.currentScore || 0);
-  if (score === 0) return 0;
-  if (score === 1) return 1;
-  if (score === 2) return 2;
-  if (score >= 3) return 3;
-  return 0;
-}
-
-const BATTERY_COLORS = [
-  '#F3F4F6', // 0단계
-  '#E5E7EB', // 1단계
-  '#A0A0A0', // 2단계
-  '#111111', // 3단계
-  '#111111', // 4단계
-];
-
-const HABIT_GRASS_EMPTY = '#F3F4F6';
-const HABIT_GRASS_COLORS = [
-  '#F3F4F6', // 0: 기간 밖/빈 칸
-  '#E5E7EB', // 1: 기간 안이지만 미인증/미래
-  '#A0A0A0', // 2: 첫 인증
-  '#555555', // 3: 2일 연속 인증
-  '#111111', // 4: 3일 이상 연속 인증
-];
-
 const keyOfDate = (d) => {
   const x = new Date(d);
   if (Number.isNaN(x.getTime())) return '';
@@ -209,80 +176,110 @@ const getEntryDateKey = (entry) => {
   return keyOfDate(raw);
 };
 
-const getHabitTodayGrassColor = (entries = [], item = {}) => {
-  const arr = Array.isArray(entries) ? entries : [];
-  const today = toDateOnly(new Date());
+const WEEK_DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+const EMPTY_HABIT_DAILY_STATE = {
+  inRange: false,
+  scheduledToday: false,
+  hasToday: false,
+  streak: 0,
+  last7: [false, false, false, false, false, false, false],
+};
+
+const isHabitScheduledOnDate = (item = {}, value = new Date()) => {
+  const date = toDateOnly(value);
+  if (!date) return false;
+
   const start = toDateOnly(item?.startDate);
   const end = toDateOnly(item?.endDate);
 
-  if (!today) return HABIT_GRASS_EMPTY;
+  if (start && date < start) return false;
+  if (end && date > end) return false;
 
-  const inRange = (!start || today >= start) && (!end || today <= end);
-  if (!inRange) return HABIT_GRASS_EMPTY;
+  const cycle = item?.habitCycle;
 
-  const certSet = new Set();
+  if (!cycle?.type) return true;
+
+  if (cycle.type === 'weekly') {
+    const days = Array.isArray(cycle.days) ? cycle.days : [];
+    return days.includes(WEEK_DAY_LABELS[date.getDay()]);
+  }
+
+  if (cycle.type === 'monthly') {
+    const dates = Array.isArray(cycle.dates)
+      ? cycle.dates.map(Number)
+      : [];
+    return dates.includes(date.getDate());
+  }
+
+  return true;
+};
+
+const getHabitDailyState = (
+  entries = [],
+  item = {},
+  now = new Date()
+) => {
+  const arr = Array.isArray(entries) ? entries : [];
+  const today = toDateOnly(now);
+
+  if (!today) return { ...EMPTY_HABIT_DAILY_STATE };
+
+  const start = toDateOnly(item?.startDate);
+  const end = toDateOnly(item?.endDate);
+
+  const inRange = (
+    (!start || today >= start)
+    && (!end || today <= end)
+  );
+
+  const scheduledToday = (
+    inRange && isHabitScheduledOnDate(item, today)
+  );
+
+  const recordedDays = new Set();
+
   for (const entry of arr) {
-    const k = getEntryDateKey(entry);
-    if (k) certSet.add(k);
+    const key = getEntryDateKey(entry);
+    if (key) recordedDays.add(key);
   }
 
   const todayKey = keyOfDate(today);
-  if (!certSet.has(todayKey)) {
-    return HABIT_GRASS_COLORS[1] || HABIT_GRASS_EMPTY;
+  const hasToday = recordedDays.has(todayKey);
+
+  const last7 = [];
+
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const day = new Date(today);
+    day.setDate(day.getDate() - offset);
+    day.setHours(0, 0, 0, 0);
+    last7.push(recordedDays.has(keyOfDate(day)));
   }
 
-  let streak = 1;
-  for (let offset = 1; offset <= 2; offset += 1) {
-    const prevDate = new Date(today);
-    prevDate.setDate(prevDate.getDate() - offset);
-    prevDate.setHours(0, 0, 0, 0);
+  let streak = 0;
+  const streakCursor = new Date(today);
 
-    if (start && prevDate < start) break;
-
-    const prevKey = keyOfDate(prevDate);
-    if (certSet.has(prevKey)) streak += 1;
-    else break;
+  if (!hasToday) {
+    streakCursor.setDate(streakCursor.getDate() - 1);
   }
 
-  const level = streak >= 3 ? 4 : streak === 2 ? 3 : 2;
-  return HABIT_GRASS_COLORS[level] || HABIT_GRASS_EMPTY;
-};
+  streakCursor.setHours(0, 0, 0, 0);
 
+  while (!start || streakCursor >= start) {
+    if (!recordedDays.has(keyOfDate(streakCursor))) break;
 
-const HabitTodayGrassBox = ({ color = HABIT_GRASS_EMPTY }) => {
-  const isEmpty = color === HABIT_GRASS_EMPTY;
-  return (
-    <View
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 4,
-        backgroundColor: color,
-        borderWidth: isEmpty ? 1 : 0,
-        borderColor: '#D1D5DB',
-      }}
-    />
-  );
-};
+    streak += 1;
+    streakCursor.setDate(streakCursor.getDate() - 1);
+    streakCursor.setHours(0, 0, 0, 0);
+  }
 
-const HabitBattery = ({ level = 0 }) => {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 2 }}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <View
-          key={i}
-          style={{
-            width: 5,
-            height: 20,
-            borderRadius: 2,
-            backgroundColor: i <= level && level > 0 ? BATTERY_COLORS[level] : '#F3F4F6',
-            borderWidth: 0.5,
-            borderColor: '#E5E7EB',
-          }}
-        />
-      ))}
-    </View>
-  );
+  return {
+    inRange,
+    scheduledToday,
+    hasToday,
+    streak,
+    last7,
+  };
 };
 
 /**
@@ -391,7 +388,9 @@ async function upsertHof(record) {
 /* ---------- 빈 상태 ---------- */
 const EmptyState = memo(() => (
   <View style={styles.emptyWrap}>
-    <Text style={styles.emptyText}>새로운 도전을 응원합니다!</Text>
+    <Text style={styles.emptyText}>
+      아직 만든 도전·습관·루틴이 없어요.
+    </Text>
   </View>
 ));
 
@@ -402,458 +401,642 @@ const rotationSummaryOf = (item) => {
 
 const rotationMinutes = (seconds) => {
   const value = Math.round((Number(seconds) || 0) / 6) / 10;
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(1);
 };
 
-const ChallengeCardHeader = memo(function ChallengeCardHeader({
-  item,
-  pct,
-  habitGrassColor = HABIT_GRASS_EMPTY,
-  isCompactVariant = false,
-  showCollapseToggle = false,
-  onPressToggleCollapsed,
+const clampProgress = (value) => (
+  Math.min(100, Math.max(0, Number(value) || 0))
+);
+
+const getCardTypeLabel = (item) => {
+  if (isRotationRoutine(item)) return '순환루틴';
+  if (item?.type === 'habit') return '습관';
+  return '도전';
+};
+
+const CardProgressBar = memo(function CardProgressBar({
+  value = 0,
 }) {
-  const Indicator = item.type === 'habit' ? (
-    <HabitTodayGrassBox color={habitGrassColor} />
-  ) : (
-    <View style={styles.pctCircleWrap}>
-      <Svg width={26} height={26}>
-        <Circle cx={13} cy={13} r={9} stroke="#E5E7EB" strokeWidth={4.5} fill="none" />
-        <Circle
-          cx={13}
-          cy={13}
-          r={9}
-          stroke="#111"
-          strokeWidth={4.5}
-          fill="none"
-          strokeDasharray={`${(pct / 100) * (2 * Math.PI * 9)} ${2 * Math.PI * 9}`}
-          strokeLinecap="round"
-          rotation="-90"
-          origin="13,13"
-        />
-      </Svg>
-      <Text style={styles.pctCircleLabel}>{pct}%</Text>
-    </View>
-  );
+  const pct = clampProgress(value);
 
   return (
-    <View style={canonicalLayoutStyles.rowBetween}>
-      <Text
+    <View style={styles.progressTrack}>
+      <View
         style={[
-            canonicalTextStyles.sectionTitle,
-            styles.titleFlex,
-            isCompactVariant && styles.titleCompact,
-          ]}
-        numberOfLines={isCompactVariant ? 1 : 2}
-      >
-        {item.title ?? '(제목 없음)'}
-      </Text>
-      <View style={canonicalLayoutStyles.row}>
-        {showCollapseToggle && (
-          <TouchableOpacity
-            style={styles.cardCollapseToggleBtn}
-            onPress={onPressToggleCollapsed}
-            activeOpacity={0.85}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.cardCollapseToggleText}>˄</Text>
-          </TouchableOpacity>
-        )}
-        {Indicator}
-      </View>
+          styles.progressFill,
+          { width: `${pct}%` },
+        ]}
+      />
     </View>
   );
 });
 
-const ChallengeCardMeta = memo(function ChallengeCardMeta({
+const HabitWeekStrip = memo(function HabitWeekStrip({
+  last7 = EMPTY_HABIT_DAILY_STATE.last7,
+}) {
+  const values = Array.isArray(last7)
+    ? last7.slice(-7)
+    : [];
+
+  while (values.length < 7) values.unshift(false);
+
+  return (
+    <View style={styles.habitWeekRow}>
+      {values.map((done, index) => (
+        <View
+          key={index}
+          style={[
+            styles.habitDayCell,
+            done && styles.habitDayCellDone,
+          ]}
+        />
+      ))}
+    </View>
+  );
+});
+
+const ChallengeCardHeader = memo(function ChallengeCardHeader({
   item,
+  pct,
   rotationSummary,
-  isCompactVariant = false,
+  showCollapseToggle = false,
+  onPressToggleCollapsed,
+}) {
+  const metric = rotationSummary
+    ? `${rotationSummary.currentCycleNumber}회차`
+    : item?.type === 'habit'
+      ? null
+      : `${pct}%`;
+
+  return (
+    <>
+      <View style={styles.cardTypeRow}>
+        <Text style={styles.cardTypeLabel}>
+          {getCardTypeLabel(item)}
+        </Text>
+
+        <View style={canonicalLayoutStyles.row}>
+          {!!metric && (
+            <Text style={styles.cardMetric}>
+              {metric}
+            </Text>
+          )}
+
+          {showCollapseToggle && (
+            <TouchableOpacity
+              style={styles.cardCollapseToggleBtn}
+              onPress={onPressToggleCollapsed}
+              activeOpacity={0.85}
+              hitSlop={{
+                top: 8,
+                bottom: 8,
+                left: 8,
+                right: 8,
+              }}
+            >
+              <Text style={styles.cardCollapseToggleText}>
+                ˄
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      <Text
+        style={styles.cardTitle}
+        numberOfLines={2}
+      >
+        {item?.title ?? '(제목 없음)'}
+      </Text>
+    </>
+  );
+});
+
+const ChallengeCardStatus = memo(function ChallengeCardStatus({
+  item,
+  pct,
+  rotationSummary,
+  habitDailyState = EMPTY_HABIT_DAILY_STATE,
 }) {
   if (rotationSummary) {
     const current = rotationSummary.currentItem;
+    const next = rotationSummary.nextItem;
+
+    const progressSeconds = Number(
+      current?.progressSeconds || 0
+    );
+
+    const targetSeconds = Number(
+      current?.targetSeconds || 0
+    );
+
+    const remainingSeconds = Math.max(
+      0,
+      targetSeconds - progressSeconds
+    );
+
     return (
-      <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
-        <Text
-          style={[
-            canonicalTextStyles.meta,
-            styles.meta,
-            { color: color.textPrimary, fontWeight: font.weight.bold },
-          ]}
-        >
+      <View style={styles.cardStatusWrap}>
+        <Text style={styles.statusPrimary}>
           지금 할 일 · {current?.name ?? '-'}
         </Text>
-        <Text style={[canonicalTextStyles.meta, styles.meta]}>
-          {rotationMinutes(current?.progressSeconds)} / {rotationMinutes(current?.targetSeconds)}분
-          {' · '}
-          다음 → {rotationSummary.nextItem?.name ?? '이번 회전 완료'}
+
+        <CardProgressBar
+          value={rotationSummary.progressPct ?? 0}
+        />
+
+        <Text style={styles.statusSecondary}>
+          {rotationMinutes(progressSeconds)}
+          {' / '}
+          {rotationMinutes(targetSeconds)}분
+          {remainingSeconds > 0
+            ? ` · ${rotationMinutes(remainingSeconds)}분 남음`
+            : ''}
         </Text>
-        <Text style={[canonicalTextStyles.meta, styles.meta]}>
-          {rotationSummary.currentCycleNumber}번째 회전 · {rotationSummary.completedCycleCount}회 완료
+
+        <Text style={styles.statusSecondary}>
+          다음 · {next?.name ?? '이번 회전 완료'}
         </Text>
       </View>
     );
   }
+
+  if (item?.type === 'habit') {
+    const {
+      scheduledToday,
+      hasToday,
+      streak,
+      last7,
+    } = habitDailyState;
+
+    const todayMessage = !scheduledToday
+      ? '오늘은 목표일이 아니에요'
+      : hasToday
+        ? '오늘 기록 완료'
+        : '오늘 아직 기록하지 않았어요';
+
+    const streakMessage = streak > 0
+      ? `${streak}일 연속`
+      : '연속 기록을 시작해보세요';
+
+    return (
+      <View style={styles.cardStatusWrap}>
+        <Text style={styles.statusPrimary}>
+          {todayMessage}
+        </Text>
+
+        <HabitWeekStrip last7={last7} />
+
+        <Text style={styles.statusSecondary}>
+          {streakMessage}
+        </Text>
+      </View>
+    );
+  }
+
+  const current = Math.max(
+    0,
+    Number(item?.currentScore || 0)
+  );
+
+  const goal = Number(item?.goalScore || 0);
+
+  const hasGoal = Number.isFinite(goal) && goal > 0;
+
+  const remaining = hasGoal
+    ? Math.max(0, goal - current)
+    : null;
+
   return (
-    <View style={[styles.metaWrap, isCompactVariant && styles.metaWrapCompact]}>
-      <Text
-          style={[
-            canonicalTextStyles.meta,
-            styles.meta,
-          ]}
-        >
-        기간 {item.startDate ?? '-'}{item.endDate ? ` ~ ${item.endDate}` : ''}
+    <View style={styles.cardStatusWrap}>
+      {hasGoal && (
+        <CardProgressBar value={pct} />
+      )}
+
+      <Text style={styles.statusPrimary}>
+        {hasGoal
+          ? `${current}회 완료 · ${remaining}회 남음`
+          : `현재 ${current}회`}
       </Text>
-      {item.type === 'habit' ? (
-        <>
-          <Text
-          style={[
-            canonicalTextStyles.meta,
-            styles.meta,
-          ]}
-        >총 기록 {item.currentScore ?? 0}회</Text>
-          {item.habitCycle && (
-            <Text
-          style={[
-            canonicalTextStyles.meta,
-            styles.meta,
-          ]}
+
+      {!!(item?.rewardTitle || item?.reward) && (
+        <Text
+          style={styles.rewardText}
+          numberOfLines={1}
         >
-              주기 {item.habitCycle.type === 'weekly'
-                ? (item.habitCycle.days || []).join(', ')
-                : '매월 ' + (item.habitCycle.dates || []).sort((a, b) => a - b).join(', ') + '일'
-              }
-            </Text>
-          )}
-        </>
-      ) : (
-        <>
-          <Text
-          style={[
-            canonicalTextStyles.meta,
-            styles.meta,
-          ]}
-        >진행 {item.currentScore ?? 0} / {item.goalScore ?? 0}</Text>
-          {!!(item.rewardTitle || item.reward) && (
-            <Text
-          style={[
-            canonicalTextStyles.meta,
-            styles.meta,
-          ]}
-        >보상 {item.rewardTitle ?? item.reward}</Text>
-          )}
-        </>
+          보상 · {item.rewardTitle ?? item.reward}
+        </Text>
       )}
     </View>
   );
 });
 
-const ChallengeCardReorderControls = memo(function ChallengeCardReorderControls({
-  item,
-  isExpired = false,
-  isCompactVariant = false,
-  showControls,
-  canReorder,
-  onPressCard,
-  onPressEdit,
-  onPressDuplicate,
-  onPressDelete,
-}) {
-  return (
-    <View
-            style={[
-              canonicalLayoutStyles.rowBetween,
-              styles.controlsRow,
-              isCompactVariant && styles.controlsRowCompact,
-            ]}
-          >
-      <View
-            style={[
-              canonicalLayoutStyles.row,
-              styles.arrowsInline,
-              !showControls && { opacity: 0 },
-            ]}
-          >
-        <TouchableOpacity
-          onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'up' }) : undefined}
-          activeOpacity={0.9}
-          style={styles.circleArrowSmall}
-        >
-          <Text style={styles.circleArrowTxt}>↑</Text>
-        </TouchableOpacity>
-        <View style={{ width: ARROW_GAP }} />
-        <TouchableOpacity
-          onPress={showControls && canReorder ? () => onPressCard?.({ ...item, __move: 'down' }) : undefined}
-          activeOpacity={0.9}
-          style={styles.circleArrowSmall}
-        >
-          <Text style={styles.circleArrowTxt}>↓</Text>
-        </TouchableOpacity>
-      </View>
+const ChallengeCardReorderControls = memo(
+  function ChallengeCardReorderControls({
+    item,
+    isExpired = false,
+    showControls,
+    canReorder,
+    onPressCard,
+    onPressEdit,
+    onPressDuplicate,
+    onPressDelete,
+  }) {
+    if (!showControls) return null;
 
+    return (
       <View
+        style={[
+          canonicalLayoutStyles.rowBetween,
+          styles.controlsRow,
+        ]}
+      >
+        <View
+          style={[
+            canonicalLayoutStyles.row,
+            styles.arrowsInline,
+          ]}
+        >
+          <TouchableOpacity
+            onPress={
+              canReorder
+                ? () => onPressCard?.({
+                    ...item,
+                    __move: 'up',
+                  })
+                : undefined
+            }
+            disabled={!canReorder}
+            activeOpacity={0.9}
             style={[
-              canonicalLayoutStyles.row,
-              styles.actionsRight,
-              !showControls && { opacity: 0 },
+              styles.circleArrowSmall,
+              !canReorder && styles.controlDisabled,
             ]}
           >
-          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressEdit?.(item) : undefined} activeOpacity={0.9}>
-            <Text style={styles.actionDarkText}>수정</Text>
+            <Text style={styles.circleArrowTxt}>
+              ↑
+            </Text>
           </TouchableOpacity>
-        {!isExpired && !isRotationRoutine(item) && (
-          <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDuplicate?.(item) : undefined} activeOpacity={0.9}>
-            <Text style={styles.actionDarkText}>복제</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.actionDarkBtn} onPress={showControls ? () => onPressDelete?.(item) : undefined} activeOpacity={0.9}>
-          <Text style={styles.actionDarkText}>삭제</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-});
 
-const ChallengeCardPrimaryAction = memo(function ChallengeCardPrimaryAction({
-  item,
-  isDone = false,
-  isExpired = false,
-  isCompactVariant = false,
-  showControls,
-  onPressCard,
-  onPressClaim,
-  onPressFocus,
-}) {
-  if (isRotationRoutine(item)) {
+          <View style={{ width: ARROW_GAP }} />
+
+          <TouchableOpacity
+            onPress={
+              canReorder
+                ? () => onPressCard?.({
+                    ...item,
+                    __move: 'down',
+                  })
+                : undefined
+            }
+            disabled={!canReorder}
+            activeOpacity={0.9}
+            style={[
+              styles.circleArrowSmall,
+              !canReorder && styles.controlDisabled,
+            ]}
+          >
+            <Text style={styles.circleArrowTxt}>
+              ↓
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={[
+            canonicalLayoutStyles.row,
+            styles.actionsRight,
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.actionDarkBtn}
+            onPress={() => onPressEdit?.(item)}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.actionDarkText}>
+              수정
+            </Text>
+          </TouchableOpacity>
+
+          {!isExpired && !isRotationRoutine(item) && (
+            <TouchableOpacity
+              style={styles.actionDarkBtn}
+              onPress={() => onPressDuplicate?.(item)}
+              activeOpacity={0.9}
+            >
+              <Text style={styles.actionDarkText}>
+                복제
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.actionDarkBtn}
+            onPress={() => onPressDelete?.(item)}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.actionDarkText}>
+              삭제
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+);
+
+const ChallengeCardPrimaryAction = memo(
+  function ChallengeCardPrimaryAction({
+    item,
+    isDone = false,
+    isExpired = false,
+    rotationSummary,
+    habitDailyState = EMPTY_HABIT_DAILY_STATE,
+    onPressCard,
+    onPressClaim,
+    onPressFocus,
+  }) {
+    if (isDone) {
+      return (
+        <TouchableOpacity
+          style={styles.outlineBigBtn}
+          onPress={() => onPressClaim?.(item)}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.outlineBigText}>
+            보상 받기
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (isExpired) {
+      return (
+        <TouchableOpacity
+          style={styles.expiredBtn}
+          disabled
+          activeOpacity={1}
+        >
+          <Text style={styles.expiredBtnText}>
+            기간 만료
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    const rotation = isRotationRoutine(item);
+
+    const recordLabel = (
+      item?.type === 'habit'
+      && habitDailyState.scheduledToday
+      && !habitDailyState.hasToday
+    )
+      ? '오늘 기록'
+      : '기록하기';
+
+    const focusLabel = rotation
+      ? `▶ ${rotationSummary?.currentItem?.name ?? '시작'} 시작`
+      : '▶ 집중 시작';
+
     return (
       <View style={styles.primaryActionRow}>
         <TouchableOpacity
-          style={[styles.uploadNowBtn, styles.primaryActionMain, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressCard?.(item, 'continue')}
+          style={[
+            styles.uploadNowBtn,
+            styles.primaryActionMain,
+          ]}
+          onPress={() => {
+            if (rotation) {
+              onPressCard?.(item, 'continue');
+              return;
+            }
+
+            onPressCard?.({
+              ...item,
+              _upload: true,
+            });
+          }}
           activeOpacity={0.9}
         >
-          <Text style={styles.uploadNowText}>기록하기</Text>
+          <Text style={styles.uploadNowText}>
+            {recordLabel}
+          </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.focusPlayButton}
+          onPress={() => onPressFocus?.(item)}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={
+            rotation
+              ? `${rotationSummary?.currentItem?.name ?? '현재 활동'} 집중 타이머 시작`
+              : '집중 타이머 시작'
+          }
+        >
+          <Text
+            style={styles.focusPlayText}
+            numberOfLines={1}
+          >
+            {focusLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+);
+
+const getCompactProgressLabel = (
+  item,
+  rotationSummary,
+  habitDailyState = EMPTY_HABIT_DAILY_STATE,
+  isDone = false,
+  isExpired = false
+) => {
+  if (rotationSummary?.currentItem) {
+    return `${rotationMinutes(
+      rotationSummary.currentItem.progressSeconds
+    )}/${rotationMinutes(
+      rotationSummary.currentItem.targetSeconds
+    )}분`;
+  }
+
+  if (isDone) return '완료';
+  if (isExpired) return '만료';
+
+  if (item?.type === 'habit') {
+    if (!habitDailyState.scheduledToday) {
+      return '쉬는 날';
+    }
+
+    return habitDailyState.hasToday
+      ? '오늘 완료'
+      : '미기록';
+  }
+
+  return `${Number(item?.currentScore ?? 0)}/${Number(
+    item?.goalScore ?? 0
+  )}`;
+};
+
+const ChallengeCardCompactRow = memo(
+  function ChallengeCardCompactRow({
+    item,
+    pct,
+    rotationSummary,
+    habitDailyState = EMPTY_HABIT_DAILY_STATE,
+    isDone = false,
+    isExpired = false,
+    onPressToggleCollapsed,
+    onPressCard,
+    onPressClaim,
+    onPressFocus,
+  }) {
+    const progressLabel = getCompactProgressLabel(
+      item,
+      rotationSummary,
+      habitDailyState,
+      isDone,
+      isExpired
+    );
+
+    const rotation = isRotationRoutine(item);
+
+    const actionLabel = rotation
+      ? '기록'
+      : item?.type === 'habit'
+        ? '기록'
+        : isDone
+          ? '보상'
+          : isExpired
+            ? '만료'
+            : '기록';
+
+    const actionDisabled = isExpired && !isDone;
+
+    const onPressAction = () => {
+      if (rotation) {
+        onPressCard?.(item, 'continue');
+        return;
+      }
+
+      if (item?.type === 'habit') {
+        onPressCard?.({
+          ...item,
+          _upload: true,
+        });
+        return;
+      }
+
+      if (isDone) {
+        onPressClaim?.(item);
+        return;
+      }
+
+      if (!isExpired) {
+        onPressCard?.({
+          ...item,
+          _upload: true,
+        });
+      }
+    };
+
+    return (
+      <View
+        style={[
+          canonicalLayoutStyles.row,
+          styles.compactCardRow,
+        ]}
+      >
+        <Text
+          style={styles.compactCardTitle}
+          numberOfLines={1}
+        >
+          {item?.title ?? '(제목 없음)'}
+        </Text>
+
+        <Text
+          style={styles.compactProgressText}
+          numberOfLines={1}
+        >
+          {progressLabel}
+        </Text>
+
+        <View style={styles.compactSpacer} />
+
+        <TouchableOpacity
+          style={styles.compactExpandBtn}
+          onPress={onPressToggleCollapsed}
+          activeOpacity={0.85}
+          hitSlop={{
+            top: 8,
+            bottom: 8,
+            left: 8,
+            right: 8,
+          }}
+        >
+          <Text style={styles.compactExpandText}>
+            ˅
+          </Text>
+        </TouchableOpacity>
+
+        {item?.type !== 'habit' && (
+          <Text
+            style={styles.compactPctText}
+            numberOfLines={1}
+          >
+            {pct}%
+          </Text>
+        )}
+
+        <TouchableOpacity
+          style={[
+            styles.compactActionBtn,
+            actionDisabled
+              && styles.compactActionBtnDisabled,
+            isDone && styles.compactRewardBtn,
+          ]}
+          disabled={actionDisabled}
+          onPress={onPressAction}
+          activeOpacity={0.9}
+        >
+          <Text
+            style={[
+              styles.compactActionText,
+              actionDisabled
+                && styles.compactActionTextDisabled,
+              isDone
+                && styles.compactRewardText,
+            ]}
+          >
+            {actionLabel}
+          </Text>
+        </TouchableOpacity>
+
         {!isDone && !isExpired && (
           <TouchableOpacity
-            style={[styles.focusPlayButton, showControls && styles.disabledBig]}
-            disabled={!!showControls}
+            style={styles.compactFocusPlayButton}
             onPress={() => onPressFocus?.(item)}
             activeOpacity={0.9}
             accessibilityRole="button"
             accessibilityLabel="집중 타이머 시작"
           >
-            <Text style={styles.focusPlayText}>▶</Text>
+            <Text style={styles.compactFocusPlayText}>
+              ▶
+            </Text>
           </TouchableOpacity>
         )}
       </View>
     );
   }
-  if (item.type === 'habit') {
-    return (
-      <View style={styles.primaryActionRow}>
-        <TouchableOpacity
-          style={[styles.uploadNowBtn, styles.primaryActionMain, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressCard?.({ ...item, _upload: true })}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.uploadNowText}>기록하기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.focusPlayButton, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressFocus?.(item)}
-          activeOpacity={0.9}
-          accessibilityRole="button"
-          accessibilityLabel="집중 타이머 시작"
-        >
-          <Text style={styles.focusPlayText}>▶</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!isDone && !isExpired) {
-    return (
-      <View style={styles.primaryActionRow}>
-        <TouchableOpacity
-          style={[styles.uploadNowBtn, styles.primaryActionMain, isCompactVariant && styles.uploadNowBtnCompact, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressCard?.({ ...item, _upload: true })}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.uploadNowText}>기록하기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.focusPlayButton, showControls && styles.disabledBig]}
-          disabled={!!showControls}
-          onPress={() => onPressFocus?.(item)}
-          activeOpacity={0.9}
-          accessibilityRole="button"
-          accessibilityLabel="집중 타이머 시작"
-        >
-          <Text style={styles.focusPlayText}>▶</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (isDone) {
-    return (
-      <TouchableOpacity
-        style={[styles.outlineBigBtn, isCompactVariant && styles.outlineBigBtnCompact, showControls && styles.disabledBig]}
-        disabled={!!showControls}
-        onPress={() => onPressClaim?.(item)}
-        activeOpacity={1}
-      >
-        <Text style={styles.outlineBigText}>보상 받기</Text>
-      </TouchableOpacity>
-    );
-  }
-
-  if (isExpired) {
-    return (
-      <TouchableOpacity
-        style={[styles.expiredBtn, isCompactVariant && styles.expiredBtnCompact, showControls && styles.disabledBig]}
-        disabled
-        activeOpacity={1}
-      >
-        <Text style={styles.expiredBtnText}>기간 만료</Text>
-      </TouchableOpacity>
-    );
-  }
-
-  return null;
-});
-
-const getCompactProgressLabel = (item, rotationSummary, isDone = false, isExpired = false) => {
-  if (rotationSummary?.currentItem) {
-    return `${rotationMinutes(rotationSummary.currentItem.progressSeconds)}/${rotationMinutes(rotationSummary.currentItem.targetSeconds)}분`;
-  }
-  if (isDone) return '완료';
-  if (isExpired) return '만료';
-  if (item?.type === 'habit') return `${Number(item?.currentScore ?? 0)}회`;
-  return `${Number(item?.currentScore ?? 0)}/${Number(item?.goalScore ?? 0)}`;
-};
-
-const ChallengeCardCompactRow = memo(function ChallengeCardCompactRow({
-  item,
-  pct,
-  rotationSummary,
-  habitGrassColor = HABIT_GRASS_EMPTY,
-  isDone = false,
-  isExpired = false,
-  onPressToggleCollapsed,
-  onPressCard,
-  onPressClaim,
-  onPressFocus,
-}) {
-  const progressLabel = getCompactProgressLabel(item, rotationSummary, isDone, isExpired);
-  const rotation = isRotationRoutine(item);
-  const actionLabel = rotation
-    ? '기록하기'
-    : item.type === 'habit'
-    ? '기록'
-    : isDone
-    ? '보상'
-    : isExpired
-    ? '만료'
-    : '기록하기';
-
-  const actionDisabled = !rotation && item.type !== 'habit' && isExpired;
-
-  const onPressAction = () => {
-    if (rotation) {
-      onPressCard?.(item, 'continue');
-      return;
-    }
-    if (item.type === 'habit') {
-      onPressCard?.({ ...item, _upload: true });
-      return;
-    }
-    if (isDone) {
-      onPressClaim?.(item);
-      return;
-    }
-    if (!isExpired) {
-      onPressCard?.({ ...item, _upload: true });
-    }
-  };
-
-  return (
-    <View
-          style={[
-            canonicalLayoutStyles.row,
-            styles.compactCardRow,
-          ]}
-        >
-      <Text style={styles.compactCardTitle} numberOfLines={1}>
-        {item.title ?? '(제목 없음)'}
-      </Text>
-
-      <Text style={styles.compactProgressText} numberOfLines={1}>
-        {progressLabel}
-      </Text>
-
-      <View style={styles.compactSpacer} />
-
-      <TouchableOpacity
-        style={styles.compactExpandBtn}
-        onPress={onPressToggleCollapsed}
-        activeOpacity={0.85}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={styles.compactExpandText}>˅</Text>
-      </TouchableOpacity>
-
-      {item.type === 'habit' ? (
-        <View style={styles.compactHabitIndicator}>
-          <HabitTodayGrassBox color={habitGrassColor} />
-        </View>
-      ) : (
-        <Text style={styles.compactPctText} numberOfLines={1}>
-          {pct}%
-        </Text>
-      )}
-
-      <TouchableOpacity
-        style={[
-          styles.compactActionBtn,
-          actionDisabled && styles.compactActionBtnDisabled,
-          isDone && styles.compactRewardBtn,
-        ]}
-        disabled={actionDisabled}
-        onPress={onPressAction}
-        activeOpacity={0.9}
-      >
-        <Text style={[
-          styles.compactActionText,
-          actionDisabled && styles.compactActionTextDisabled,
-        ]}>
-          {actionLabel}
-        </Text>
-      </TouchableOpacity>
-      {!isDone && !isExpired && (
-        <TouchableOpacity
-          style={styles.compactFocusPlayButton}
-          onPress={() => onPressFocus?.(item)}
-          activeOpacity={0.9}
-          accessibilityRole="button"
-          accessibilityLabel="집중 타이머 시작"
-        >
-          <Text style={styles.compactFocusPlayText}>▶</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-});
+);
 
 /* ---------- 카드 UI ---------- */
 const CardBody = React.forwardRef(function CardBody({
   item,
-  habitGrassColor = HABIT_GRASS_EMPTY,
+  habitDailyState = EMPTY_HABIT_DAILY_STATE,
   variant = CHALLENGE_CARD_VARIANTS.LIST,
   collapsed = false,
   showControls,
@@ -867,45 +1050,44 @@ const CardBody = React.forwardRef(function CardBody({
   onLongPress,
   onPressToggleCollapsed,
 }, ref) {
-  const isDone = !!item._isDone;
-  const isExpired = !!item._isExpired;
-  const isFloatingVariant = variant === CHALLENGE_CARD_VARIANTS.FLOATING;
-  const isCompactVariant = (variant === CHALLENGE_CARD_VARIANTS.COMPACT || !!collapsed) && !isFloatingVariant && !showControls;
-  const rotationSummary = useMemo(() => rotationSummaryOf(item), [item]);
-  const pct = rotationSummary?.progressPct ?? Math.min(100, Math.max(0,
-    item.goalScore > 0 ? Math.round((item.currentScore / item.goalScore) * 100) : 0
-  ));
+  const flags = asDoneFlags(item);
+  const isDone = !!flags._isDone;
+  const isExpired = !!flags._isExpired;
 
-  const Content = (
-    <View style={[styles.cardContent, isDone && styles.dimmedContent, isCompactVariant && styles.cardContentCompact]}>
-      <ChallengeCardHeader
-        item={item}
-        pct={pct}
-        habitGrassColor={habitGrassColor}
-        isCompactVariant={isCompactVariant}
-        showCollapseToggle={!showControls && variant === CHALLENGE_CARD_VARIANTS.LIST}
-        onPressToggleCollapsed={onPressToggleCollapsed}
-      />
-
-      <ChallengeCardMeta
-        item={item}
-        rotationSummary={rotationSummary}
-        isCompactVariant={isCompactVariant}
-      />
-
-      <ChallengeCardReorderControls
-        item={item}
-        isExpired={isExpired}
-        isCompactVariant={isCompactVariant}
-        showControls={showControls}
-        canReorder={canReorder}
-        onPressCard={onPressCard}
-        onPressEdit={onPressEdit}
-        onPressDuplicate={onPressDuplicate}
-        onPressDelete={onPressDelete}
-      />
-    </View>
+  const isFloatingVariant = (
+    variant === CHALLENGE_CARD_VARIANTS.FLOATING
   );
+
+  const isCompactVariant = (
+    (
+      variant === CHALLENGE_CARD_VARIANTS.COMPACT
+      || !!collapsed
+    )
+    && !isFloatingVariant
+    && !showControls
+  );
+
+  const rotationSummary = useMemo(
+    () => rotationSummaryOf(item),
+    [item]
+  );
+
+  const pct = rotationSummary?.progressPct
+    ?? Math.min(
+      100,
+      Math.max(
+        0,
+        Number(item?.goalScore) > 0
+          ? Math.round(
+              (
+                Number(item?.currentScore || 0)
+                / Number(item.goalScore)
+              )
+              * 100
+            )
+          : 0
+      )
+    );
 
   if (isCompactVariant) {
     return (
@@ -924,12 +1106,13 @@ const CardBody = React.forwardRef(function CardBody({
           item={item}
           pct={pct}
           rotationSummary={rotationSummary}
-          habitGrassColor={habitGrassColor}
+          habitDailyState={habitDailyState}
           isDone={isDone}
           isExpired={isExpired}
           onPressToggleCollapsed={onPressToggleCollapsed}
           onPressCard={onPressCard}
           onPressClaim={onPressClaim}
+          onPressFocus={onPressFocus}
         />
       </TouchableOpacity>
     );
@@ -940,7 +1123,11 @@ const CardBody = React.forwardRef(function CardBody({
       ref={ref}
       activeOpacity={0.85}
       onPress={() => onPressCard?.(item)}
-      onLongPress={(!showControls && !isDone) ? onLongPress : undefined}
+      onLongPress={
+        (!showControls && !isDone)
+          ? onLongPress
+          : undefined
+      }
       delayLongPress={160}
       style={[
         canonicalCardStyles.list,
@@ -948,53 +1135,404 @@ const CardBody = React.forwardRef(function CardBody({
         showControls && styles.selectedCard,
       ]}
     >
-      {Content}
+      {showControls ? (
+        <View style={styles.managementContent}>
+          <Text style={styles.cardTypeLabel}>
+            {getCardTypeLabel(item)}
+          </Text>
 
-      <ChallengeCardPrimaryAction
-        item={item}
-        isDone={isDone}
-        isExpired={isExpired}
-        isCompactVariant={isCompactVariant}
-        showControls={showControls}
-        onPressCard={onPressCard}
-        onPressClaim={onPressClaim}
-        onPressFocus={onPressFocus}
-      />
+          <Text
+            style={styles.cardTitle}
+            numberOfLines={2}
+          >
+            {item?.title ?? '(제목 없음)'}
+          </Text>
+
+          <ChallengeCardReorderControls
+            item={item}
+            isExpired={isExpired}
+            showControls
+            canReorder={canReorder}
+            onPressCard={onPressCard}
+            onPressEdit={onPressEdit}
+            onPressDuplicate={onPressDuplicate}
+            onPressDelete={onPressDelete}
+          />
+        </View>
+      ) : (
+        <>
+          <View
+            style={[
+              styles.cardContent,
+              isDone && styles.dimmedContent,
+            ]}
+          >
+            <ChallengeCardHeader
+              item={item}
+              pct={pct}
+              rotationSummary={rotationSummary}
+              showCollapseToggle={
+                variant
+                === CHALLENGE_CARD_VARIANTS.LIST
+              }
+              onPressToggleCollapsed={
+                onPressToggleCollapsed
+              }
+            />
+
+            <ChallengeCardStatus
+              item={item}
+              pct={pct}
+              rotationSummary={rotationSummary}
+              habitDailyState={habitDailyState}
+            />
+          </View>
+
+          <ChallengeCardPrimaryAction
+            item={item}
+            isDone={isDone}
+            isExpired={isExpired}
+            rotationSummary={rotationSummary}
+            habitDailyState={habitDailyState}
+            onPressCard={onPressCard}
+            onPressClaim={onPressClaim}
+            onPressFocus={onPressFocus}
+          />
+        </>
+      )}
     </TouchableOpacity>
   );
 });
 
 /* ---------- 리스트 셀 ---------- */
-const ItemCard = memo(React.forwardRef(function ItemCard({
-  item, hidden, habitGrassColor = HABIT_GRASS_EMPTY,
-  variant = CHALLENGE_CARD_VARIANTS.LIST,
-  collapsed = false,
-  isWide = false,
-  onLongPress,
-  onPressToggleCollapsed,
-  onPressCard, onPressEdit, onPressDuplicate, onPressDelete, onPressClaim, onPressFocus,
-}, ref) {
+const ItemCard = memo(
+  React.forwardRef(function ItemCard({
+    item,
+    hidden,
+    habitDailyState = EMPTY_HABIT_DAILY_STATE,
+    variant = CHALLENGE_CARD_VARIANTS.LIST,
+    collapsed = false,
+    isWide = false,
+    onLongPress,
+    onPressToggleCollapsed,
+    onPressCard,
+    onPressEdit,
+    onPressDuplicate,
+    onPressDelete,
+    onPressClaim,
+    onPressFocus,
+  }, ref) {
+    return (
+      <View
+        style={[
+          styles.cardWrap,
+          isWide && styles.cardWrapWide,
+          hidden && { opacity: 0 },
+        ]}
+      >
+        <CardBody
+          ref={ref}
+          item={item}
+          habitDailyState={habitDailyState}
+          variant={variant}
+          collapsed={collapsed}
+          showControls={false}
+          canReorder={!asDoneFlags(item)._isDone}
+          onPressCard={onPressCard}
+          onPressEdit={onPressEdit}
+          onPressDuplicate={onPressDuplicate}
+          onPressDelete={onPressDelete}
+          onPressClaim={onPressClaim}
+          onPressFocus={onPressFocus}
+          onLongPress={onLongPress}
+          onPressToggleCollapsed={
+            onPressToggleCollapsed
+          }
+        />
+      </View>
+    );
+  })
+);
+
+/* ---------- Home Hero ---------- */
+const HomeHero = memo(function HomeHero({
+  mode,
+  item,
+  habitDailyState = EMPTY_HABIT_DAILY_STATE,
+  rotationSummary,
+  onRecord,
+  onFocus,
+  onCreate,
+}) {
+  if (mode === 'empty') {
+    return (
+      <View style={styles.homeHero}>
+        <Text style={styles.heroEyebrow}>
+          오늘의 PUSH
+        </Text>
+
+        <Text style={styles.heroTitle}>
+          새로운 PUSH를 만들어보세요
+        </Text>
+
+        <TouchableOpacity
+          style={styles.heroActionButton}
+          onPress={onCreate}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.heroActionText}>
+            ＋ 새로 만들기
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (mode === 'done') {
+    return (
+      <View style={styles.homeHero}>
+        <Text style={styles.heroEyebrow}>
+          오늘의 PUSH
+        </Text>
+
+        <Text style={styles.heroTitle}>
+          오늘 예정된 PUSH를 모두 마쳤어요
+        </Text>
+
+        <Text style={styles.heroSubMessage}>
+          다음 PUSH까지 잠시 쉬어가도 좋아요.
+        </Text>
+      </View>
+    );
+  }
+
+  if (!item) return null;
+
+  if (isRotationRoutine(item)) {
+    const current = rotationSummary?.currentItem;
+
+    if (!current) {
+      return (
+        <View style={styles.homeHero}>
+          <Text style={styles.heroEyebrow}>
+            오늘의 PUSH
+          </Text>
+
+          <Text style={styles.heroTitle}>
+            {item?.title ?? '순환루틴'}
+          </Text>
+
+          <Text style={styles.heroSubMessage}>
+            현재 실행할 활동이 없어요.
+          </Text>
+        </View>
+      );
+    }
+
+    const progressSeconds = Number(
+      current?.progressSeconds || 0
+    );
+
+    const targetSeconds = Number(
+      current?.targetSeconds || 0
+    );
+
+    const remainingSeconds = Math.max(
+      0,
+      targetSeconds - progressSeconds
+    );
+
+    return (
+      <View style={styles.homeHero}>
+        <Text style={styles.heroEyebrow}>
+          오늘의 PUSH
+        </Text>
+
+        <Text style={styles.heroKicker}>
+          지금은
+        </Text>
+
+        <Text
+          style={styles.heroTitle}
+          numberOfLines={2}
+        >
+          {current.name}
+        </Text>
+
+        <Text style={styles.heroMessage}>
+          할 차례예요
+        </Text>
+
+        <View style={styles.heroProgressRow}>
+          <Text style={styles.heroProgressValue}>
+            {rotationMinutes(progressSeconds)}
+            {' / '}
+            {rotationMinutes(targetSeconds)}분
+          </Text>
+
+          <Text style={styles.heroProgressMeta}>
+            {rotationSummary.currentCycleNumber}회차
+          </Text>
+        </View>
+
+        <CardProgressBar
+          value={rotationSummary.progressPct ?? 0}
+        />
+
+        <Text style={styles.heroSubMessage}>
+          {rotationMinutes(remainingSeconds)}분 남음
+          {' · '}
+          {item?.title ?? '순환루틴'}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.heroActionButton}
+          onPress={() => onFocus?.(item)}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={`${current.name} 시작`}
+        >
+          <Text
+            style={styles.heroActionText}
+            numberOfLines={1}
+          >
+            ▶ {current.name} 시작
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (item?.type === 'habit') {
+    const streakText = habitDailyState.streak > 0
+      ? `${habitDailyState.streak}일 연속 기록 중`
+      : '오늘부터 시작해보세요';
+
+    return (
+      <View style={styles.homeHero}>
+        <Text style={styles.heroEyebrow}>
+          오늘의 PUSH
+        </Text>
+
+        <Text
+          style={styles.heroTitle}
+          numberOfLines={2}
+        >
+          {item?.title ?? '(제목 없음)'}
+        </Text>
+
+        <Text style={styles.heroMessage}>
+          오늘 아직 기록하지 않았어요
+        </Text>
+
+        <Text style={styles.heroSubMessage}>
+          {streakText}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.heroActionButton}
+          onPress={() => onRecord?.(item)}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.heroActionText}>
+            오늘 기록하기
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const current = Math.max(
+    0,
+    Number(item?.currentScore || 0)
+  );
+
+  const goal = Number(item?.goalScore || 0);
+
+  const validGoal = Number.isFinite(goal) && goal > 0;
+
+  const pct = validGoal
+    ? clampProgress(
+        Math.round((current / goal) * 100)
+      )
+    : 0;
+
+  const remaining = validGoal
+    ? Math.max(0, goal - current)
+    : null;
+
   return (
-    <View style={[styles.cardWrap, isWide && styles.cardWrapWide, hidden && { opacity: 0 }]}>
-      <CardBody ref={ref}
-        item={item}
-        habitGrassColor={habitGrassColor}
-        variant={variant}
-        collapsed={collapsed}
-        showControls={false}
-        canReorder={!asDoneFlags(item)._isDone}
-        onPressCard={onPressCard}
-        onPressEdit={onPressEdit}
-        onPressDuplicate={onPressDuplicate}
-        onPressDelete={onPressDelete}
-        onPressClaim={onPressClaim}
-        onPressFocus={onPressFocus}
-        onLongPress={onLongPress}
-        onPressToggleCollapsed={onPressToggleCollapsed}
-      />
+    <View style={styles.homeHero}>
+      <Text style={styles.heroEyebrow}>
+        오늘의 PUSH
+      </Text>
+
+      <Text
+        style={styles.heroTitle}
+        numberOfLines={2}
+      >
+        {item?.title ?? '(제목 없음)'}
+      </Text>
+
+      <Text style={styles.heroMessage}>
+        {validGoal
+          ? `목표까지 ${remaining}회 남았어요`
+          : `현재 ${current}회 진행 중`}
+      </Text>
+
+      {validGoal && (
+        <>
+          <View style={styles.heroProgressRow}>
+            <Text style={styles.heroProgressValue}>
+              {current} / {goal}
+            </Text>
+
+            <Text style={styles.heroProgressMeta}>
+              {pct}%
+            </Text>
+          </View>
+
+          <CardProgressBar value={pct} />
+        </>
+      )}
+
+      <TouchableOpacity
+        style={styles.heroActionButton}
+        onPress={() => onRecord?.(item)}
+        activeOpacity={0.9}
+      >
+        <Text style={styles.heroActionText}>
+          기록하기
+        </Text>
+      </TouchableOpacity>
     </View>
   );
-}));
+});
+
+const ChallengeListSectionHeader = memo(
+  function ChallengeListSectionHeader({
+    sortLabel,
+    onPressSort,
+  }) {
+    return (
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionHeaderTitle}>
+          내 도전 · 습관 · 루틴
+        </Text>
+
+        <TouchableOpacity
+          style={styles.sectionSortButton}
+          onPress={onPressSort}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.sectionSortText}>
+            정렬 · {sortLabel} ▾
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+);
 
 /* ---------- 화면 ---------- */
 export default function ChallengeListScreen() {
@@ -1004,7 +1542,7 @@ export default function ChallengeListScreen() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [data, setData] = useState([]);
-  const [habitGrassColorMap, setHabitGrassColorMap] = useState({});
+  const [habitDailyStateMap, setHabitDailyStateMap] = useState({});
   const [listFrameWidth, setListFrameWidth] = useState(0);
   const [focusTarget, setFocusTarget] = useState(null);
   const [focusStarting, setFocusStarting] = useState(false);
@@ -1111,26 +1649,40 @@ export default function ChallengeListScreen() {
       console.log('[ChallengeList][load] rawIds=', (raw||[]).map(it=>safeStringId(it?.id||it?.challengeId)));
       console.log('[ChallengeList][load] arrangedIds=', arranged.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
 
-      const nextHabitGrassColorMap = {};
+      const nextHabitDailyStateMap = {};
+
       await Promise.all(
         arranged
-          .filter(c => c?.type === 'habit')
+          .filter((c) => c?.type === 'habit')
           .map(async (c) => {
             const id = safeStringId(c.id);
+
             if (!id) return;
+
             try {
-              const rawEntries = await AsyncStorage.getItem(`entries_${id}`);
+              const rawEntries = await AsyncStorage.getItem(
+                `entries_${id}`
+              );
+
               const parsedEntries = parseJson(rawEntries);
-              const entries = Array.isArray(parsedEntries) ? parsedEntries : [];
-              nextHabitGrassColorMap[id] = getHabitTodayGrassColor(entries, c);
+
+              const entries = Array.isArray(parsedEntries)
+                ? parsedEntries
+                : [];
+
+              nextHabitDailyStateMap[id] = (
+                getHabitDailyState(entries, c)
+              );
             } catch {
-              nextHabitGrassColorMap[id] = HABIT_GRASS_EMPTY;
+              nextHabitDailyStateMap[id] = {
+                ...EMPTY_HABIT_DAILY_STATE,
+              };
             }
           })
       );
 
       setData(arranged);
-      setHabitGrassColorMap(nextHabitGrassColorMap);
+      setHabitDailyStateMap(nextHabitDailyStateMap);
       try {
         await AsyncStorage.setItem(CHALLENGES_KEY, JSON.stringify(arranged));
         await writeOrderMap(newOrderMap);
@@ -1655,8 +2207,81 @@ export default function ChallengeListScreen() {
     return data;
   }, [data, sortMode]);
 
+  const activeHomeItems = useMemo(
+    () => data.filter((item) => {
+      const flags = asDoneFlags(item);
+
+      return (
+        !flags._isDone
+        && !flags._isExpired
+        && !item?.archived
+      );
+    }),
+    [data]
+  );
+
+  const heroItem = useMemo(
+    () => (
+      activeHomeItems.find((item) => {
+        if (item?.type !== 'habit') return true;
+
+        const habitState = (
+          habitDailyStateMap[safeStringId(item.id)]
+          || EMPTY_HABIT_DAILY_STATE
+        );
+
+        return (
+          habitState.scheduledToday
+          && !habitState.hasToday
+        );
+      })
+      || null
+    ),
+    [activeHomeItems, habitDailyStateMap]
+  );
+
+  const heroMode = heroItem
+    ? 'item'
+    : activeHomeItems.length > 0
+      ? 'done'
+      : 'empty';
+
+  const heroHabitDailyState = (
+    heroItem?.type === 'habit'
+      ? (
+          habitDailyStateMap[
+            safeStringId(heroItem.id)
+          ]
+          || EMPTY_HABIT_DAILY_STATE
+        )
+      : EMPTY_HABIT_DAILY_STATE
+  );
+
+  const heroRotationSummary = useMemo(
+    () => (
+      heroItem && isRotationRoutine(heroItem)
+        ? rotationSummaryOf(heroItem)
+        : null
+    ),
+    [heroItem]
+  );
+
+  const onHeroRecord = useCallback((item) => {
+    if (!item?.id) return;
+
+    navigationRef.current.navigate('Upload', {
+      challengeId: item.id,
+    });
+  }, []);
+
+  const onHeroCreate = useCallback(() => {
+    navigationRef.current.navigate(
+      'CreateChallengeType'
+    );
+  }, []);
+
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
-  const listBottomPad = (space.xxl + space.xxs) + Math.max(insets.bottom, 12);
+  const listBottomPad = space.lg;
   const foldableLayoutRefreshKey = `${Math.round(windowWidth || 0)}:${Math.round(windowHeight || 0)}`;
   const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
   const layoutWidth = listFrameWidth || windowWidth;
@@ -1720,7 +2345,10 @@ export default function ChallengeListScreen() {
         <ItemCard
           ref={(el) => { if (el) itemRefs.current[id] = el; }}
           item={item}
-          habitGrassColor={habitGrassColorMap[safeStringId(item.id)] || HABIT_GRASS_EMPTY}
+          habitDailyState={
+            habitDailyStateMap[safeStringId(item.id)]
+            || EMPTY_HABIT_DAILY_STATE
+          }
           variant={CHALLENGE_CARD_VARIANTS.LIST}
           collapsed={isCollapsed}
           isWide={isWideChallengeList}
@@ -1779,24 +2407,60 @@ export default function ChallengeListScreen() {
         />
       );
     },
-    [reorderActive, selectedId, collapsedIds, reorderPrepared, reorderExpandVisualId, reorderFloatingHeight, updateReorderExpandVisualHeight, habitGrassColorMap, goEntryList, enterReorder, onClaimReward, openFocusStart, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
+    [reorderActive, selectedId, collapsedIds, reorderPrepared, reorderExpandVisualId, reorderFloatingHeight, updateReorderExpandVisualHeight, habitDailyStateMap, goEntryList, enterReorder, onClaimReward, openFocusStart, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
   );
 
-  const renderMasonryItem = useCallback((item) => renderRow({ item }), [renderRow]);
+  const renderMasonryItem = useCallback(
+    (item) => renderRow({ item }),
+    [renderRow]
+  );
+
   const masonryLeftData = useMemo(
-    () => displayData.filter((_, index) => index % 2 === 0),
-    [displayData]
-  );
-  const masonryRightData = useMemo(
-    () => displayData.filter((_, index) => index % 2 === 1),
+    () => displayData.filter(
+      (_, index) => index % 2 === 0
+    ),
     [displayData]
   );
 
-  const selected = data.find(d => safeStringId(d.id) === safeStringId(selectedId));
+  const masonryRightData = useMemo(
+    () => displayData.filter(
+      (_, index) => index % 2 === 1
+    ),
+    [displayData]
+  );
+
+  const selected = data.find(
+    (d) => (
+      safeStringId(d.id)
+      === safeStringId(selectedId)
+    )
+  );
+
+  const homeListHeader = (
+    <>
+      <HomeHero
+        mode={heroMode}
+        item={heroItem}
+        habitDailyState={heroHabitDailyState}
+        rotationSummary={heroRotationSummary}
+        onRecord={onHeroRecord}
+        onFocus={openFocusStart}
+        onCreate={onHeroCreate}
+      />
+
+      <ChallengeListSectionHeader
+        sortLabel={
+          SORT_LABELS[sortMode]
+          || SORT_LABELS.manual
+        }
+        onPressSort={() => setShowSortModal(true)}
+      />
+    </>
+  );
 
   return (
     <SafeAreaView style={canonicalSurfaceStyles.screen}>
-      {/* 헤더 */}
+      {/* 고정 헤더 */}
       <View
         style={[
           canonicalLayoutStyles.rowBetween,
@@ -1805,120 +2469,213 @@ export default function ChallengeListScreen() {
       >
         <TouchableOpacity
           style={styles.hamburgerBtn}
-          onPress={() => navigationRef.current.navigate('Settings')}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          disabled={reorderActive}
-        >
-          <Text style={styles.hamburgerIcon}>☰</Text>
-        </TouchableOpacity>
-        <Text
-        style={[
-          canonicalTextStyles.headerTitle,
-          styles.headerTitleLayout,
-        ]}
-      >
-        THE - PUSH
-      </Text>
-        <TouchableOpacity
-          style={[buttonStyles.compactRight, styles.hofBtn]}
-          onPress={() => navigationRef.current.navigate('HallOfFameScreen')}
-          activeOpacity={0.9}
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          disabled={reorderActive}
-        >
-          <Text style={[buttonStyles.compactRightText, styles.hofBtnText]}>명예의 전당</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 정렬 버튼 행 */}
-      <TouchableOpacity
-        style={[
-          canonicalLayoutStyles.row,
-          styles.sortBarBtn,
-        ]}
-        onPress={() => setShowSortModal(true)}
-        activeOpacity={0.8}
-        disabled={reorderActive}
-      >
-        <Text style={styles.sortBarText}>
-          정렬: {SORT_LABELS[sortMode] || SORT_LABELS.manual}
-        </Text>
-        <Text style={styles.sortBarArrow}>▾</Text>
-      </TouchableOpacity>
-
-      {/* 리스트 */}
-      <View
-        style={{ flex: 1 }}
-        onLayout={(event) => setListFrameWidth(event.nativeEvent.layout.width || 0)}
-      >
-      {isWideChallengeList ? (
-        <ScrollView
-          key={`challenge-list-wide-${layoutWidthKey}`}
-          style={{ flex: 1 }}
-          scrollEnabled={!reorderActive}
-          contentContainerStyle={[styles.challengeListWideContent, { paddingBottom: listBottomPad }]}
-        >
-          {displayData.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <View style={styles.challengeListMasonryRow}>
-              <View style={styles.challengeListMasonryColumn}>
-                {masonryLeftData.map((item) => (
-                  <View key={keyExtractor(item)}>
-                    {renderMasonryItem(item)}
-                  </View>
-                ))}
-              </View>
-              <View style={styles.challengeListMasonryColumn}>
-                {masonryRightData.map((item) => (
-                  <View key={keyExtractor(item)}>
-                    {renderMasonryItem(item)}
-                  </View>
-                ))}
-              </View>
-            </View>
+          onPress={() => (
+            navigationRef.current.navigate('Settings')
           )}
-        </ScrollView>
-      ) : (
-        <FlatList
-          key={`challenge-list-normal-${layoutWidthKey}`}
-          data={displayData}
-          keyExtractor={keyExtractor}
-          renderItem={renderRow}
-          scrollEnabled={!reorderActive}
-          removeClippedSubviews={false}
-          style={{ flex: 1 }}
-          contentContainerStyle={[styles.challengeListContent, { paddingBottom: listBottomPad }]}
-          ListEmptyComponent={EmptyState}
-          initialNumToRender={12}
-          windowSize={15}
-        />
-      )}
+          activeOpacity={0.8}
+          hitSlop={{
+            top: 8,
+            bottom: 8,
+            left: 8,
+            right: 8,
+          }}
+          disabled={reorderActive}
+        >
+          <Text style={styles.hamburgerIcon}>
+            ☰
+          </Text>
+        </TouchableOpacity>
+
+        <Text
+          pointerEvents="none"
+          style={[
+            canonicalTextStyles.headerTitle,
+            styles.headerTitleLayout,
+          ]}
+        >
+          THE - PUSH
+        </Text>
+
+        <TouchableOpacity
+          style={styles.hofIconButton}
+          onPress={() => (
+            navigationRef.current.navigate(
+              'HallOfFameScreen'
+            )
+          )}
+          activeOpacity={0.8}
+          hitSlop={{
+            top: 8,
+            bottom: 8,
+            left: 8,
+            right: 8,
+          }}
+          disabled={reorderActive}
+          accessibilityRole="button"
+          accessibilityLabel="명예의 전당"
+        >
+          <Text style={styles.hofIconText}>
+            🏆
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* 내 기록실 버튼 */}
-      <TouchableOpacity
-        style={[styles.profileFloatingBtn, { bottom: Math.max(insets.bottom, 16) + EDGE }]}
-        onPress={() => navigation.navigate('ProfileInventory')}
-        activeOpacity={0.9}
-        disabled={reorderActive}
+      {/* 홈 + 카드 목록 */}
+      <View
+        style={styles.listFrame}
+        onLayout={(event) => (
+          setListFrameWidth(
+            event.nativeEvent.layout.width || 0
+          )
+        )}
       >
-        <View style={styles.profileIconWrap}>
-          <View style={styles.profileIconHead} />
-          <View style={styles.profileIconBody} />
-        </View>
-      </TouchableOpacity>
+        {isWideChallengeList ? (
+          <ScrollView
+            key={`challenge-list-wide-${layoutWidthKey}`}
+            style={styles.listFlex}
+            scrollEnabled={!reorderActive}
+            contentContainerStyle={[
+              styles.challengeListWideContent,
+              {
+                paddingBottom: listBottomPad,
+              },
+            ]}
+          >
+            <HomeHero
+              mode={heroMode}
+              item={heroItem}
+              habitDailyState={
+                heroHabitDailyState
+              }
+              rotationSummary={
+                heroRotationSummary
+              }
+              onRecord={onHeroRecord}
+              onFocus={openFocusStart}
+              onCreate={onHeroCreate}
+            />
 
-      {/* 플로팅 버튼 */}
-      <TouchableOpacity
-        style={[styles.addFloatingBtn, { bottom: Math.max(insets.bottom, 16) + EDGE }]}
-          onPress={() => navigationRef.current.navigate('CreateChallengeType')}
-        activeOpacity={0.9}
-        disabled={reorderActive}
-      >
-        <Text style={styles.addFloatingText}>+</Text>
-      </TouchableOpacity>
+            <ChallengeListSectionHeader
+              sortLabel={
+                SORT_LABELS[sortMode]
+                || SORT_LABELS.manual
+              }
+              onPressSort={() => (
+                setShowSortModal(true)
+              )}
+            />
+
+            {displayData.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <View
+                style={
+                  styles.challengeListMasonryRow
+                }
+              >
+                <View
+                  style={
+                    styles.challengeListMasonryColumn
+                  }
+                >
+                  {masonryLeftData.map(
+                    (item) => (
+                      <View
+                        key={keyExtractor(item)}
+                      >
+                        {renderMasonryItem(item)}
+                      </View>
+                    )
+                  )}
+                </View>
+
+                <View
+                  style={
+                    styles.challengeListMasonryColumn
+                  }
+                >
+                  {masonryRightData.map(
+                    (item) => (
+                      <View
+                        key={keyExtractor(item)}
+                      >
+                        {renderMasonryItem(item)}
+                      </View>
+                    )
+                  )}
+                </View>
+              </View>
+            )}
+          </ScrollView>
+        ) : (
+          <FlatList
+            key={`challenge-list-normal-${layoutWidthKey}`}
+            data={displayData}
+            keyExtractor={keyExtractor}
+            renderItem={renderRow}
+            scrollEnabled={!reorderActive}
+            removeClippedSubviews={false}
+            style={styles.listFlex}
+            contentContainerStyle={[
+              styles.challengeListContent,
+              {
+                paddingBottom: listBottomPad,
+              },
+            ]}
+            ListHeaderComponent={homeListHeader}
+            ListEmptyComponent={EmptyState}
+            initialNumToRender={12}
+            windowSize={15}
+          />
+        )}
+      </View>
+
+      {/* 고정 하단 Dock */}
+      {!reorderPrepared && !reorderActive && (
+        <View style={styles.bottomDock}>
+          <TouchableOpacity
+            style={styles.dockSecondary}
+            onPress={() => (
+              navigationRef.current.navigate(
+                'ProfileInventory'
+              )
+            )}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dockSecondaryText}>
+              기록실
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.dockSecondary}
+            onPress={() => (
+              navigationRef.current.navigate(
+                'GraphShop'
+              )
+            )}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dockSecondaryText}>
+              상점
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.dockPrimary}
+            onPress={() => (
+              navigationRef.current.navigate(
+                'CreateChallengeType'
+              )
+            )}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.dockPrimaryText}>
+              ＋ 새로 만들기
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* 정렬 중 선택 카드 복제본 */}
       {(reorderPrepared || reorderActive) && selected && floatWidth > 0 && (
@@ -1946,10 +2703,13 @@ export default function ChallengeListScreen() {
               >
                 <CardBody
                   item={selected}
-                  habitGrassColor={habitGrassColorMap[safeStringId(selected.id)] || HABIT_GRASS_EMPTY}
+                  habitDailyState={
+                    habitDailyStateMap[safeStringId(selected.id)]
+                    || EMPTY_HABIT_DAILY_STATE
+                  }
                   variant={CHALLENGE_CARD_VARIANTS.FLOATING}
                   collapsed={false}
-                  showControls={false}
+                  showControls
                   canReorder={!asDoneFlags(selected)._isDone}
                   onPressCard={() => {}}
                   onPressEdit={() => {}}
@@ -1963,6 +2723,10 @@ export default function ChallengeListScreen() {
 
           <CardBody
             item={selected}
+            habitDailyState={
+              habitDailyStateMap[safeStringId(selected.id)]
+              || EMPTY_HABIT_DAILY_STATE
+            }
             variant={CHALLENGE_CARD_VARIANTS.FLOATING}
             showControls={reorderActive && reorderFloatingControlsVisible}
             canReorder={!asDoneFlags(selected)._isDone}
@@ -2044,19 +2808,281 @@ export default function ChallengeListScreen() {
 
 /* ---------- 스타일 ---------- */
 const styles = StyleSheet.create({
-  sortBarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.md,
-    paddingVertical: 6,
+  listFlex: {
+    flex: 1,
+  },
+
+  listFrame: {
+    flex: 1,
+  },
+
+  /* Home Hero */
+  homeHero: {
+    paddingTop: space.xl,
+    paddingBottom: space.xxl,
+  },
+
+  heroEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: color.textSecondary,
+    marginBottom: space.md,
+  },
+
+  heroKicker: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: color.textSecondary,
     marginBottom: 4,
   },
-  sortBarText: {
-    fontSize: font.size.meta,
-    color: color.textSecondary,
-    fontWeight: font.weight.bold,
+
+  heroTitle: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+    color: color.textPrimary,
+    letterSpacing: -0.5,
   },
-  sortBarArrow: { fontSize: 10, color: color.textDisabled, marginLeft: 4 },
+
+  heroMessage: {
+    marginTop: space.xs,
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: '800',
+    color: color.textPrimary,
+  },
+
+  heroSubMessage: {
+    marginTop: space.xs,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+    color: color.textSecondary,
+  },
+
+  heroProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: space.lg,
+    marginBottom: space.xs,
+  },
+
+  heroProgressValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: color.textPrimary,
+  },
+
+  heroProgressMeta: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: color.textSecondary,
+  },
+
+  heroActionButton: {
+    minHeight: 50,
+    marginTop: space.lg,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: color.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  heroActionText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: color.textInverse,
+  },
+
+  /* 목록 Section Header */
+  sectionHeaderRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: space.xxs,
+  },
+
+  sectionHeaderTitle: {
+    flexShrink: 1,
+    fontSize: 17,
+    fontWeight: '900',
+    color: color.textPrimary,
+  },
+
+  sectionSortButton: {
+    marginLeft: space.sm,
+    paddingVertical: 8,
+    paddingLeft: space.sm,
+  },
+
+  sectionSortText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: color.textSecondary,
+  },
+
+  /* 새 카드 정보계층 */
+  cardTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  cardTypeLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: color.textSecondary,
+  },
+
+  cardMetric: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: color.textPrimary,
+  },
+
+  cardTitle: {
+    marginTop: 5,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '900',
+    color: color.textPrimary,
+    letterSpacing: -0.2,
+  },
+
+  cardStatusWrap: {
+    marginTop: space.md,
+  },
+
+  statusPrimary: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+    color: color.textPrimary,
+  },
+
+  statusSecondary: {
+    marginTop: 5,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: color.textSecondary,
+  },
+
+  rewardText: {
+    marginTop: space.xs,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: color.textSecondary,
+  },
+
+  progressTrack: {
+    width: '100%',
+    height: 7,
+    marginTop: space.xs,
+    borderRadius: 999,
+    backgroundColor: color.surfaceMuted,
+    overflow: 'hidden',
+  },
+
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: color.primary,
+  },
+
+  habitWeekRow: {
+    flexDirection: 'row',
+    columnGap: 5,
+    marginTop: space.sm,
+  },
+
+  habitDayCell: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: color.border,
+    backgroundColor: color.surfaceMuted,
+  },
+
+  habitDayCellDone: {
+    borderColor: color.primary,
+    backgroundColor: color.primary,
+  },
+
+  managementContent: {
+    minHeight: 112,
+    justifyContent: 'space-between',
+  },
+
+  controlDisabled: {
+    opacity: 0.35,
+  },
+
+  compactRewardText: {
+    color: color.textPrimary,
+  },
+
+  /* 고정 하단 Dock */
+  bottomDock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: space.xs,
+    paddingHorizontal: space.md,
+    paddingTop: space.xs,
+    paddingBottom: space.xs,
+    borderTopWidth: 1,
+    borderTopColor: color.border,
+    backgroundColor: color.background,
+  },
+
+  dockSecondary: {
+    flex: 0.52,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+  },
+
+  dockSecondaryText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: color.textPrimary,
+  },
+
+  dockPrimary: {
+    flex: 1,
+    minHeight: 46,
+    paddingHorizontal: space.md,
+    borderRadius: radius.lg,
+    backgroundColor: color.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  dockPrimaryText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: color.textInverse,
+  },
+
+  hofIconButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+
+  hofIconText: {
+    fontSize: 20,
+    includeFontPadding: false,
+  },
+
   sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: color.overlay },
   sortModalCard: {
     position: 'absolute',
@@ -2094,11 +3120,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    zIndex: -1,
+    zIndex: 0,
+    textAlign: 'center',
   },
-  headerRight: { position: 'absolute', right: space.md, top: '50%', transform: [{ translateY: -12 }] },
-  hofBtn: { paddingVertical: 4, paddingHorizontal: 10 },
-  hofBtnText: { fontSize: 13, fontWeight: '700' },
 
   /* 카드 */
   cardWrap: { marginTop: space.sm },
@@ -2182,11 +3206,6 @@ const styles = StyleSheet.create({
     color: color.textPrimary,
     marginLeft: 4,
   },
-  compactHabitIndicator: {
-    marginLeft: 4,
-    width: 38,
-    alignItems: 'center',
-  },
   compactActionBtn: {
     height: 30,
     width: 52,
@@ -2226,58 +3245,49 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   compactFocusPlayText: { color: color.textInverse, fontSize: 13, marginLeft: 1 },
-  titleCompact: {
-    fontSize: 14,
-  },
-  metaWrapCompact: {
-    marginTop: 4,
-  },
-  controlsRowCompact: {
-    marginTop: (space.xxs + 2),
-    minHeight: 0,
-  },
-  uploadNowBtnCompact: {
-    height: 40,
-    borderRadius: 12,
-  },
-  outlineBigBtnCompact: {
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  expiredBtnCompact: {
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
   cardContent: { },
   dimmedContent: { opacity: 0.55 },
 
-  pctCircleWrap: { alignItems:'center', justifyContent:'center', position:'relative', width:26, height:26 },
-  pctCircleLabel: { position:'absolute', fontSize:6, fontWeight:'800', color: color.textPrimary, textAlign:'center', includeFontPadding:false },
 
   uploadNowBtn: {
-    marginTop: 10, height: 48, borderRadius: radius.lg,
-    backgroundColor: color.primary, alignItems:'center', justifyContent:'center',
-  },
-  primaryActionRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, marginTop: 10 },
-  primaryActionMain: { flex: 1, marginTop: 0 },
-  focusPlayButton: {
-    width: 48,
-    height: 48,
+    height: 46,
     borderRadius: radius.lg,
     backgroundColor: color.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  focusPlayText: { color: color.textInverse, fontSize: 17, marginLeft: 2 },
-  uploadNowText: { fontSize:16, fontWeight:'800', color: color.textInverse },
+  primaryActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: space.xs,
+    marginTop: space.md,
+  },
+  primaryActionMain: {
+    flex: 1,
+  },
+  focusPlayButton: {
+    flex: 1,
+    height: 46,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: color.primary,
+    backgroundColor: color.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusPlayText: {
+    color: color.textPrimary,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  uploadNowText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: color.textInverse,
+  },
 
   selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },
-  titleFlex: {
-    flex: 1,
-    marginRight: 8,
-  },
-  metaWrap: { marginTop: 6 },
-  meta: { marginTop: 2 },
 
   controlsRow: {
     marginTop: space.xs,
@@ -2305,9 +3315,6 @@ const styles = StyleSheet.create({
   },
   actionDarkText: { color: color.background, fontSize: 12, fontWeight: '800' },
 
-  bigActionBtn: { marginTop: space.xs, alignSelf: 'stretch', paddingVertical: 14, borderRadius: radius.lg },
-  bigActionText: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
-  disabledBig: { opacity: 0.5 },
 
   outlineBigBtn: {
     backgroundColor: color.background,
@@ -2323,55 +3330,21 @@ const styles = StyleSheet.create({
   expiredBtnText: { color: primitive.black, fontSize: 16, fontWeight: '800', textAlign: 'center' },
 
   /* 빈 상태 */
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
+  emptyWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space.xxl,
+  },
   emptyText: { fontSize: 14, color: color.textDisabled },
 
-  /* 플로팅 버튼들 */
-  addFloatingWrap: { position: 'absolute', right: space.md },
-  addFab: {
-    width: 50, height: 50, borderRadius: 25,
-    backgroundColor: primitive.black,
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 6, shadowColor: primitive.black, shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
+  hamburgerBtn: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
   },
-  addFabPlus: { color: color.background, fontSize: 25, fontWeight: '900', lineHeight: 28, includeFontPadding: false },
-
-  hamburgerBtn: { paddingHorizontal: 4, paddingVertical: 4 },
   hamburgerIcon: { fontSize: 22, color: color.textPrimary, fontWeight: '400' },
-
-  profileFloatingBtn: {
-    position: 'absolute', left: 12,
-    backgroundColor: color.primary, borderRadius: radius.md,
-    width: 52, height: 42,
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 3,
-  },
-  profileIconWrap: {
-    width: 22, height: 22,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  profileIconHead: {
-    width: 8, height: 8,
-    borderRadius: radius.xs,
-    backgroundColor: color.textInverse,
-    marginBottom: 2,
-  },
-  profileIconBody: {
-    width: 17, height: 10,
-    borderTopLeftRadius: radius.sm,
-    borderTopRightRadius: radius.sm,
-    borderBottomLeftRadius: radius.xs,
-    borderBottomRightRadius: radius.xs,
-    backgroundColor: color.textInverse,
-  },
-  addFloatingBtn: {
-    position: 'absolute', right: 12,
-    backgroundColor: color.primary, borderRadius: radius.lg,
-    width: 52, height: 42,
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 3,
-  },
-  addFloatingText: { color: color.textInverse, fontWeight: '800', fontSize: 25, lineHeight: 27, includeFontPadding: false },
 
   /* 정렬 스크림 */
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: color.overlayStrong, zIndex: 2 },

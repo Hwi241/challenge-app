@@ -13,7 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
@@ -44,6 +44,7 @@ import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import { buildResponsiveDashboardLayout } from '../utils/dashboardAutoLayout';
+import MainDock from '../components/MainDock';
 
 const CHALLENGES_KEY = 'challenges';
 const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
@@ -1073,7 +1074,6 @@ const RecordRoomEditIcon = () => (
 
 export default function ProfileInventoryScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [recordRoomFrameWidth, setRecordRoomFrameWidth] = useState(0);
   const recordRoomLayoutWidth = recordRoomFrameWidth || windowWidth;
@@ -1539,7 +1539,7 @@ export default function ProfileInventoryScreen() {
         contentContainerStyle={[
           canonicalLayoutStyles.screenContent,
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+          { paddingBottom: space.lg },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -1639,15 +1639,7 @@ export default function ProfileInventoryScreen() {
  </View>
       </ScrollView>
 
-      <TouchableOpacity
-        style={[buttonStyles.smallPrimary.container, styles.shopFloatingBtn, { bottom: Math.max(insets.bottom, 16) + CARD_GAP }]}
-        onPress={() => navigation.navigate('GraphShop')}
-        activeOpacity={0.9}
-        accessibilityRole="button"
-        accessibilityLabel="상점 열기"
-      >
-        <Text style={[buttonStyles.smallPrimary.label, styles.shopFloatingText]}>상점</Text>
-      </TouchableOpacity>
+      <MainDock active="record" />
 
       <Modal visible={memoVisible} transparent animationType="fade" onRequestClose={closeMemoModal}>
         <TouchableWithoutFeedback onPress={closeMemoModal}>
@@ -1775,22 +1767,6 @@ const styles = StyleSheet.create({
   },
   starIcon: { color: color.textInverse, fontSize: 15, fontWeight: '900' },
   starText: { color: color.textInverse, fontSize: 16, fontWeight: '900' },
-  shopFloatingBtn: {
-    position: 'absolute',
-    right: 12,
-    backgroundColor: color.primary,
-    borderRadius: 14,
-    width: 52,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-  },
-  shopFloatingText: {
-    fontSize: 13,
-    fontWeight: '900',
-    includeFontPadding: false,
-  },
   recordRoomInternalTitle: {
     flex: 1,
     fontWeight: font.weight.heavy,

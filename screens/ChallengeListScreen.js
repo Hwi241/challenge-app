@@ -1,11 +1,17 @@
 // screens/ChallengeListScreen.js
 import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
-import { AppState, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, ScrollView, UIManager, LayoutAnimation, Animated, Easing, Modal, useWindowDimensions } from 'react-native';
+import { AppState, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, BackHandler, Platform, FlatList, ScrollView, UIManager, LayoutAnimation, Animated, Modal, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
-import { SafeAreaView,  useSafeAreaInsets  } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
+import {
+  Gesture,
+  GestureDetector,
+} from 'react-native-gesture-handler';
 
 import {
+  buttonStyles,
   card as canonicalCardStyles,
   color,
   font,
@@ -24,6 +30,7 @@ import { loadRotationRoutine } from '../utils/rotationRoutineStore';
 import { moveToTrash } from '../utils/trash';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import FocusSessionStartModal from '../components/FocusSessionStartModal';
+import MainDock from '../components/MainDock';
 import { loadActiveFocusSession, startFocusSession } from '../utils/focusSessionStore';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -31,31 +38,32 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 /* ---------- 상수 ---------- */
-const CARD_BORDER = color.border;
-const ARROW_SIZE = 40;
-const ARROW_GAP = 12;
-const CONTROLS_H = 44;
 const CARD_COLLAPSE_ANIM_MS = 320;
-const CARD_REORDER_EXPAND_ANIM_MS = 180;
-const CARD_REORDER_CONTROLS_DELAY_MS = 0;
 
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
 const COLLAPSED_CARDS_KEY = 'ch_collapsed_cards';
+const TODAY_PUSH_KEY = 'ch_today_push_id';
+
+const MANAGE_ROW_HEIGHT = 64;
+const MANAGE_ROW_GAP = 8;
+const MANAGE_ROW_STEP = (
+  MANAGE_ROW_HEIGHT + MANAGE_ROW_GAP
+);
+
+const HERO_RING_SIZE = 108;
+const HERO_RING_STROKE = 8;
+const HERO_RING_RADIUS = 43;
+const HERO_RING_CENTER = HERO_RING_SIZE / 2;
+const HERO_RING_CIRCUMFERENCE = (
+  2 * Math.PI * HERO_RING_RADIUS
+);
 
 const CHALLENGE_CARD_VARIANTS = {
   LIST: 'list',
-  FLOATING: 'floating',
   COMPACT: 'compact',
 };
 
-const SORT_LABELS = {
-  manual: '사용자 지정',
-  newest: '최신순',
-  oldest: '오래된순',
-  habitFirst: '습관/도전',
-  challengeFirst: '도전/습관',
-};
 const FILTER_SORT_MODES = new Set();
 const isFilterSortMode = (mode) => FILTER_SORT_MODES.has(mode);
 
@@ -153,6 +161,16 @@ function asDoneFlags(c) {
   }
   return { _isDone: !!done, _completedAt: c?.completedAt ?? 0, _isExpired: isExpired };
 }
+
+const isCurrentCard = (item) => {
+  const flags = asDoneFlags(item);
+
+  return (
+    !flags._isDone
+    && !flags._isExpired
+    && !item?.archived
+  );
+};
 
 const keyOfDate = (d) => {
   const x = new Date(d);
@@ -433,6 +451,77 @@ const CardProgressBar = memo(function CardProgressBar({
   );
 });
 
+const HeroProgressRing = memo(function HeroProgressRing({
+  value = null,
+  mainText,
+  subText,
+}) {
+  const hasProgress = Number.isFinite(Number(value));
+  const pct = hasProgress
+    ? clampProgress(Number(value))
+    : 0;
+
+  const dashOffset = (
+    HERO_RING_CIRCUMFERENCE
+    * (1 - pct / 100)
+  );
+
+  return (
+    <View style={styles.heroRingWrap}>
+      <Svg
+        width={HERO_RING_SIZE}
+        height={HERO_RING_SIZE}
+        viewBox={`0 0 ${HERO_RING_SIZE} ${HERO_RING_SIZE}`}
+      >
+        <Circle
+          cx={HERO_RING_CENTER}
+          cy={HERO_RING_CENTER}
+          r={HERO_RING_RADIUS}
+          fill="none"
+          stroke={color.border}
+          strokeWidth={HERO_RING_STROKE}
+        />
+
+        {hasProgress && (
+          <Circle
+            cx={HERO_RING_CENTER}
+            cy={HERO_RING_CENTER}
+            r={HERO_RING_RADIUS}
+            fill="none"
+            stroke={color.primary}
+            strokeWidth={HERO_RING_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={
+              HERO_RING_CIRCUMFERENCE
+            }
+            strokeDashoffset={dashOffset}
+            rotation="-90"
+            origin={`${HERO_RING_CENTER},${HERO_RING_CENTER}`}
+          />
+        )}
+      </Svg>
+
+      <View style={styles.heroRingTextLayer}>
+        <Text
+          style={styles.heroRingMainText}
+          numberOfLines={1}
+        >
+          {mainText}
+        </Text>
+
+        {!!subText && (
+          <Text
+            style={styles.heroRingSubText}
+            numberOfLines={1}
+          >
+            {subText}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+});
+
 const HabitWeekStrip = memo(function HabitWeekStrip({
   last7 = EMPTY_HABIT_DAILY_STATE.last7,
 }) {
@@ -461,8 +550,6 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
   item,
   pct,
   rotationSummary,
-  showCollapseToggle = false,
-  onPressToggleCollapsed,
 }) {
   const metric = rotationSummary
     ? `${rotationSummary.currentCycleNumber}회차`
@@ -477,31 +564,11 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
           {getCardTypeLabel(item)}
         </Text>
 
-        <View style={canonicalLayoutStyles.row}>
-          {!!metric && (
-            <Text style={styles.cardMetric}>
-              {metric}
-            </Text>
-          )}
-
-          {showCollapseToggle && (
-            <TouchableOpacity
-              style={styles.cardCollapseToggleBtn}
-              onPress={onPressToggleCollapsed}
-              activeOpacity={0.85}
-              hitSlop={{
-                top: 8,
-                bottom: 8,
-                left: 8,
-                right: 8,
-              }}
-            >
-              <Text style={styles.cardCollapseToggleText}>
-                ˄
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        {!!metric && (
+          <Text style={styles.cardMetric}>
+            {metric}
+          </Text>
+        )}
       </View>
 
       <Text
@@ -511,6 +578,44 @@ const ChallengeCardHeader = memo(function ChallengeCardHeader({
         {item?.title ?? '(제목 없음)'}
       </Text>
     </>
+  );
+});
+
+const CardFoldHandle = memo(function CardFoldHandle({
+  collapsed = false,
+  onPress,
+}) {
+  const glyph = collapsed ? '⌄' : '⌃';
+
+  return (
+    <TouchableOpacity
+      style={styles.cardFoldHandle}
+      onPress={onPress}
+      activeOpacity={0.7}
+      hitSlop={{
+        top: 6,
+        bottom: 6,
+        left: 16,
+        right: 16,
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={
+        collapsed ? '카드 펼치기' : '카드 접기'
+      }
+    >
+      <Text style={styles.cardFoldChevron}>
+        {glyph}
+      </Text>
+
+      <Text
+        style={[
+          styles.cardFoldChevron,
+          styles.cardFoldChevronSecond,
+        ]}
+      >
+        {glyph}
+      </Text>
+    </TouchableOpacity>
   );
 });
 
@@ -532,33 +637,49 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
       current?.targetSeconds || 0
     );
 
-    const remainingSeconds = Math.max(
-      0,
-      targetSeconds - progressSeconds
-    );
-
     return (
-      <View style={styles.cardStatusWrap}>
-        <Text style={styles.statusPrimary}>
-          지금 할 일 · {current?.name ?? '-'}
-        </Text>
+      <View style={styles.cardInfoPanel}>
+        <View style={styles.cardInfoMainRow}>
+          <View style={styles.cardInfoMainText}>
+            <Text style={styles.cardInfoLabel}>
+              현재
+            </Text>
+
+            <Text
+              style={styles.cardInfoValue}
+              numberOfLines={1}
+            >
+              {current?.name ?? '-'}
+            </Text>
+          </View>
+
+          <Text style={styles.cardInfoMetric}>
+            {rotationMinutes(progressSeconds)}
+            {' / '}
+            {rotationMinutes(targetSeconds)}분
+          </Text>
+        </View>
 
         <CardProgressBar
           value={rotationSummary.progressPct ?? 0}
         />
 
-        <Text style={styles.statusSecondary}>
-          {rotationMinutes(progressSeconds)}
-          {' / '}
-          {rotationMinutes(targetSeconds)}분
-          {remainingSeconds > 0
-            ? ` · ${rotationMinutes(remainingSeconds)}분 남음`
-            : ''}
-        </Text>
+        <View style={styles.cardInfoFooterRow}>
+          <Text style={styles.cardInfoSecondary}>
+            {rotationSummary.currentCycleNumber}회차 진행{' '}
+            {rotationSummary.progressPct ?? 0}%
+          </Text>
 
-        <Text style={styles.statusSecondary}>
-          다음 · {next?.name ?? '이번 회전 완료'}
-        </Text>
+          <Text
+            style={[
+              styles.cardInfoSecondary,
+              styles.cardInfoSecondaryRight,
+            ]}
+            numberOfLines={1}
+          >
+            다음 · {next?.name ?? '이번 회전 완료'}
+          </Text>
+        </View>
       </View>
     );
   }
@@ -579,19 +700,27 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
 
     const streakMessage = streak > 0
       ? `${streak}일 연속`
-      : '연속 기록을 시작해보세요';
+      : '연속 기록 없음';
 
     return (
-      <View style={styles.cardStatusWrap}>
-        <Text style={styles.statusPrimary}>
-          {todayMessage}
-        </Text>
+      <View style={styles.cardInfoPanel}>
+        <View style={styles.cardInfoMainRow}>
+          <Text
+            style={[
+              styles.cardInfoValue,
+              styles.cardInfoValueFlexible,
+            ]}
+            numberOfLines={1}
+          >
+            {todayMessage}
+          </Text>
+
+          <Text style={styles.cardInfoMetric}>
+            {streakMessage}
+          </Text>
+        </View>
 
         <HabitWeekStrip last7={last7} />
-
-        <Text style={styles.statusSecondary}>
-          {streakMessage}
-        </Text>
       </View>
     );
   }
@@ -603,23 +732,33 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
 
   const goal = Number(item?.goalScore || 0);
 
-  const hasGoal = Number.isFinite(goal) && goal > 0;
+  const hasGoal = (
+    Number.isFinite(goal) && goal > 0
+  );
 
   const remaining = hasGoal
     ? Math.max(0, goal - current)
     : null;
 
   return (
-    <View style={styles.cardStatusWrap}>
+    <View style={styles.cardInfoPanel}>
       {hasGoal && (
         <CardProgressBar value={pct} />
       )}
 
-      <Text style={styles.statusPrimary}>
-        {hasGoal
-          ? `${current}회 완료 · ${remaining}회 남음`
-          : `현재 ${current}회`}
-      </Text>
+      <View style={styles.cardInfoFooterRow}>
+        <Text style={styles.cardInfoValue}>
+          {hasGoal
+            ? `${current}회 완료`
+            : `현재 ${current}회`}
+        </Text>
+
+        {hasGoal && (
+          <Text style={styles.cardInfoMetric}>
+            {remaining}회 남음
+          </Text>
+        )}
+      </View>
 
       {!!(item?.rewardTitle || item?.reward) && (
         <Text
@@ -632,120 +771,6 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
     </View>
   );
 });
-
-const ChallengeCardReorderControls = memo(
-  function ChallengeCardReorderControls({
-    item,
-    isExpired = false,
-    showControls,
-    canReorder,
-    onPressCard,
-    onPressEdit,
-    onPressDuplicate,
-    onPressDelete,
-  }) {
-    if (!showControls) return null;
-
-    return (
-      <View
-        style={[
-          canonicalLayoutStyles.rowBetween,
-          styles.controlsRow,
-        ]}
-      >
-        <View
-          style={[
-            canonicalLayoutStyles.row,
-            styles.arrowsInline,
-          ]}
-        >
-          <TouchableOpacity
-            onPress={
-              canReorder
-                ? () => onPressCard?.({
-                    ...item,
-                    __move: 'up',
-                  })
-                : undefined
-            }
-            disabled={!canReorder}
-            activeOpacity={0.9}
-            style={[
-              styles.circleArrowSmall,
-              !canReorder && styles.controlDisabled,
-            ]}
-          >
-            <Text style={styles.circleArrowTxt}>
-              ↑
-            </Text>
-          </TouchableOpacity>
-
-          <View style={{ width: ARROW_GAP }} />
-
-          <TouchableOpacity
-            onPress={
-              canReorder
-                ? () => onPressCard?.({
-                    ...item,
-                    __move: 'down',
-                  })
-                : undefined
-            }
-            disabled={!canReorder}
-            activeOpacity={0.9}
-            style={[
-              styles.circleArrowSmall,
-              !canReorder && styles.controlDisabled,
-            ]}
-          >
-            <Text style={styles.circleArrowTxt}>
-              ↓
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View
-          style={[
-            canonicalLayoutStyles.row,
-            styles.actionsRight,
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.actionDarkBtn}
-            onPress={() => onPressEdit?.(item)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.actionDarkText}>
-              수정
-            </Text>
-          </TouchableOpacity>
-
-          {!isExpired && !isRotationRoutine(item) && (
-            <TouchableOpacity
-              style={styles.actionDarkBtn}
-              onPress={() => onPressDuplicate?.(item)}
-              activeOpacity={0.9}
-            >
-              <Text style={styles.actionDarkText}>
-                복제
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.actionDarkBtn}
-            onPress={() => onPressDelete?.(item)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.actionDarkText}>
-              삭제
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-);
 
 const ChallengeCardPrimaryAction = memo(
   function ChallengeCardPrimaryAction({
@@ -796,10 +821,6 @@ const ChallengeCardPrimaryAction = memo(
       ? '오늘 기록'
       : '기록하기';
 
-    const focusLabel = rotation
-      ? `▶ ${rotationSummary?.currentItem?.name ?? '시작'} 시작`
-      : '▶ 집중 시작';
-
     return (
       <View style={styles.primaryActionRow}>
         <TouchableOpacity
@@ -830,17 +851,10 @@ const ChallengeCardPrimaryAction = memo(
           onPress={() => onPressFocus?.(item)}
           activeOpacity={0.9}
           accessibilityRole="button"
-          accessibilityLabel={
-            rotation
-              ? `${rotationSummary?.currentItem?.name ?? '현재 활동'} 집중 타이머 시작`
-              : '집중 타이머 시작'
-          }
+          accessibilityLabel="타이머 시작"
         >
-          <Text
-            style={styles.focusPlayText}
-            numberOfLines={1}
-          >
-            {focusLabel}
+          <Text style={styles.focusPlayText}>
+            타이머 시작
           </Text>
         </TouchableOpacity>
       </View>
@@ -850,35 +864,33 @@ const ChallengeCardPrimaryAction = memo(
 
 const getCompactProgressLabel = (
   item,
+  pct,
   rotationSummary,
   habitDailyState = EMPTY_HABIT_DAILY_STATE,
   isDone = false,
   isExpired = false
 ) => {
-  if (rotationSummary?.currentItem) {
-    return `${rotationMinutes(
-      rotationSummary.currentItem.progressSeconds
-    )}/${rotationMinutes(
-      rotationSummary.currentItem.targetSeconds
-    )}분`;
-  }
-
   if (isDone) return '완료';
   if (isExpired) return '만료';
 
+  if (rotationSummary) {
+    return (
+      `${rotationSummary.currentCycleNumber}회차 · `
+      + `${rotationSummary.progressPct ?? 0}%`
+    );
+  }
+
   if (item?.type === 'habit') {
     if (!habitDailyState.scheduledToday) {
-      return '쉬는 날';
+      return '오늘 쉬는 날';
     }
 
     return habitDailyState.hasToday
       ? '오늘 완료'
-      : '미기록';
+      : '오늘 미기록';
   }
 
-  return `${Number(item?.currentScore ?? 0)}/${Number(
-    item?.goalScore ?? 0
-  )}`;
+  return `${pct}%`;
 };
 
 const ChallengeCardCompactRow = memo(
@@ -890,144 +902,44 @@ const ChallengeCardCompactRow = memo(
     isDone = false,
     isExpired = false,
     onPressToggleCollapsed,
-    onPressCard,
-    onPressClaim,
-    onPressFocus,
   }) {
     const progressLabel = getCompactProgressLabel(
       item,
+      pct,
       rotationSummary,
       habitDailyState,
       isDone,
       isExpired
     );
 
-    const rotation = isRotationRoutine(item);
-
-    const actionLabel = rotation
-      ? '기록'
-      : item?.type === 'habit'
-        ? '기록'
-        : isDone
-          ? '보상'
-          : isExpired
-            ? '만료'
-            : '기록';
-
-    const actionDisabled = isExpired && !isDone;
-
-    const onPressAction = () => {
-      if (rotation) {
-        onPressCard?.(item, 'continue');
-        return;
-      }
-
-      if (item?.type === 'habit') {
-        onPressCard?.({
-          ...item,
-          _upload: true,
-        });
-        return;
-      }
-
-      if (isDone) {
-        onPressClaim?.(item);
-        return;
-      }
-
-      if (!isExpired) {
-        onPressCard?.({
-          ...item,
-          _upload: true,
-        });
-      }
-    };
-
     return (
-      <View
-        style={[
-          canonicalLayoutStyles.row,
-          styles.compactCardRow,
-        ]}
-      >
-        <Text
-          style={styles.compactCardTitle}
-          numberOfLines={1}
-        >
-          {item?.title ?? '(제목 없음)'}
-        </Text>
+      <View style={styles.compactCardContent}>
+        <View style={styles.compactCardMainRow}>
+          <View style={styles.compactCardIdentity}>
+            <Text style={styles.compactCardType}>
+              {getCardTypeLabel(item)}
+            </Text>
 
-        <Text
-          style={styles.compactProgressText}
-          numberOfLines={1}
-        >
-          {progressLabel}
-        </Text>
+            <Text
+              style={styles.compactCardTitle}
+              numberOfLines={1}
+            >
+              {item?.title ?? '(제목 없음)'}
+            </Text>
+          </View>
 
-        <View style={styles.compactSpacer} />
-
-        <TouchableOpacity
-          style={styles.compactExpandBtn}
-          onPress={onPressToggleCollapsed}
-          activeOpacity={0.85}
-          hitSlop={{
-            top: 8,
-            bottom: 8,
-            left: 8,
-            right: 8,
-          }}
-        >
-          <Text style={styles.compactExpandText}>
-            ˅
-          </Text>
-        </TouchableOpacity>
-
-        {item?.type !== 'habit' && (
           <Text
-            style={styles.compactPctText}
+            style={styles.compactProgressText}
             numberOfLines={1}
           >
-            {pct}%
+            {progressLabel}
           </Text>
-        )}
+        </View>
 
-        <TouchableOpacity
-          style={[
-            styles.compactActionBtn,
-            actionDisabled
-              && styles.compactActionBtnDisabled,
-            isDone && styles.compactRewardBtn,
-          ]}
-          disabled={actionDisabled}
-          onPress={onPressAction}
-          activeOpacity={0.9}
-        >
-          <Text
-            style={[
-              styles.compactActionText,
-              actionDisabled
-                && styles.compactActionTextDisabled,
-              isDone
-                && styles.compactRewardText,
-            ]}
-          >
-            {actionLabel}
-          </Text>
-        </TouchableOpacity>
-
-        {!isDone && !isExpired && (
-          <TouchableOpacity
-            style={styles.compactFocusPlayButton}
-            onPress={() => onPressFocus?.(item)}
-            activeOpacity={0.9}
-            accessibilityRole="button"
-            accessibilityLabel="집중 타이머 시작"
-          >
-            <Text style={styles.compactFocusPlayText}>
-              ▶
-            </Text>
-          </TouchableOpacity>
-        )}
+        <CardFoldHandle
+          collapsed
+          onPress={onPressToggleCollapsed}
+        />
       </View>
     );
   }
@@ -1039,32 +951,18 @@ const CardBody = React.forwardRef(function CardBody({
   habitDailyState = EMPTY_HABIT_DAILY_STATE,
   variant = CHALLENGE_CARD_VARIANTS.LIST,
   collapsed = false,
-  showControls,
-  canReorder,
   onPressCard,
-  onPressEdit,
-  onPressDuplicate,
-  onPressDelete,
   onPressClaim,
   onPressFocus,
-  onLongPress,
   onPressToggleCollapsed,
 }, ref) {
   const flags = asDoneFlags(item);
   const isDone = !!flags._isDone;
   const isExpired = !!flags._isExpired;
 
-  const isFloatingVariant = (
-    variant === CHALLENGE_CARD_VARIANTS.FLOATING
-  );
-
   const isCompactVariant = (
-    (
-      variant === CHALLENGE_CARD_VARIANTS.COMPACT
-      || !!collapsed
-    )
-    && !isFloatingVariant
-    && !showControls
+    variant === CHALLENGE_CARD_VARIANTS.COMPACT
+    || !!collapsed
   );
 
   const rotationSummary = useMemo(
@@ -1095,8 +993,6 @@ const CardBody = React.forwardRef(function CardBody({
         ref={ref}
         activeOpacity={0.85}
         onPress={() => onPressCard?.(item)}
-        onLongPress={!isDone ? onLongPress : undefined}
-        delayLongPress={160}
         style={[
           canonicalCardStyles.list,
           styles.cardCompact,
@@ -1110,9 +1006,6 @@ const CardBody = React.forwardRef(function CardBody({
           isDone={isDone}
           isExpired={isExpired}
           onPressToggleCollapsed={onPressToggleCollapsed}
-          onPressCard={onPressCard}
-          onPressClaim={onPressClaim}
-          onPressFocus={onPressFocus}
         />
       </TouchableOpacity>
     );
@@ -1123,83 +1016,43 @@ const CardBody = React.forwardRef(function CardBody({
       ref={ref}
       activeOpacity={0.85}
       onPress={() => onPressCard?.(item)}
-      onLongPress={
-        (!showControls && !isDone)
-          ? onLongPress
-          : undefined
-      }
-      delayLongPress={160}
-      style={[
-        canonicalCardStyles.list,
-        isFloatingVariant && styles.cardFloating,
-        showControls && styles.selectedCard,
-      ]}
+      style={canonicalCardStyles.list}
     >
-      {showControls ? (
-        <View style={styles.managementContent}>
-          <Text style={styles.cardTypeLabel}>
-            {getCardTypeLabel(item)}
-          </Text>
+      <View
+        style={[
+          styles.cardContent,
+          isDone && styles.dimmedContent,
+        ]}
+      >
+        <ChallengeCardHeader
+          item={item}
+          pct={pct}
+          rotationSummary={rotationSummary}
+        />
 
-          <Text
-            style={styles.cardTitle}
-            numberOfLines={2}
-          >
-            {item?.title ?? '(제목 없음)'}
-          </Text>
+        <ChallengeCardStatus
+          item={item}
+          pct={pct}
+          rotationSummary={rotationSummary}
+          habitDailyState={habitDailyState}
+        />
+      </View>
 
-          <ChallengeCardReorderControls
-            item={item}
-            isExpired={isExpired}
-            showControls
-            canReorder={canReorder}
-            onPressCard={onPressCard}
-            onPressEdit={onPressEdit}
-            onPressDuplicate={onPressDuplicate}
-            onPressDelete={onPressDelete}
-          />
-        </View>
-      ) : (
-        <>
-          <View
-            style={[
-              styles.cardContent,
-              isDone && styles.dimmedContent,
-            ]}
-          >
-            <ChallengeCardHeader
-              item={item}
-              pct={pct}
-              rotationSummary={rotationSummary}
-              showCollapseToggle={
-                variant
-                === CHALLENGE_CARD_VARIANTS.LIST
-              }
-              onPressToggleCollapsed={
-                onPressToggleCollapsed
-              }
-            />
+      <ChallengeCardPrimaryAction
+        item={item}
+        isDone={isDone}
+        isExpired={isExpired}
+        rotationSummary={rotationSummary}
+        habitDailyState={habitDailyState}
+        onPressCard={onPressCard}
+        onPressClaim={onPressClaim}
+        onPressFocus={onPressFocus}
+      />
 
-            <ChallengeCardStatus
-              item={item}
-              pct={pct}
-              rotationSummary={rotationSummary}
-              habitDailyState={habitDailyState}
-            />
-          </View>
-
-          <ChallengeCardPrimaryAction
-            item={item}
-            isDone={isDone}
-            isExpired={isExpired}
-            rotationSummary={rotationSummary}
-            habitDailyState={habitDailyState}
-            onPressCard={onPressCard}
-            onPressClaim={onPressClaim}
-            onPressFocus={onPressFocus}
-          />
-        </>
-      )}
+      <CardFoldHandle
+        collapsed={false}
+        onPress={onPressToggleCollapsed}
+      />
     </TouchableOpacity>
   );
 });
@@ -1208,17 +1061,12 @@ const CardBody = React.forwardRef(function CardBody({
 const ItemCard = memo(
   React.forwardRef(function ItemCard({
     item,
-    hidden,
     habitDailyState = EMPTY_HABIT_DAILY_STATE,
     variant = CHALLENGE_CARD_VARIANTS.LIST,
     collapsed = false,
     isWide = false,
-    onLongPress,
     onPressToggleCollapsed,
     onPressCard,
-    onPressEdit,
-    onPressDuplicate,
-    onPressDelete,
     onPressClaim,
     onPressFocus,
   }, ref) {
@@ -1227,7 +1075,6 @@ const ItemCard = memo(
         style={[
           styles.cardWrap,
           isWide && styles.cardWrapWide,
-          hidden && { opacity: 0 },
         ]}
       >
         <CardBody
@@ -1236,15 +1083,9 @@ const ItemCard = memo(
           habitDailyState={habitDailyState}
           variant={variant}
           collapsed={collapsed}
-          showControls={false}
-          canReorder={!asDoneFlags(item)._isDone}
           onPressCard={onPressCard}
-          onPressEdit={onPressEdit}
-          onPressDuplicate={onPressDuplicate}
-          onPressDelete={onPressDelete}
           onPressClaim={onPressClaim}
           onPressFocus={onPressFocus}
-          onLongPress={onLongPress}
           onPressToggleCollapsed={
             onPressToggleCollapsed
           }
@@ -1254,93 +1095,185 @@ const ItemCard = memo(
   })
 );
 
+const ManageCardRow = memo(function ManageCardRow({
+  item,
+  index,
+  featured = false,
+  onToggleFeatured,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  onDrop,
+  onDragStateChange,
+}) {
+  const dragY = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const [dragging, setDragging] = useState(false);
+
+  const dragGesture = useMemo(
+    () => (
+      Gesture.Pan()
+        .runOnJS(true)
+        .minDistance(2)
+        .onBegin(() => {
+          setDragging(true);
+          onDragStateChange?.(safeStringId(item?.id));
+        })
+        .onUpdate((event) => {
+          dragY.setValue(
+            Number(event?.translationY) || 0
+          );
+        })
+        .onFinalize((event) => {
+          const translationY = (
+            Number(event?.translationY) || 0
+          );
+
+          dragY.setValue(0);
+          setDragging(false);
+          onDragStateChange?.(null);
+
+          onDrop?.(
+            item,
+            index,
+            translationY
+          );
+        })
+    ),
+    [
+      dragY,
+      index,
+      item,
+      onDragStateChange,
+      onDrop,
+    ]
+  );
+
+  return (
+    <Animated.View
+      style={[
+        styles.manageCardRow,
+        dragging && styles.manageCardRowDragging,
+        {
+          transform: [
+            { translateY: dragY },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.manageStarButton}
+        onPress={() => onToggleFeatured?.(item)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={
+          featured
+            ? '오늘의 PUSH 해제'
+            : '오늘의 PUSH 설정'
+        }
+      >
+        <Text
+          style={[
+            styles.manageStarText,
+            featured && styles.manageStarTextSelected,
+          ]}
+        >
+          {featured ? '★' : '☆'}
+        </Text>
+      </TouchableOpacity>
+
+      <View style={styles.manageIdentity}>
+        <Text style={styles.manageTypeText}>
+          {getCardTypeLabel(item)}
+        </Text>
+
+        <Text
+          style={styles.manageTitleText}
+          numberOfLines={1}
+        >
+          {item?.title ?? '(제목 없음)'}
+        </Text>
+      </View>
+
+      <View style={styles.manageActions}>
+        <TouchableOpacity
+          style={styles.manageActionButton}
+          onPress={() => onEdit?.(item)}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.manageActionText}>
+            수정
+          </Text>
+        </TouchableOpacity>
+
+        {!isRotationRoutine(item) && (
+          <TouchableOpacity
+            style={styles.manageActionButton}
+            onPress={() => onDuplicate?.(item)}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.manageActionText}>
+              복제
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={styles.manageActionButton}
+          onPress={() => onDelete?.(item)}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.manageActionText}>
+            삭제
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <GestureDetector gesture={dragGesture}>
+        <View
+          style={styles.manageDragHandle}
+          accessibilityRole="button"
+          accessibilityLabel="순서 변경"
+        >
+          <Text style={styles.manageDragHandleText}>
+            ≡
+          </Text>
+        </View>
+      </GestureDetector>
+    </Animated.View>
+  );
+});
+
 /* ---------- Home Hero ---------- */
 const HomeHero = memo(function HomeHero({
-  mode,
   item,
   habitDailyState = EMPTY_HABIT_DAILY_STATE,
   rotationSummary,
   onRecord,
   onFocus,
-  onCreate,
 }) {
-  if (mode === 'empty') {
+  if (!item) {
     return (
       <View style={styles.homeHero}>
         <Text style={styles.heroEyebrow}>
           오늘의 PUSH
         </Text>
 
-        <Text style={styles.heroTitle}>
-          새로운 PUSH를 만들어보세요
-        </Text>
-
-        <TouchableOpacity
-          style={styles.heroActionButton}
-          onPress={onCreate}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.heroActionText}>
-            ＋ 새로 만들기
+        <View style={styles.heroEmptyBox}>
+          <Text style={styles.heroEmptyText}>
+            카드 수정을 눌러 오늘의 PUSH를 선정하세요
           </Text>
-        </TouchableOpacity>
+        </View>
       </View>
     );
   }
-
-  if (mode === 'done') {
-    return (
-      <View style={styles.homeHero}>
-        <Text style={styles.heroEyebrow}>
-          오늘의 PUSH
-        </Text>
-
-        <Text style={styles.heroTitle}>
-          오늘 예정된 PUSH를 모두 마쳤어요
-        </Text>
-
-        <Text style={styles.heroSubMessage}>
-          다음 PUSH까지 잠시 쉬어가도 좋아요.
-        </Text>
-      </View>
-    );
-  }
-
-  if (!item) return null;
 
   if (isRotationRoutine(item)) {
     const current = rotationSummary?.currentItem;
-
-    if (!current) {
-      return (
-        <View style={styles.homeHero}>
-          <Text style={styles.heroEyebrow}>
-            오늘의 PUSH
-          </Text>
-
-          <Text style={styles.heroTitle}>
-            {item?.title ?? '순환루틴'}
-          </Text>
-
-          <Text style={styles.heroSubMessage}>
-            현재 실행할 활동이 없어요.
-          </Text>
-        </View>
-      );
-    }
-
-    const progressSeconds = Number(
-      current?.progressSeconds || 0
-    );
-
-    const targetSeconds = Number(
-      current?.targetSeconds || 0
-    );
-
-    const remainingSeconds = Math.max(
-      0,
-      targetSeconds - progressSeconds
-    );
+    const next = rotationSummary?.nextItem;
+    const pct = rotationSummary?.progressPct ?? 0;
 
     return (
       <View style={styles.homeHero}>
@@ -1348,55 +1281,52 @@ const HomeHero = memo(function HomeHero({
           오늘의 PUSH
         </Text>
 
-        <Text style={styles.heroKicker}>
-          지금은
-        </Text>
+        <View style={styles.heroMainRow}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroTypeText}>
+              순환루틴
+            </Text>
 
-        <Text
-          style={styles.heroTitle}
-          numberOfLines={2}
-        >
-          {current.name}
-        </Text>
+            <Text
+              style={styles.heroTitle}
+              numberOfLines={2}
+            >
+              {item?.title ?? '순환루틴'}
+            </Text>
 
-        <Text style={styles.heroMessage}>
-          할 차례예요
-        </Text>
+            <Text
+              style={styles.heroMessage}
+              numberOfLines={1}
+            >
+              현재 · {current?.name ?? '-'}
+            </Text>
 
-        <View style={styles.heroProgressRow}>
-          <Text style={styles.heroProgressValue}>
-            {rotationMinutes(progressSeconds)}
-            {' / '}
-            {rotationMinutes(targetSeconds)}분
-          </Text>
+            <Text
+              style={styles.heroSubMessage}
+              numberOfLines={1}
+            >
+              다음 · {next?.name ?? '이번 회전 완료'}
+            </Text>
+          </View>
 
-          <Text style={styles.heroProgressMeta}>
-            {rotationSummary.currentCycleNumber}회차
-          </Text>
+          <HeroProgressRing
+            value={pct}
+            mainText={`${pct}%`}
+            subText={
+              `${rotationSummary?.currentCycleNumber ?? 1}회차`
+            }
+          />
         </View>
-
-        <CardProgressBar
-          value={rotationSummary.progressPct ?? 0}
-        />
-
-        <Text style={styles.heroSubMessage}>
-          {rotationMinutes(remainingSeconds)}분 남음
-          {' · '}
-          {item?.title ?? '순환루틴'}
-        </Text>
 
         <TouchableOpacity
           style={styles.heroActionButton}
           onPress={() => onFocus?.(item)}
           activeOpacity={0.9}
           accessibilityRole="button"
-          accessibilityLabel={`${current.name} 시작`}
+          accessibilityLabel="타이머 시작"
         >
-          <Text
-            style={styles.heroActionText}
-            numberOfLines={1}
-          >
-            ▶ {current.name} 시작
+          <Text style={styles.heroActionText}>
+            타이머 시작
           </Text>
         </TouchableOpacity>
       </View>
@@ -1404,9 +1334,17 @@ const HomeHero = memo(function HomeHero({
   }
 
   if (item?.type === 'habit') {
-    const streakText = habitDailyState.streak > 0
-      ? `${habitDailyState.streak}일 연속 기록 중`
-      : '오늘부터 시작해보세요';
+    const {
+      scheduledToday,
+      hasToday,
+      streak,
+    } = habitDailyState;
+
+    const todayMessage = !scheduledToday
+      ? '오늘은 목표일이 아니에요'
+      : hasToday
+        ? '오늘 기록 완료'
+        : '오늘 아직 기록하지 않았어요';
 
     return (
       <View style={styles.homeHero}>
@@ -1414,20 +1352,33 @@ const HomeHero = memo(function HomeHero({
           오늘의 PUSH
         </Text>
 
-        <Text
-          style={styles.heroTitle}
-          numberOfLines={2}
-        >
-          {item?.title ?? '(제목 없음)'}
-        </Text>
+        <View style={styles.heroMainRow}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroTypeText}>
+              습관
+            </Text>
 
-        <Text style={styles.heroMessage}>
-          오늘 아직 기록하지 않았어요
-        </Text>
+            <Text
+              style={styles.heroTitle}
+              numberOfLines={2}
+            >
+              {item?.title ?? '(제목 없음)'}
+            </Text>
 
-        <Text style={styles.heroSubMessage}>
-          {streakText}
-        </Text>
+            <Text
+              style={styles.heroMessage}
+              numberOfLines={2}
+            >
+              {todayMessage}
+            </Text>
+          </View>
+
+          <HeroProgressRing
+            value={null}
+            mainText={`${streak}`}
+            subText="일 연속"
+          />
+        </View>
 
         <TouchableOpacity
           style={styles.heroActionButton}
@@ -1435,7 +1386,9 @@ const HomeHero = memo(function HomeHero({
           activeOpacity={0.9}
         >
           <Text style={styles.heroActionText}>
-            오늘 기록하기
+            {hasToday
+              ? '기록하기'
+              : '오늘 기록하기'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1449,7 +1402,9 @@ const HomeHero = memo(function HomeHero({
 
   const goal = Number(item?.goalScore || 0);
 
-  const validGoal = Number.isFinite(goal) && goal > 0;
+  const validGoal = (
+    Number.isFinite(goal) && goal > 0
+  );
 
   const pct = validGoal
     ? clampProgress(
@@ -1467,34 +1422,42 @@ const HomeHero = memo(function HomeHero({
         오늘의 PUSH
       </Text>
 
-      <Text
-        style={styles.heroTitle}
-        numberOfLines={2}
-      >
-        {item?.title ?? '(제목 없음)'}
-      </Text>
+      <View style={styles.heroMainRow}>
+        <View style={styles.heroCopy}>
+          <Text style={styles.heroTypeText}>
+            도전
+          </Text>
 
-      <Text style={styles.heroMessage}>
-        {validGoal
-          ? `목표까지 ${remaining}회 남았어요`
-          : `현재 ${current}회 진행 중`}
-      </Text>
+          <Text
+            style={styles.heroTitle}
+            numberOfLines={2}
+          >
+            {item?.title ?? '(제목 없음)'}
+          </Text>
 
-      {validGoal && (
-        <>
-          <View style={styles.heroProgressRow}>
-            <Text style={styles.heroProgressValue}>
-              {current} / {goal}
+          <Text style={styles.heroMessage}>
+            {validGoal
+              ? `${current}회 완료`
+              : `현재 ${current}회`}
+          </Text>
+
+          {validGoal && (
+            <Text style={styles.heroSubMessage}>
+              목표까지 {remaining}회 남음
             </Text>
+          )}
+        </View>
 
-            <Text style={styles.heroProgressMeta}>
-              {pct}%
-            </Text>
-          </View>
-
-          <CardProgressBar value={pct} />
-        </>
-      )}
+        <HeroProgressRing
+          value={validGoal ? pct : null}
+          mainText={
+            validGoal ? `${pct}%` : `${current}`
+          }
+          subText={
+            validGoal ? '진행' : '회'
+          }
+        />
+      </View>
 
       <TouchableOpacity
         style={styles.heroActionButton}
@@ -1509,24 +1472,40 @@ const HomeHero = memo(function HomeHero({
   );
 });
 
-const ChallengeListSectionHeader = memo(
-  function ChallengeListSectionHeader({
-    sortLabel,
+const ChallengeListControls = memo(
+  function ChallengeListControls({
+    editing = false,
     onPressSort,
+    onPressEdit,
   }) {
     return (
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeaderTitle}>
-          내 도전 · 습관 · 루틴
-        </Text>
+        <TouchableOpacity
+          style={[
+            styles.sectionControlButton,
+            editing
+              && styles.sectionControlButtonDisabled,
+          ]}
+          onPress={onPressSort}
+          disabled={editing}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.sectionControlText}>
+            정렬
+          </Text>
+
+          <Text style={styles.sectionControlArrow}>
+            ▾
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.sectionSortButton}
-          onPress={onPressSort}
-          activeOpacity={0.8}
+          style={styles.sectionControlButton}
+          onPress={onPressEdit}
+          activeOpacity={0.75}
         >
-          <Text style={styles.sectionSortText}>
-            정렬 · {sortLabel} ▾
+          <Text style={styles.sectionControlText}>
+            {editing ? '완료' : '카드 수정'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1538,7 +1517,6 @@ const ChallengeListSectionHeader = memo(
 export default function ChallengeListScreen() {
   const isFocused = useIsFocused();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [data, setData] = useState([]);
@@ -1546,22 +1524,18 @@ export default function ChallengeListScreen() {
   const [listFrameWidth, setListFrameWidth] = useState(0);
   const [focusTarget, setFocusTarget] = useState(null);
   const [focusStarting, setFocusStarting] = useState(false);
+  const [cardEditMode, setCardEditMode] = useState(false);
+  const [featuredPushId, setFeaturedPushId] = useState(null);
+  const [briefNotice, setBriefNotice] = useState('');
+  const [draggingManageId, setDraggingManageId] = useState(null);
+
+  const briefNoticeTimerRef = useRef(null);
 
   /* 정렬 상태 */
-  const [reorderActive, setReorderActive] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
   const [sortMode, setSortMode] = useState('manual'); // manual|newest|oldest|habitFirst|challengeFirst
-  const [selectedId, setSelectedId] = useState(null);
-  const [reorderPrepared, setReorderPrepared] = useState(false);
   const [collapsedIds, setCollapsedIds] = useState({});
   const collapsedIdsRef = useRef({});
-  const restoreCollapsedAfterReorderRef = useRef(null);
-  const [reorderExpandVisualId, setReorderExpandVisualId] = useState(null);
-  const [reorderExpandVisualHeights, setReorderExpandVisualHeights] = useState({});
-  const [reorderFloatingControlsVisible, setReorderFloatingControlsVisible] = useState(false);
-  const reorderFloatingHeight = useRef(new Animated.Value(0)).current;
-  const reorderFloatingStartedRef = useRef(false);
-  const pendingReorderItemRef = useRef(null);
 
   const persistCollapsedIds = useCallback(async (nextMap) => {
     try {
@@ -1590,15 +1564,30 @@ export default function ChallengeListScreen() {
     })();
   }, [isFocused]);
 
-  /* 플로팅 복제 */
-  const floatLeft = useRef(new Animated.Value(0)).current;
-  const floatTop  = useRef(new Animated.Value(0)).current;
-  const [floatWidth, setFloatWidth] = useState(0);
-
-  const animLockRef = useRef(false);
-  const itemRefs = useRef({});
   const dataRef = useRef([]);
   useEffect(() => { dataRef.current = data; }, [data]);
+
+  const showBriefNotice = useCallback((message) => {
+    if (briefNoticeTimerRef.current) {
+      clearTimeout(briefNoticeTimerRef.current);
+    }
+
+    setBriefNotice(String(message || ''));
+
+    briefNoticeTimerRef.current = setTimeout(() => {
+      setBriefNotice('');
+      briefNoticeTimerRef.current = null;
+    }, 1600);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (briefNoticeTimerRef.current) {
+        clearTimeout(briefNoticeTimerRef.current);
+        briefNoticeTimerRef.current = null;
+      }
+    };
+  }, []);
 
   /* 저장/정리 — 저장 시엔 배열 우선(respectArray) */
   const persistChallenges = useCallback(async (arr, tag = '') => {
@@ -1622,11 +1611,88 @@ export default function ChallengeListScreen() {
     return arranged;
   }, []);
 
+  const toggleFeaturedPush = useCallback(async (item) => {
+    const id = safeStringId(item?.id);
+
+    if (!id || !isCurrentCard(item)) return;
+
+    if (safeStringId(featuredPushId) === id) {
+      try {
+        await AsyncStorage.removeItem(
+          TODAY_PUSH_KEY
+        );
+      } catch {}
+
+      setFeaturedPushId(null);
+
+      showBriefNotice(
+        '오늘의 PUSH 설정을 해제했습니다.'
+      );
+
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem(
+        TODAY_PUSH_KEY,
+        id
+      );
+    } catch {}
+
+    setFeaturedPushId(id);
+
+    showBriefNotice(
+      '오늘의 PUSH로 설정했습니다.'
+    );
+  }, [
+    featuredPushId,
+    showBriefNotice,
+  ]);
+
+  const clearFeaturedPushIfNeeded = useCallback(
+    async (itemId, {
+      showNotice = false,
+    } = {}) => {
+      const id = safeStringId(itemId);
+
+      if (
+        !id
+        || safeStringId(featuredPushId) !== id
+      ) {
+        return;
+      }
+
+      try {
+        await AsyncStorage.removeItem(
+          TODAY_PUSH_KEY
+        );
+      } catch {}
+
+      setFeaturedPushId(null);
+
+      if (showNotice) {
+        showBriefNotice(
+          '오늘의 PUSH 설정을 해제했습니다.'
+        );
+      }
+    },
+    [
+      featuredPushId,
+      showBriefNotice,
+    ]
+  );
+
   /* 데이터 로드 — 로드시엔 맵 우선(respectMap) */
   useEffect(() => {
     if (!isFocused) return;
     (async () => {
-      const rawStr = await AsyncStorage.getItem(CHALLENGES_KEY);
+      const [
+        rawStr,
+        storedFeaturedPushId,
+      ] = await Promise.all([
+        AsyncStorage.getItem(CHALLENGES_KEY),
+        AsyncStorage.getItem(TODAY_PUSH_KEY),
+      ]);
       const raw = parseJson(rawStr) || [];
       const ensured = (Array.isArray(raw) ? raw : []).map(ensureItemId);
       const deduped = dedupeById(ensured);
@@ -1681,6 +1747,36 @@ export default function ChallengeListScreen() {
           })
       );
 
+      const storedFeaturedId = safeStringId(
+        storedFeaturedPushId
+      );
+
+      const validFeaturedItem = storedFeaturedId
+        ? arranged.find(
+            (item) => (
+              safeStringId(item?.id)
+              === storedFeaturedId
+              && isCurrentCard(item)
+            )
+          )
+        : null;
+
+      if (storedFeaturedId && !validFeaturedItem) {
+        try {
+          await AsyncStorage.removeItem(
+            TODAY_PUSH_KEY
+          );
+        } catch {}
+
+        setFeaturedPushId(null);
+      } else {
+        setFeaturedPushId(
+          validFeaturedItem
+            ? safeStringId(validFeaturedItem.id)
+            : null
+        );
+      }
+
       setData(arranged);
       setHabitDailyStateMap(nextHabitDailyStateMap);
       try {
@@ -1697,45 +1793,8 @@ export default function ChallengeListScreen() {
       const snapshot = dataRef.current || [];
       console.log('[ChallengeList][blur] snapshotIds=', snapshot.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
       try { await persistChallenges(snapshot, 'blur'); } catch {}
-      setReorderActive(false);
-      setSelectedId(null);
-      setFloatWidth(0);
     })();
   }, [isFocused, persistChallenges]);
-
-  /* 뒤로가기 */
-  const finalizeReorder = useCallback(async () => {
-    LayoutAnimation.configureNext({
-      duration: CARD_COLLAPSE_ANIM_MS,
-      update: { type: LayoutAnimation.Types.easeInEaseOut },
-      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-      delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-    });
-    const snapshot = dataRef.current || [];
-    console.log('[ChallengeList][finalizeReorder] snapshotIds=', snapshot.map(c => `${c._isDone?'D':'A'}:${safeStringId(c.id)}`));
-    try { await persistChallenges(snapshot, 'finalize'); } catch {}
-    const restoreId = restoreCollapsedAfterReorderRef.current;
-    restoreCollapsedAfterReorderRef.current = null;
-    if (restoreId) {
-      setCollapsedIds((prev) => {
-        const next = { ...prev, [safeStringId(restoreId)]: true };
-        persistCollapsedIds(next);
-        return next;
-      });
-    }
-    setSelectedId(null);
-    setReorderActive(false);
-    setReorderPrepared(false);
-    setReorderExpandVisualId(null);
-    setReorderExpandVisualHeights({});
-    setReorderFloatingControlsVisible(false);
-    pendingReorderItemRef.current = null;
-    reorderFloatingStartedRef.current = false;
-    reorderFloatingHeight.stopAnimation();
-    reorderFloatingHeight.setValue(0);
-    setFloatWidth(0);
-    animLockRef.current = false;
-  }, [persistChallenges, persistCollapsedIds]);
 
   const applySortMode = useCallback((mode) => {
     setShowSortModal(false);
@@ -1765,7 +1824,11 @@ export default function ChallengeListScreen() {
   useEffect(() => {
     if (!isFocused || Platform.OS !== 'android') return;
     const onBackPress = () => {
-      if (reorderActive) { finalizeReorder(); return true; }
+      if (cardEditMode) {
+        setCardEditMode(false);
+        setDraggingManageId(null);
+        return true;
+      }
       Alert.alert('앱 종료', '정말 종료할까요?', [
         { text: '취소', style: 'cancel' },
         { text: '종료', style: 'destructive', onPress: () => BackHandler.exitApp() },
@@ -1774,7 +1837,7 @@ export default function ChallengeListScreen() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [isFocused, reorderActive, finalizeReorder]);
+  }, [isFocused, cardEditMode]);
 
   /* 애니메이션 */
   const animateList = useCallback(() => {
@@ -1796,7 +1859,6 @@ export default function ChallengeListScreen() {
   }, []);
 
   const toggleCollapsed = useCallback((item) => {
-    if (reorderActive) return;
     const id = safeStringId(item?.id);
     if (!id) return;
     animateCardResize();
@@ -1805,85 +1867,13 @@ export default function ChallengeListScreen() {
       persistCollapsedIds(next);
       return next;
     });
-  }, [animateCardResize, persistCollapsedIds, reorderActive]);
-
-  /* 좌표 측정 */
-  const measureNow = useCallback((id) => {
-    const ref = itemRefs.current[safeStringId(id)];
-    if (!ref || !ref.measureInWindow) return false;
-    let did = false;
-    ref.measureInWindow((x, y, width, height) => {
-      did = true;
-      floatLeft.setValue(x);
-      floatTop.setValue(y);
-      setFloatWidth(width);
-    });
-    return did;
-  }, [floatLeft, floatTop]);
-
-  const rafMeasureSelected = useCallback((id) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => measureNow(id))));
-  }, [measureNow]);
-
-  const updateReorderExpandVisualHeight = useCallback((id, key, height) => {
-    const safeId = safeStringId(id);
-    const nextHeight = Math.ceil(Number(height || 0));
-    if (!safeId || nextHeight <= 0) return;
-
-    setReorderExpandVisualHeights((prev) => {
-      const current = prev[safeId] || {};
-      if (current[key] === nextHeight) return prev;
-      return {
-        ...prev,
-        [safeId]: {
-          ...current,
-          [key]: nextHeight,
-        },
-      };
-    });
-  }, []);
-
-  useEffect(() => {
-    const safeId = safeStringId(reorderExpandVisualId);
-    if (!safeId || reorderFloatingStartedRef.current) return;
-
-    const heights = reorderExpandVisualHeights[safeId] || {};
-    const collapsedHeight = Number(heights.collapsed || 0);
-    const expandedHeight = Number(heights.expanded || 0);
-
-    if (collapsedHeight <= 0 || expandedHeight <= 0) return;
-
-    reorderFloatingStartedRef.current = true;
-    reorderFloatingHeight.stopAnimation();
-    reorderFloatingHeight.setValue(collapsedHeight);
-
-    Animated.timing(reorderFloatingHeight, {
-      toValue: expandedHeight,
-      duration: CARD_REORDER_EXPAND_ANIM_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      if (!finished) return;
-
-      const pendingItem = pendingReorderItemRef.current;
-      if (!pendingItem) return;
-
-      setTimeout(() => {
-        setReorderFloatingControlsVisible(true);
-        setReorderPrepared(false);
-        setReorderActive(true);
-        rafMeasureSelected(pendingItem.id);
-        pendingReorderItemRef.current = null;
-        reorderFloatingStartedRef.current = false;
-      }, CARD_REORDER_CONTROLS_DELAY_MS);
-    });
-  }, [reorderExpandVisualId, reorderExpandVisualHeights, reorderFloatingHeight, rafMeasureSelected]);
+  }, [animateCardResize, persistCollapsedIds]);
 
   /* CRUD/네비 */
   const navigationRef = useRef(navigation);
 
   const onDelete = useCallback(async (item) => {
-    Alert.alert('삭제 확인', `'${item.title}' 도전을 삭제할까요?\n설정 > 휴지통에서 30일간 보관됩니다.`, [
+    Alert.alert('삭제 확인', `'${item.title}'을 삭제할까요?\n설정 > 휴지통에서 30일간 보관됩니다.`, [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제', style: 'destructive', onPress: async () => {
@@ -1898,11 +1888,14 @@ export default function ChallengeListScreen() {
           setData(nextArr);
           try { await persistChallenges(nextArr, 'delete'); } catch {}
           try { await moveToTrash(item); } catch {}
-          await finalizeReorder();
+          await clearFeaturedPushIfNeeded(
+            item.id,
+            { showNotice: true }
+          );
         },
       },
     ]);
-  }, [finalizeReorder, animateList, persistChallenges]);
+  }, [animateList, persistChallenges, clearFeaturedPushIfNeeded]);
 
   const onDuplicate = useCallback((item) => {
     if (asDoneFlags(item)._isDone) return;
@@ -1933,10 +1926,8 @@ export default function ChallengeListScreen() {
       type: duplicateTemplate.type || 'challenge',
     });
 
-    setSelectedId(null);
-    setReorderActive(false);
-    setFloatWidth(0);
-    animLockRef.current = false;
+    setCardEditMode(false);
+    setDraggingManageId(null);
 
     navigationRef.current.navigate('AddChallenge', {
       duplicateTemplate,
@@ -1944,6 +1935,31 @@ export default function ChallengeListScreen() {
       duplicateNonce: Date.now(),
     });
   }, [animateList]);
+
+  const openCardEditScreen = useCallback((item) => {
+    if (!item) return;
+
+    setCardEditMode(false);
+    setDraggingManageId(null);
+
+    if (isRotationRoutine(item)) {
+      navigationRef.current.navigate(
+        'EditRotationRoutine',
+        {
+          routineId: item.id,
+        }
+      );
+
+      return;
+    }
+
+    navigationRef.current.navigate(
+      'EditChallenge',
+      {
+        challenge: item,
+      }
+    );
+  }, []);
 
   const goEntryList = useCallback((item, action) => {
     if (isRotationRoutine(item)) {
@@ -2079,6 +2095,10 @@ export default function ChallengeListScreen() {
     const enriched = withoutClaimed.map(c => ({ ...c, ...asDoneFlags(c) }));
     setData(enriched);
     try { await persistChallenges(nextArr, 'claim'); } catch {}
+    await clearFeaturedPushIfNeeded(
+      item.id,
+      { showNotice: true }
+    );
 
     try { await cancelAllForChallenge(item.id).catch(() => {}); } catch {}
 
@@ -2099,104 +2119,7 @@ export default function ChallengeListScreen() {
       justClaimed: true,
       ts: completedAtTs,
     });
-  }, [persistChallenges]);
-
-  /* 정렬 모드 (활성 0..activeCount-1) */
-  const doneCount = data.reduce((acc, c) => acc + (asDoneFlags(c)._isDone ? 1 : 0), 0);
-  const activeCount = Math.max(0, data.length - doneCount);
-
-  const moveSelected = useCallback((dir) => {
-    if (!reorderActive || !selectedId) return;
-    if (animLockRef.current) return;
-    animLockRef.current = true;
-
-    const prev = sortMode === 'manual'
-      ? (dataRef.current || [])
-      : buildDisplayData(dataRef.current || [], sortMode);
-    const idx = prev.findIndex(c => safeStringId(c.id) === safeStringId(selectedId));
-    if (idx < 0) { animLockRef.current = false; return; }
-
-    const activeCountInPrev = prev.reduce((acc, c) => acc + (!asDoneFlags(c)._isDone && !c.archived && !c._isExpired ? 1 : 0), 0);
-    const minIdx = 0;
-    const maxIdx = Math.max(0, activeCountInPrev - 1);
-    const to = Math.max(minIdx, Math.min(maxIdx, idx + (dir === 'up' ? -1 : +1)));
-    if (to === idx) { animLockRef.current = false; return; }
-
-    LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } });
-
-    const nextArr = moveInArray(prev, idx, to);
-
-    console.log('[ChallengeList][moveSelected]', { selectedId, dir, from: idx, to, activeCount });
-
-    dataRef.current = nextArr;
-    setData(nextArr);
-    if (sortMode !== 'manual') setSortMode('manual');
-    (async () => { try { await persistChallenges(nextArr, 'move'); } catch {} })();
-
-    setTimeout(() => {
-      const ref = itemRefs.current[safeStringId(selectedId)];
-      if (ref && ref.measureInWindow) {
-        ref.measureInWindow((x, y, width) => {
-          setFloatWidth(width);
-          Animated.parallel([
-            Animated.timing(floatLeft, {
-              toValue: x,
-              duration: 180,
-              easing: Easing.out(Easing.cubic),
-              useNativeDriver: false,
-            }),
-            Animated.timing(floatTop, {
-              toValue: y,
-              duration: 180,
-              easing: Easing.out(Easing.cubic),
-              useNativeDriver: false,
-            }),
-          ]).start(() => { animLockRef.current = false; });
-        });
-      } else {
-        animLockRef.current = false;
-      }
-    }, 16);
-  }, [reorderActive, selectedId, activeCount, insets.top, floatTop, persistChallenges, sortMode]);
-
-    const enterReorder = useCallback((item) => {
-    if (asDoneFlags(item)._isDone) {
-      Alert.alert('안내', '완료된 도전은 순서를 변경할 수 없어요.');
-      return;
-    }
-    setReorderFloatingControlsVisible(true);
-    // 수정모드 진입만으로는 현재 정렬을 풀지 않는다.
-    // 실제 순서 변경 시점에만 현재 표시 순서를 저장 순서로 확정한다.
-    // 만료 도전은 수정/삭제만 가능 (복제 버튼은 플로팅 카드에서 숨김)
-    const id = item.id;
-    const ref = itemRefs.current[safeStringId(id)];
-    if (ref && ref.measureInWindow) {
-      ref.measureInWindow((x, y, width, height) => {
-        console.log('[Reorder] measureInWindow x:', x, 'y:', y, 'width:', width, 'height:', height, 'insets.top:', insets.top);
-        floatLeft.setValue(x);
-        floatTop.setValue(y);
-        setFloatWidth(width);
-        setSelectedId(id);
-        setReorderActive(true);
-      });
-    } else {
-      setSelectedId(id);
-      setReorderActive(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const r = itemRefs.current[safeStringId(id)];
-        if (r && r.measureInWindow) {
-          r.measureInWindow((x, y, width) => {
-            floatLeft.setValue(x);
-            floatTop.setValue(y);
-            setFloatWidth(width);
-          });
-        }
-      }));
-    }
-    console.log('[ChallengeList][enterReorder] id=', safeStringId(id));
-  }, [floatLeft, floatTop, sortMode]);
-
-  const onOverlayPress = useCallback(() => { finalizeReorder(); }, [finalizeReorder]);
+  }, [persistChallenges, clearFeaturedPushIfNeeded]);
 
   /* 렌더 */
     // sortMode에 따라 표시할 데이터 계산
@@ -2207,44 +2130,24 @@ export default function ChallengeListScreen() {
     return data;
   }, [data, sortMode]);
 
-  const activeHomeItems = useMemo(
-    () => data.filter((item) => {
-      const flags = asDoneFlags(item);
+  const heroItem = useMemo(() => {
+    const id = safeStringId(featuredPushId);
 
-      return (
-        !flags._isDone
-        && !flags._isExpired
-        && !item?.archived
-      );
-    }),
-    [data]
-  );
+    if (!id) return null;
 
-  const heroItem = useMemo(
-    () => (
-      activeHomeItems.find((item) => {
-        if (item?.type !== 'habit') return true;
-
-        const habitState = (
-          habitDailyStateMap[safeStringId(item.id)]
-          || EMPTY_HABIT_DAILY_STATE
-        );
-
-        return (
-          habitState.scheduledToday
-          && !habitState.hasToday
-        );
-      })
+    return (
+      data.find(
+        (item) => (
+          safeStringId(item?.id) === id
+          && isCurrentCard(item)
+        )
+      )
       || null
-    ),
-    [activeHomeItems, habitDailyStateMap]
-  );
-
-  const heroMode = heroItem
-    ? 'item'
-    : activeHomeItems.length > 0
-      ? 'done'
-      : 'empty';
+    );
+  }, [
+    data,
+    featuredPushId,
+  ]);
 
   const heroHabitDailyState = (
     heroItem?.type === 'habit'
@@ -2274,11 +2177,121 @@ export default function ChallengeListScreen() {
     });
   }, []);
 
-  const onHeroCreate = useCallback(() => {
-    navigationRef.current.navigate(
-      'CreateChallengeType'
-    );
+  const editableItems = useMemo(
+    () => data.filter(isCurrentCard),
+    [data]
+  );
+
+  const enterCardEditMode = useCallback(() => {
+    const source = dataRef.current || [];
+
+    if (sortMode !== 'manual') {
+      const currentDisplay = buildDisplayData(
+        source,
+        sortMode
+      );
+
+      dataRef.current = currentDisplay;
+      setData(currentDisplay);
+      setSortMode('manual');
+
+      persistChallenges(
+        currentDisplay,
+        'edit-mode-order'
+      ).catch(() => {});
+    }
+
+    setCardEditMode(true);
+    setDraggingManageId(null);
+  }, [
+    persistChallenges,
+    sortMode,
+  ]);
+
+  const exitCardEditMode = useCallback(() => {
+    setCardEditMode(false);
+    setDraggingManageId(null);
   }, []);
+
+  const toggleCardEditMode = useCallback(() => {
+    if (cardEditMode) {
+      exitCardEditMode();
+      return;
+    }
+
+    enterCardEditMode();
+  }, [
+    cardEditMode,
+    enterCardEditMode,
+    exitCardEditMode,
+  ]);
+
+  const moveManageCard = useCallback(
+    (item, visibleIndex, translationY) => {
+      const source = dataRef.current || [];
+      const activeItems = source.filter(isCurrentCard);
+      const inactiveItems = source.filter(
+        (candidate) => !isCurrentCard(candidate)
+      );
+      const id = safeStringId(item?.id);
+      const from = activeItems.findIndex(
+        (candidate) => (
+          safeStringId(candidate?.id) === id
+        )
+      );
+
+      if (from < 0) return;
+
+      const dragSteps = Math.round(
+        (Number(translationY) || 0)
+        / MANAGE_ROW_STEP
+      );
+
+      if (dragSteps === 0) return;
+
+      const to = Math.max(
+        0,
+        Math.min(
+          activeItems.length - 1,
+          from + dragSteps
+        )
+      );
+
+      if (to === from) return;
+
+      const movedActive = moveInArray(
+        activeItems,
+        from,
+        to
+      );
+      const next = [
+        ...movedActive,
+        ...inactiveItems,
+      ];
+
+      LayoutAnimation.configureNext({
+        duration: 180,
+        update: {
+          type: LayoutAnimation.Types.easeInEaseOut,
+        },
+      });
+
+      dataRef.current = next;
+      setData(next);
+      setSortMode('manual');
+
+      persistChallenges(
+        next,
+        'manage-drag'
+      ).catch((error) => {
+        console.warn(
+          '[ChallengeList][manageDrag] save failed',
+          error
+        );
+      });
+    },
+    [persistChallenges]
+  );
 
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
   const listBottomPad = space.lg;
@@ -2336,83 +2349,88 @@ export default function ChallengeListScreen() {
   const renderRow = useCallback(
     ({ item }) => {
       const id = safeStringId(item.id);
-      const selectedKey = safeStringId(selectedId);
-      const isSelected = reorderActive && id === selectedKey;
-      const isFloatingExpanding = reorderExpandVisualId === id;
-      const isCollapsed = !!collapsedIds[id] && !(reorderActive && id === selectedKey);
+      const isCollapsed = !!collapsedIds[id];
 
       return (
         <ItemCard
-          ref={(el) => { if (el) itemRefs.current[id] = el; }}
           item={item}
           habitDailyState={
-            habitDailyStateMap[safeStringId(item.id)]
+            habitDailyStateMap[id]
             || EMPTY_HABIT_DAILY_STATE
           }
           variant={CHALLENGE_CARD_VARIANTS.LIST}
           collapsed={isCollapsed}
           isWide={isWideChallengeList}
-          hidden={(isSelected && reorderActive) || isFloatingExpanding}
-          onPressToggleCollapsed={() => toggleCollapsed(item)}
-          onLongPress={() => {
-            if (collapsedIdsRef.current[id]) {
-              restoreCollapsedAfterReorderRef.current = id;
-              pendingReorderItemRef.current = item;
-              reorderFloatingStartedRef.current = false;
-              reorderFloatingHeight.stopAnimation();
-              reorderFloatingHeight.setValue(0);
-              setReorderFloatingControlsVisible(false);
-              setSelectedId(item.id);
-              setReorderPrepared(true);
-              setReorderExpandVisualId(id);
-              setReorderExpandVisualHeights({});
-
-              const ref = itemRefs.current[id];
-              if (ref && ref.measureInWindow) {
-                ref.measureInWindow((x, y, width, height) => {
-                  floatLeft.setValue(x);
-                  floatTop.setValue(y);
-                  setFloatWidth(width);
-                  updateReorderExpandVisualHeight(id, 'collapsed', height);
-                });
-              }
-
-              return;
-            }
-            restoreCollapsedAfterReorderRef.current = null;
-            setReorderExpandVisualId(null);
-            setReorderExpandVisualHeights({});
-            setReorderFloatingControlsVisible(false);
-            pendingReorderItemRef.current = null;
-            reorderFloatingStartedRef.current = false;
-            reorderFloatingHeight.stopAnimation();
-            reorderFloatingHeight.setValue(0);
-            setReorderPrepared(false);
-            enterReorder(item);
-          }}
+          onPressToggleCollapsed={() => (
+            toggleCollapsed(item)
+          )}
           onPressCard={(it, action) => {
-            if (reorderActive) return;
             if (it?._isExpired) {
-              Alert.alert("기간 만료", "이 도전의 기간이 만료되었습니다.\n카드를 꾹 눌러 수정 또는 삭제해주세요.");
+              Alert.alert(
+                '기간 만료',
+                '이 도전의 기간이 만료되었습니다.'
+              );
               return;
             }
-            if (it?._upload) { navigationRef.current.navigate('Upload', { challengeId: it.id }); return; }
+
+            if (it?._upload) {
+              navigationRef.current.navigate(
+                'Upload',
+                {
+                  challengeId: it.id,
+                }
+              );
+              return;
+            }
+
             goEntryList(it, action);
           }}
-          onPressEdit={() => {}}
-          onPressDuplicate={() => {}}
-          onPressDelete={() => {}}
           onPressClaim={onClaimReward}
           onPressFocus={openFocusStart}
         />
       );
     },
-    [reorderActive, selectedId, collapsedIds, reorderPrepared, reorderExpandVisualId, reorderFloatingHeight, updateReorderExpandVisualHeight, habitDailyStateMap, goEntryList, enterReorder, onClaimReward, openFocusStart, toggleCollapsed, animateCardResize, isWideChallengeList, floatLeft, floatTop, rafMeasureSelected]
+    [
+      collapsedIds,
+      habitDailyStateMap,
+      goEntryList,
+      onClaimReward,
+      openFocusStart,
+      toggleCollapsed,
+      isWideChallengeList,
+    ]
   );
 
   const renderMasonryItem = useCallback(
     (item) => renderRow({ item }),
     [renderRow]
+  );
+
+  const renderManageRow = useCallback(
+    ({ item, index }) => (
+      <ManageCardRow
+        item={item}
+        index={index}
+        featured={
+          safeStringId(featuredPushId)
+          === safeStringId(item?.id)
+        }
+        onToggleFeatured={toggleFeaturedPush}
+        onEdit={openCardEditScreen}
+        onDuplicate={onDuplicate}
+        onDelete={onDelete}
+        onDrop={moveManageCard}
+        onDragStateChange={setDraggingManageId}
+      />
+    ),
+    [
+      featuredPushId,
+      moveManageCard,
+      onDelete,
+      onDuplicate,
+      openCardEditScreen,
+      toggleFeaturedPush,
+    ]
   );
 
   const masonryLeftData = useMemo(
@@ -2429,31 +2447,20 @@ export default function ChallengeListScreen() {
     [displayData]
   );
 
-  const selected = data.find(
-    (d) => (
-      safeStringId(d.id)
-      === safeStringId(selectedId)
-    )
-  );
-
   const homeListHeader = (
     <>
       <HomeHero
-        mode={heroMode}
         item={heroItem}
         habitDailyState={heroHabitDailyState}
         rotationSummary={heroRotationSummary}
         onRecord={onHeroRecord}
         onFocus={openFocusStart}
-        onCreate={onHeroCreate}
       />
 
-      <ChallengeListSectionHeader
-        sortLabel={
-          SORT_LABELS[sortMode]
-          || SORT_LABELS.manual
-        }
+      <ChallengeListControls
+        editing={cardEditMode}
         onPressSort={() => setShowSortModal(true)}
+        onPressEdit={toggleCardEditMode}
       />
     </>
   );
@@ -2479,7 +2486,6 @@ export default function ChallengeListScreen() {
             left: 8,
             right: 8,
           }}
-          disabled={reorderActive}
         >
           <Text style={styles.hamburgerIcon}>
             ☰
@@ -2497,25 +2503,30 @@ export default function ChallengeListScreen() {
         </Text>
 
         <TouchableOpacity
-          style={styles.hofIconButton}
+          style={[
+            buttonStyles.compactRight,
+            styles.hofBtn,
+          ]}
           onPress={() => (
             navigationRef.current.navigate(
               'HallOfFameScreen'
             )
           )}
-          activeOpacity={0.8}
+          activeOpacity={0.9}
           hitSlop={{
-            top: 8,
-            bottom: 8,
-            left: 8,
-            right: 8,
+            top: 6,
+            bottom: 6,
+            left: 6,
+            right: 6,
           }}
-          disabled={reorderActive}
-          accessibilityRole="button"
-          accessibilityLabel="명예의 전당"
         >
-          <Text style={styles.hofIconText}>
-            🏆
+          <Text
+            style={[
+              buttonStyles.compactRightText,
+              styles.hofBtnText,
+            ]}
+          >
+            명예의 전당
           </Text>
         </TouchableOpacity>
       </View>
@@ -2529,11 +2540,34 @@ export default function ChallengeListScreen() {
           )
         )}
       >
-        {isWideChallengeList ? (
+        {cardEditMode ? (
+          <FlatList
+            key={`challenge-manage-${layoutWidthKey}`}
+            data={editableItems}
+            keyExtractor={keyExtractor}
+            renderItem={renderManageRow}
+            scrollEnabled={!draggingManageId}
+            removeClippedSubviews={false}
+            style={styles.listFlex}
+            contentContainerStyle={[
+              styles.manageListContent,
+              isWideChallengeList
+                && styles.manageListContentWide,
+            ]}
+            ListHeaderComponent={homeListHeader}
+            ListEmptyComponent={
+              <View style={styles.manageEmptyWrap}>
+                <Text style={styles.manageEmptyText}>
+                  수정할 현재 카드가 없어요.
+                </Text>
+              </View>
+            }
+          />
+        ) : isWideChallengeList ? (
           <ScrollView
             key={`challenge-list-wide-${layoutWidthKey}`}
             style={styles.listFlex}
-            scrollEnabled={!reorderActive}
+            scrollEnabled
             contentContainerStyle={[
               styles.challengeListWideContent,
               {
@@ -2542,7 +2576,6 @@ export default function ChallengeListScreen() {
             ]}
           >
             <HomeHero
-              mode={heroMode}
               item={heroItem}
               habitDailyState={
                 heroHabitDailyState
@@ -2552,17 +2585,14 @@ export default function ChallengeListScreen() {
               }
               onRecord={onHeroRecord}
               onFocus={openFocusStart}
-              onCreate={onHeroCreate}
             />
 
-            <ChallengeListSectionHeader
-              sortLabel={
-                SORT_LABELS[sortMode]
-                || SORT_LABELS.manual
-              }
+            <ChallengeListControls
+              editing={cardEditMode}
               onPressSort={() => (
                 setShowSortModal(true)
               )}
+              onPressEdit={toggleCardEditMode}
             />
 
             {displayData.length === 0 ? (
@@ -2613,7 +2643,7 @@ export default function ChallengeListScreen() {
             data={displayData}
             keyExtractor={keyExtractor}
             renderItem={renderRow}
-            scrollEnabled={!reorderActive}
+            scrollEnabled
             removeClippedSubviews={false}
             style={styles.listFlex}
             contentContainerStyle={[
@@ -2630,126 +2660,19 @@ export default function ChallengeListScreen() {
         )}
       </View>
 
-      {/* 고정 하단 Dock */}
-      {!reorderPrepared && !reorderActive && (
-        <View style={styles.bottomDock}>
-          <TouchableOpacity
-            style={styles.dockSecondary}
-            onPress={() => (
-              navigationRef.current.navigate(
-                'ProfileInventory'
-              )
-            )}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.dockSecondaryText}>
-              기록실
-            </Text>
-          </TouchableOpacity>
+      <MainDock active="home" />
 
-          <TouchableOpacity
-            style={styles.dockSecondary}
-            onPress={() => (
-              navigationRef.current.navigate(
-                'GraphShop'
-              )
-            )}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.dockSecondaryText}>
-              상점
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.dockPrimary}
-            onPress={() => (
-              navigationRef.current.navigate(
-                'CreateChallengeType'
-              )
-            )}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.dockPrimaryText}>
-              ＋ 새로 만들기
-            </Text>
-          </TouchableOpacity>
+      {!!briefNotice && (
+        <View
+          pointerEvents="none"
+          style={styles.briefNotice}
+        >
+          <Text style={styles.briefNoticeText}>
+            {briefNotice}
+          </Text>
         </View>
       )}
 
-      {/* 정렬 중 선택 카드 복제본 */}
-      {(reorderPrepared || reorderActive) && selected && floatWidth > 0 && (
-        <Modal visible transparent animationType="none" onRequestClose={finalizeReorder}>
-          {reorderActive && (
-            <TouchableWithoutFeedback onPress={onOverlayPress}>
-              <View style={styles.fullOverlay} />
-            </TouchableWithoutFeedback>
-          )}
-        <Animated.View
-          pointerEvents={reorderActive ? "box-none" : "none"}
-          style={[
-              styles.floatingCardWrap,
-              { left: floatLeft, top: floatTop, width: floatWidth },
-              reorderPrepared && !reorderActive && { height: reorderFloatingHeight, overflow: 'hidden' },
-            ]}
-        >
-          {reorderPrepared && !reorderActive && selected && !reorderExpandVisualHeights[safeStringId(selected.id)]?.expanded && (
-            <View pointerEvents="none" style={styles.reorderFloatingMeasureProbe}>
-              <View
-                style={{ width: floatWidth }}
-                onLayout={(event) => {
-                  updateReorderExpandVisualHeight(selected.id, 'expanded', event?.nativeEvent?.layout?.height);
-                }}
-              >
-                <CardBody
-                  item={selected}
-                  habitDailyState={
-                    habitDailyStateMap[safeStringId(selected.id)]
-                    || EMPTY_HABIT_DAILY_STATE
-                  }
-                  variant={CHALLENGE_CARD_VARIANTS.FLOATING}
-                  collapsed={false}
-                  showControls
-                  canReorder={!asDoneFlags(selected)._isDone}
-                  onPressCard={() => {}}
-                  onPressEdit={() => {}}
-                  onPressDuplicate={() => {}}
-                  onPressDelete={() => {}}
-                  onPressClaim={onClaimReward}
-                />
-              </View>
-            </View>
-          )}
-
-          <CardBody
-            item={selected}
-            habitDailyState={
-              habitDailyStateMap[safeStringId(selected.id)]
-              || EMPTY_HABIT_DAILY_STATE
-            }
-            variant={CHALLENGE_CARD_VARIANTS.FLOATING}
-            showControls={reorderActive && reorderFloatingControlsVisible}
-            canReorder={!asDoneFlags(selected)._isDone}
-            onPressCard={(it) => {
-              if (it?.__move === 'up') { moveSelected('up'); return; }
-              if (it?.__move === 'down') { moveSelected('down'); return; }
-            }}
-            onPressEdit={(it) => {
-              finalizeReorder();
-              if (isRotationRoutine(it)) {
-                navigationRef.current.navigate('EditRotationRoutine', { routineId: it.id });
-                return;
-              }
-              navigationRef.current.navigate('EditChallenge', { challenge: it });
-            }}
-            onPressDuplicate={selected?._isExpired ? undefined : (it) => { onDuplicate(it); finalizeReorder(); }}
-            onPressDelete={(it) => { onDelete(it); }}
-            onPressClaim={() => {}}
-            onLongPress={undefined}
-          />
-        </Animated.View>
-        </Modal>
-      )}
       <FocusSessionStartModal
         visible={!!focusTarget}
         target={focusTarget}
@@ -2819,65 +2742,108 @@ const styles = StyleSheet.create({
   /* Home Hero */
   homeHero: {
     paddingTop: space.xl,
-    paddingBottom: space.xxl,
+    paddingBottom: space.xl,
   },
 
   heroEyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: color.textSecondary,
     marginBottom: space.md,
+    fontSize: 12,
+    fontWeight: '900',
+    color: color.textSecondary,
   },
 
-  heroKicker: {
-    fontSize: 14,
+  heroEmptyBox: {
+    minHeight: 118,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: color.border,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+  },
+
+  heroEmptyText: {
+    color: color.textDisabled,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  heroMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: space.lg,
+  },
+
+  heroCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  heroTypeText: {
+    marginBottom: 5,
     color: color.textSecondary,
-    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: '900',
   },
 
   heroTitle: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 27,
+    lineHeight: 33,
     fontWeight: '900',
     color: color.textPrimary,
     letterSpacing: -0.5,
   },
 
   heroMessage: {
-    marginTop: space.xs,
-    fontSize: 17,
-    lineHeight: 23,
-    fontWeight: '800',
+    marginTop: space.sm,
     color: color.textPrimary,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '800',
   },
 
   heroSubMessage: {
-    marginTop: space.xs,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '600',
+    marginTop: 4,
     color: color.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
   },
 
-  heroProgressRow: {
-    flexDirection: 'row',
+  heroRingWrap: {
+    width: HERO_RING_SIZE,
+    height: HERO_RING_SIZE,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: space.lg,
-    marginBottom: space.xs,
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 
-  heroProgressValue: {
-    fontSize: 16,
-    fontWeight: '900',
+  heroRingTextLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  heroRingMainText: {
     color: color.textPrimary,
+    fontSize: 22,
+    fontWeight: '900',
+    includeFontPadding: false,
   },
 
-  heroProgressMeta: {
-    fontSize: 13,
-    fontWeight: '800',
+  heroRingSubText: {
+    marginTop: 2,
     color: color.textSecondary,
+    fontSize: 10,
+    fontWeight: '800',
+    includeFontPadding: false,
   },
 
   heroActionButton: {
@@ -2898,30 +2864,35 @@ const styles = StyleSheet.create({
 
   /* 목록 Section Header */
   sectionHeaderRow: {
-    minHeight: 44,
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space.xxs,
+    marginBottom: 2,
   },
 
-  sectionHeaderTitle: {
-    flexShrink: 1,
-    fontSize: 17,
-    fontWeight: '900',
-    color: color.textPrimary,
+  sectionControlButton: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
   },
 
-  sectionSortButton: {
-    marginLeft: space.sm,
-    paddingVertical: 8,
-    paddingLeft: space.sm,
+  sectionControlButtonDisabled: {
+    opacity: 0.35,
   },
 
-  sectionSortText: {
-    fontSize: 12,
-    fontWeight: '700',
+  sectionControlText: {
     color: color.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  sectionControlArrow: {
+    marginLeft: 4,
+    color: color.textDisabled,
+    fontSize: 10,
+    fontWeight: '700',
   },
 
   /* 새 카드 정보계층 */
@@ -2952,23 +2923,96 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 
-  cardStatusWrap: {
+  cardInfoPanel: {
     marginTop: space.md,
+    paddingHorizontal: space.sm,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: color.surfaceMuted,
   },
 
-  statusPrimary: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '800',
-    color: color.textPrimary,
+  cardInfoMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: space.sm,
   },
 
-  statusSecondary: {
-    marginTop: 5,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
+  cardInfoMainText: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  cardInfoLabel: {
+    marginRight: 7,
     color: color.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  cardInfoValue: {
+    color: color.textPrimary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+
+  cardInfoValueFlexible: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  cardInfoMetric: {
+    flexShrink: 0,
+    color: color.textSecondary,
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+
+  cardInfoFooterRow: {
+    marginTop: space.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: space.sm,
+  },
+
+  cardInfoSecondary: {
+    flex: 1,
+    minWidth: 0,
+    color: color.textSecondary,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+
+  cardInfoSecondaryRight: {
+    textAlign: 'right',
+  },
+
+  cardFoldHandle: {
+    alignSelf: 'center',
+    width: 52,
+    minHeight: 25,
+    marginTop: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cardFoldChevron: {
+    height: 9,
+    color: color.textTertiary,
+    fontSize: 12,
+    lineHeight: 10,
+    fontWeight: '800',
+    includeFontPadding: false,
+  },
+
+  cardFoldChevronSecond: {
+    marginTop: -3,
   },
 
   rewardText: {
@@ -3014,73 +3058,14 @@ const styles = StyleSheet.create({
     backgroundColor: color.primary,
   },
 
-  managementContent: {
-    minHeight: 112,
-    justifyContent: 'space-between',
+  hofBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
 
-  controlDisabled: {
-    opacity: 0.35,
-  },
-
-  compactRewardText: {
-    color: color.textPrimary,
-  },
-
-  /* 고정 하단 Dock */
-  bottomDock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: space.xs,
-    paddingHorizontal: space.md,
-    paddingTop: space.xs,
-    paddingBottom: space.xs,
-    borderTopWidth: 1,
-    borderTopColor: color.border,
-    backgroundColor: color.background,
-  },
-
-  dockSecondary: {
-    flex: 0.52,
-    minHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-  },
-
-  dockSecondaryText: {
+  hofBtnText: {
     fontSize: 13,
-    fontWeight: '800',
-    color: color.textPrimary,
-  },
-
-  dockPrimary: {
-    flex: 1,
-    minHeight: 46,
-    paddingHorizontal: space.md,
-    borderRadius: radius.lg,
-    backgroundColor: color.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  dockPrimaryText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: color.textInverse,
-  },
-
-  hofIconButton: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-
-  hofIconText: {
-    fontSize: 20,
-    includeFontPadding: false,
+    fontWeight: '700',
   },
 
   sortModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: color.overlay },
@@ -3144,112 +3129,51 @@ const styles = StyleSheet.create({
   challengeListMasonryColumn: {
     flex: 1,
   },
-  cardFloating: {},
   cardCompact: {
     paddingVertical: 8,
   },
-  cardContentCompact: {},
 
-  cardCollapseToggleBtn: {
-    width: 22,
-    height: 24,
+  compactCardContent: {
+    minHeight: 45,
+  },
+
+  compactCardMainRow: {
+    minHeight: 34,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
+    columnGap: space.sm,
   },
-  cardCollapseToggleText: {
-    fontSize: 15,
-    lineHeight: 15,
-    fontWeight: '700',
-    color: color.textTertiary,
-    includeFontPadding: false,
-  },
-  compactCardRow: {
-    minHeight: 36,
-  },
-  compactCardTitle: {
-    maxWidth: '38%',
-    flexShrink: 1,
-    fontSize: 14,
-    fontWeight: '800',
-    color: color.textPrimary,
-    marginRight: 8,
-  },
-  compactProgressText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: color.textSecondary,
-  },
-  compactSpacer: {
+
+  compactCardIdentity: {
     flex: 1,
-    minWidth: 12,
+    minWidth: 0,
   },
-  compactExpandBtn: {
-    width: 20,
-    height: 30,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  compactExpandText: {
-    fontSize: 15,
-    lineHeight: 15,
-    fontWeight: '700',
+
+  compactCardType: {
+    marginBottom: 1,
     color: color.textTertiary,
-    includeFontPadding: false,
-  },
-  compactPctText: {
-    width: 38,
-    textAlign: 'center',
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '900',
+  },
+
+  compactCardTitle: {
     color: color.textPrimary,
-    marginLeft: 4,
-  },
-  compactActionBtn: {
-    height: 30,
-    width: 52,
-    paddingHorizontal: 0,
-    borderRadius: radius.md,
-    backgroundColor: color.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  compactRewardBtn: {
-    backgroundColor: color.surface,
-    borderWidth: 1,
-    borderColor: color.primary,
-  },
-  compactActionBtnDisabled: {
-    backgroundColor: color.surfaceMuted,
-    borderWidth: 1,
-    borderColor: color.border,
-  },
-  compactActionText: {
-    color: color.textInverse,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '900',
-    includeFontPadding: false,
   },
-  compactActionTextDisabled: {
-    color: primitive.black,
+
+  compactProgressText: {
+    flexShrink: 0,
+    color: color.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
   },
-  compactFocusPlayButton: {
-    width: 36,
-    height: 36,
-    marginLeft: space.xs,
-    borderRadius: radius.md,
-    backgroundColor: color.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  compactFocusPlayText: { color: color.textInverse, fontSize: 13, marginLeft: 1 },
   cardContent: { },
   dimmedContent: { opacity: 0.55 },
 
 
   uploadNowBtn: {
+    flex: 1,
     height: 46,
     borderRadius: radius.lg,
     backgroundColor: color.primary,
@@ -3268,7 +3192,6 @@ const styles = StyleSheet.create({
   focusPlayButton: {
     flex: 1,
     height: 46,
-    paddingHorizontal: space.sm,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: color.primary,
@@ -3278,7 +3201,7 @@ const styles = StyleSheet.create({
   },
   focusPlayText: {
     color: color.textPrimary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
   },
   uploadNowText: {
@@ -3286,35 +3209,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: color.textInverse,
   },
-
-  selectedCard: { borderColor: CARD_BORDER, borderWidth: 1 },
-
-  controlsRow: {
-    marginTop: space.xs,
-    minHeight: CONTROLS_H,
-  },
-
-  arrowsInline: {
-    height: CONTROLS_H,
-  },
-  circleArrowSmall: {
-    width: ARROW_SIZE, height: ARROW_SIZE, borderRadius: 20,
-    backgroundColor: primitive.black, borderWidth: 1, borderColor: primitive.black,
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 3, shadowColor: primitive.black, shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 2 },
-  },
-  circleArrowTxt: { color: color.background, fontSize: 18, fontWeight: '900', lineHeight: 18, includeFontPadding: false },
-
-  actionsRight: {
-    columnGap: 8,
-    height: CONTROLS_H,
-  },
-  actionDarkBtn: {
-    backgroundColor: primitive.black, borderWidth: 1, borderColor: primitive.black,
-    paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md,
-  },
-  actionDarkText: { color: color.background, fontSize: 12, fontWeight: '800' },
-
 
   outlineBigBtn: {
     backgroundColor: color.background,
@@ -3328,6 +3222,150 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: space.xs,
   },
   expiredBtnText: { color: primitive.black, fontSize: 16, fontWeight: '800', textAlign: 'center' },
+
+  manageListContent: {
+    paddingHorizontal: space.md,
+    paddingBottom: space.lg,
+  },
+
+  manageListContentWide: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
+
+  manageCardRow: {
+    height: MANAGE_ROW_HEIGHT,
+    marginBottom: MANAGE_ROW_GAP,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radius.md,
+    backgroundColor: color.background,
+    zIndex: 1,
+  },
+
+  manageCardRowDragging: {
+    zIndex: 30,
+    elevation: 8,
+    shadowColor: primitive.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+  },
+
+  manageStarButton: {
+    width: 32,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  manageStarText: {
+    color: color.textTertiary,
+    fontSize: 21,
+    fontWeight: '400',
+    includeFontPadding: false,
+  },
+
+  manageStarTextSelected: {
+    color: primitive.black,
+  },
+
+  manageIdentity: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 6,
+  },
+
+  manageTypeText: {
+    marginBottom: 1,
+    color: color.textTertiary,
+    fontSize: 9,
+    fontWeight: '900',
+  },
+
+  manageTitleText: {
+    color: color.textPrimary,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  manageActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+
+  manageActionButton: {
+    minWidth: 34,
+    height: 34,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  manageActionText: {
+    color: color.textSecondary,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  manageDragHandle: {
+    width: 35,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  manageDragHandleText: {
+    color: color.textPrimary,
+    fontSize: 23,
+    lineHeight: 24,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+
+  manageEmptyWrap: {
+    paddingVertical: space.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  manageEmptyText: {
+    color: color.textDisabled,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  briefNotice: {
+    position: 'absolute',
+    left: space.xl,
+    right: space.xl,
+    bottom: 68,
+    minHeight: 38,
+    paddingHorizontal: space.md,
+    borderRadius: radius.md,
+    backgroundColor: primitive.black,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+    elevation: 10,
+  },
+
+  briefNoticeText: {
+    color: color.textInverse,
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
 
   /* 빈 상태 */
   emptyWrap: {
@@ -3346,16 +3384,4 @@ const styles = StyleSheet.create({
   },
   hamburgerIcon: { fontSize: 22, color: color.textPrimary, fontWeight: '400' },
 
-  /* 정렬 스크림 */
-  fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: color.overlayStrong, zIndex: 2 },
-
-  /* 선택 카드 복제본 */
-  floatingCardWrap: { position: 'absolute', zIndex: 3, elevation: 12, shadowColor: primitive.black, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: {width:0, height:4} },
-  reorderFloatingMeasureProbe: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    opacity: 0,
-  },
 });

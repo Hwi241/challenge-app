@@ -4,10 +4,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View,  } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GraphPreviewIcon from '../components/GraphPreviewIcon';
+import MainDock from '../components/MainDock';
 import {
   buttonStyles,
   color,
@@ -84,7 +85,6 @@ function buildFeatureText(graph) {
 
 function GraphShopScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
 
   const [starBalance, setStarBalance] = useState(0);
@@ -706,11 +706,13 @@ const showFilterMenu = useCallback(() => {
         }
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: Math.max(insets.bottom, 12) + (space.xxl + space.xxs) },
+          { paddingBottom: space.lg },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       />
+
+      <MainDock active="shop" />
 
     </SafeAreaView>
   );

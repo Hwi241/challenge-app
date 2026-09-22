@@ -266,12 +266,13 @@ export default function EditRotationRoutineScreen({ navigation, route }) {
           </View>
         ) : draft ? (
           <RotationRoutineForm
+            createMode
+            saveLabel="수정 저장"
             title={draft.title}
             description={draft.description}
             items={draft.items}
             busy={busy}
             locked={busy}
-            notice={'변경 내용은 이번 회전에도 반영됩니다.\n• 진행 중인 현재 활동은 계속 이어갑니다.\n• 완료한 활동의 목표 변경은 다음 회전부터 적용됩니다.\n• 기록이 있는 삭제 활동은 이번 회전까지 유지됩니다.\n• 다음 회전은 수정한 기본 순서로 시작합니다.'}
             onTitleChange={(title) => change((current) => ({ ...current, title }))}
             onDescriptionChange={(description) =>
               change((current) => ({ ...current, description }))}

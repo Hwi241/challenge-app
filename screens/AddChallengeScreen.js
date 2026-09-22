@@ -129,6 +129,8 @@ export default function AddChallengeScreen() {
   const saveDraftDebounce = useRef(null);
   const suppressDraftRef = useRef(false);
   const formScrollRef = useRef(null);
+  const titleInputRef = useRef(null);
+  const goalInputRef = useRef(null);
   const descriptionInputRef = useRef(null);
   const rewardInputRef = useRef(null);
   const focusedInputRef = useRef(null);
@@ -291,36 +293,45 @@ const handleGoalChange = useCallback((txt)=>{
     setCGoalScore(String(n));
   }, []);
 
-  const measureAndScrollToInput = useCallback((inputRef, extraOffset = 48) => {
+  const revealInputAboveKeyboard = useCallback((inputRef) => {
     const input = inputRef?.current;
+    const scroll = formScrollRef.current;
     const keyboardFrame = keyboardFrameRef.current;
+    const keyboardTop = Number(
+      keyboardFrame?.screenY ?? keyboardFrame?.y
+    );
 
-    if (!input?.measureInWindow || !keyboardFrame?.screenY) return;
+    if (
+      !input?.measureInWindow
+      || !scroll?.scrollTo
+      || !Number.isFinite(keyboardTop)
+    ) return;
 
     requestAnimationFrame(() => {
       input.measureInWindow((x, y, width, height) => {
         const inputBottom = y + height;
-        const overlap = inputBottom + extraOffset - keyboardFrame.screenY;
+        const safeBottom = keyboardTop - 18;
 
-        if (overlap <= 0) return;
+        if (inputBottom <= safeBottom) return;
 
-        formScrollRef.current?.scrollTo({
-          y: Math.max(0, scrollYRef.current + overlap),
-          animated: false,
+        const delta = inputBottom - safeBottom + 18;
+        scroll.scrollTo({
+          y: Math.max(0, scrollYRef.current + delta),
+          animated: true,
         });
       });
     });
   }, []);
 
-  const scrollToFocusedInput = useCallback((inputRef, extraOffset = 48) => {
+  const scrollToFocusedInput = useCallback((inputRef) => {
     focusedInputRef.current = inputRef;
 
     if (!keyboardVisibleRef.current) return;
 
     setTimeout(() => {
-      measureAndScrollToInput(inputRef, extraOffset);
-    }, 30);
-  }, [measureAndScrollToInput]);
+      revealInputAboveKeyboard(inputRef);
+    }, 50);
+  }, [revealInputAboveKeyboard]);
 
   useEffect(() => {
     const handleKeyboardFrame = (event) => {
@@ -333,8 +344,8 @@ const handleGoalChange = useCallback((txt)=>{
 
       if (focusedInputRef.current) {
         setTimeout(() => {
-          measureAndScrollToInput(focusedInputRef.current, 48);
-        }, 30);
+          revealInputAboveKeyboard(focusedInputRef.current);
+        }, 80);
       }
     };
 
@@ -352,7 +363,7 @@ const handleGoalChange = useCallback((txt)=>{
       changeSub.remove();
       hideSub.remove();
     };
-  }, [measureAndScrollToInput]);
+  }, [revealInputAboveKeyboard]);
 
   useEffect(() => {
     if (!editChallenge) return;
@@ -652,7 +663,7 @@ const handleGoalChange = useCallback((txt)=>{
     <SafeAreaView style={canonicalSurfaceStyles.screen}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
       <BackButton
@@ -680,10 +691,10 @@ const handleGoalChange = useCallback((txt)=>{
         contentContainerStyle={[
           canonicalLayoutStyles.screenContentMuted,
           {
-            paddingBottom: Math.max(
-              space.xl * 3,
-              keyboardBottomInset + space.xl * 2
-            ),
+            paddingBottom:
+              space.xl * 3
+              + keyboardBottomInset
+              + space.xl,
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -698,10 +709,12 @@ const handleGoalChange = useCallback((txt)=>{
             {habitMode ? '습관 이름' : '도전 이름'}
           </Text>
           <TextInput
+            ref={titleInputRef}
             value={title}
             onChangeText={setTitle}
             placeholder={habitMode ? '습관의 이름을 입력하세요' : '도전의 이름을 입력하세요'}
             style={[canonicalInputStyles.compact, styles.inputSpacing]}
+            onFocus={() => scrollToFocusedInput(titleInputRef)}
           />
           {!habitMode && (
             <>
@@ -709,6 +722,7 @@ const handleGoalChange = useCallback((txt)=>{
                 목표 점수 혹은 횟수
               </Text>
               <TextInput
+                ref={goalInputRef}
                 value={goalScore}
                 onChangeText={handleGoalChange}
                 placeholder="숫자만 입력"
@@ -716,6 +730,7 @@ const handleGoalChange = useCallback((txt)=>{
                 keyboardType="numeric"
                 inputMode="numeric"
                 maxLength={4}
+                onFocus={() => scrollToFocusedInput(goalInputRef)}
               />
             </>
           )}
@@ -737,7 +752,7 @@ const handleGoalChange = useCallback((txt)=>{
             multiline
             textAlignVertical="top"
             maxLength={LIMITS.description}
-            onFocus={() => scrollToFocusedInput(descriptionInputRef, 48)}
+            onFocus={() => scrollToFocusedInput(descriptionInputRef)}
           />
 
           <View style={styles.dateRow}>
@@ -798,7 +813,7 @@ const handleGoalChange = useCallback((txt)=>{
               onChangeText={setReward}
               placeholder="보상을 입력하세요"
               style={[canonicalInputStyles.compact, styles.inputSpacing]}
-              onFocus={() => scrollToFocusedInput(rewardInputRef, 48)}
+              onFocus={() => scrollToFocusedInput(rewardInputRef)}
             />
           </View>
         )}

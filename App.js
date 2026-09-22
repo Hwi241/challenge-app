@@ -34,6 +34,7 @@ import MyGraphScreen from './screens/MyGraphScreen';
 import FocusTimerScreen from './screens/FocusTimerScreen';
 import FocusMiniTimer from './components/FocusMiniTimer';
 import FocusOverlayController from './components/FocusOverlayController';
+import MainDock from './components/MainDock';
 
 import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -54,6 +55,12 @@ const getDockScreenOptions = ({ route }) => ({
 });
 
 const appNavigationRef = createNavigationContainerRef();
+
+const DOCK_ROUTE_TO_KEY = {
+  ChallengeList: 'home',
+  ProfileInventory: 'record',
+  GraphShop: 'shop',
+};
 
 // ✅ 딥링크 설정
 // - thepush://upload?challengeId=xxx  → Upload
@@ -109,6 +116,7 @@ function StartupScreen() {
 export default function App() {
   const [showStartup, setShowStartup] = useState(true);
   const [currentRouteName, setCurrentRouteName] = useState('Startup');
+  const dockActive = DOCK_ROUTE_TO_KEY[currentRouteName] || null;
 
   // 부팅 시 위젯 데이터 초기 동기화
   useEffect(() => {
@@ -164,7 +172,8 @@ export default function App() {
           onReady={() => setCurrentRouteName(appNavigationRef.getCurrentRoute()?.name ?? '')}
           onStateChange={() => setCurrentRouteName(appNavigationRef.getCurrentRoute()?.name ?? '')}
         >
-          <View style={canonicalSurfaceStyles.screen}>
+          <View style={styles.appShell}>
+          <View style={styles.navigationHost}>
           <Stack.Navigator
             initialRouteName={showStartup ? 'Startup' : 'ChallengeList'}
             screenOptions={{
@@ -235,6 +244,13 @@ export default function App() {
           options={{ headerShown: false }}
         />
           </Stack.Navigator>
+          </View>
+          {!!dockActive && (
+            <MainDock
+              active={dockActive}
+              navigationRef={appNavigationRef}
+            />
+          )}
           <FocusMiniTimer
             navigationRef={appNavigationRef}
             routeName={currentRouteName}
@@ -248,6 +264,14 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  appShell: {
+    flex: 1,
+    backgroundColor: color.background,
+  },
+  navigationHost: {
+    flex: 1,
+    minHeight: 0,
+  },
   startupWrap: {
     alignItems: 'center',
     justifyContent: 'center',

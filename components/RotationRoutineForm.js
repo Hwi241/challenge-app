@@ -28,6 +28,7 @@ function CreateRotationRoutineForm({
   onRemoveItem,
   onAddItem,
   onSave,
+  saveLabel = '루틴 만들기',
 }) {
   return (
     <ScrollView
@@ -171,7 +172,7 @@ function CreateRotationRoutineForm({
         activeOpacity={0.9}
       >
         <Text style={buttonStyles.primary.label}>
-          {busy ? '저장 중...' : '루틴 만들기'}
+          {busy ? '저장 중...' : saveLabel}
         </Text>
       </TouchableOpacity>
     </ScrollView>
@@ -180,6 +181,7 @@ function CreateRotationRoutineForm({
 
 export default function RotationRoutineForm({
   createMode = false,
+  saveLabel = '루틴 만들기',
   title,
   description,
   items,
@@ -209,6 +211,7 @@ export default function RotationRoutineForm({
         onRemoveItem={onRemoveItem}
         onAddItem={onAddItem}
         onSave={onSave}
+        saveLabel={saveLabel}
       />
     );
   }

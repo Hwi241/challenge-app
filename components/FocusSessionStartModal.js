@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -32,8 +33,6 @@ import {
 
 const MIN_MINUTES = 1;
 const MAX_MINUTES = 1440;
-const MINUTE_STEP = 5;
-
 const clampMinutes = (value) => {
   const number = Math.round(Number(value) || 0);
   return Math.min(
@@ -41,6 +40,12 @@ const clampMinutes = (value) => {
     Math.max(MIN_MINUTES, number || MIN_MINUTES)
   );
 };
+
+const sanitizeMinuteText = (value) => (
+  String(value ?? '')
+    .replace(/[^\d]/g, '')
+    .slice(0, 4)
+);
 
 export default function FocusSessionStartModal({
   visible,
@@ -51,8 +56,8 @@ export default function FocusSessionStartModal({
 }) {
   const [mode, setMode] = useState('countdown');
   const [timerMinutes, setTimerMinutes] = useState(60);
+  const [timerMinutesInput, setTimerMinutesInput] = useState('60');
   const [alarmEnabled, setAlarmEnabled] = useState(true);
-  const [editingTime, setEditingTime] = useState(false);
   const [loading, setLoading] = useState(false);
   const isHabit = target?.type === 'habit';
 
@@ -87,7 +92,6 @@ export default function FocusSessionStartModal({
 
     let alive = true;
     setMode('countdown');
-    setEditingTime(false);
     setLoading(true);
 
     Promise.all([
@@ -96,12 +100,15 @@ export default function FocusSessionStartModal({
     ])
       .then(([rememberedMinutes, rememberedAlarm]) => {
         if (!alive) return;
-        setTimerMinutes(clampMinutes(rememberedMinutes));
+        const safeMinutes = clampMinutes(rememberedMinutes);
+        setTimerMinutes(safeMinutes);
+        setTimerMinutesInput(String(safeMinutes));
         setAlarmEnabled(rememberedAlarm !== false);
       })
       .catch(() => {
         if (!alive) return;
         setTimerMinutes(defaultMinutes);
+        setTimerMinutesInput(String(defaultMinutes));
         setAlarmEnabled(true);
       })
       .finally(() => {
@@ -113,15 +120,12 @@ export default function FocusSessionStartModal({
     };
   }, [defaultMinutes, minutesPreferenceKey, target?.id, visible]);
 
-  const moveMinutes = (direction) => {
-    setMode('countdown');
-    setTimerMinutes((previous) => {
-      const current = clampMinutes(previous);
-      if (direction < 0) {
-        return current <= 5 ? 1 : Math.max(1, current - MINUTE_STEP);
-      }
-      return current < 5 ? 5 : Math.min(MAX_MINUTES, current + MINUTE_STEP);
-    });
+  const commitMinuteInput = () => {
+    const safeMinutes = clampMinutes(
+      timerMinutesInput || timerMinutes
+    );
+    setTimerMinutes(safeMinutes);
+    setTimerMinutesInput(String(safeMinutes));
   };
 
   const changeAlarm = async (next) => {
@@ -133,7 +137,11 @@ export default function FocusSessionStartModal({
 
   const start = () => {
     if (mode === 'countdown') {
-      const safeMinutes = clampMinutes(timerMinutes);
+      const safeMinutes = clampMinutes(
+        timerMinutesInput || timerMinutes
+      );
+      setTimerMinutes(safeMinutes);
+      setTimerMinutesInput(String(safeMinutes));
       setFocusTimerMinutesPreference(minutesPreferenceKey, safeMinutes).catch(() => {});
       setFocusTimerAlarmPreference(target?.id, alarmEnabled).catch(() => {});
       onStart?.({
@@ -214,7 +222,6 @@ export default function FocusSessionStartModal({
                     ]}
                     onPress={() => {
                       setMode(value);
-                      setEditingTime(false);
                     }}
                     disabled={busy}
                     activeOpacity={0.8}
@@ -231,44 +238,35 @@ export default function FocusSessionStartModal({
 
               <View style={styles.settingsCard}>
                 {mode === 'countdown' ? (
-                  <>
-                    <View style={styles.settingRow}>
-                      <Text style={styles.settingLabel}>목표 시간</Text>
-                      <View style={styles.settingValueRow}>
-                        <Text style={styles.settingValue}>{timerMinutes}분</Text>
-                        <TouchableOpacity
-                          style={styles.editTimeButton}
-                          onPress={() => setEditingTime((current) => !current)}
-                          disabled={busy}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={styles.editTimeText}>
-                            {editingTime ? '완료' : '수정'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
+                  <View style={styles.settingRow}>
+                    <Text style={styles.settingLabel}>목표 시간</Text>
+                    <View style={styles.minuteInputWrap}>
+                      <TextInput
+                        value={timerMinutesInput}
+                        onChangeText={(value) => {
+                          const next = sanitizeMinuteText(value);
+                          setTimerMinutesInput(next);
+                          const numeric = Number(next);
+                          if (
+                            Number.isFinite(numeric)
+                            && numeric >= MIN_MINUTES
+                            && numeric <= MAX_MINUTES
+                          ) {
+                            setTimerMinutes(numeric);
+                          }
+                        }}
+                        onBlur={commitMinuteInput}
+                        editable={!busy}
+                        keyboardType="numeric"
+                        inputMode="numeric"
+                        selectTextOnFocus
+                        maxLength={4}
+                        style={styles.minuteInput}
+                        accessibilityLabel="목표 시간 분"
+                      />
+                      <Text style={styles.minuteUnit}>분</Text>
                     </View>
-
-                    {editingTime && (
-                      <View style={styles.timeEditor}>
-                        <TouchableOpacity
-                          style={styles.timeStepButton}
-                          onPress={() => moveMinutes(-1)}
-                          disabled={busy}
-                        >
-                          <Text style={styles.timeStepText}>‹</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.timeEditorValue}>{timerMinutes}분</Text>
-                        <TouchableOpacity
-                          style={styles.timeStepButton}
-                          onPress={() => moveMinutes(1)}
-                          disabled={busy}
-                        >
-                          <Text style={styles.timeStepText}>›</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </>
+                  </View>
                 ) : (
                   <View style={styles.settingRow}>
                     <Text style={styles.settingLabel}>측정 방식</Text>
@@ -332,14 +330,10 @@ const styles = StyleSheet.create({
   settingsCard: { marginTop: space.sm, paddingHorizontal: space.md, borderWidth: 1, borderColor: color.border, borderRadius: radius.lg, backgroundColor: color.surface },
   settingRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', columnGap: space.sm },
   settingLabel: { color: color.textSecondary, fontSize: 12, fontWeight: '800' },
-  settingValueRow: { flexDirection: 'row', alignItems: 'center', columnGap: 9 },
   settingValue: { color: color.textPrimary, fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  editTimeButton: { minWidth: 38, height: 30, alignItems: 'center', justifyContent: 'center' },
-  editTimeText: { color: color.textSecondary, fontSize: 11, fontWeight: '800' },
-  timeEditor: { height: 48, marginBottom: space.sm, borderRadius: radius.md, backgroundColor: color.surfaceMuted, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  timeStepButton: { width: 52, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
-  timeStepText: { color: color.textPrimary, fontSize: 28, lineHeight: 30, fontWeight: '300' },
-  timeEditorValue: { minWidth: 88, textAlign: 'center', color: color.textPrimary, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  minuteInputWrap: { height: 38, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: color.border, borderRadius: radius.md, backgroundColor: color.surface, overflow: 'hidden' },
+  minuteInput: { width: 68, height: 38, paddingHorizontal: space.xs, paddingVertical: 0, color: color.textPrimary, fontSize: 16, fontWeight: '900', textAlign: 'right', fontVariant: ['tabular-nums'] },
+  minuteUnit: { paddingRight: space.xs, color: color.textSecondary, fontSize: 12, fontWeight: '800' },
   settingDivider: { height: StyleSheet.hairlineWidth, backgroundColor: color.divider },
   startButton: { marginTop: space.lg, justifyContent: 'center' },
   disabled: { opacity: 0.45 },

@@ -44,7 +44,6 @@ import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import { buildResponsiveDashboardLayout } from '../utils/dashboardAutoLayout';
-import MainDock from '../components/MainDock';
 
 const CHALLENGES_KEY = 'challenges';
 const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
@@ -1639,7 +1638,6 @@ export default function ProfileInventoryScreen() {
  </View>
       </ScrollView>
 
-      <MainDock active="record" />
 
       <Modal visible={memoVisible} transparent animationType="fade" onRequestClose={closeMemoModal}>
         <TouchableWithoutFeedback onPress={closeMemoModal}>

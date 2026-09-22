@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GraphPreviewIcon from '../components/GraphPreviewIcon';
-import MainDock from '../components/MainDock';
 import {
   buttonStyles,
   color,
@@ -712,7 +711,6 @@ const showFilterMenu = useCallback(() => {
         keyboardShouldPersistTaps="handled"
       />
 
-      <MainDock active="shop" />
 
     </SafeAreaView>
   );

@@ -12,7 +12,6 @@ import {
 
 import {
   buttonStyles,
-  card as canonicalCardStyles,
   color,
   layout as canonicalLayoutStyles,
   primitive,
@@ -51,7 +50,7 @@ const CARD_TITLE_LINE_HEIGHT = 22;
 const CARD_IDENTITY_LEFT = 12;
 const CARD_IDENTITY_TOP = 7;
 const CARD_IDENTITY_HEIGHT = 38;
-const CARD_FOLD_HANDLE_BOTTOM = 5;
+const CARD_FOLD_HANDLE_BOTTOM = 6;
 const RECORD_ACTION_LABEL = '기록하기';
 
 const CARD_SMALL_ACTION_WIDTH = 42;
@@ -60,6 +59,17 @@ const CARD_SMALL_ACTION_GAP = 8;
 const CARD_ACTION_GROUP_WIDTH = (
   CARD_SMALL_ACTION_WIDTH * 3
   + CARD_SMALL_ACTION_GAP * 2
+);
+
+const MANAGE_DRAG_WIDTH = 28;
+const MANAGE_STAR_WIDTH = 32;
+const MANAGE_CONTROL_GAP = 6;
+
+const MANAGE_CONTROL_GROUP_WIDTH = (
+  MANAGE_DRAG_WIDTH
+  + MANAGE_STAR_WIDTH
+  + CARD_SMALL_ACTION_WIDTH * 3
+  + MANAGE_CONTROL_GAP * 4
 );
 
 const HABIT_WEEK_BOX_SIZE = 22;
@@ -292,9 +302,31 @@ const keyOfDate = (d) => {
 };
 
 const toDateOnly = (value) => {
-  const x = value ? new Date(value) : new Date();
-  if (Number.isNaN(x.getTime())) return null;
+  const source = (
+    value === undefined
+      ? new Date()
+      : value
+  );
+
+  if (
+    source === null
+    || source === ''
+  ) {
+    return null;
+  }
+
+  const x = (
+    source instanceof Date
+      ? new Date(source.getTime())
+      : new Date(source)
+  );
+
+  if (Number.isNaN(x.getTime())) {
+    return null;
+  }
+
   x.setHours(0, 0, 0, 0);
+
   return x;
 };
 
@@ -348,45 +380,73 @@ const getSundayWeekDates = (value = new Date()) => {
   });
 };
 
-const isHabitScheduledOnDate = (item = {}, value = new Date()) => {
+const isHabitScheduledOnDate = (
+  item = {},
+  value = new Date()
+) => {
   const date = toDateOnly(value);
+
   if (!date) return false;
-
-  const start = toDateOnly(item?.startDate);
-  const end = toDateOnly(item?.endDate);
-
-  if (start && date < start) return false;
-  if (end && date > end) return false;
 
   const cycle = item?.habitCycle;
 
-  if (!cycle?.type) return true;
+  if (!cycle?.type) {
+    return true;
+  }
 
   if (cycle.type === 'weekly') {
-    const days = Array.isArray(cycle.days) ? cycle.days : [];
-    return days.includes(WEEK_DAY_LABELS[date.getDay()]);
+    const days = new Set(
+      (
+        Array.isArray(cycle.days)
+          ? cycle.days
+          : []
+      )
+        .map((day) => (
+          String(day || '').trim()
+        ))
+        .filter(Boolean)
+    );
+
+    return days.has(
+      WEEK_DAY_LABELS[
+        date.getDay()
+      ]
+    );
   }
 
   if (cycle.type === 'monthly') {
-    const dates = Array.isArray(cycle.dates)
-      ? cycle.dates.map(Number)
-      : [];
-    return dates.includes(date.getDate());
+    const dates = new Set(
+      (
+        Array.isArray(cycle.dates)
+          ? cycle.dates
+          : []
+      )
+        .map(Number)
+        .filter(
+          (day) => (
+            Number.isInteger(day)
+            && day >= 1
+            && day <= 31
+          )
+        )
+    );
+
+    return dates.has(
+      date.getDate()
+    );
   }
 
-  return true;
+  return false;
 };
 
 const findPreviousHabitScheduledDate = (item = {}, value) => {
   const current = toDateOnly(value);
   if (!current) return null;
-  const start = toDateOnly(item?.startDate);
   const cursor = new Date(current);
   cursor.setDate(cursor.getDate() - 1);
   cursor.setHours(0, 0, 0, 0);
 
   for (let guard = 0; guard < 3700; guard += 1) {
-    if (start && cursor < start) return null;
     if (isHabitScheduledOnDate(item, cursor)) {
       return new Date(cursor);
     }
@@ -410,6 +470,64 @@ const getHabitScheduledStreakForDate = (recordedDays, item, value) => {
     cursor = previous;
   }
   return streak;
+};
+
+const getCurrentHabitStreak = (
+  recordedDays,
+  item,
+  value = new Date()
+) => {
+  const today = toDateOnly(value);
+
+  if (!today) return 0;
+
+  const todayScheduled =
+    isHabitScheduledOnDate(
+      item,
+      today
+    );
+
+  const todayRecorded =
+    recordedDays.has(
+      keyOfDate(today)
+    );
+
+  if (
+    todayScheduled
+    && todayRecorded
+  ) {
+    return (
+      getHabitScheduledStreakForDate(
+        recordedDays,
+        item,
+        today
+      )
+    );
+  }
+
+  const previous =
+    findPreviousHabitScheduledDate(
+      item,
+      today
+    );
+
+  if (!previous) return 0;
+
+  if (
+    !recordedDays.has(
+      keyOfDate(previous)
+    )
+  ) {
+    return 0;
+  }
+
+  return (
+    getHabitScheduledStreakForDate(
+      recordedDays,
+      item,
+      previous
+    )
+  );
 };
 
 const getHabitCellStateForDate = (recordedDays, item, value) => {
@@ -456,39 +574,43 @@ const getHabitDailyState = (
     if (key) recordedDays.add(key);
   }
 
-  const weekDates = getSundayWeekDates(today);
-  const weekCells = weekDates.map(
-    (day) => getHabitCellStateForDate(recordedDays, item, day)
-  );
-  const todayCell = getHabitCellStateForDate(recordedDays, item, today);
-  const hasToday = todayCell.recorded;
-  const todayGrassLevel = todayCell.level;
-  let streak = todayCell.streak;
+  const weekDates =
+    getSundayWeekDates(today);
 
-  if (!streak) {
-    let cursor = new Date(today);
-    for (let guard = 0; guard < 3700; guard += 1) {
-      const candidate = findPreviousHabitScheduledDate(item, cursor);
-      if (!candidate) break;
-      const candidateStreak = getHabitScheduledStreakForDate(
-        recordedDays,
-        item,
-        candidate
-      );
-      if (candidateStreak > 0) {
-        streak = candidateStreak;
-        break;
-      }
-      cursor = candidate;
-    }
-  }
+  const weekCells =
+    weekDates.map(
+      (day) => (
+        getHabitCellStateForDate(
+          recordedDays,
+          item,
+          day
+        )
+      )
+    );
+
+  const todayCell =
+    getHabitCellStateForDate(
+      recordedDays,
+      item,
+      today
+    );
+
+  const streak =
+    getCurrentHabitStreak(
+      recordedDays,
+      item,
+      today
+    );
 
   return {
     inRange,
-    scheduledToday: todayCell.scheduled,
-    hasToday,
+    scheduledToday:
+      todayCell.scheduled,
+    hasToday:
+      todayCell.recorded,
     streak,
-    todayGrassLevel,
+    todayGrassLevel:
+      todayCell.level,
     weekCells,
   };
 };
@@ -1096,20 +1218,83 @@ const CardIdentity = memo(function CardIdentity({ item, style }) {
   );
 });
 
-const CompactManageCardShell = memo(function CompactManageCardShell({
-  item,
-  rightContent,
-  children,
-  style,
-}) {
-  return (
-    <View style={[styles.compactManageShell, style]}>
-      <CardIdentity item={item} style={styles.compactManageIdentity} />
-      <View style={styles.compactManageActionSlot}>{rightContent}</View>
-      {children}
-    </View>
-  );
-});
+const UnifiedCardShell = memo(
+  React.forwardRef(
+    function UnifiedCardShell({
+      item,
+      expanded = false,
+      onPress,
+      identityStyle,
+      rightContent,
+      actionSlotStyle,
+      children,
+      foldCollapsed = null,
+      onPressToggleCollapsed,
+    }, ref) {
+      const content = (
+        <>
+          <CardIdentity
+            item={item}
+            style={identityStyle}
+          />
+
+          {!!rightContent && (
+            <View
+              style={[
+                styles.compactManageActionSlot,
+                actionSlotStyle,
+              ]}
+            >
+              {rightContent}
+            </View>
+          )}
+
+          {children}
+
+          {foldCollapsed !== null && (
+            <CardFoldHandle
+              collapsed={
+                !!foldCollapsed
+              }
+              onPress={
+                onPressToggleCollapsed
+              }
+            />
+          )}
+        </>
+      );
+
+      const shellStyle = [
+        styles.unifiedCardShell,
+        expanded
+          ? styles.unifiedCardShellExpanded
+          : styles.unifiedCardShellCompact,
+      ];
+
+      if (onPress) {
+        return (
+          <TouchableOpacity
+            ref={ref}
+            style={shellStyle}
+            onPress={onPress}
+            activeOpacity={0.85}
+          >
+            {content}
+          </TouchableOpacity>
+        );
+      }
+
+      return (
+        <View
+          ref={ref}
+          style={shellStyle}
+        >
+          {content}
+        </View>
+      );
+    }
+  )
+);
 
 const CardFoldHandle = memo(function CardFoldHandle({
   collapsed = false,
@@ -1121,8 +1306,8 @@ const CardFoldHandle = memo(function CardFoldHandle({
       onPress={onPress}
       activeOpacity={0.65}
       hitSlop={{
-        top: 8,
-        bottom: 8,
+        top: 5,
+        bottom: 5,
         left: 18,
         right: 18,
       }}
@@ -1147,7 +1332,12 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
     const next = rotationSummary.nextItem;
 
     return (
-      <View style={styles.cardInfoPanel}>
+      <View
+        style={[
+          styles.cardInfoPanel,
+          styles.cardInfoPanelRaised,
+        ]}
+      >
         <Text style={styles.cardInfoLabel}>
           현재
         </Text>
@@ -1240,7 +1430,12 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
     : null;
 
   return (
-    <View style={styles.cardInfoPanel}>
+    <View
+      style={[
+        styles.cardInfoPanel,
+        styles.cardInfoPanelRaised,
+      ]}
+    >
       {hasGoal && (
         <CardProgressBar value={pct} />
       )}
@@ -1354,7 +1549,7 @@ const ChallengeCardPrimaryAction = memo(
 );
 
 const ChallengeCardCompactRow = memo(
-  function ChallengeCardCompactRow({
+  React.forwardRef(function ChallengeCardCompactRow({
     item,
     pct,
     rotationSummary,
@@ -1365,7 +1560,7 @@ const ChallengeCardCompactRow = memo(
     onPressCard,
     onPressClaim,
     onPressFocus,
-  }) {
+  }, ref) {
     const rotation = !!rotationSummary;
 
     const onRecord = () => {
@@ -1391,11 +1586,14 @@ const ChallengeCardCompactRow = memo(
       ? '보상'
       : isExpired
         ? '만료'
-        : RECORD_ACTION_LABEL;
+        : '기록';
 
     return (
-      <CompactManageCardShell
+      <UnifiedCardShell
+        ref={ref}
         item={item}
+        identityStyle={styles.compactIdentity}
+        onPress={() => onPressCard?.(item)}
         rightContent={(
           <>
             <View style={styles.compactProgressSlot}>
@@ -1455,15 +1653,11 @@ const ChallengeCardCompactRow = memo(
             )}
           </>
         )}
-      >
-
-        <CardFoldHandle
-          collapsed
-          onPress={onPressToggleCollapsed}
-        />
-      </CompactManageCardShell>
+        foldCollapsed
+        onPressToggleCollapsed={onPressToggleCollapsed}
+      />
     );
-  }
+  })
 );
 
 /* ---------- 카드 UI ---------- */
@@ -1510,43 +1704,32 @@ const CardBody = React.forwardRef(function CardBody({
 
   if (isCompactVariant) {
     return (
-      <TouchableOpacity
+      <ChallengeCardCompactRow
         ref={ref}
-        activeOpacity={0.85}
-        onPress={() => onPressCard?.(item)}
-        style={styles.cardCompactTouchable}
-      >
-        <ChallengeCardCompactRow
-          item={item}
-          pct={pct}
-          rotationSummary={rotationSummary}
-          habitDailyState={habitDailyState}
-          isDone={isDone}
-          isExpired={isExpired}
-          onPressToggleCollapsed={onPressToggleCollapsed}
-          onPressCard={onPressCard}
-          onPressClaim={onPressClaim}
-          onPressFocus={onPressFocus}
-        />
-      </TouchableOpacity>
+        item={item}
+        pct={pct}
+        rotationSummary={rotationSummary}
+        habitDailyState={habitDailyState}
+        isDone={isDone}
+        isExpired={isExpired}
+        onPressToggleCollapsed={onPressToggleCollapsed}
+        onPressCard={onPressCard}
+        onPressClaim={onPressClaim}
+        onPressFocus={onPressFocus}
+      />
     );
   }
 
   return (
-    <TouchableOpacity
+    <UnifiedCardShell
       ref={ref}
-      activeOpacity={0.85}
+      item={item}
+      expanded
+      identityStyle={styles.expandedIdentity}
       onPress={() => onPressCard?.(item)}
-      style={[
-        canonicalCardStyles.list,
-        styles.cardExpanded,
-      ]}
+      foldCollapsed={false}
+      onPressToggleCollapsed={onPressToggleCollapsed}
     >
-      <CardIdentity
-        item={item}
-        style={styles.expandedCardIdentity}
-      />
-
       <View
         style={[
           styles.expandedCardBody,
@@ -1561,22 +1744,19 @@ const CardBody = React.forwardRef(function CardBody({
         />
       </View>
 
-      <ChallengeCardPrimaryAction
-        item={item}
-        isDone={isDone}
-        isExpired={isExpired}
-        rotationSummary={rotationSummary}
-        habitDailyState={habitDailyState}
-        onPressCard={onPressCard}
-        onPressClaim={onPressClaim}
-        onPressFocus={onPressFocus}
-      />
-
-      <CardFoldHandle
-        collapsed={false}
-        onPress={onPressToggleCollapsed}
-      />
-    </TouchableOpacity>
+      <View style={styles.expandedCardActionZone}>
+        <ChallengeCardPrimaryAction
+          item={item}
+          isDone={isDone}
+          isExpired={isExpired}
+          rotationSummary={rotationSummary}
+          habitDailyState={habitDailyState}
+          onPressCard={onPressCard}
+          onPressClaim={onPressClaim}
+          onPressFocus={onPressFocus}
+        />
+      </View>
+    </UnifiedCardShell>
   );
 });
 
@@ -1699,10 +1879,37 @@ const ManageCardRow = memo(function ManageCardRow({
         },
       ]}
     >
-      <CompactManageCardShell
+      <UnifiedCardShell
         item={item}
+        identityStyle={styles.manageIdentity}
+        actionSlotStyle={styles.manageActionSlot}
         rightContent={(
           <>
+        <GestureDetector gesture={dragGesture}>
+          <View
+            style={styles.manageDragHandle}
+            accessibilityRole="button"
+            accessibilityLabel="순서 변경"
+          >
+            <Text style={styles.manageDragHandleText}>≡</Text>
+          </View>
+        </GestureDetector>
+
+        <TouchableOpacity
+          style={styles.manageStarButton}
+          onPress={() => onToggleFeatured?.(item)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={featured ? '오늘의 PUSH 해제' : '오늘의 PUSH 설정'}
+        >
+          <Text style={[
+            styles.manageStarText,
+            featured && styles.manageStarTextSelected,
+          ]}>
+            {featured ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[
             styles.cardSmallActionButton,
@@ -1758,32 +1965,7 @@ const ManageCardRow = memo(function ManageCardRow({
         </TouchableOpacity>
           </>
         )}
-      >
-        <TouchableOpacity
-          style={styles.manageStarButton}
-          onPress={() => onToggleFeatured?.(item)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={featured ? '오늘의 PUSH 해제' : '오늘의 PUSH 설정'}
-        >
-          <Text style={[
-            styles.manageStarText,
-            featured && styles.manageStarTextSelected,
-          ]}>
-            {featured ? '★' : '☆'}
-          </Text>
-        </TouchableOpacity>
-
-        <GestureDetector gesture={dragGesture}>
-          <View
-            style={styles.manageDragHandle}
-            accessibilityRole="button"
-            accessibilityLabel="순서 변경"
-          >
-            <Text style={styles.manageDragHandleText}>≡</Text>
-          </View>
-        </GestureDetector>
-      </CompactManageCardShell>
+      />
     </Animated.View>
   );
 });
@@ -3259,7 +3441,7 @@ export default function ChallengeListScreen() {
                   );
                 }}
                 style={[
-                  styles.manageResponsiveWrap,
+                  styles.challengeResponsiveGrid,
                   {
                     opacity: responsiveFade,
                   },
@@ -3687,6 +3869,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: color.surfaceMuted,
   },
+  cardInfoPanelRaised: {
+    marginTop: 4,
+  },
 
   cardInfoMainRow: {
     flexDirection: 'row',
@@ -3770,10 +3955,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 4,
   },
-  expandedCardIdentity: {
-    right: 12,
-  },
-
   rewardText: {
     marginTop: space.xs,
     fontSize: 12,
@@ -3878,19 +4059,9 @@ const styles = StyleSheet.create({
     width: '50%',
   },
 
-  manageResponsiveWrap: {
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  compactManageShell: {
+  unifiedCardShell: {
     position: 'relative',
     width: '100%',
-    height: CARD_COMPACT_HEIGHT,
-    minHeight: CARD_COMPACT_HEIGHT,
     paddingHorizontal: 0,
     paddingVertical: 0,
     borderWidth: 1,
@@ -3899,27 +4070,41 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
     overflow: 'hidden',
   },
-  cardCompactTouchable: {
-    width: '100%',
+  unifiedCardShellCompact: {
+    height: CARD_COMPACT_HEIGHT,
+    minHeight: CARD_COMPACT_HEIGHT,
   },
-
-  cardExpanded: {
+  unifiedCardShellExpanded: {
     height: CARD_EXPANDED_HEIGHT,
     minHeight: CARD_EXPANDED_HEIGHT,
-    position: 'relative',
-    paddingBottom: 12,
   },
 
   expandedCardBody: {
-    flex: 1,
+    position: 'absolute',
+    top: 52,
+    left: 12,
+    right: 12,
+    bottom: 78,
     minHeight: 0,
-    paddingTop: 54,
-    paddingHorizontal: 12,
-    paddingBottom: 26,
   },
 
-  compactManageIdentity: {
+  expandedCardActionZone: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 24,
+    height: 46,
+    justifyContent: 'center',
+  },
+
+  compactIdentity: {
     right: CARD_ACTION_GROUP_WIDTH + 12,
+  },
+  manageIdentity: {
+    right: MANAGE_CONTROL_GROUP_WIDTH + 12,
+  },
+  expandedIdentity: {
+    right: 12,
   },
   compactManageActionSlot: {
     position: 'absolute',
@@ -3931,6 +4116,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     columnGap: CARD_SMALL_ACTION_GAP,
+  },
+  manageActionSlot: {
+    width: MANAGE_CONTROL_GROUP_WIDTH,
+    columnGap: MANAGE_CONTROL_GAP,
+    justifyContent: 'flex-start',
   },
 
   cardSmallActionButton: {
@@ -3998,10 +4188,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryActionRow: {
+    height: 46,
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: space.xs,
-    marginTop: space.md,
+    marginTop: 0,
   },
   primaryActionMain: {
     flex: 1,
@@ -4028,15 +4219,25 @@ const styles = StyleSheet.create({
   },
 
   outlineBigBtn: {
+    height: 46,
+    paddingVertical: 0,
+    marginTop: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: color.background,
     borderWidth: 2, borderColor: color.primary,
-    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: space.xs,
+    borderRadius: radius.md, alignSelf: 'stretch',
   },
   outlineBigText: { color: color.primary, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   expiredBtn: {
+    height: 46,
+    paddingVertical: 0,
+    marginTop: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: color.surfaceMuted,
     borderWidth: 1, borderColor: color.border,
-    borderRadius: radius.lg, paddingVertical: 14, alignSelf: 'stretch', marginTop: space.xs,
+    borderRadius: radius.md, alignSelf: 'stretch',
   },
   expiredBtnText: { color: primitive.black, fontSize: 16, fontWeight: '800', textAlign: 'center' },
 
@@ -4058,10 +4259,7 @@ const styles = StyleSheet.create({
   },
 
   manageStarButton: {
-    position: 'absolute',
-    right: CARD_ACTION_GROUP_WIDTH + 14,
-    top: 8,
-    width: 32,
+    width: MANAGE_STAR_WIDTH,
     height: CARD_SMALL_ACTION_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -4079,11 +4277,8 @@ const styles = StyleSheet.create({
   },
 
   manageDragHandle: {
-    position: 'absolute',
-    left: 0,
-    bottom: 0,
-    width: 28,
-    height: 16,
+    width: MANAGE_DRAG_WIDTH,
+    height: CARD_SMALL_ACTION_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },

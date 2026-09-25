@@ -1,5 +1,5 @@
 // screens/ChallengeListScreen.js
-import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
 import { AppState, View, Text, StyleSheet, TouchableOpacity, Alert, BackHandler, Platform, ScrollView, UIManager, LayoutAnimation, Animated, Easing, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
@@ -76,6 +76,9 @@ const HABIT_WEEK_BOX_SIZE = 22;
 const HABIT_WEEK_MAX_WIDTH = 220;
 
 const MANAGE_ROW_GAP = 8;
+const MANAGE_REORDER_PREVIEW_MS = 180;
+const MANAGE_DRAG_LIFT_SCALE = 1.018;
+const MANAGE_DRAG_DROP_MS = 140;
 
 const HERO_RING_SIZE = 96;
 const HERO_RING_STROKE = 10;
@@ -227,6 +230,114 @@ const getManageCardHeight = (
     ? CARD_COMPACT_HEIGHT
     : CARD_EXPANDED_HEIGHT
 );
+
+const buildManageLayoutPositions = (
+  items = [],
+  collapsedMap = {},
+  columns = 1,
+  frameWidth = 1
+) => {
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeColumns = Math.max(1, Number(columns) || 1);
+  const safeWidth = Math.max(1, Number(frameWidth) || 1);
+  const columnWidth = safeWidth / safeColumns;
+  const positions = {};
+  let cursorY = 0;
+
+  for (
+    let rowStart = 0;
+    rowStart < safeItems.length;
+    rowStart += safeColumns
+  ) {
+    const rowItems = safeItems.slice(
+      rowStart,
+      rowStart + safeColumns
+    );
+    const rowHeight = Math.max(
+      ...rowItems.map((candidate) => (
+        getManageCardHeight(candidate, collapsedMap)
+      ))
+    );
+
+    rowItems.forEach((candidate, columnIndex) => {
+      const id = safeStringId(candidate?.id);
+      const height = getManageCardHeight(
+        candidate,
+        collapsedMap
+      );
+      const x = columnIndex * columnWidth;
+      const y = cursorY;
+
+      positions[id] = {
+        x,
+        y,
+        width: columnWidth,
+        height,
+        centerX: x + columnWidth / 2,
+        centerY: y + height / 2,
+      };
+    });
+
+    cursorY += rowHeight + MANAGE_ROW_GAP;
+  }
+
+  return positions;
+};
+
+const findManageDragTargetIndex = (
+  items = [],
+  positions = {},
+  draggedId,
+  translationX = 0,
+  translationY = 0
+) => {
+  const source = positions[safeStringId(draggedId)];
+  if (!source || !items.length) return -1;
+
+  const targetX = source.centerX + (Number(translationX) || 0);
+  const targetY = source.centerY + (Number(translationY) || 0);
+  let closestIndex = -1;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  items.forEach((candidate, candidateIndex) => {
+    const position = positions[safeStringId(candidate?.id)];
+    if (!position) return;
+    const dx = position.centerX - targetX;
+    const dy = position.centerY - targetY;
+    const distance = dx * dx + dy * dy;
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = candidateIndex;
+    }
+  });
+
+  return closestIndex;
+};
+
+const buildManagePreviewOffsets = (
+  originalItems,
+  previewItems,
+  originalPositions,
+  previewPositions,
+  draggedId
+) => {
+  const offsets = {};
+  const dragId = safeStringId(draggedId);
+
+  originalItems.forEach((candidate) => {
+    const id = safeStringId(candidate?.id);
+    if (!id || id === dragId) return;
+    const before = originalPositions[id];
+    const after = previewPositions[id];
+    if (!before || !after) return;
+    const x = after.x - before.x;
+    const y = after.y - before.y;
+    if (Math.abs(x) < 0.5 && Math.abs(y) < 0.5) return;
+    offsets[id] = { x, y };
+  });
+
+  return offsets;
+};
 
 const ensureItemId = (it, idx = 0) => {
   if (!it || typeof it !== 'object') return it;
@@ -2064,8 +2175,13 @@ const ManageCardRow = memo(function ManageCardRow({
   onEdit,
   onDuplicate,
   onDelete,
-  onDrop,
-  onDragStateChange,
+  previewOffset = null,
+  previewActive = false,
+  dropCommitToken = 0,
+  onDragBegin,
+  onDragMove,
+  onDragEnd,
+  onDragCancel,
   onPressToggleCollapsed,
 }) {
   const dragX = useRef(
@@ -2074,8 +2190,63 @@ const ManageCardRow = memo(function ManageCardRow({
   const dragY = useRef(
     new Animated.Value(0)
   ).current;
+  const previewX = useRef(
+    new Animated.Value(0)
+  ).current;
+  const previewY = useRef(
+    new Animated.Value(0)
+  ).current;
+  const liftScale = useRef(
+    new Animated.Value(1)
+  ).current;
+  const dragEndedRef = useRef(false);
 
   const [dragging, setDragging] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!dropCommitToken) return;
+    dragX.stopAnimation();
+    dragY.stopAnimation();
+    previewX.stopAnimation();
+    previewY.stopAnimation();
+    dragX.setValue(0);
+    dragY.setValue(0);
+    previewX.setValue(0);
+    previewY.setValue(0);
+  }, [
+    dropCommitToken,
+    dragX,
+    dragY,
+    previewX,
+    previewY,
+  ]);
+
+  useEffect(() => {
+    const nextX = Number(previewOffset?.x) || 0;
+    const nextY = Number(previewOffset?.y) || 0;
+    const animation = Animated.parallel([
+      Animated.timing(previewX, {
+        toValue: nextX,
+        duration: MANAGE_REORDER_PREVIEW_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(previewY, {
+        toValue: nextY,
+        duration: MANAGE_REORDER_PREVIEW_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start();
+    return () => animation.stop();
+  }, [
+    previewOffset?.x,
+    previewOffset?.y,
+    previewX,
+    previewY,
+  ]);
 
   const rotationSummary = useMemo(
     () => rotationSummaryOf(item),
@@ -2105,42 +2276,47 @@ const ManageCardRow = memo(function ManageCardRow({
         .runOnJS(true)
         .minDistance(2)
         .onBegin(() => {
+          dragEndedRef.current = false;
           setDragging(true);
-          onDragStateChange?.(safeStringId(item?.id));
+          onDragBegin?.(item, index);
+          Animated.timing(liftScale, {
+            toValue: MANAGE_DRAG_LIFT_SCALE,
+            duration: 110,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start();
         })
         .onUpdate((event) => {
-          dragX.setValue(
-            Number(event?.translationX) || 0
-          );
-          dragY.setValue(
-            Number(event?.translationY) || 0
-          );
+          const translationX = Number(event?.translationX) || 0;
+          const translationY = Number(event?.translationY) || 0;
+          dragX.setValue(translationX);
+          dragY.setValue(translationY);
+          onDragMove?.(item, translationX, translationY);
         })
-        .onEnd((event) => {
-          const translationX = (
-            Number(event?.translationX) || 0
-          );
-          const translationY = (
-            Number(event?.translationY) || 0
-          );
-
-          dragX.setValue(0);
-          dragY.setValue(0);
+        .onEnd(() => {
+          dragEndedRef.current = true;
+          onDragEnd?.(item);
           setDragging(false);
-          onDragStateChange?.(null);
-
-          onDrop?.(
-            item,
-            index,
-            translationX,
-            translationY
-          );
+          Animated.timing(liftScale, {
+            toValue: 1,
+            duration: MANAGE_DRAG_DROP_MS,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start();
         })
         .onFinalize(() => {
-          dragX.setValue(0);
-          dragY.setValue(0);
+          if (!dragEndedRef.current) {
+            onDragCancel?.(item);
+            dragX.setValue(0);
+            dragY.setValue(0);
+          }
           setDragging(false);
-          onDragStateChange?.(null);
+          Animated.timing(liftScale, {
+            toValue: 1,
+            duration: MANAGE_DRAG_DROP_MS,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start();
         })
     ),
     [
@@ -2148,8 +2324,11 @@ const ManageCardRow = memo(function ManageCardRow({
       dragY,
       index,
       item,
-      onDragStateChange,
-      onDrop,
+      liftScale,
+      onDragBegin,
+      onDragCancel,
+      onDragEnd,
+      onDragMove,
     ]
   );
 
@@ -2248,8 +2427,19 @@ const ManageCardRow = memo(function ManageCardRow({
         dragging && styles.manageCardRowDragging,
         {
           transform: [
+            {
+              translateX: previewActive && !dragging
+                ? previewX
+                : 0,
+            },
+            {
+              translateY: previewActive && !dragging
+                ? previewY
+                : 0,
+            },
             { translateX: dragX },
             { translateY: dragY },
+            { scale: liftScale },
           ],
         },
       ]}
@@ -2623,6 +2813,9 @@ export default function ChallengeListScreen() {
   const [featuredPushId, setFeaturedPushId] = useState(null);
   const [briefNotice, setBriefNotice] = useState('');
   const [draggingManageId, setDraggingManageId] = useState(null);
+  const [managePreviewOffsets, setManagePreviewOffsets] = useState({});
+  const manageDragSessionRef = useRef(null);
+  const [manageDropCommitToken, setManageDropCommitToken] = useState(0);
 
   const briefNoticeTimerRef = useRef(null);
   const responsiveFade = useRef(
@@ -3325,6 +3518,8 @@ export default function ChallengeListScreen() {
   const exitCardEditMode = useCallback(() => {
     setCardEditMode(false);
     setDraggingManageId(null);
+    manageDragSessionRef.current = null;
+    setManagePreviewOffsets({});
   }, []);
 
   const toggleCardEditMode = useCallback(() => {
@@ -3340,152 +3535,132 @@ export default function ChallengeListScreen() {
     exitCardEditMode,
   ]);
 
-  const moveManageCard = useCallback(
-    (item, visibleIndex, translationX, translationY) => {
+  const beginManageDrag = useCallback(
+    (item) => {
+      const id = safeStringId(item?.id);
+      if (!id) return;
       const source = dataRef.current || [];
       const displayed = buildDisplayData(source, sortMode);
       const activeItems = displayed.filter(isCurrentCard);
-      const inactiveItems = source.filter(
-        (candidate) => !isCurrentCard(candidate)
-      );
       const from = activeItems.findIndex(
-        (candidate) => (
-          safeStringId(candidate?.id)
-          === safeStringId(item?.id)
-        )
+        (candidate) => safeStringId(candidate?.id) === id
       );
-
       if (from < 0) return;
-
       const columns = isWideChallengeList ? 2 : 1;
-      let to = from;
-
-      if (columns === 1) {
-        let cursorY = 0;
-        const centers = activeItems.map((candidate) => {
-          const height = getManageCardHeight(
-            candidate,
-            collapsedIds
-          );
-          const center = cursorY + height / 2;
-          cursorY += height + MANAGE_ROW_GAP;
-          return center;
-        });
-        const targetCenter = (
-          centers[from]
-          + (Number(translationY) || 0)
-        );
-        to = centers.reduce(
-          (closestIndex, center, candidateIndex) => (
-            Math.abs(center - targetCenter)
-              < Math.abs(centers[closestIndex] - targetCenter)
-              ? candidateIndex
-              : closestIndex
-          ),
-          from
-        );
-      } else {
-        const safeWidth = Math.max(1, manageFrameWidth);
-        const columnWidth = safeWidth / columns;
-        const currentRow = Math.floor(from / columns);
-        const currentColumn = from % columns;
-        const rowHeights = [];
-        for (
-          let rowIndex = 0;
-          rowIndex * columns < activeItems.length;
-          rowIndex += 1
-        ) {
-          const rowItems = activeItems.slice(
-            rowIndex * columns,
-            rowIndex * columns + columns
-          );
-          rowHeights.push(Math.max(
-            ...rowItems.map((candidate) => (
-              getManageCardHeight(candidate, collapsedIds)
-            ))
-          ));
-        }
-        let cursorY = 0;
-        const rowCenters = rowHeights.map((height) => {
-          const center = cursorY + height / 2;
-          cursorY += height + MANAGE_ROW_GAP;
-          return center;
-        });
-        const targetCenter = (
-          rowCenters[currentRow]
-          + (Number(translationY) || 0)
-        );
-        const columnDelta = Math.round(
-          (Number(translationX) || 0) / columnWidth
-        );
-        const targetRow = rowCenters.reduce(
-          (closestIndex, center, candidateIndex) => (
-            Math.abs(center - targetCenter)
-              < Math.abs(rowCenters[closestIndex] - targetCenter)
-              ? candidateIndex
-              : closestIndex
-          ),
-          currentRow
-        );
-        const targetColumn = Math.max(
-          0,
-          Math.min(columns - 1, currentColumn + columnDelta)
-        );
-        to = Math.min(
-          activeItems.length - 1,
-          targetRow * columns + targetColumn
-        );
-      }
-
-      if (to === from) return;
-
-      LayoutAnimation.configureNext({
-        duration: 220,
-        update: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-        },
-        create: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-          property: LayoutAnimation.Properties.opacity,
-        },
-        delete: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-          property: LayoutAnimation.Properties.opacity,
-        },
-      });
-
-      const movedActive = moveInArray(
+      const collapsedSnapshot = {
+        ...collapsedIdsRef.current,
+      };
+      const originalPositions = buildManageLayoutPositions(
         activeItems,
-        from,
-        to
+        collapsedSnapshot,
+        columns,
+        manageFrameWidth
       );
-      const next = [
-        ...movedActive,
-        ...inactiveItems,
-      ];
-
-      dataRef.current = next;
-      setData(next);
-      setSortMode('manual');
-      setShowSortDropdown(false);
-
-      persistChallenges(
-        next,
-        'manage-drag'
-      ).catch((error) => {
-        console.warn(
-          '[ChallengeList][manageDrag] save failed',
-          error
-        );
-      });
+      manageDragSessionRef.current = {
+        id,
+        from,
+        originalActive: activeItems,
+        inactiveItems: source.filter(
+          (candidate) => !isCurrentCard(candidate)
+        ),
+        collapsedSnapshot,
+        columns,
+        frameWidth: manageFrameWidth,
+        originalPositions,
+        previewActive: activeItems,
+        lastTarget: from,
+      };
+      setManagePreviewOffsets({});
+      setDraggingManageId(id);
     },
     [
-      collapsedIds,
       isWideChallengeList,
       manageFrameWidth,
-      persistChallenges,
       sortMode,
     ]
+  );
+
+  const previewManageDrag = useCallback(
+    (item, translationX, translationY) => {
+      const session = manageDragSessionRef.current;
+      const id = safeStringId(item?.id);
+      if (!session || session.id !== id) return;
+      const target = findManageDragTargetIndex(
+        session.originalActive,
+        session.originalPositions,
+        session.id,
+        translationX,
+        translationY
+      );
+      if (target < 0 || target === session.lastTarget) return;
+      const previewActive = moveInArray(
+        session.originalActive,
+        session.from,
+        target
+      );
+      const previewPositions = buildManageLayoutPositions(
+        previewActive,
+        session.collapsedSnapshot,
+        session.columns,
+        session.frameWidth
+      );
+      const offsets = buildManagePreviewOffsets(
+        session.originalActive,
+        previewActive,
+        session.originalPositions,
+        previewPositions,
+        session.id
+      );
+      session.lastTarget = target;
+      session.previewActive = previewActive;
+      setManagePreviewOffsets(offsets);
+    },
+    []
+  );
+
+  const commitManageDrag = useCallback(
+    (item) => {
+      const session = manageDragSessionRef.current;
+      const id = safeStringId(item?.id);
+      if (!session || session.id !== id) {
+        setDraggingManageId(null);
+        setManagePreviewOffsets({});
+        setManageDropCommitToken((value) => value + 1);
+        return;
+      }
+      const moved = session.lastTarget !== session.from;
+      const next = [
+        ...session.previewActive,
+        ...session.inactiveItems,
+      ];
+      manageDragSessionRef.current = null;
+      if (moved) {
+        dataRef.current = next;
+        setData(next);
+        setSortMode('manual');
+        setShowSortDropdown(false);
+      }
+      setDraggingManageId(null);
+      setManagePreviewOffsets({});
+      setManageDropCommitToken((value) => value + 1);
+      if (!moved) return;
+      persistChallenges(next, 'manage-drag').catch((error) => {
+        console.warn('[ChallengeList][manageDrag] save failed', error);
+      });
+    },
+    [persistChallenges]
+  );
+
+  const cancelManageDrag = useCallback(
+    (item) => {
+      const session = manageDragSessionRef.current;
+      const id = safeStringId(item?.id);
+      if (session && session.id !== id) return;
+      manageDragSessionRef.current = null;
+      setDraggingManageId(null);
+      setManagePreviewOffsets({});
+    },
+    []
   );
 
   const keyExtractor = useCallback((it) => safeStringId(it?.id ?? it?.challengeId ?? it?.uuid ?? it?.key ?? ''), []);
@@ -3663,8 +3838,13 @@ export default function ChallengeListScreen() {
           onEdit={openCardEditScreen}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
-          onDrop={moveManageCard}
-          onDragStateChange={setDraggingManageId}
+          previewOffset={managePreviewOffsets[id] || null}
+          previewActive={!!draggingManageId}
+          dropCommitToken={manageDropCommitToken}
+          onDragBegin={beginManageDrag}
+          onDragMove={previewManageDrag}
+          onDragEnd={commitManageDrag}
+          onDragCancel={cancelManageDrag}
           onPressToggleCollapsed={() => (
             toggleCollapsed(item)
           )}
@@ -3672,13 +3852,19 @@ export default function ChallengeListScreen() {
       );
     },
     [
+      beginManageDrag,
+      cancelManageDrag,
       collapsedIds,
+      commitManageDrag,
+      draggingManageId,
       featuredPushId,
       habitDailyStateMap,
-      moveManageCard,
+      manageDropCommitToken,
+      managePreviewOffsets,
       onDelete,
       onDuplicate,
       openCardEditScreen,
+      previewManageDrag,
       toggleCollapsed,
       toggleFeaturedPush,
     ]

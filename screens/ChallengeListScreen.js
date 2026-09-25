@@ -44,6 +44,8 @@ const TODAY_PUSH_KEY = 'ch_today_push_id';
 
 const CARD_COMPACT_HEIGHT = 64;
 const CARD_EXPANDED_HEIGHT = 224;
+const CARD_INFO_PANEL_TOP = 55;
+const CARD_INFO_PANEL_HEIGHT = 88;
 
 const CARD_TITLE_FONT_SIZE = 18;
 const CARD_TITLE_LINE_HEIGHT = 22;
@@ -61,25 +63,19 @@ const CARD_ACTION_GROUP_WIDTH = (
   + CARD_SMALL_ACTION_GAP * 2
 );
 
-const MANAGE_DRAG_WIDTH = 28;
-const MANAGE_STAR_WIDTH = 32;
-const MANAGE_CONTROL_GAP = 6;
+const MANAGE_CONTROL_WIDTH = CARD_SMALL_ACTION_WIDTH;
+const MANAGE_CONTROL_HEIGHT = CARD_SMALL_ACTION_HEIGHT;
+const MANAGE_CONTROL_GAP = CARD_SMALL_ACTION_GAP;
 
 const MANAGE_CONTROL_GROUP_WIDTH = (
-  MANAGE_DRAG_WIDTH
-  + MANAGE_STAR_WIDTH
-  + CARD_SMALL_ACTION_WIDTH * 3
+  MANAGE_CONTROL_WIDTH * 5
   + MANAGE_CONTROL_GAP * 4
 );
 
 const HABIT_WEEK_BOX_SIZE = 22;
 const HABIT_WEEK_MAX_WIDTH = 220;
 
-const MANAGE_ROW_HEIGHT = CARD_COMPACT_HEIGHT;
 const MANAGE_ROW_GAP = 8;
-const MANAGE_ROW_STEP = (
-  MANAGE_ROW_HEIGHT + MANAGE_ROW_GAP
-);
 
 const HERO_RING_SIZE = 96;
 const HERO_RING_STROKE = 10;
@@ -223,6 +219,15 @@ const buildDisplayData = (
 /* ---------- 유틸 ---------- */
 const safeStringId = (v) => (v == null ? '' : String(v));
 
+const getManageCardHeight = (
+  item,
+  collapsedMap
+) => (
+  collapsedMap[safeStringId(item?.id)]
+    ? CARD_COMPACT_HEIGHT
+    : CARD_EXPANDED_HEIGHT
+);
+
 const ensureItemId = (it, idx = 0) => {
   if (!it || typeof it !== 'object') return it;
   const before = it.id;
@@ -343,6 +348,10 @@ const EMPTY_HABIT_DAILY_STATE = {
   scheduledToday: false,
   hasToday: false,
   streak: 0,
+  runState: {
+    kind: 'neutral',
+    count: 0,
+  },
   todayGrassLevel: 0,
   weekCells: Array.from({ length: 7 }, () => ({
     scheduled: false,
@@ -530,6 +539,228 @@ const getCurrentHabitStreak = (
   );
 };
 
+const getHabitHistoryStartDate = (
+  item = {},
+  now = new Date()
+) => (
+  toDateOnly(item?.startDate)
+  || toDateOnly(item?.createdAt)
+  || toDateOnly(now)
+);
+
+const getLatestSettledHabitScheduledDate = (
+  recordedDays,
+  item,
+  value = new Date()
+) => {
+  const today = toDateOnly(value);
+
+  if (!today) return null;
+
+  const historyStart =
+    getHabitHistoryStartDate(
+      item,
+      today
+    );
+
+  const todayScheduled =
+    isHabitScheduledOnDate(
+      item,
+      today
+    );
+
+  const todayRecorded =
+    recordedDays.has(
+      keyOfDate(today)
+    );
+
+  if (
+    todayScheduled
+    && todayRecorded
+    && today >= historyStart
+  ) {
+    return today;
+  }
+
+  const previous =
+    findPreviousHabitScheduledDate(
+      item,
+      today
+    );
+
+  if (
+    !previous
+    || previous < historyStart
+  ) {
+    return null;
+  }
+
+  return previous;
+};
+
+const getHabitRunState = (
+  recordedDays,
+  item,
+  value = new Date()
+) => {
+  const today = toDateOnly(value);
+
+  if (!today) {
+    return {
+      kind: 'neutral',
+      count: 0,
+    };
+  }
+
+  const historyStart =
+    getHabitHistoryStartDate(
+      item,
+      today
+    );
+
+  const latest =
+    getLatestSettledHabitScheduledDate(
+      recordedDays,
+      item,
+      today
+    );
+
+  if (
+    !latest
+    || latest < historyStart
+  ) {
+    return {
+      kind: 'neutral',
+      count: 0,
+    };
+  }
+
+  const latestRecorded =
+    recordedDays.has(
+      keyOfDate(latest)
+    );
+
+  if (latestRecorded) {
+    let count = 1;
+    let cursor = latest;
+
+    for (
+      let guard = 0;
+      guard < 3700;
+      guard += 1
+    ) {
+      const previous =
+        findPreviousHabitScheduledDate(
+          item,
+          cursor
+        );
+
+      if (
+        !previous
+        || previous < historyStart
+      ) {
+        break;
+      }
+
+      if (
+        !recordedDays.has(
+          keyOfDate(previous)
+        )
+      ) {
+        break;
+      }
+
+      count += 1;
+      cursor = previous;
+    }
+
+    return {
+      kind: 'success',
+      count,
+    };
+  }
+
+  let count = 1;
+  let cursor = latest;
+
+  for (
+    let guard = 0;
+    guard < 3700;
+    guard += 1
+  ) {
+    const previous =
+      findPreviousHabitScheduledDate(
+        item,
+        cursor
+      );
+
+    if (
+      !previous
+      || previous < historyStart
+    ) {
+      break;
+    }
+
+    if (
+      recordedDays.has(
+        keyOfDate(previous)
+      )
+    ) {
+      break;
+    }
+
+    count += 1;
+    cursor = previous;
+  }
+
+  return {
+    kind: 'failure',
+    count,
+  };
+};
+
+const getHabitRunLabel = (
+  runState = {
+    kind: 'neutral',
+    count: 0,
+  }
+) => {
+  const count = Math.max(
+    0,
+    Number(runState?.count) || 0
+  );
+
+  if (
+    runState?.kind === 'failure'
+    && count >= 2
+  ) {
+    return `실패 연속 · ${count}회`;
+  }
+
+  if (
+    runState?.kind === 'failure'
+    && count === 1
+  ) {
+    return '실패 · 1회';
+  }
+
+  if (
+    runState?.kind === 'success'
+    && count >= 2
+  ) {
+    return `연속 · ${count}회`;
+  }
+
+  if (
+    runState?.kind === 'success'
+    && count === 1
+  ) {
+    return '습관 · 1회';
+  }
+
+  return '습관 · 0회';
+};
+
 const getHabitCellStateForDate = (recordedDays, item, value) => {
   const date = toDateOnly(value);
   const scheduled = !!date && isHabitScheduledOnDate(item, date);
@@ -602,6 +833,13 @@ const getHabitDailyState = (
       today
     );
 
+  const runState =
+    getHabitRunState(
+      recordedDays,
+      item,
+      today
+    );
+
   return {
     inRange,
     scheduledToday:
@@ -609,6 +847,7 @@ const getHabitDailyState = (
     hasToday:
       todayCell.recorded,
     streak,
+    runState,
     todayGrassLevel:
       todayCell.level,
     weekCells,
@@ -934,6 +1173,7 @@ const HabitGrassBox = memo(function HabitGrassBox({
   size = HABIT_WEEK_BOX_SIZE,
   label = '',
   scheduled = false,
+  isToday = false,
 }) {
   const safeLevel = Math.max(
     0,
@@ -966,23 +1206,38 @@ const HabitGrassBox = memo(function HabitGrassBox({
       style={{
         width: size,
         height: size,
-        borderRadius: 4,
-        backgroundColor,
-        borderWidth,
-        borderColor,
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'relative',
       }}
     >
-      {!!label && (
-        <Text
-          style={[
-            styles.habitWeekLetter,
-            { color: labelColor },
-          ]}
-        >
-          {label}
-        </Text>
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 4,
+          backgroundColor,
+          borderWidth,
+          borderColor,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {!!label && (
+          <Text
+            style={[
+              styles.habitWeekLetter,
+              { color: labelColor },
+            ]}
+          >
+            {label}
+          </Text>
+        )}
+      </View>
+
+      {isToday && (
+        <View
+          pointerEvents="none"
+          style={styles.habitTodayOutline}
+        />
       )}
     </View>
   );
@@ -1064,6 +1319,7 @@ const HeroSplitAction = memo(function HeroSplitAction({
 const HabitWeekStrip = memo(function HabitWeekStrip({
   weekCells = EMPTY_HABIT_DAILY_STATE.weekCells,
 }) {
+  const todayIndex = new Date().getDay();
   const values = Array.isArray(weekCells)
     ? weekCells.slice(0, 7)
     : [];
@@ -1081,6 +1337,7 @@ const HabitWeekStrip = memo(function HabitWeekStrip({
           scheduled={!!cell?.scheduled}
           size={HABIT_WEEK_BOX_SIZE}
           label={HABIT_WEEK_LABELS[index]}
+          isToday={index === todayIndex}
         />
       ))}
     </View>
@@ -1332,22 +1589,30 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
     const next = rotationSummary.nextItem;
 
     return (
-      <View
-        style={[
-          styles.cardInfoPanel,
-          styles.cardInfoPanelRaised,
-        ]}
-      >
+      <View style={styles.cardInfoPanel}>
         <Text style={styles.cardInfoLabel}>
           현재
         </Text>
 
-        <Text
-          style={styles.rotationCurrentName}
-          numberOfLines={1}
-        >
-          {current?.name ?? '-'}
-        </Text>
+        <View style={styles.rotationCurrentHeaderRow}>
+          <Text
+            style={styles.rotationCurrentName}
+            numberOfLines={1}
+          >
+            {current?.name ?? '-'}
+          </Text>
+
+          {!!current?.targetSeconds && (
+            <Text
+              style={styles.rotationCurrentTarget}
+              numberOfLines={1}
+            >
+              목표 {formatRotationDuration(
+                current.targetSeconds
+              )}
+            </Text>
+          )}
+        </View>
 
         <CardProgressBar
           value={rotationSummary.progressPct ?? 0}
@@ -1377,19 +1642,18 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
     const {
       scheduledToday,
       hasToday,
-      streak,
+      runState,
       weekCells,
     } = habitDailyState;
 
     const todayMessage = !scheduledToday
-      ? '오늘은 목표일이 아니에요'
+      ? '오늘 목표 · 없음'
       : hasToday
-        ? '오늘 기록 완료'
-        : '오늘 아직 기록하지 않았어요';
+        ? '오늘 목표 · 완료'
+        : '오늘 목표 · 기록 전';
 
-    const streakMessage = streak > 0
-      ? `${streak}일 연속`
-      : '연속 기록 없음';
+    const runMessage =
+      getHabitRunLabel(runState);
 
     return (
       <View style={styles.cardInfoPanel}>
@@ -1404,8 +1668,11 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
             {todayMessage}
           </Text>
 
-          <Text style={styles.cardInfoMetric}>
-            {streakMessage}
+          <Text
+            style={styles.cardInfoMetric}
+            numberOfLines={1}
+          >
+            {runMessage}
           </Text>
         </View>
 
@@ -1430,12 +1697,7 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
     : null;
 
   return (
-    <View
-      style={[
-        styles.cardInfoPanel,
-        styles.cardInfoPanelRaised,
-      ]}
-    >
+    <View style={styles.cardInfoPanel}>
       {hasGoal && (
         <CardProgressBar value={pct} />
       )}
@@ -1795,6 +2057,8 @@ const ItemCard = memo(
 const ManageCardRow = memo(function ManageCardRow({
   item,
   index,
+  habitDailyState = EMPTY_HABIT_DAILY_STATE,
+  collapsed = false,
   featured = false,
   onToggleFeatured,
   onEdit,
@@ -1802,6 +2066,7 @@ const ManageCardRow = memo(function ManageCardRow({
   onDelete,
   onDrop,
   onDragStateChange,
+  onPressToggleCollapsed,
 }) {
   const dragX = useRef(
     new Animated.Value(0)
@@ -1811,6 +2076,28 @@ const ManageCardRow = memo(function ManageCardRow({
   ).current;
 
   const [dragging, setDragging] = useState(false);
+
+  const rotationSummary = useMemo(
+    () => rotationSummaryOf(item),
+    [item]
+  );
+
+  const pct = rotationSummary?.progressPct
+    ?? Math.min(
+      100,
+      Math.max(
+        0,
+        Number(item?.goalScore) > 0
+          ? Math.round(
+              (
+                Number(item?.currentScore || 0)
+                / Number(item.goalScore)
+              )
+              * 100
+            )
+          : 0
+      )
+    );
 
   const dragGesture = useMemo(
     () => (
@@ -1866,6 +2153,94 @@ const ManageCardRow = memo(function ManageCardRow({
     ]
   );
 
+  const manageControls = (
+    <>
+      <TouchableOpacity
+        style={[
+          styles.manageControlButton,
+          styles.manageStarButton,
+        ]}
+        onPress={() => onToggleFeatured?.(item)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={featured ? '오늘의 PUSH 해제' : '오늘의 PUSH 설정'}
+      >
+        <Text style={[
+          styles.manageStarText,
+          featured && styles.manageStarTextSelected,
+        ]}>
+          {featured ? '★' : '☆'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.manageControlButton,
+          styles.cardSmallActionButton,
+          styles.cardSmallActionPrimary,
+        ]}
+        onPress={() => onEdit?.(item)}
+        activeOpacity={0.75}
+      >
+        <Text style={[
+          styles.cardSmallActionText,
+          styles.cardSmallActionTextPrimary,
+        ]}>
+          수정
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.manageControlButton,
+          styles.cardSmallActionButton,
+          styles.cardSmallActionInverse,
+        ]}
+        onPress={() => onDuplicate?.(item)}
+        activeOpacity={0.75}
+      >
+        <Text style={[
+          styles.cardSmallActionText,
+          styles.cardSmallActionTextInverse,
+        ]}>
+          복제
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.manageControlButton,
+          styles.cardSmallActionButton,
+          styles.cardSmallActionInverse,
+        ]}
+        onPress={() => onDelete?.(item)}
+        activeOpacity={0.75}
+      >
+        <Text style={[
+          styles.cardSmallActionText,
+          styles.cardSmallActionTextInverse,
+        ]}>
+          삭제
+        </Text>
+      </TouchableOpacity>
+
+      <GestureDetector gesture={dragGesture}>
+        <View
+          style={[
+            styles.manageControlButton,
+            styles.manageDragHandle,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="순서 변경"
+        >
+          <Text style={styles.manageDragHandleText}>
+            ≡
+          </Text>
+        </View>
+      </GestureDetector>
+    </>
+  );
+
   return (
     <Animated.View
       style={[
@@ -1879,93 +2254,44 @@ const ManageCardRow = memo(function ManageCardRow({
         },
       ]}
     >
-      <UnifiedCardShell
-        item={item}
-        identityStyle={styles.manageIdentity}
-        actionSlotStyle={styles.manageActionSlot}
-        rightContent={(
-          <>
-        <GestureDetector gesture={dragGesture}>
-          <View
-            style={styles.manageDragHandle}
-            accessibilityRole="button"
-            accessibilityLabel="순서 변경"
-          >
-            <Text style={styles.manageDragHandleText}>≡</Text>
+      {collapsed ? (
+        <UnifiedCardShell
+          item={item}
+          identityStyle={styles.manageIdentity}
+          actionSlotStyle={styles.manageActionSlot}
+          rightContent={manageControls}
+          foldCollapsed
+          onPressToggleCollapsed={onPressToggleCollapsed}
+        />
+      ) : (
+        <UnifiedCardShell
+          item={item}
+          expanded
+          identityStyle={styles.expandedIdentity}
+          foldCollapsed={false}
+          onPressToggleCollapsed={onPressToggleCollapsed}
+        >
+          <View style={styles.expandedCardBody}>
+            <ChallengeCardStatus
+              item={item}
+              pct={pct}
+              rotationSummary={rotationSummary}
+              habitDailyState={habitDailyState}
+            />
           </View>
-        </GestureDetector>
 
-        <TouchableOpacity
-          style={styles.manageStarButton}
-          onPress={() => onToggleFeatured?.(item)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={featured ? '오늘의 PUSH 해제' : '오늘의 PUSH 설정'}
-        >
-          <Text style={[
-            styles.manageStarText,
-            featured && styles.manageStarTextSelected,
-          ]}>
-            {featured ? '★' : '☆'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.cardSmallActionButton,
-            styles.cardSmallActionPrimary,
-          ]}
-          onPress={() => onEdit?.(item)}
-          activeOpacity={0.75}
-        >
-          <Text
+          <View
             style={[
-              styles.cardSmallActionText,
-              styles.cardSmallActionTextPrimary,
+              styles.expandedCardActionZone,
+              styles.expandedManageActionZone,
             ]}
           >
-            수정
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.cardSmallActionButton,
-            styles.cardSmallActionInverse,
-          ]}
-          onPress={() => onDuplicate?.(item)}
-          activeOpacity={0.75}
-        >
-          <Text
-            style={[
-              styles.cardSmallActionText,
-              styles.cardSmallActionTextInverse,
-            ]}
-          >
-            복제
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.cardSmallActionButton,
-            styles.cardSmallActionInverse,
-          ]}
-          onPress={() => onDelete?.(item)}
-          activeOpacity={0.75}
-        >
-          <Text
-            style={[
-              styles.cardSmallActionText,
-              styles.cardSmallActionTextInverse,
-            ]}
-          >
-            삭제
-          </Text>
-        </TouchableOpacity>
-          </>
-        )}
-      />
+            <View style={styles.expandedManageActionRow}>
+              {manageControls}
+            </View>
+          </View>
+        </UnifiedCardShell>
+      )}
     </Animated.View>
   );
 });
@@ -3035,28 +3361,71 @@ export default function ChallengeListScreen() {
       let to = from;
 
       if (columns === 1) {
-        const dragSteps = Math.round(
-          (Number(translationY) || 0) / MANAGE_ROW_STEP
+        let cursorY = 0;
+        const centers = activeItems.map((candidate) => {
+          const height = getManageCardHeight(
+            candidate,
+            collapsedIds
+          );
+          const center = cursorY + height / 2;
+          cursorY += height + MANAGE_ROW_GAP;
+          return center;
+        });
+        const targetCenter = (
+          centers[from]
+          + (Number(translationY) || 0)
         );
-        to = Math.max(
-          0,
-          Math.min(activeItems.length - 1, from + dragSteps)
+        to = centers.reduce(
+          (closestIndex, center, candidateIndex) => (
+            Math.abs(center - targetCenter)
+              < Math.abs(centers[closestIndex] - targetCenter)
+              ? candidateIndex
+              : closestIndex
+          ),
+          from
         );
       } else {
         const safeWidth = Math.max(1, manageFrameWidth);
         const columnWidth = safeWidth / columns;
         const currentRow = Math.floor(from / columns);
         const currentColumn = from % columns;
-        const rowDelta = Math.round(
-          (Number(translationY) || 0) / MANAGE_ROW_STEP
+        const rowHeights = [];
+        for (
+          let rowIndex = 0;
+          rowIndex * columns < activeItems.length;
+          rowIndex += 1
+        ) {
+          const rowItems = activeItems.slice(
+            rowIndex * columns,
+            rowIndex * columns + columns
+          );
+          rowHeights.push(Math.max(
+            ...rowItems.map((candidate) => (
+              getManageCardHeight(candidate, collapsedIds)
+            ))
+          ));
+        }
+        let cursorY = 0;
+        const rowCenters = rowHeights.map((height) => {
+          const center = cursorY + height / 2;
+          cursorY += height + MANAGE_ROW_GAP;
+          return center;
+        });
+        const targetCenter = (
+          rowCenters[currentRow]
+          + (Number(translationY) || 0)
         );
         const columnDelta = Math.round(
           (Number(translationX) || 0) / columnWidth
         );
-        const maxRow = Math.floor((activeItems.length - 1) / columns);
-        const targetRow = Math.max(
-          0,
-          Math.min(maxRow, currentRow + rowDelta)
+        const targetRow = rowCenters.reduce(
+          (closestIndex, center, candidateIndex) => (
+            Math.abs(center - targetCenter)
+              < Math.abs(rowCenters[closestIndex] - targetCenter)
+              ? candidateIndex
+              : closestIndex
+          ),
+          currentRow
         );
         const targetColumn = Math.max(
           0,
@@ -3111,6 +3480,7 @@ export default function ChallengeListScreen() {
       });
     },
     [
+      collapsedIds,
       isWideChallengeList,
       manageFrameWidth,
       persistChallenges,
@@ -3272,28 +3642,44 @@ export default function ChallengeListScreen() {
   );
 
   const renderManageRow = useCallback(
-    ({ item, index }) => (
-      <ManageCardRow
-        item={item}
-        index={index}
-        featured={
-          safeStringId(featuredPushId)
-          === safeStringId(item?.id)
-        }
-        onToggleFeatured={toggleFeaturedPush}
-        onEdit={openCardEditScreen}
-        onDuplicate={onDuplicate}
-        onDelete={onDelete}
-        onDrop={moveManageCard}
-        onDragStateChange={setDraggingManageId}
-      />
-    ),
+    ({ item, index }) => {
+      const id = safeStringId(item.id);
+      const isCollapsed = !!collapsedIds[id];
+
+      return (
+        <ManageCardRow
+          item={item}
+          index={index}
+          collapsed={isCollapsed}
+          habitDailyState={
+            habitDailyStateMap[id]
+            || EMPTY_HABIT_DAILY_STATE
+          }
+          featured={
+            safeStringId(featuredPushId)
+            === safeStringId(item?.id)
+          }
+          onToggleFeatured={toggleFeaturedPush}
+          onEdit={openCardEditScreen}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          onDrop={moveManageCard}
+          onDragStateChange={setDraggingManageId}
+          onPressToggleCollapsed={() => (
+            toggleCollapsed(item)
+          )}
+        />
+      );
+    },
     [
+      collapsedIds,
       featuredPushId,
+      habitDailyStateMap,
       moveManageCard,
       onDelete,
       onDuplicate,
       openCardEditScreen,
+      toggleCollapsed,
       toggleFeaturedPush,
     ]
   );
@@ -3863,14 +4249,13 @@ const styles = StyleSheet.create({
   },
 
   cardInfoPanel: {
-    marginTop: space.md,
+    height: CARD_INFO_PANEL_HEIGHT,
+    marginTop: 0,
     paddingHorizontal: space.sm,
     paddingVertical: 10,
     borderRadius: radius.md,
     backgroundColor: color.surfaceMuted,
-  },
-  cardInfoPanelRaised: {
-    marginTop: 4,
+    justifyContent: 'center',
   },
 
   cardInfoMainRow: {
@@ -3909,10 +4294,27 @@ const styles = StyleSheet.create({
 
   rotationCurrentName: {
     marginTop: 2,
+    flex: 1,
+    minWidth: 0,
     color: color.textPrimary,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '900',
+  },
+
+  rotationCurrentHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    columnGap: 8,
+  },
+
+  rotationCurrentTarget: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 16,
+    color: color.textSecondary,
+    fontWeight: '600',
   },
 
   rotationTimeText: {
@@ -3995,6 +4397,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     includeFontPadding: false,
     textAlign: 'center',
+  },
+
+  habitTodayOutline: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderWidth: 1,
+    borderColor: primitive.black,
+    borderRadius: 6,
   },
 
   legacyProgressCircleWrap: {
@@ -4081,10 +4494,10 @@ const styles = StyleSheet.create({
 
   expandedCardBody: {
     position: 'absolute',
-    top: 52,
+    top: CARD_INFO_PANEL_TOP,
     left: 12,
     right: 12,
-    bottom: 78,
+    height: CARD_INFO_PANEL_HEIGHT,
     minHeight: 0,
   },
 
@@ -4121,6 +4534,24 @@ const styles = StyleSheet.create({
     width: MANAGE_CONTROL_GROUP_WIDTH,
     columnGap: MANAGE_CONTROL_GAP,
     justifyContent: 'flex-start',
+  },
+  manageControlButton: {
+    width: MANAGE_CONTROL_WIDTH,
+    height: MANAGE_CONTROL_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  expandedManageActionZone: {
+    right: 10,
+  },
+  expandedManageActionRow: {
+    width: MANAGE_CONTROL_GROUP_WIDTH,
+    height: MANAGE_CONTROL_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: MANAGE_CONTROL_GAP,
+    alignSelf: 'flex-end',
   },
 
   cardSmallActionButton: {
@@ -4259,8 +4690,6 @@ const styles = StyleSheet.create({
   },
 
   manageStarButton: {
-    width: MANAGE_STAR_WIDTH,
-    height: CARD_SMALL_ACTION_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4277,8 +4706,6 @@ const styles = StyleSheet.create({
   },
 
   manageDragHandle: {
-    width: MANAGE_DRAG_WIDTH,
-    height: CARD_SMALL_ACTION_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -5,6 +5,8 @@ const listeners = new Set();
 
 const DEFAULTS = {
   notificationsEnabled: true,
+  myPushEnabled: true,
+  importantCardIds: [],
   focusMiniTimerEnabled: true,
   focusOverlayTimerEnabled: false,
   dataIntegrations: {
@@ -28,6 +30,15 @@ const DEFAULTS = {
   },
 };
 
+const normalizeCardIds = (values) => {
+  if (!Array.isArray(values)) return [];
+  return Array.from(new Set(
+    values
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean)
+  ));
+};
+
 function normalizeAppSettings(settings) {
   const source = settings || {};
   const sourceIntegrations = source.dataIntegrations || {};
@@ -37,6 +48,8 @@ function normalizeAppSettings(settings) {
   return {
     ...DEFAULTS,
     ...source,
+    myPushEnabled: source.myPushEnabled !== false,
+    importantCardIds: normalizeCardIds(source.importantCardIds),
     dataIntegrations: {
       ...DEFAULTS.dataIntegrations,
       ...sourceIntegrations,
@@ -103,6 +116,26 @@ export async function getNotificationsEnabled() {
 
 export async function setNotificationsEnabled(enabled) {
   return setAppSettings({ notificationsEnabled: !!enabled });
+}
+
+export async function getMyPushEnabled() {
+  const settings = await getAppSettings();
+  return settings.myPushEnabled !== false;
+}
+
+export async function setMyPushEnabled(enabled) {
+  return setAppSettings({ myPushEnabled: !!enabled });
+}
+
+export async function getImportantCardIds() {
+  const settings = await getAppSettings();
+  return normalizeCardIds(settings.importantCardIds);
+}
+
+export async function setImportantCardIds(ids) {
+  return setAppSettings({
+    importantCardIds: normalizeCardIds(ids),
+  });
 }
 
 export async function getFocusMiniTimerEnabled() {

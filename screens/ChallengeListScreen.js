@@ -29,6 +29,12 @@ import { moveToTrash } from '../utils/trash';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import FocusSessionStartModal from '../components/FocusSessionStartModal';
 import { loadActiveFocusSession, startFocusSession } from '../utils/focusSessionStore';
+import {
+  getImportantCardIds,
+  getMyPushEnabled,
+  setImportantCardIds,
+  subscribeAppSettings,
+} from '../utils/appSettings';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -1139,14 +1145,19 @@ const getCardTypeLabel = (item) => {
 
 const CardProgressBar = memo(function CardProgressBar({
   value = 0,
+  inverted = false,
 }) {
   const pct = clampProgress(value);
 
   return (
-    <View style={styles.progressTrack}>
+    <View style={[
+      styles.progressTrack,
+      inverted && styles.progressTrackInverted,
+    ]}>
       <View
         style={[
           styles.progressFill,
+          inverted && styles.progressFillInverted,
           { width: `${pct}%` },
         ]}
       />
@@ -1242,6 +1253,7 @@ const HeroProgressRing = memo(function HeroProgressRing({
 
 const LegacyCardProgressCircle = memo(function LegacyCardProgressCircle({
   value = 0,
+  inverted = false,
 }) {
   const pct = clampProgress(value);
   const circumference = 2 * Math.PI * 9;
@@ -1253,7 +1265,7 @@ const LegacyCardProgressCircle = memo(function LegacyCardProgressCircle({
           cx={13}
           cy={13}
           r={9}
-          stroke={color.border}
+          stroke={inverted ? primitive.neutral[600] : color.border}
           strokeWidth={4.5}
           fill="none"
         />
@@ -1262,7 +1274,7 @@ const LegacyCardProgressCircle = memo(function LegacyCardProgressCircle({
           cx={13}
           cy={13}
           r={9}
-          stroke={color.primary}
+          stroke={inverted ? color.textInverse : color.primary}
           strokeWidth={4.5}
           fill="none"
           strokeDasharray={`${(pct / 100) * circumference} ${circumference}`}
@@ -1272,7 +1284,10 @@ const LegacyCardProgressCircle = memo(function LegacyCardProgressCircle({
         />
       </Svg>
 
-      <Text style={styles.legacyProgressCircleLabel}>
+      <Text style={[
+        styles.legacyProgressCircleLabel,
+        inverted && styles.cardPrimaryTextInverted,
+      ]}>
         {pct}%
       </Text>
     </View>
@@ -1285,6 +1300,7 @@ const HabitGrassBox = memo(function HabitGrassBox({
   label = '',
   scheduled = false,
   isToday = false,
+  inverted = false,
 }) {
   const safeLevel = Math.max(
     0,
@@ -1298,8 +1314,12 @@ const HabitGrassBox = memo(function HabitGrassBox({
   if (!scheduled) {
     backgroundColor = 'transparent';
     borderWidth = 1;
-    borderColor = primitive.neutral[200];
-    labelColor = primitive.neutral[300];
+    borderColor = inverted
+      ? primitive.neutral[500]
+      : primitive.neutral[200];
+    labelColor = inverted
+      ? primitive.neutral[400]
+      : primitive.neutral[300];
   } else if (safeLevel <= 1) {
     backgroundColor = HABIT_GRASS_COLORS[1];
     borderWidth = 1;
@@ -1347,7 +1367,10 @@ const HabitGrassBox = memo(function HabitGrassBox({
       {isToday && (
         <View
           pointerEvents="none"
-          style={styles.habitTodayOutline}
+          style={[
+            styles.habitTodayOutline,
+            inverted && styles.habitTodayOutlineInverted,
+          ]}
         />
       )}
     </View>
@@ -1356,6 +1379,7 @@ const HabitGrassBox = memo(function HabitGrassBox({
 
 const FoldChevronIcon = memo(function FoldChevronIcon({
   collapsed = false,
+  inverted = false,
 }) {
   return (
     <Svg width={8} height={5} viewBox="0 0 8 5">
@@ -1366,7 +1390,7 @@ const FoldChevronIcon = memo(function FoldChevronIcon({
             : 'M0.8 4.2L4 0.8L7.2 4.2'
         }
         fill="none"
-        stroke={primitive.neutral[400]}
+        stroke={inverted ? color.textInverse : primitive.neutral[400]}
         strokeWidth={1.15}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -1429,6 +1453,7 @@ const HeroSplitAction = memo(function HeroSplitAction({
 
 const HabitWeekStrip = memo(function HabitWeekStrip({
   weekCells = EMPTY_HABIT_DAILY_STATE.weekCells,
+  inverted = false,
 }) {
   const todayIndex = new Date().getDay();
   const values = Array.isArray(weekCells)
@@ -1449,6 +1474,7 @@ const HabitWeekStrip = memo(function HabitWeekStrip({
           size={HABIT_WEEK_BOX_SIZE}
           label={HABIT_WEEK_LABELS[index]}
           isToday={index === todayIndex}
+          inverted={inverted}
         />
       ))}
     </View>
@@ -1571,15 +1597,25 @@ const SingleLineMarqueeText = memo(function SingleLineMarqueeText({
   );
 });
 
-const CardIdentity = memo(function CardIdentity({ item, style }) {
+const CardIdentity = memo(function CardIdentity({
+  item,
+  style,
+  inverted = false,
+}) {
   return (
     <View style={[styles.cardIdentity, style]}>
-      <Text style={styles.cardTypeLabel} numberOfLines={1}>
+      <Text style={[
+        styles.cardTypeLabel,
+        inverted && styles.cardSecondaryTextInverted,
+      ]} numberOfLines={1}>
         {getCardTypeLabel(item)}
       </Text>
       <SingleLineMarqueeText
         textValue={item?.title}
-        textStyle={styles.cardUnifiedTitle}
+        textStyle={[
+          styles.cardUnifiedTitle,
+          inverted && styles.cardPrimaryTextInverted,
+        ]}
         viewportStyle={styles.cardIdentityTitleViewport}
       />
     </View>
@@ -1598,12 +1634,14 @@ const UnifiedCardShell = memo(
       children,
       foldCollapsed = null,
       onPressToggleCollapsed,
+      inverted = false,
     }, ref) {
       const content = (
         <>
           <CardIdentity
             item={item}
             style={identityStyle}
+            inverted={inverted}
           />
 
           {!!rightContent && (
@@ -1627,6 +1665,7 @@ const UnifiedCardShell = memo(
               onPress={
                 onPressToggleCollapsed
               }
+              inverted={inverted}
             />
           )}
         </>
@@ -1637,6 +1676,7 @@ const UnifiedCardShell = memo(
         expanded
           ? styles.unifiedCardShellExpanded
           : styles.unifiedCardShellCompact,
+        inverted && styles.unifiedCardShellInverted,
       ];
 
       if (onPress) {
@@ -1667,6 +1707,7 @@ const UnifiedCardShell = memo(
 const CardFoldHandle = memo(function CardFoldHandle({
   collapsed = false,
   onPress,
+  inverted = false,
 }) {
   return (
     <TouchableOpacity
@@ -1684,7 +1725,10 @@ const CardFoldHandle = memo(function CardFoldHandle({
         collapsed ? '카드 펼치기' : '카드 접기'
       }
     >
-      <FoldChevronIcon collapsed={collapsed} />
+      <FoldChevronIcon
+        collapsed={collapsed}
+        inverted={inverted}
+      />
     </TouchableOpacity>
   );
 });
@@ -1694,20 +1738,30 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
   pct,
   rotationSummary,
   habitDailyState = EMPTY_HABIT_DAILY_STATE,
+  inverted = false,
 }) {
   if (rotationSummary) {
     const current = rotationSummary.currentItem;
     const next = rotationSummary.nextItem;
 
     return (
-      <View style={styles.cardInfoPanel}>
-        <Text style={styles.cardInfoLabel}>
+      <View style={[
+        styles.cardInfoPanel,
+        inverted && styles.cardInfoPanelInverted,
+      ]}>
+        <Text style={[
+          styles.cardInfoLabel,
+          inverted && styles.cardSecondaryTextInverted,
+        ]}>
           현재
         </Text>
 
         <View style={styles.rotationCurrentHeaderRow}>
           <Text
-            style={styles.rotationCurrentName}
+            style={[
+              styles.rotationCurrentName,
+              inverted && styles.cardPrimaryTextInverted,
+            ]}
             numberOfLines={1}
           >
             {current?.name ?? '-'}
@@ -1715,7 +1769,10 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
 
           {!!current?.targetSeconds && (
             <Text
-              style={styles.rotationCurrentTarget}
+              style={[
+                styles.rotationCurrentTarget,
+                inverted && styles.cardSecondaryTextInverted,
+              ]}
               numberOfLines={1}
             >
               목표 {formatRotationDuration(
@@ -1727,10 +1784,14 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
 
         <CardProgressBar
           value={rotationSummary.progressPct ?? 0}
+          inverted={inverted}
         />
 
         <View style={styles.cardInfoFooterRow}>
-          <Text style={styles.cardInfoSecondary}>
+          <Text style={[
+            styles.cardInfoSecondary,
+            inverted && styles.cardSecondaryTextInverted,
+          ]}>
             {rotationSummary.currentCycleNumber}회차 진행{' '}
             {rotationSummary.progressPct ?? 0}%
           </Text>
@@ -1739,6 +1800,7 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
             style={[
               styles.cardInfoSecondary,
               styles.cardInfoSecondaryRight,
+              inverted && styles.cardSecondaryTextInverted,
             ]}
             numberOfLines={1}
           >
@@ -1767,12 +1829,16 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
       getHabitRunLabel(runState);
 
     return (
-      <View style={styles.cardInfoPanel}>
+      <View style={[
+        styles.cardInfoPanel,
+        inverted && styles.cardInfoPanelInverted,
+      ]}>
         <View style={styles.cardInfoMainRow}>
           <Text
             style={[
               styles.cardInfoValue,
               styles.cardInfoValueFlexible,
+              inverted && styles.cardPrimaryTextInverted,
             ]}
             numberOfLines={1}
           >
@@ -1780,14 +1846,20 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
           </Text>
 
           <Text
-            style={styles.cardInfoMetric}
+            style={[
+              styles.cardInfoMetric,
+              inverted && styles.cardSecondaryTextInverted,
+            ]}
             numberOfLines={1}
           >
             {runMessage}
           </Text>
         </View>
 
-        <HabitWeekStrip weekCells={weekCells} />
+        <HabitWeekStrip
+          weekCells={weekCells}
+          inverted={inverted}
+        />
       </View>
     );
   }
@@ -1808,20 +1880,29 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
     : null;
 
   return (
-    <View style={styles.cardInfoPanel}>
+    <View style={[
+      styles.cardInfoPanel,
+      inverted && styles.cardInfoPanelInverted,
+    ]}>
       {hasGoal && (
-        <CardProgressBar value={pct} />
+        <CardProgressBar value={pct} inverted={inverted} />
       )}
 
       <View style={styles.cardInfoFooterRow}>
-        <Text style={styles.cardInfoValue}>
+        <Text style={[
+          styles.cardInfoValue,
+          inverted && styles.cardPrimaryTextInverted,
+        ]}>
           {hasGoal
             ? `${current}회 완료`
             : `현재 ${current}회`}
         </Text>
 
         {hasGoal && (
-          <Text style={styles.cardInfoMetric}>
+          <Text style={[
+            styles.cardInfoMetric,
+            inverted && styles.cardSecondaryTextInverted,
+          ]}>
             {remaining}회 남음
           </Text>
         )}
@@ -1829,7 +1910,10 @@ const ChallengeCardStatus = memo(function ChallengeCardStatus({
 
       {!!(item?.rewardTitle || item?.reward) && (
         <Text
-          style={styles.rewardText}
+          style={[
+            styles.rewardText,
+            inverted && styles.cardSecondaryTextInverted,
+          ]}
           numberOfLines={1}
         >
           보상 · {item.rewardTitle ?? item.reward}
@@ -1849,6 +1933,7 @@ const ChallengeCardPrimaryAction = memo(
     onPressCard,
     onPressClaim,
     onPressFocus,
+    inverted = false,
   }) {
     if (isDone) {
       return (
@@ -1886,6 +1971,7 @@ const ChallengeCardPrimaryAction = memo(
           style={[
             styles.uploadNowBtn,
             styles.primaryActionMain,
+            inverted && styles.uploadNowBtnInverted,
           ]}
           onPress={() => {
             if (rotation) {
@@ -1900,19 +1986,28 @@ const ChallengeCardPrimaryAction = memo(
           }}
           activeOpacity={0.9}
         >
-          <Text style={styles.uploadNowText}>
+          <Text style={[
+            styles.uploadNowText,
+            inverted && styles.uploadNowTextInverted,
+          ]}>
             {RECORD_ACTION_LABEL}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.focusPlayButton}
+          style={[
+            styles.focusPlayButton,
+            inverted && styles.focusPlayButtonInverted,
+          ]}
           onPress={() => onPressFocus?.(item)}
           activeOpacity={0.9}
           accessibilityRole="button"
           accessibilityLabel="타이머 시작"
         >
-          <Text style={styles.focusPlayText}>
+          <Text style={[
+            styles.focusPlayText,
+            inverted && styles.focusPlayTextInverted,
+          ]}>
             타이머 시작
           </Text>
         </TouchableOpacity>
@@ -1933,6 +2028,7 @@ const ChallengeCardCompactRow = memo(
     onPressCard,
     onPressClaim,
     onPressFocus,
+    inverted = false,
   }, ref) {
     const rotation = !!rotationSummary;
 
@@ -1965,6 +2061,7 @@ const ChallengeCardCompactRow = memo(
       <UnifiedCardShell
         ref={ref}
         item={item}
+        inverted={inverted}
         identityStyle={styles.compactIdentity}
         onPress={() => onPressCard?.(item)}
         rightContent={(
@@ -1974,6 +2071,7 @@ const ChallengeCardCompactRow = memo(
                 <HabitGrassBox
                   level={habitDailyState.todayGrassLevel}
                   scheduled={habitDailyState.scheduledToday}
+                  inverted={inverted}
                 />
               ) : (
                 <LegacyCardProgressCircle
@@ -1982,6 +2080,7 @@ const ChallengeCardCompactRow = memo(
                       ? rotationSummary?.progressPct ?? 0
                       : pct
                   }
+                  inverted={inverted}
                 />
               )}
             </View>
@@ -1990,6 +2089,7 @@ const ChallengeCardCompactRow = memo(
               style={[
                 styles.cardSmallActionButton,
                 styles.cardSmallActionPrimary,
+                inverted && styles.cardSmallActionPrimaryInverted,
                 isExpired
                   && !isDone
                   && styles.cardActionDisabled,
@@ -2002,6 +2102,7 @@ const ChallengeCardCompactRow = memo(
                 style={[
                   styles.cardSmallActionText,
                   styles.cardSmallActionTextPrimary,
+                  inverted && styles.cardSmallActionTextPrimaryInverted,
                 ]}
               >
                 {recordLabel}
@@ -2013,13 +2114,16 @@ const ChallengeCardCompactRow = memo(
                 style={[
                   styles.cardSmallActionButton,
                   styles.cardSmallActionInverse,
+                  inverted && styles.cardSmallActionInverseInverted,
                 ]}
                 onPress={() => onPressFocus?.(item)}
                 activeOpacity={0.82}
                 accessibilityRole="button"
                 accessibilityLabel="타이머 시작"
               >
-                <CompactPlayIcon fill={primitive.black} />
+                <CompactPlayIcon
+                  fill={inverted ? color.textInverse : primitive.black}
+                />
               </TouchableOpacity>
             ) : (
               <View style={styles.cardSmallActionSpacer} />
@@ -2043,6 +2147,7 @@ const CardBody = React.forwardRef(function CardBody({
   onPressClaim,
   onPressFocus,
   onPressToggleCollapsed,
+  inverted = false,
 }, ref) {
   const flags = asDoneFlags(item);
   const isDone = !!flags._isDone;
@@ -2080,6 +2185,7 @@ const CardBody = React.forwardRef(function CardBody({
       <ChallengeCardCompactRow
         ref={ref}
         item={item}
+        inverted={inverted}
         pct={pct}
         rotationSummary={rotationSummary}
         habitDailyState={habitDailyState}
@@ -2097,6 +2203,7 @@ const CardBody = React.forwardRef(function CardBody({
     <UnifiedCardShell
       ref={ref}
       item={item}
+      inverted={inverted}
       expanded
       identityStyle={styles.expandedIdentity}
       onPress={() => onPressCard?.(item)}
@@ -2114,6 +2221,7 @@ const CardBody = React.forwardRef(function CardBody({
           pct={pct}
           rotationSummary={rotationSummary}
           habitDailyState={habitDailyState}
+          inverted={inverted}
         />
       </View>
 
@@ -2127,6 +2235,7 @@ const CardBody = React.forwardRef(function CardBody({
           onPressCard={onPressCard}
           onPressClaim={onPressClaim}
           onPressFocus={onPressFocus}
+          inverted={inverted}
         />
       </View>
     </UnifiedCardShell>
@@ -2144,12 +2253,14 @@ const ItemCard = memo(
     onPressCard,
     onPressClaim,
     onPressFocus,
+    inverted = false,
   }, ref) {
     return (
       <View>
         <CardBody
           ref={ref}
           item={item}
+          inverted={inverted}
           habitDailyState={habitDailyState}
           variant={variant}
           collapsed={collapsed}
@@ -2171,6 +2282,8 @@ const ManageCardRow = memo(function ManageCardRow({
   habitDailyState = EMPTY_HABIT_DAILY_STATE,
   collapsed = false,
   featured = false,
+  inverted = false,
+  starMode = 'myPush',
   onToggleFeatured,
   onEdit,
   onDuplicate,
@@ -2342,11 +2455,17 @@ const ManageCardRow = memo(function ManageCardRow({
         onPress={() => onToggleFeatured?.(item)}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={featured ? '오늘의 PUSH 해제' : '오늘의 PUSH 설정'}
+        accessibilityLabel={
+          starMode === 'myPush'
+            ? (featured ? 'MY PUSH 해제' : 'MY PUSH 설정')
+            : (featured ? '중요 카드 해제' : '중요 카드 설정')
+        }
       >
         <Text style={[
           styles.manageStarText,
           featured && styles.manageStarTextSelected,
+          inverted && styles.manageStarTextInverted,
+          inverted && featured && styles.manageStarTextSelectedInverted,
         ]}>
           {featured ? '★' : '☆'}
         </Text>
@@ -2357,6 +2476,7 @@ const ManageCardRow = memo(function ManageCardRow({
           styles.manageControlButton,
           styles.cardSmallActionButton,
           styles.cardSmallActionPrimary,
+          inverted && styles.cardSmallActionPrimaryInverted,
         ]}
         onPress={() => onEdit?.(item)}
         activeOpacity={0.75}
@@ -2364,6 +2484,7 @@ const ManageCardRow = memo(function ManageCardRow({
         <Text style={[
           styles.cardSmallActionText,
           styles.cardSmallActionTextPrimary,
+          inverted && styles.cardSmallActionTextPrimaryInverted,
         ]}>
           수정
         </Text>
@@ -2374,6 +2495,7 @@ const ManageCardRow = memo(function ManageCardRow({
           styles.manageControlButton,
           styles.cardSmallActionButton,
           styles.cardSmallActionInverse,
+          inverted && styles.cardSmallActionInverseInverted,
         ]}
         onPress={() => onDuplicate?.(item)}
         activeOpacity={0.75}
@@ -2381,6 +2503,7 @@ const ManageCardRow = memo(function ManageCardRow({
         <Text style={[
           styles.cardSmallActionText,
           styles.cardSmallActionTextInverse,
+          inverted && styles.cardSmallActionTextInverseInverted,
         ]}>
           복제
         </Text>
@@ -2391,6 +2514,7 @@ const ManageCardRow = memo(function ManageCardRow({
           styles.manageControlButton,
           styles.cardSmallActionButton,
           styles.cardSmallActionInverse,
+          inverted && styles.cardSmallActionInverseInverted,
         ]}
         onPress={() => onDelete?.(item)}
         activeOpacity={0.75}
@@ -2398,6 +2522,7 @@ const ManageCardRow = memo(function ManageCardRow({
         <Text style={[
           styles.cardSmallActionText,
           styles.cardSmallActionTextInverse,
+          inverted && styles.cardSmallActionTextInverseInverted,
         ]}>
           삭제
         </Text>
@@ -2412,7 +2537,10 @@ const ManageCardRow = memo(function ManageCardRow({
           accessibilityRole="button"
           accessibilityLabel="순서 변경"
         >
-          <Text style={styles.manageDragHandleText}>
+          <Text style={[
+            styles.manageDragHandleText,
+            inverted && styles.manageDragHandleTextInverted,
+          ]}>
             ≡
           </Text>
         </View>
@@ -2447,6 +2575,7 @@ const ManageCardRow = memo(function ManageCardRow({
       {collapsed ? (
         <UnifiedCardShell
           item={item}
+          inverted={inverted}
           identityStyle={styles.manageIdentity}
           actionSlotStyle={styles.manageActionSlot}
           rightContent={manageControls}
@@ -2456,6 +2585,7 @@ const ManageCardRow = memo(function ManageCardRow({
       ) : (
         <UnifiedCardShell
           item={item}
+          inverted={inverted}
           expanded
           identityStyle={styles.expandedIdentity}
           foldCollapsed={false}
@@ -2467,6 +2597,7 @@ const ManageCardRow = memo(function ManageCardRow({
               pct={pct}
               rotationSummary={rotationSummary}
               habitDailyState={habitDailyState}
+              inverted={inverted}
             />
           </View>
 
@@ -2498,13 +2629,13 @@ const HomeHero = memo(function HomeHero({
     return (
       <View style={styles.homeHeroEmpty}>
         <Text style={styles.heroEmptyEyebrow}>
-          TODAY'S PUSH
+          MY PUSH
         </Text>
         <View style={styles.heroEmptyCenter}>
           <Text style={styles.heroEmptyText}>
             카드 수정을 눌러
             {'\n'}
-            오늘의 PUSH를 선정하세요
+            MY PUSH를 선정하세요
           </Text>
         </View>
       </View>
@@ -2520,7 +2651,7 @@ const HomeHero = memo(function HomeHero({
       <View style={styles.homeHeroSpotlight}>
         <View style={styles.heroSpotlightTop}>
           <Text style={styles.heroSpotlightEyebrow}>
-            TODAY'S PUSH
+            MY PUSH
           </Text>
           <Text style={styles.heroSpotlightStar}>★</Text>
         </View>
@@ -2588,7 +2719,7 @@ const HomeHero = memo(function HomeHero({
       <View style={styles.homeHeroSpotlight}>
         <View style={styles.heroSpotlightTop}>
           <Text style={styles.heroSpotlightEyebrow}>
-            TODAY'S PUSH
+            MY PUSH
           </Text>
           <Text style={styles.heroSpotlightStar}>★</Text>
         </View>
@@ -2654,7 +2785,7 @@ const HomeHero = memo(function HomeHero({
     <View style={styles.homeHeroSpotlight}>
       <View style={styles.heroSpotlightTop}>
         <Text style={styles.heroSpotlightEyebrow}>
-          TODAY'S PUSH
+          MY PUSH
         </Text>
         <Text style={styles.heroSpotlightStar}>★</Text>
       </View>
@@ -2811,6 +2942,9 @@ export default function ChallengeListScreen() {
   const [focusStarting, setFocusStarting] = useState(false);
   const [cardEditMode, setCardEditMode] = useState(false);
   const [featuredPushId, setFeaturedPushId] = useState(null);
+  const [myPushEnabled, setMyPushEnabledState] = useState(true);
+  const [importantCardIds, setImportantCardIdsState] = useState([]);
+  const myPushEnabledRef = useRef(true);
   const [briefNotice, setBriefNotice] = useState('');
   const [draggingManageId, setDraggingManageId] = useState(null);
   const [managePreviewOffsets, setManagePreviewOffsets] = useState({});
@@ -2824,6 +2958,57 @@ export default function ChallengeListScreen() {
   const previousWideLayoutRef = useRef(null);
   const layoutWidth = listFrameWidth || windowWidth;
   const isWideChallengeList = layoutWidth >= 600;
+  const importantCardIdSet = useMemo(
+    () => new Set(
+      importantCardIds.map((id) => safeStringId(id))
+    ),
+    [importantCardIds]
+  );
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      getMyPushEnabled(),
+      getImportantCardIds(),
+    ])
+      .then(([enabled, savedImportantIds]) => {
+        if (!alive) return;
+        myPushEnabledRef.current = enabled;
+        setMyPushEnabledState(enabled);
+        setImportantCardIdsState(savedImportantIds);
+      })
+      .catch(() => {
+        if (!alive) return;
+        myPushEnabledRef.current = true;
+        setMyPushEnabledState(true);
+        setImportantCardIdsState([]);
+      });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAppSettings((settings) => {
+      const nextEnabled = settings?.myPushEnabled !== false;
+      const previousEnabled = myPushEnabledRef.current;
+      myPushEnabledRef.current = nextEnabled;
+      setMyPushEnabledState(nextEnabled);
+      setImportantCardIdsState(Array.from(new Set(
+        (Array.isArray(settings?.importantCardIds)
+          ? settings.importantCardIds
+          : [])
+          .map((value) => safeStringId(value))
+          .filter(Boolean)
+      )));
+
+      if (previousEnabled === false && nextEnabled === true) {
+        setFeaturedPushId(null);
+        AsyncStorage.removeItem(TODAY_PUSH_KEY).catch((error) => {
+          console.warn('[ChallengeList][myPush] reset failed', error);
+        });
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   /* 정렬 상태 */
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -2920,7 +3105,7 @@ export default function ChallengeListScreen() {
       setFeaturedPushId(null);
 
       showBriefNotice(
-        '오늘의 PUSH 설정을 해제했습니다.'
+        'MY PUSH 설정을 해제했습니다.'
       );
 
       return;
@@ -2936,11 +3121,43 @@ export default function ChallengeListScreen() {
     setFeaturedPushId(id);
 
     showBriefNotice(
-      '오늘의 PUSH로 설정했습니다.'
+      'MY PUSH로 설정했습니다.'
     );
   }, [
     featuredPushId,
     showBriefNotice,
+  ]);
+
+  const toggleImportantCard = useCallback(async (item) => {
+    const id = safeStringId(item?.id);
+    if (!id) return;
+    const previous = importantCardIds;
+    const selected = importantCardIdSet.has(id);
+    const next = selected
+      ? previous.filter(
+          (candidateId) => safeStringId(candidateId) !== id
+        )
+      : [...previous, id];
+
+    setImportantCardIdsState(next);
+    try {
+      await setImportantCardIds(next);
+    } catch {
+      setImportantCardIdsState(previous);
+      Alert.alert(
+        '저장 실패',
+        '중요 카드 표시를 저장하지 못했습니다.'
+      );
+    }
+  }, [importantCardIds, importantCardIdSet]);
+
+  const toggleCardStar = useCallback((item) => {
+    if (myPushEnabled) return toggleFeaturedPush(item);
+    return toggleImportantCard(item);
+  }, [
+    myPushEnabled,
+    toggleFeaturedPush,
+    toggleImportantCard,
   ]);
 
   const clearFeaturedPushIfNeeded = useCallback(
@@ -2966,7 +3183,7 @@ export default function ChallengeListScreen() {
 
       if (showNotice) {
         showBriefNotice(
-          '오늘의 PUSH 설정을 해제했습니다.'
+          'MY PUSH 설정을 해제했습니다.'
         );
       }
     },
@@ -3767,6 +3984,11 @@ export default function ChallengeListScreen() {
     ({ item }) => {
       const id = safeStringId(item.id);
       const isCollapsed = !!collapsedIds[id];
+      const importantInverted = (
+        !myPushEnabled
+        && importantCardIdSet.has(id)
+        && isCurrentCard(item)
+      );
 
       return (
         <ItemCard
@@ -3777,6 +3999,7 @@ export default function ChallengeListScreen() {
           }
           variant={CHALLENGE_CARD_VARIANTS.LIST}
           collapsed={isCollapsed}
+          inverted={importantInverted}
           onPressToggleCollapsed={() => (
             toggleCollapsed(item)
           )}
@@ -3809,6 +4032,8 @@ export default function ChallengeListScreen() {
     [
       collapsedIds,
       habitDailyStateMap,
+      importantCardIdSet,
+      myPushEnabled,
       goEntryList,
       onClaimReward,
       openFocusStart,
@@ -3820,6 +4045,13 @@ export default function ChallengeListScreen() {
     ({ item, index }) => {
       const id = safeStringId(item.id);
       const isCollapsed = !!collapsedIds[id];
+      const starSelected = myPushEnabled
+        ? safeStringId(featuredPushId) === id
+        : importantCardIdSet.has(id);
+      const cardInverted = (
+        !myPushEnabled
+        && importantCardIdSet.has(id)
+      );
 
       return (
         <ManageCardRow
@@ -3830,11 +4062,10 @@ export default function ChallengeListScreen() {
             habitDailyStateMap[id]
             || EMPTY_HABIT_DAILY_STATE
           }
-          featured={
-            safeStringId(featuredPushId)
-            === safeStringId(item?.id)
-          }
-          onToggleFeatured={toggleFeaturedPush}
+          featured={starSelected}
+          inverted={cardInverted}
+          starMode={myPushEnabled ? 'myPush' : 'important'}
+          onToggleFeatured={toggleCardStar}
           onEdit={openCardEditScreen}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
@@ -3859,26 +4090,30 @@ export default function ChallengeListScreen() {
       draggingManageId,
       featuredPushId,
       habitDailyStateMap,
+      importantCardIdSet,
       manageDropCommitToken,
       managePreviewOffsets,
+      myPushEnabled,
       onDelete,
       onDuplicate,
       openCardEditScreen,
       previewManageDrag,
       toggleCollapsed,
-      toggleFeaturedPush,
+      toggleCardStar,
     ]
   );
 
   const homeListHeader = (
     <>
-      <HomeHero
-        item={heroItem}
-        habitDailyState={heroHabitDailyState}
-        rotationSummary={heroRotationSummary}
-        onRecord={onHeroRecord}
-        onFocus={openFocusStart}
-      />
+      {myPushEnabled && (
+        <HomeHero
+          item={heroItem}
+          habitDailyState={heroHabitDailyState}
+          rotationSummary={heroRotationSummary}
+          onRecord={onHeroRecord}
+          onFocus={openFocusStart}
+        />
+      )}
 
       <View style={styles.sectionControlsWrap}>
         <ChallengeListControls
@@ -4433,6 +4668,12 @@ const styles = StyleSheet.create({
     lineHeight: CARD_TITLE_LINE_HEIGHT,
     fontWeight: '900',
   },
+  cardPrimaryTextInverted: {
+    color: color.textInverse,
+  },
+  cardSecondaryTextInverted: {
+    color: primitive.neutral[300],
+  },
 
   cardInfoPanel: {
     height: CARD_INFO_PANEL_HEIGHT,
@@ -4442,6 +4683,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: color.surfaceMuted,
     justifyContent: 'center',
+  },
+  cardInfoPanelInverted: {
+    backgroundColor: primitive.neutral[700],
   },
 
   cardInfoMainRow: {
@@ -4565,6 +4809,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: color.primary,
   },
+  progressTrackInverted: {
+    backgroundColor: primitive.neutral[600],
+  },
+  progressFillInverted: {
+    backgroundColor: color.textInverse,
+  },
 
   habitWeekRow: {
     width: '74%',
@@ -4594,6 +4844,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: primitive.black,
     borderRadius: 6,
+  },
+  habitTodayOutlineInverted: {
+    borderColor: color.textInverse,
   },
 
   legacyProgressCircleWrap: {
@@ -4676,6 +4929,10 @@ const styles = StyleSheet.create({
   unifiedCardShellExpanded: {
     height: CARD_EXPANDED_HEIGHT,
     minHeight: CARD_EXPANDED_HEIGHT,
+  },
+  unifiedCardShellInverted: {
+    backgroundColor: primitive.black,
+    borderColor: primitive.black,
   },
 
   expandedCardBody: {
@@ -4760,6 +5017,14 @@ const styles = StyleSheet.create({
     borderColor: primitive.black,
     backgroundColor: color.surface,
   },
+  cardSmallActionPrimaryInverted: {
+    backgroundColor: color.textInverse,
+    borderColor: color.textInverse,
+  },
+  cardSmallActionInverseInverted: {
+    backgroundColor: primitive.black,
+    borderColor: color.textInverse,
+  },
 
   cardSmallActionText: {
     fontSize: 11,
@@ -4774,6 +5039,12 @@ const styles = StyleSheet.create({
 
   cardSmallActionTextInverse: {
     color: primitive.black,
+  },
+  cardSmallActionTextPrimaryInverted: {
+    color: primitive.black,
+  },
+  cardSmallActionTextInverseInverted: {
+    color: color.textInverse,
   },
 
   cardSmallActionSpacer: {
@@ -4804,6 +5075,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  uploadNowBtnInverted: {
+    backgroundColor: color.textInverse,
+  },
   primaryActionRow: {
     height: 46,
     flexDirection: 'row',
@@ -4824,15 +5098,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  focusPlayButtonInverted: {
+    borderColor: color.textInverse,
+    backgroundColor: primitive.black,
+  },
   focusPlayText: {
     color: color.textPrimary,
     fontSize: 14,
     fontWeight: '900',
   },
+  focusPlayTextInverted: {
+    color: color.textInverse,
+  },
   uploadNowText: {
     fontSize: 14,
     fontWeight: '900',
     color: color.textInverse,
+  },
+  uploadNowTextInverted: {
+    color: primitive.black,
   },
 
   outlineBigBtn: {
@@ -4890,6 +5174,12 @@ const styles = StyleSheet.create({
   manageStarTextSelected: {
     color: primitive.black,
   },
+  manageStarTextInverted: {
+    color: primitive.neutral[300],
+  },
+  manageStarTextSelectedInverted: {
+    color: color.textInverse,
+  },
 
   manageDragHandle: {
     alignItems: 'center',
@@ -4902,6 +5192,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '700',
     includeFontPadding: false,
+  },
+  manageDragHandleTextInverted: {
+    color: color.textInverse,
   },
 
   manageEmptyWrap: {

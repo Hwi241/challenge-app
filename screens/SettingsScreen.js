@@ -27,9 +27,11 @@ import BackButton from '../components/BackButton';
 import {
   getFocusMiniTimerEnabled,
   getFocusOverlayTimerEnabled,
+  getMyPushEnabled,
   getNotificationsEnabled,
   setFocusMiniTimerEnabled,
   setFocusOverlayTimerEnabled,
+  setMyPushEnabled,
   setNotificationsEnabled,
 } from '../utils/appSettings';
 import {
@@ -55,6 +57,8 @@ export default function SettingsScreen() {
 
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [myPushEnabled, setMyPushEnabledState] = useState(true);
+  const [myPushLoading, setMyPushLoading] = useState(true);
   const [miniTimerEnabled, setMiniTimerEnabledState] = useState(true);
   const [miniTimerLoading, setMiniTimerLoading] = useState(true);
   const [overlayTimerEnabled, setOverlayTimerEnabledState] = useState(false);
@@ -82,6 +86,21 @@ export default function SettingsScreen() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getMyPushEnabled()
+      .then((value) => {
+        if (mounted) setMyPushEnabledState(value);
+      })
+      .catch(() => {
+        if (mounted) setMyPushEnabledState(true);
+      })
+      .finally(() => {
+        if (mounted) setMyPushLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -130,6 +149,18 @@ export default function SettingsScreen() {
       Alert.alert('저장 실패', '미니 타이머 설정을 저장하지 못했습니다.');
     }
   }, [miniTimerEnabled]);
+
+  const toggleMyPush = useCallback(async () => {
+    const previous = myPushEnabled;
+    const next = !previous;
+    setMyPushEnabledState(next);
+    try {
+      await setMyPushEnabled(next);
+    } catch {
+      setMyPushEnabledState(previous);
+      Alert.alert('저장 실패', 'MY PUSH 설정을 저장하지 못했습니다.');
+    }
+  }, [myPushEnabled]);
 
   const toggleOverlayTimer = useCallback(async () => {
     if (Platform.OS !== 'android') {
@@ -336,6 +367,23 @@ export default function SettingsScreen() {
         </View>
         <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
           앱 전체 알림을 켜거나 끕니다. 상세 스케줄은 각 도전에서 설정하세요.
+        </Text>
+      </View>
+
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <View style={canonicalLayoutStyles.rowBetween}>
+          <Text style={canonicalTextStyles.cardTitle}>MY PUSH</Text>
+          <Switch
+            value={myPushEnabled}
+            onValueChange={toggleMyPush}
+            disabled={myPushLoading}
+            thumbColor={primitive.black}
+            trackColor={{ false: primitive.neutral[400], true: primitive.neutral[600] }}
+            ios_backgroundColor={primitive.neutral[400]}
+          />
+        </View>
+        <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
+          켜면 카드 하나를 MY PUSH로 설정합니다. 끄면 별표를 여러 카드의 중요도 표시로 사용할 수 있습니다.
         </Text>
       </View>
 

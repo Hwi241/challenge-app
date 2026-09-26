@@ -50,6 +50,14 @@ const TODAY_PUSH_KEY = 'ch_today_push_id';
 
 const CARD_COMPACT_HEIGHT = 64;
 const CARD_EXPANDED_HEIGHT = 224;
+const WIDE_GRID_COLUMNS = 2;
+const WIDE_GRID_COMPACT_SPAN = 1;
+const WIDE_GRID_EXPANDED_SPAN = 3;
+const WIDE_GRID_ROW_GAP = 16;
+const WIDE_GRID_ROW_PITCH = (
+  CARD_COMPACT_HEIGHT
+  + WIDE_GRID_ROW_GAP
+);
 const CARD_INFO_PANEL_TOP = 55;
 const CARD_INFO_PANEL_HEIGHT = 88;
 
@@ -237,6 +245,52 @@ const getManageCardHeight = (
     : CARD_EXPANDED_HEIGHT
 );
 
+const getWideGridSpan = (
+  item,
+  collapsedMap = {}
+) => (
+  collapsedMap[safeStringId(item?.id)]
+    ? WIDE_GRID_COMPACT_SPAN
+    : WIDE_GRID_EXPANDED_SPAN
+);
+
+const buildWideGridLayout = (
+  items = [],
+  collapsedMap = {}
+) => {
+  const safeItems = Array.isArray(items)
+    ? items
+    : [];
+  const columnRows = [0, 0];
+  const placements = safeItems.map((item, index) => {
+    const id = safeStringId(item?.id);
+    const span = getWideGridSpan(item, collapsedMap);
+    const column = columnRows[0] <= columnRows[1]
+      ? 0
+      : 1;
+    const row = columnRows[column];
+    columnRows[column] += span;
+    return {
+      item,
+      index,
+      id,
+      column,
+      row,
+      span,
+    };
+  });
+  const rowCount = Math.max(0, ...columnRows);
+
+  return {
+    placements,
+    columnRows,
+    rowCount,
+    height: rowCount
+      ? rowCount * WIDE_GRID_ROW_PITCH
+      : 0,
+  };
+};
+
 const buildManageLayoutPositions = (
   items = [],
   collapsedMap = {},
@@ -246,34 +300,26 @@ const buildManageLayoutPositions = (
   const safeItems = Array.isArray(items) ? items : [];
   const safeColumns = Math.max(1, Number(columns) || 1);
   const safeWidth = Math.max(1, Number(frameWidth) || 1);
-  const columnWidth = safeWidth / safeColumns;
-  const positions = {};
-  let cursorY = 0;
-
-  for (
-    let rowStart = 0;
-    rowStart < safeItems.length;
-    rowStart += safeColumns
-  ) {
-    const rowItems = safeItems.slice(
-      rowStart,
-      rowStart + safeColumns
+  if (safeColumns === WIDE_GRID_COLUMNS) {
+    const { placements } = buildWideGridLayout(
+      safeItems,
+      collapsedMap
     );
-    const rowHeight = Math.max(
-      ...rowItems.map((candidate) => (
-        getManageCardHeight(candidate, collapsedMap)
-      ))
-    );
-
-    rowItems.forEach((candidate, columnIndex) => {
-      const id = safeStringId(candidate?.id);
+    const columnWidth = safeWidth / WIDE_GRID_COLUMNS;
+    const positions = {};
+    placements.forEach((placement) => {
+      const {
+        item,
+        id,
+        column,
+        row,
+      } = placement;
       const height = getManageCardHeight(
-        candidate,
+        item,
         collapsedMap
       );
-      const x = columnIndex * columnWidth;
-      const y = cursorY;
-
+      const x = column * columnWidth;
+      const y = row * WIDE_GRID_ROW_PITCH;
       positions[id] = {
         x,
         y,
@@ -283,9 +329,24 @@ const buildManageLayoutPositions = (
         centerY: y + height / 2,
       };
     });
-
-    cursorY += rowHeight + MANAGE_ROW_GAP;
+    return positions;
   }
+
+  const positions = {};
+  let cursorY = 0;
+  safeItems.forEach((item) => {
+    const id = safeStringId(item?.id);
+    const height = getManageCardHeight(item, collapsedMap);
+    positions[id] = {
+      x: 0,
+      y: cursorY,
+      width: safeWidth,
+      height,
+      centerX: safeWidth / 2,
+      centerY: cursorY + height / 2,
+    };
+    cursorY += height + MANAGE_ROW_GAP;
+  });
 
   return positions;
 };
@@ -3706,6 +3767,22 @@ export default function ChallengeListScreen() {
     [data]
   );
 
+  const wideDisplayLayout = useMemo(
+    () => buildWideGridLayout(
+      displayData,
+      collapsedIds
+    ),
+    [displayData, collapsedIds]
+  );
+
+  const wideManageLayout = useMemo(
+    () => buildWideGridLayout(
+      editableItems,
+      collapsedIds
+    ),
+    [editableItems, collapsedIds]
+  );
+
   const enterCardEditMode = useCallback(() => {
     const source = dataRef.current || [];
 
@@ -4249,23 +4326,42 @@ export default function ChallengeListScreen() {
                 }}
                 style={[
                   styles.challengeResponsiveGrid,
+                  isWideChallengeList
+                    && styles.challengeResponsiveGridWide,
+                  isWideChallengeList
+                    && { height: wideManageLayout.height },
                   {
                     opacity: responsiveFade,
                   },
                 ]}
               >
-                {editableItems.map((item, index) => (
+                {(isWideChallengeList
+                  ? wideManageLayout.placements
+                  : editableItems.map((item, index) => ({
+                      item,
+                      index,
+                    }))).map((placement) => (
                   <View
-                    key={keyExtractor(item)}
+                    key={keyExtractor(placement.item)}
                     style={[
                       styles.cardResponsiveCell,
                       isWideChallengeList
-                        && styles.cardResponsiveCellWide,
+                        && styles.cardResponsiveCellAbsolute,
+                      isWideChallengeList && {
+                        left: placement.column === 0
+                          ? '0%'
+                          : '50%',
+                        top: (
+                          placement.row
+                          * WIDE_GRID_ROW_PITCH
+                        ),
+                        width: '50%',
+                      },
                     ]}
                   >
                     {renderManageRow({
-                      item,
-                      index,
+                      item: placement.item,
+                      index: placement.index,
                     })}
                   </View>
                 ))}
@@ -4278,21 +4374,40 @@ export default function ChallengeListScreen() {
               <Animated.View
                 style={[
                   styles.challengeResponsiveGrid,
+                  isWideChallengeList
+                    && styles.challengeResponsiveGridWide,
+                  isWideChallengeList
+                    && { height: wideDisplayLayout.height },
                   {
                     opacity: responsiveFade,
                   },
                 ]}
               >
-                {displayData.map((item) => (
+                {(isWideChallengeList
+                  ? wideDisplayLayout.placements
+                  : displayData.map((item, index) => ({
+                      item,
+                      index,
+                    }))).map((placement) => (
                   <View
-                    key={keyExtractor(item)}
+                    key={keyExtractor(placement.item)}
                     style={[
                       styles.cardResponsiveCell,
                       isWideChallengeList
-                        && styles.cardResponsiveCellWide,
+                        && styles.cardResponsiveCellAbsolute,
+                      isWideChallengeList && {
+                        left: placement.column === 0
+                          ? '0%'
+                          : '50%',
+                        top: (
+                          placement.row
+                          * WIDE_GRID_ROW_PITCH
+                        ),
+                        width: '50%',
+                      },
                     ]}
                   >
-                    {renderRow({ item })}
+                    {renderRow({ item: placement.item })}
                   </View>
                 ))}
               </Animated.View>
@@ -4900,6 +5015,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginHorizontal: -4,
   },
+  challengeResponsiveGridWide: {
+    position: 'relative',
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+  },
 
   cardResponsiveCell: {
     width: '100%',
@@ -4907,8 +5027,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  cardResponsiveCellWide: {
-    width: '50%',
+  cardResponsiveCellAbsolute: {
+    position: 'absolute',
+    marginBottom: 0,
   },
 
   unifiedCardShell: {

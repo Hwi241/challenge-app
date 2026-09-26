@@ -161,7 +161,7 @@ export default function FocusSessionStartModal({
   };
 
   const typeLabel = rotationSummary
-    ? '순환루틴'
+    ? '루틴'
     : isHabit
       ? '습관'
       : '도전';

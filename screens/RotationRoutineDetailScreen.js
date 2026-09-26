@@ -52,7 +52,7 @@ export default function RotationRoutineDetailScreen({ navigation, route }) {
   const timerPrefillAppliedRef = useRef(false);
 
   const fetchSnapshot = useCallback(async () => {
-    if (!routineId) throw new Error('순환 루틴 ID가 없습니다.');
+    if (!routineId) throw new Error('루틴 ID가 없습니다.');
     return loadRotationRoutineSnapshot(routineId);
   }, [routineId]);
 
@@ -77,7 +77,7 @@ export default function RotationRoutineDetailScreen({ navigation, route }) {
         setError('');
       })
       .catch((loadError) => {
-        if (active) setError(loadError?.message ?? '순환 루틴을 불러오지 못했습니다.');
+        if (active) setError(loadError?.message ?? '루틴을 불러오지 못했습니다.');
       })
       .finally(() => {
         if (active) setLoading(false);

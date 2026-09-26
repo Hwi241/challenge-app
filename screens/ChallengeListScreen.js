@@ -114,7 +114,7 @@ const SORT_LABELS = {
   oldest: '오래된순',
   challengeFirst: '도전 먼저',
   habitFirst: '습관 먼저',
-  rotationFirst: '순환루틴 먼저',
+  rotationFirst: '루틴 먼저',
 };
 
 const SORT_OPTIONS = [
@@ -1199,7 +1199,7 @@ const clampProgress = (value) => (
 );
 
 const getCardTypeLabel = (item) => {
-  if (isRotationRoutine(item)) return '순환루틴';
+  if (isRotationRoutine(item)) return '루틴';
   if (item?.type === 'habit') return '습관';
   return '도전';
 };
@@ -2720,45 +2720,49 @@ const HomeHero = memo(function HomeHero({
         <View style={styles.heroSpotlightBody}>
           <View style={styles.heroCopy}>
             <Text style={styles.heroSpotlightType}>
-              순환루틴
+              루틴
             </Text>
 
             <SingleLineMarqueeText
               textValue={item?.title}
-              fallback="순환루틴"
+              fallback="루틴"
               textStyle={styles.heroSpotlightTitle}
               viewportStyle={styles.heroTitleMarqueeViewport}
             />
 
-            <View style={styles.heroSpotlightCurrentRow}>
-              <Text
-                style={[
-                  styles.heroSpotlightMessage,
-                  styles.heroSpotlightCurrentName,
-                ]}
-                numberOfLines={1}
-              >
-                현재 · {current?.name ?? '-'}
-              </Text>
-
-              {!!current?.targetSeconds && (
-                <Text
-                  style={styles.heroSpotlightCurrentTarget}
-                  numberOfLines={1}
-                >
-                  목표 {formatRotationDuration(
-                    current.targetSeconds
-                  )}
-                </Text>
-              )}
-            </View>
-
             <Text
-              style={styles.heroSpotlightSub}
+              style={styles.heroSpotlightMessage}
               numberOfLines={1}
             >
-              다음 · {next?.name ?? '이번 회전 완료'}
+              현재 · {current?.name ?? '-'}
             </Text>
+
+            <View style={styles.heroSpotlightMetaRow}>
+              {!!current?.targetSeconds && (
+                <>
+                  <Text
+                    style={styles.heroSpotlightMetaTarget}
+                    numberOfLines={1}
+                  >
+                    목표 · {formatRotationDuration(
+                      current.targetSeconds
+                    )}
+                  </Text>
+
+                  <View
+                    style={styles.heroSpotlightMetaDivider}
+                  />
+                </>
+              )}
+
+              <Text
+                style={styles.heroSpotlightMetaNext}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                다음 · {next?.name ?? '이번 회전 완료'}
+              </Text>
+            </View>
           </View>
 
           <HeroProgressRing
@@ -3633,7 +3637,7 @@ export default function ChallengeListScreen() {
         targetForSession = await loadRotationRoutine(String(focusTarget.id));
         rotationSummary = getRotationRoutineSummary(targetForSession);
         if (!rotationSummary.currentItem) {
-          throw new Error('현재 실행할 순환루틴 활동이 없습니다.');
+          throw new Error('현재 실행할 루틴 활동이 없습니다.');
         }
       }
       const session = await startFocusSession({
@@ -4582,22 +4586,32 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  heroSpotlightCurrentRow: {
-    marginTop: space.sm,
+  heroSpotlightMetaRow: {
+    marginTop: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    columnGap: space.sm,
-  },
-
-  heroSpotlightCurrentName: {
-    marginTop: 0,
-    flex: 1,
+    justifyContent: 'flex-start',
     minWidth: 0,
   },
 
-  heroSpotlightCurrentTarget: {
+  heroSpotlightMetaTarget: {
     flexShrink: 0,
+    color: primitive.neutral[400],
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+
+  heroSpotlightMetaDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 13,
+    marginHorizontal: 8,
+    backgroundColor: primitive.neutral[600],
+  },
+
+  heroSpotlightMetaNext: {
+    flex: 1,
+    minWidth: 0,
     color: primitive.neutral[400],
     fontSize: 11,
     lineHeight: 17,

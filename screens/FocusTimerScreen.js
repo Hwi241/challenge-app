@@ -211,7 +211,7 @@ export default function FocusTimerScreen({ navigation, route }) {
             <View style={styles.header}>
               <Text style={text.sectionTitle}>{session.targetTitle}</Text>
               <Text style={[text.meta, styles.type]}>
-                {session.targetSubtype === 'rotation' ? '순환 루틴' : session.targetType === 'habit' ? '습관' : '도전'}
+                {session.targetSubtype === 'rotation' ? '루틴' : session.targetType === 'habit' ? '습관' : '도전'}
               </Text>
               {!!session.rotationItemTitle && (
                 <View style={styles.activityChip}>

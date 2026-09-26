@@ -124,16 +124,16 @@ export function createFocusSession(input, options = {}) {
   }
   if (targetSubtype) {
     if (!rotationItemId || !rotationItemTitle) {
-      throw new Error('순환루틴 현재 활동 정보가 올바르지 않습니다.');
+      throw new Error('루틴 현재 활동 정보가 올바르지 않습니다.');
     }
     if (!Number.isSafeInteger(rotationCycleNumber) || rotationCycleNumber < 1) {
-      throw new Error('순환루틴 회차 정보가 올바르지 않습니다.');
+      throw new Error('루틴 회차 정보가 올바르지 않습니다.');
     }
     if (
       !Number.isSafeInteger(rotationStartProgressSeconds)
       || rotationStartProgressSeconds < 0
     ) {
-      throw new Error('순환루틴 시작 진행시간이 올바르지 않습니다.');
+      throw new Error('루틴 시작 진행시간이 올바르지 않습니다.');
     }
   }
   if (!['stopwatch', 'countdown'].includes(mode)) {

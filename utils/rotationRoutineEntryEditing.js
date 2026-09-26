@@ -12,7 +12,7 @@ const fail = (code, message) => {
 
 function getContext(routine, entries, entryId) {
   const base = normalizeRotationRoutine(routine);
-  if (!base) fail('INVALID_ROTATION_ROUTINE', '순환 루틴을 찾을 수 없습니다.');
+  if (!base) fail('INVALID_ROTATION_ROUTINE', '루틴을 찾을 수 없습니다.');
   if (!Array.isArray(entries)) fail('INVALID_ENTRIES', '기록을 읽을 수 없습니다.');
   const index = entries.findIndex((entry) => idOf(entry?.id) === idOf(entryId));
   if (index < 0) fail('ENTRY_NOT_FOUND', '기록이 존재하지 않습니다.');

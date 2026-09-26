@@ -474,7 +474,7 @@ const ensureRotationActivityList = async (challengeId, target) => {
   if (hasStoredLayout) {
     const stored = map[storageKey];
     if (!Array.isArray(stored)) {
-      throw new Error('순환 루틴의 저장 배치를 확인할 수 없습니다.');
+      throw new Error('루틴의 저장 배치를 확인할 수 없습니다.');
     }
 
     const alreadyAdded = stored.some(

@@ -274,7 +274,7 @@ export function normalizeRotationRoutine(rawRoutine, options = {}) {
     ...rawRoutine,
     id: cleanText(rawRoutine.id),
     type: ROTATION_ROUTINE_TYPE,
-    title: cleanText(rawRoutine.title) || '순환 루틴',
+    title: cleanText(rawRoutine.title) || '루틴',
     description: cleanText(rawRoutine.description),
     goalScore: 0,
     currentScore: 0,
@@ -308,7 +308,7 @@ export function normalizeRotationRoutine(rawRoutine, options = {}) {
 const requireRoutine = (routine, options = {}) => {
   const normalized = normalizeRotationRoutine(routine, options);
   if (!normalized?.id) {
-    fail('INVALID_ROTATION_ROUTINE', '유효한 순환 루틴이 아닙니다.');
+    fail('INVALID_ROTATION_ROUTINE', '유효한 루틴이 아닙니다.');
   }
   return normalized;
 };
@@ -316,7 +316,7 @@ const requireRoutine = (routine, options = {}) => {
 export function createRotationRoutine(input = {}, options = {}) {
   const validation = validateRotationRoutineInput(input);
   if (!validation.ok) {
-    fail(validation.reason, '순환 루틴 입력값이 올바르지 않습니다.');
+    fail(validation.reason, '루틴 입력값이 올바르지 않습니다.');
   }
 
   const now = toNonNegativeInteger(options.now, Date.now());
@@ -325,7 +325,7 @@ export function createRotationRoutine(input = {}, options = {}) {
   const id = cleanText(input.id) || cleanText(idFactory('ch'));
 
   if (!id || items.length < 2) {
-    fail('INVALID_ROTATION_ROUTINE', '순환 루틴을 만들 수 없습니다.');
+    fail('INVALID_ROTATION_ROUTINE', '루틴을 만들 수 없습니다.');
   }
 
   return {
@@ -468,7 +468,7 @@ export function recordRotationTime(routine, durationSeconds, options = {}) {
   const base = requireRoutine(routine, { ...options, now });
 
   if (base.status === PAUSED_STATUS) {
-    fail('ROUTINE_PAUSED', '일시정지된 순환 루틴입니다.');
+    fail('ROUTINE_PAUSED', '일시정지된 루틴입니다.');
   }
 
   const duration = toPositiveInteger(durationSeconds);
@@ -637,7 +637,7 @@ export function deferCurrentRotationItem(routine, options = {}) {
   const base = requireRoutine(routine, { ...options, now });
 
   if (base.status === PAUSED_STATUS) {
-    fail('ROUTINE_PAUSED', '일시정지된 순환 루틴입니다.');
+    fail('ROUTINE_PAUSED', '일시정지된 루틴입니다.');
   }
 
   const activeCycle = cloneCycle(base.rotation.activeCycle);

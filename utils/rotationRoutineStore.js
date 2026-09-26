@@ -96,7 +96,7 @@ export function createRotationRoutineStore({
 
   const readBundle = async (routineId) => {
     const id = cleanId(routineId);
-    if (!id) fail('ROUTINE_ID_INVALID', '순환 루틴 ID가 없습니다.');
+    if (!id) fail('ROUTINE_ID_INVALID', '루틴 ID가 없습니다.');
 
     const keys = [CHALLENGES_KEY, challengeKey(id), entriesKey(id)];
     const values = await targetStorage.multiGet(keys);
@@ -105,7 +105,7 @@ export function createRotationRoutineStore({
     const listed = challenges.find((item) => cleanId(item?.id) === id) || null;
 
     if (listed && listed.type !== 'rotation' && !listed.rotation) {
-      fail('ROUTINE_TYPE_MISMATCH', '해당 항목은 순환 루틴이 아닙니다.');
+      fail('ROUTINE_TYPE_MISMATCH', '해당 항목은 루틴이 아닙니다.');
     }
 
     const cached = parseObject(
@@ -125,7 +125,7 @@ export function createRotationRoutineStore({
 
     const routine = normalizeRotationRoutine(routineSource);
     if (!routine?.id) {
-      fail('ROTATION_ROUTINE_NOT_FOUND', '순환 루틴을 찾을 수 없습니다.');
+      fail('ROTATION_ROUTINE_NOT_FOUND', '루틴을 찾을 수 없습니다.');
     }
 
     const entries = parseArray(valueByKey.get(entriesKey(id)), entriesKey(id));
@@ -136,7 +136,7 @@ export function createRotationRoutineStore({
   const persistRoutine = async ({ challenges, routine, entries }) => {
     const normalized = normalizeRotationRoutine(routine);
     if (!normalized?.id) {
-      fail('INVALID_ROTATION_ROUTINE', '유효한 순환 루틴이 아닙니다.');
+      fail('INVALID_ROTATION_ROUTINE', '유효한 루틴이 아닙니다.');
     }
 
     const nextChallenges = [...challenges];
@@ -176,7 +176,7 @@ export function createRotationRoutineStore({
         valueByKey.get(challengeKey(id)) != null ||
         valueByKey.get(entriesKey(id)) != null
       ) {
-        fail('ROUTINE_ID_DUPLICATE', '이미 사용 중인 순환 루틴 ID입니다.');
+        fail('ROUTINE_ID_DUPLICATE', '이미 사용 중인 루틴 ID입니다.');
       }
 
       const saved = await persistRoutine({

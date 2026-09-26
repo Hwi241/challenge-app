@@ -73,7 +73,7 @@ export default function AddRotationRoutineScreen({
   const [title, setTitle] = useState(
     () => (
       duplicateTemplate
-        ? `${duplicateTemplate?.title || '순환 루틴'} (복제)`
+        ? `${duplicateTemplate?.title || '루틴'} (복제)`
         : ''
     )
   );
@@ -173,8 +173,8 @@ export default function AddRotationRoutineScreen({
 
     guard.confirmSave({
       message: duplicateTemplate
-        ? '복제한 순환 루틴을 저장할까요?'
-        : '이 순환 루틴을 저장할까요?',
+        ? '복제한 루틴을 저장할까요?'
+        : '이 루틴을 저장할까요?',
       onConfirm: async () => {
         setBusy(true);
 
@@ -194,7 +194,7 @@ export default function AddRotationRoutineScreen({
         } catch (error) {
           Alert.alert(
             '저장 실패',
-            error?.message || '순환 루틴을 저장하지 못했습니다.'
+            error?.message || '루틴을 저장하지 못했습니다.'
           );
         } finally {
           setBusy(false);
@@ -210,7 +210,7 @@ export default function AddRotationRoutineScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <BackButton
-          title={duplicateTemplate ? '순환 루틴 복제' : '순환 루틴 추가'}
+          title={duplicateTemplate ? '루틴 복제' : '루틴 추가'}
           onPress={guard.handleBackPress}
         />
 

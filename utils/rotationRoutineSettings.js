@@ -11,7 +11,7 @@ const fail = (code, message) => {
 function requireRoutine(routine) {
   const base = normalizeRotationRoutine(routine);
   if (!base?.id) {
-    fail('INVALID_ROTATION_ROUTINE', '유효한 순환 루틴이 아닙니다.');
+    fail('INVALID_ROTATION_ROUTINE', '유효한 루틴이 아닙니다.');
   }
   return base;
 }

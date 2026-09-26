@@ -58,7 +58,7 @@ export default function EditRotationRoutineScreen({ navigation, route }) {
     setLoading(true);
     setError('');
     try {
-      if (!routineId) throw new Error('수정할 순환 루틴 정보가 없습니다.');
+      if (!routineId) throw new Error('수정할 루틴 정보가 없습니다.');
       const routine = await loadRotationRoutine(routineId);
       if (!alive.current || request !== requestNumber.current) return;
       const next = toDraft(routine);
@@ -252,7 +252,7 @@ export default function EditRotationRoutineScreen({ navigation, route }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <BackButton
-          title="순환 루틴 수정"
+          title="루틴 수정"
           onPress={() => { if (!flight.current) guard.handleBackPress(); }}
         />
         {loading ? (

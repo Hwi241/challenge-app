@@ -13,7 +13,7 @@ function requireRoutine(routine) {
   if (!base?.id) {
     throw new RotationRoutineError(
       'INVALID_ROTATION_ROUTINE',
-      '유효한 순환 루틴이 아닙니다.',
+      '유효한 루틴이 아닙니다.',
     );
   }
   return base;

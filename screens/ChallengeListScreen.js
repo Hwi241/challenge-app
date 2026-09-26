@@ -2730,12 +2730,28 @@ const HomeHero = memo(function HomeHero({
               viewportStyle={styles.heroTitleMarqueeViewport}
             />
 
-            <Text
-              style={styles.heroSpotlightMessage}
-              numberOfLines={1}
-            >
-              현재 · {current?.name ?? '-'}
-            </Text>
+            <View style={styles.heroSpotlightCurrentRow}>
+              <Text
+                style={[
+                  styles.heroSpotlightMessage,
+                  styles.heroSpotlightCurrentName,
+                ]}
+                numberOfLines={1}
+              >
+                현재 · {current?.name ?? '-'}
+              </Text>
+
+              {!!current?.targetSeconds && (
+                <Text
+                  style={styles.heroSpotlightCurrentTarget}
+                  numberOfLines={1}
+                >
+                  목표 {formatRotationDuration(
+                    current.targetSeconds
+                  )}
+                </Text>
+              )}
+            </View>
 
             <Text
               style={styles.heroSpotlightSub}
@@ -2768,13 +2784,16 @@ const HomeHero = memo(function HomeHero({
       scheduledToday,
       hasToday,
       streak,
+      runState,
     } = habitDailyState;
 
     const todayMessage = !scheduledToday
-      ? '오늘은 목표일이 아니에요'
+      ? '오늘 목표 · 없음'
       : hasToday
-        ? '오늘 기록 완료'
-        : '오늘 아직 기록하지 않았어요';
+        ? '오늘 목표 · 완료'
+        : '오늘 목표 · 기록 전';
+
+    const runMessage = getHabitRunLabel(runState);
 
     return (
       <View style={styles.homeHeroSpotlight}>
@@ -2799,7 +2818,14 @@ const HomeHero = memo(function HomeHero({
 
             <Text
               style={styles.heroSpotlightMessage}
-              numberOfLines={2}
+              numberOfLines={1}
+            >
+              {runMessage}
+            </Text>
+
+            <Text
+              style={styles.heroSpotlightSub}
+              numberOfLines={1}
             >
               {todayMessage}
             </Text>
@@ -4554,6 +4580,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '800',
+  },
+
+  heroSpotlightCurrentRow: {
+    marginTop: space.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: space.sm,
+  },
+
+  heroSpotlightCurrentName: {
+    marginTop: 0,
+    flex: 1,
+    minWidth: 0,
+  },
+
+  heroSpotlightCurrentTarget: {
+    flexShrink: 0,
+    color: primitive.neutral[400],
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '700',
   },
 
   heroSpotlightSub: {

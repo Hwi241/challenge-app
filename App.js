@@ -29,6 +29,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import BackupScreen from './screens/BackupScreen';
 import TrashScreen from './screens/TrashScreen';
 import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
+import ProfileAnalysisScreen from './screens/ProfileAnalysisScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
 import MyGraphScreen from './screens/MyGraphScreen';
 import FocusTimerScreen from './screens/FocusTimerScreen';
@@ -194,6 +195,11 @@ export default function App() {
           name="ProfileInventory"
           component={ProfileInventoryScreen}
           options={getDockScreenOptions}
+        />
+        <Stack.Screen
+          name="ProfileAnalysis"
+          component={ProfileAnalysisScreen}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="GraphShop"

@@ -44,6 +44,15 @@ import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import { buildResponsiveDashboardLayout } from '../utils/dashboardAutoLayout';
+import {
+  buildRecordRoomIndexSummary,
+  buildRecordRoomHomeSummary,
+  calculateAchievementAnalysis,
+  calculateBalanceAnalysis,
+  calculateConsistencyAnalysis,
+  calculateGrowthAnalysis,
+  calculateRhythmAnalysis,
+} from '../utils/recordRoomAnalysis';
 
 const CHALLENGES_KEY = 'challenges';
 const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
@@ -78,6 +87,19 @@ const CONNECT_ITEMS = [
 ];
 
 const pad2 = (value) => String(value).padStart(2, '0');
+
+const formatShortLocalDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getMonth() + 1}.${date.getDate()}`;
+};
+
+const formatGrowthMetric = (metric) => {
+  if (metric?.isNew) return '새 활동';
+  if (!Number.isFinite(metric?.rate)) return '비교 없음';
+  const rounded = Math.round(metric.rate);
+  return `${rounded > 0 ? '+' : ''}${rounded}%`;
+};
 
 const parseJsonSafe = (raw, fallback) => {
   try {
@@ -286,13 +308,19 @@ const normalizeEntry = (item, sourceKey, index) => {
   const rawTime = item?.timestamp ?? item?.date ?? item?.createdAt ?? item?.updatedAt;
   const date = rawTime ? new Date(rawTime) : null;
   if (!date || Number.isNaN(date.getTime())) return null;
+  const sourceChallengeId = typeof sourceKey === 'string' && sourceKey.startsWith('entries_')
+    ? sourceKey.slice('entries_'.length)
+    : '';
 
   return {
     id: String(item?.id ?? `${sourceKey}-${index}-${date.getTime()}`),
-    challengeId: String(item?.challengeId ?? item?.cid ?? item?.cardId ?? ''),
+    challengeId: String(item?.challengeId ?? item?.cid ?? item?.cardId ?? item?.routineId ?? sourceChallengeId),
     text: normalizeText(item?.text ?? item?.memo ?? item?.note),
     timestamp: date.toISOString(),
     duration: Number(item?.duration ?? item?.minutes ?? 0) || 0,
+    kind: typeof item?.kind === 'string' ? item.kind : '',
+    cycleNumber: Number.isFinite(Number(item?.cycleNumber)) ? Number(item.cycleNumber) : null,
+    completedCycle: item?.completedCycle === true,
   };
 };
 
@@ -1071,6 +1099,70 @@ const RecordRoomEditIcon = () => (
   </Svg>
 );
 
+const ActivityStrip = ({ daily }) => (
+  <View style={styles.activityStrip}>
+    {daily.map((day) => (
+      <View
+        key={day.key}
+        style={[styles.activityMark, day.count > 0 && styles.activityMarkActive]}
+      />
+    ))}
+  </View>
+);
+
+const RecordSparkline = ({ daily }) => {
+  const width = 280;
+  const height = 36;
+  const maxCount = Math.max(1, ...daily.map((day) => day.count));
+  const path = daily.map((day, index) => {
+    const x = daily.length > 1 ? (index / (daily.length - 1)) * width : 0;
+    const y = height - (day.count / maxCount) * (height - 4) - 2;
+    return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+
+  return (
+    <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <Path d={`M0 ${height - 2} L${width} ${height - 2}`} stroke={color.divider} strokeWidth="1" />
+      <Path d={path} fill="none" stroke={color.textPrimary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+};
+
+const RhythmStrip = ({ items }) => (
+  <View style={styles.rhythmStrip}>
+    {items.map((item) => (
+      <View
+        key={item.key}
+        style={[
+          styles.rhythmSegment,
+          { opacity: 0.12 + item.ratio * 0.88 },
+        ]}
+      />
+    ))}
+  </View>
+);
+
+const BalanceBars = ({ items }) => (
+  <View style={styles.balanceBars}>
+    {items.map((item) => (
+      <View key={item.key} style={styles.balanceRow}>
+        <Text style={styles.balanceLabel}>{item.label}</Text>
+        <View style={styles.balanceTrack}>
+          <View style={[styles.balanceFill, { width: `${Math.round(item.ratio * 100)}%` }]} />
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+const IndexMicroVisualization = ({ index, summary, analyses }) => {
+  if (index === 0) return <ActivityStrip daily={summary.daily} />;
+  if (index === 1) return <RecordSparkline daily={summary.daily} />;
+  if (index === 2) return <RhythmStrip items={analyses.rhythm.timeShares.map((item) => ({ ...item, ratio: item.share }))} />;
+  if (index === 3) return <BalanceBars items={analyses.balance.shares.map((item) => ({ ...item, ratio: item.share }))} />;
+  return null;
+};
+
 export default function ProfileInventoryScreen() {
   const navigation = useNavigation();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -1237,6 +1329,71 @@ export default function ProfileInventoryScreen() {
     weekBaseDate,
     calendarBaseDate,
   }), [cards, entries, trashInfo, stars, starHistory, hofGoal, hallCards, weekBaseDate, calendarBaseDate]);
+
+  const indexSummary = useMemo(
+    () => buildRecordRoomIndexSummary({ entries, cards }),
+    [entries, cards]
+  );
+
+  const recordRoomAnalyses = useMemo(() => {
+    const now = new Date();
+    return {
+      consistency: calculateConsistencyAnalysis({ entries, now }),
+      growth: calculateGrowthAnalysis({ entries, now }),
+      rhythm: calculateRhythmAnalysis({ entries, now }),
+      balance: calculateBalanceAnalysis({ entries, cards, now }),
+      achievement: calculateAchievementAnalysis({ entries, hallCards, now }),
+    };
+  }, [cards, entries, hallCards]);
+
+  const indexPresentation = useMemo(() => {
+    const { consistency, growth, rhythm, balance, achievement } = recordRoomAnalyses;
+
+    return {
+      periodLabel: `${formatShortLocalDate(indexSummary.periods.current.start)} — ${formatShortLocalDate(indexSummary.periods.current.end)}`,
+      monthLabel: pad2(indexSummary.periods.current.end.getMonth() + 1),
+      summaryLines: buildRecordRoomHomeSummary(recordRoomAnalyses),
+      rows: [
+        {
+          title: '꾸준함',
+          value: consistency.score == null ? '분석 준비 중' : String(consistency.score),
+          note: consistency.score == null
+            ? `${consistency.metrics.trackedDays}일 기록 · ${consistency.summary}`
+            : `${consistency.status} · 활동일 ${consistency.metrics.activityDays} / 30일`,
+        },
+        {
+          title: '성장',
+          value: growth.score == null ? '분석 준비 중' : String(growth.score),
+          note: growth.score == null
+            ? growth.summary
+            : `${growth.status} · 활동일 ${formatGrowthMetric(growth.comparison.activityDays)} · 기록량 ${formatGrowthMetric(growth.comparison.activityCount)}`,
+        },
+        {
+          title: '리듬',
+          value: rhythm.rhythmType || '분석 준비 중',
+          note: rhythm.rhythmType
+            ? rhythm.rhythmKind === 'dual'
+              ? rhythm.primary.map((item) => `${item.label} ${Math.round(item.share * 100)}%`).join(' · ')
+              : rhythm.patternStrength
+            : `최근 30일 · 기록 ${rhythm.totalRecords}건`,
+        },
+        {
+          title: '균형',
+          value: balance.balanceType || balance.status,
+          note: balance.balanceType
+            ? balance.summaryLines[0]
+            : `최근 30일 · 집계 가능한 활동 ${balance.total}회`,
+        },
+        {
+          title: '성취',
+          value: achievement.metrics.totalCount.toLocaleString('ko-KR'),
+          note: achievement.metrics.totalCount > 0
+            ? `총 기록 · 최장 연속 ${achievement.metrics.longestStreak}일`
+            : achievement.summary,
+        },
+      ],
+    };
+  }, [indexSummary, recordRoomAnalyses]);
 
   const hasModalUnsavedChanges = useCallback(() => {
     if (memoVisible) {
@@ -1529,7 +1686,7 @@ export default function ProfileInventoryScreen() {
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
 
-        <Text style={[canonicalTextStyles.headerTitle, styles.headerTitleLayout]}>MY</Text>
+        <Text style={[canonicalTextStyles.headerTitle, styles.headerTitleLayout]}>내 기록실</Text>
         <View style={[buttonStyles.icon, styles.headerSideBtn]} />
       </View>
 
@@ -1542,100 +1699,50 @@ export default function ProfileInventoryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[canonicalLayoutStyles.rowBetween, styles.recordRoomTitleRow]}>
-          <View style={[canonicalLayoutStyles.row, styles.recordRoomTitleGroup]}>
-                      <Text style={[canonicalTextStyles.title, styles.recordRoomInternalTitle]}>내 기록실</Text>
-<TouchableOpacity
-              onPress={openRecordRoomLayoutEdit}
-              activeOpacity={0.85}
-              style={[buttonStyles.icon, styles.recordRoomEditButton]}
-              accessibilityRole="button"
-              accessibilityLabel="기록실 배치 수정"
-            >
-              <RecordRoomEditIcon />
-            </TouchableOpacity>
+        <View style={styles.indexReport}>
+          <View style={styles.indexHero}>
+            <Text style={styles.indexMonth}>{indexPresentation.monthLabel}</Text>
+            <Text style={styles.indexTitle}>MY INDEX</Text>
+            <Text style={styles.indexSubtitle}>YOUR 30 DAY REPORT</Text>
+            <View style={styles.indexPeriodRow}>
+              <Text style={styles.indexPeriodCaption}>최근 30일</Text>
+              <Text style={styles.indexPeriod}>{indexPresentation.periodLabel}</Text>
+            </View>
+            <View style={styles.indexSummary}>
+              {indexPresentation.summaryLines.map((line) => (
+                <Text key={line} style={styles.indexSummaryText}>{line}</Text>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.indexList}>
+            {indexPresentation.rows.map((row, index) => (
+              <TouchableOpacity
+                key={row.title}
+                style={styles.indexRow}
+                onPress={() => navigation.navigate('ProfileAnalysis', {
+                  initialIndex: index,
+                  analysisData: recordRoomAnalyses,
+                })}
+                activeOpacity={0.72}
+                accessibilityRole="button"
+                accessibilityLabel={`${row.title} 분석 보기`}
+              >
+                <View style={styles.indexRowHeading}>
+                  <Text style={styles.indexNumber}>{String(index + 1).padStart(2, '0')}</Text>
+                  <Text style={styles.indexRowTitle}>{row.title}</Text>
+                  <Text style={[styles.indexValue, index === 4 && styles.indexValueLarge]}>{row.value}</Text>
+                </View>
+                <Text style={styles.indexNote}>{row.note}</Text>
+                {index < 4 ? (
+                  <View style={styles.indexVisualization}>
+                    <IndexMicroVisualization index={index} summary={indexSummary} analyses={recordRoomAnalyses} />
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
-
-
-        <View
- key={`record-room-grid-${recordRoomLayoutKey}-${columns}`}
- style={[
- styles.gridWrap,
- {
- height: recordRoomBoardHeight,
- },
- ]}
- onLayout={(event) => {
- setRecordRoomFrameWidth(
- event.nativeEvent.layout.width || 0,
- );
- }}
- >
- {responsiveDashboardItems.map(
- (item) => {
- const safeW = Math.max(
- 1,
- Math.min(
- PHONE_GRID_COLUMNS,
- Number(item?.w) ||
- PHONE_GRID_COLUMNS,
- ),
- );
-
- const safeH = Math.max(
- 1,
- Number(item?.h) || 1,
- );
-
- const safeX = Math.max(
- 0,
- Math.min(
- columns - safeW,
- Number(item?.x) || 0,
- ),
- );
-
- const safeY = Math.max(
- 0,
- Number(item?.y) || 0,
- );
-
- const left =
- `${(safeX / columns) * 100}%`;
-
- const width =
- `${(safeW / columns) * 100}%`;
-
- const top =
- safeY *
- (
- CARD_ROW_HEIGHT +
- safeRecordRoomRowGap
- );
-
- const height =
- safeH * CARD_ROW_HEIGHT;
-
- return (
- <View
- key={item.id}
- style={[styles.gridItem,
- {
- position: 'absolute',
- left,
- top,
- width,
- height,
- },
- ]}
- >
- {item.render()}
- </View>
- );
- },
- )}
- </View>
       </ScrollView>
 
 
@@ -1772,10 +1879,126 @@ const styles = StyleSheet.create({
   headerTitleLayout: {
     flex: 1,
     fontWeight: '900',
+    textAlign: 'center',
+  },
+  indexReport: {
+    width: '100%',
+    maxWidth: 620,
+    alignSelf: 'center',
+  },
+  indexHero: {
+    position: 'relative',
+    minHeight: 190,
+    paddingTop: space.lg,
+    overflow: 'hidden',
+  },
+  indexMonth: {
+    position: 'absolute',
+    right: -4,
+    top: -16,
+    color: primitive.neutral[100],
+    fontSize: 128,
+    lineHeight: 136,
+    fontWeight: font.weight.heavy,
+    letterSpacing: -8,
+  },
+  indexTitle: {
+    color: color.textPrimary,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: font.weight.heavy,
+    letterSpacing: -1.2,
+  },
+  indexSubtitle: {
+    marginTop: 3,
+    color: color.textTertiary,
+    fontSize: 11,
+    fontWeight: font.weight.bold,
+    letterSpacing: 2,
+  },
+  indexPeriodRow: {
+    marginTop: 38,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    columnGap: space.sm,
+  },
+  indexPeriodCaption: {
+    color: color.textSecondary,
+    fontSize: 12,
+    fontWeight: font.weight.bold,
+  },
+  indexPeriod: {
+    color: color.textPrimary,
+    fontSize: 18,
+    fontWeight: font.weight.heavy,
+    letterSpacing: -0.3,
+  },
+  indexSummary: {
+    maxWidth: 390,
+    marginTop: space.md,
+    paddingBottom: space.lg,
+    rowGap: 3,
+  },
+  indexSummaryText: {
+    color: color.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: font.weight.medium,
+  },
+  indexList: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.divider,
+  },
+  indexRow: {
+    minHeight: 142,
+    paddingVertical: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.divider,
+  },
+  indexRowHeading: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  indexNumber: {
+    width: 42,
+    color: primitive.neutral[300],
+    fontSize: 20,
+    fontWeight: font.weight.heavy,
+    letterSpacing: -0.6,
+  },
+  indexRowTitle: {
+    color: color.textPrimary,
+    fontSize: 18,
+    fontWeight: font.weight.heavy,
+  },
+  indexValue: {
+    flex: 1,
+    marginLeft: space.sm,
+    color: color.textPrimary,
+    fontSize: 22,
+    fontWeight: font.weight.heavy,
+    textAlign: 'right',
+  },
+  indexValueLarge: {
+    fontSize: 29,
+  },
+  indexNote: {
+    marginTop: 7,
+    marginLeft: 42,
+    color: color.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: font.weight.semibold,
+  },
+  indexVisualization: {
+    minHeight: 24,
+    marginTop: 14,
+    marginLeft: 42,
+    justifyContent: 'center',
   },
   scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: space.sm,
+    paddingHorizontal: space.lg,
     paddingVertical: 0,
   },
   recordRoomTitleRow: {
@@ -2333,6 +2556,51 @@ const styles = StyleSheet.create({
   },
   listItemStatusMuted: {
     color: primitive.black,
+  },
+  activityStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 3,
+  },
+  activityMark: {
+    flex: 1,
+    height: 5,
+    backgroundColor: primitive.neutral[200],
+  },
+  activityMarkActive: {
+    backgroundColor: color.primary,
+  },
+  rhythmStrip: {
+    height: 8,
+    flexDirection: 'row',
+    columnGap: 3,
+  },
+  rhythmSegment: {
+    flex: 1,
+    backgroundColor: color.primary,
+  },
+  balanceBars: {
+    rowGap: 5,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 8,
+  },
+  balanceLabel: {
+    width: 28,
+    color: color.textTertiary,
+    fontSize: 10,
+    fontWeight: font.weight.bold,
+  },
+  balanceTrack: {
+    flex: 1,
+    height: 3,
+    backgroundColor: primitive.neutral[200],
+  },
+  balanceFill: {
+    height: '100%',
+    backgroundColor: color.primary,
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,

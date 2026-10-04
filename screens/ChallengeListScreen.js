@@ -29,6 +29,7 @@ import { moveToTrash } from '../utils/trash';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import FocusSessionStartModal from '../components/FocusSessionStartModal';
 import { loadActiveFocusSession, startFocusSession } from '../utils/focusSessionStore';
+import { rewardChallengeFinalCompletion } from '../utils/growthRewards';
 import {
   getImportantCardIds,
   getMyPushEnabled,
@@ -3723,6 +3724,11 @@ export default function ChallengeListScreen() {
       archived: true,
     };
     await upsertHof(hofRecord);
+    try {
+      await rewardChallengeFinalCompletion(item.id);
+    } catch (rewardError) {
+      console.warn('[Growth] challenge completion reward failed:', rewardError?.message || rewardError);
+    }
 
     navigationRef.current.navigate('HallOfFameScreen', {
       highlightId: hofRecord.id,

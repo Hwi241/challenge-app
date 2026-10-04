@@ -31,6 +31,10 @@ import TrashScreen from './screens/TrashScreen';
 import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
 import ProfileAnalysisScreen from './screens/ProfileAnalysisScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
+import GrowthToolScreen from './screens/GrowthToolScreen';
+import StarWalletScreen from './screens/StarWalletScreen';
+import GrowthLevelScreen from './screens/GrowthLevelScreen';
+import ProfileMilestonesScreen from './screens/ProfileMilestonesScreen';
 import MyGraphScreen from './screens/MyGraphScreen';
 import FocusTimerScreen from './screens/FocusTimerScreen';
 import FocusMiniTimer from './components/FocusMiniTimer';
@@ -41,6 +45,8 @@ import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
 import { cleanExpiredTrash } from './utils/trash';
 import DashboardEditScreen from './screens/DashboardEditScreen';
+import { migrateExistingGrowthData } from './utils/growthMigration';
+import { rewardDailyAppUse } from './utils/growthRewards';
 
 const Stack = createNativeStackNavigator();
 
@@ -118,6 +124,17 @@ export default function App() {
   const [showStartup, setShowStartup] = useState(true);
   const [currentRouteName, setCurrentRouteName] = useState('Startup');
   const dockActive = DOCK_ROUTE_TO_KEY[currentRouteName] || null;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        await migrateExistingGrowthData();
+        await rewardDailyAppUse();
+      } catch (error) {
+        console.warn('[Growth] initialization failed:', error?.message || error);
+      }
+    })();
+  }, []);
 
   // 부팅 시 위젯 데이터 초기 동기화
   useEffect(() => {
@@ -203,9 +220,13 @@ export default function App() {
         />
         <Stack.Screen
           name="GraphShop"
-          component={GraphShopScreen}
+          component={GrowthToolScreen}
           options={getDockScreenOptions}
         />
+        <Stack.Screen name="LegacyGraphShop" component={GraphShopScreen} />
+        <Stack.Screen name="StarWallet" component={StarWalletScreen} />
+        <Stack.Screen name="GrowthLevel" component={GrowthLevelScreen} />
+        <Stack.Screen name="ProfileMilestones" component={ProfileMilestonesScreen} />
         <Stack.Screen name="MyGraphs" component={MyGraphScreen} />
 
             {/* 알림 설정들 */}

@@ -1,4 +1,9 @@
-import { grantEntryCreationStars } from '../utils/starEarning';
+import {
+  isHabitScheduledOnDate,
+  rewardChallengeEntry,
+  rewardFirstFeatureUse,
+  rewardHabitCompletion,
+} from '../utils/growthRewards';
 import { spendStars } from '../utils/starWallet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -920,7 +925,7 @@ const MAX_MINUTES = 1440; // 24시간
     if (busy) return;
     setBusy(true);
     submittedRef.current = false;
-    let starReward = null;
+    let growthReward = null;
 
     try {
       if (!challengeId) {
@@ -978,6 +983,7 @@ const MAX_MINUTES = 1440; // 24시간
       const idx = challenges.findIndex((c) => c.id === challengeId);
       let nextTitle, nextStart, nextEnd, nextGoal, nextReward;
 
+      const previousChallenge = idx >= 0 ? challenges[idx] : null;
       if (idx >= 0) {
         const isHabit = challenges[idx]?.type === 'habit';
         const streakLevel = isHabit ? calcStreakLevel(list) : undefined;
@@ -998,13 +1004,16 @@ const MAX_MINUTES = 1440; // 24시간
 
       if (!isPastEntry) {
         try {
-          starReward = await grantEntryCreationStars({
-            challengeId,
-            entryId: entry.id,
-            timestamp: entryTimestamp,
-          });
+          const isHabit = previousChallenge?.type === 'habit';
+          if (!isHabit || isHabitScheduledOnDate(previousChallenge, entryTimestamp)) {
+            growthReward = await (isHabit ? rewardHabitCompletion : rewardChallengeEntry)({
+              activityId: challengeId,
+              occurredAt: entryTimestamp,
+            });
+            await rewardFirstFeatureUse(isHabit ? 'habit_completion' : 'challenge_entry');
+          }
         } catch (rewardError) {
-          console.log('스타 보상 지급 실패:', rewardError?.message || rewardError);
+          console.warn('[Growth] entry reward failed:', rewardError?.message || rewardError);
         }
       }
 
@@ -1014,8 +1023,8 @@ const MAX_MINUTES = 1440; // 24시간
 
       const completeMessage = isPastEntry
         ? '과거 기록이 등록되었습니다.\n-1★ 사용\n과거 기록은 보상이 지급되지 않습니다.'
-        : starReward?.granted && starReward?.amount > 0
-          ? `기록이 등록되었습니다.\n+${starReward?.amount}★ 획득`
+        : growthReward?.awarded && growthReward?.stars > 0
+          ? `기록이 등록되었습니다.\n+${growthReward.stars}★ 획득`
           : '기록이 등록되었습니다.';
 
       const finishSavedEntryFlow = () => {

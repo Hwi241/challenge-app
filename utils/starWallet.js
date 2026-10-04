@@ -9,9 +9,17 @@ export const STAR_KEYS = {
   dailyAd: 'star_daily_rewarded_ad_limits',
 };
 
-export const INITIAL_TEST_STARS = 2000;
-export const MAX_STARS = 9999;
-export const MIN_STARS = -5;
+export const INITIAL_TEST_STARS = 0;
+export const MAX_STARS = Number.POSITIVE_INFINITY;
+export const MIN_STARS = 0;
+let walletMutationQueue = Promise.resolve();
+let rewardedAdQueue = Promise.resolve();
+
+const enqueueWalletMutation = (work) => {
+  const next = walletMutationQueue.catch(() => {}).then(work);
+  walletMutationQueue = next;
+  return next;
+};
 
 const parseJson = (raw, fallback) => {
   try {
@@ -23,7 +31,7 @@ const parseJson = (raw, fallback) => {
 
 const clampBalance = (value, min = 0) => {
   const n = Number(value || 0);
-  return Math.max(min, Math.min(MAX_STARS, n));
+  return Math.max(min, Math.floor(n));
 };
 
 const dateKey = (date = new Date()) => {
@@ -78,14 +86,7 @@ export const ensureInitialStars = async () => {
   const wallet = await readWalletRaw();
 
   if (!bootstrapped && !wallet) {
-    const next = await writeWalletRaw({ balance: INITIAL_TEST_STARS });
-    await appendLedger({
-      type: 'grant',
-      reason: 'initial_test_stars',
-      amount: INITIAL_TEST_STARS,
-      balanceAfter: next.balance,
-      meta: { once: true },
-    });
+    const next = await writeWalletRaw({ balance: 0 });
     await AsyncStorage.setItem(STAR_KEYS.bootstrap, '1');
     return next;
   }
@@ -115,7 +116,7 @@ export const getStarLedger = async () => {
   return Array.isArray(list) ? list : [];
 };
 
-export const grantStars = async (amount, reason = 'grant', meta = {}) => {
+export const grantStars = async (amount, reason = 'grant', meta = {}) => enqueueWalletMutation(async () => {
   await ensureInitialStars();
   const wallet = await getStarWallet();
   const before = Number(wallet.balance || 0);
@@ -137,19 +138,19 @@ export const grantStars = async (amount, reason = 'grant', meta = {}) => {
   }
 
   return { ok: true, balance: next.balance, amount: actual };
-};
+});
 
 export const canSpendStars = async (amount) => {
   const balance = await getStarBalance();
   return balance >= Math.max(0, Number(amount || 0));
 };
 
-export const spendStars = async (amount, reason = 'spend', meta = {}, options = {}) => {
+export const spendStars = async (amount, reason = 'spend', meta = {}, options = {}) => enqueueWalletMutation(async () => {
   await ensureInitialStars();
   const wallet = await getStarWallet();
   const before = Number(wallet.balance || 0);
   const cost = Math.max(0, Number(amount || 0));
-  const minBalance = options.allowNegative ? MIN_STARS : 0;
+  const minBalance = 0;
 
   if (before - cost < minBalance) {
     return { ok: false, reason: 'insufficient_stars', balance: before, required: cost };
@@ -170,7 +171,7 @@ export const spendStars = async (amount, reason = 'spend', meta = {}, options = 
   }
 
   return { ok: true, balance: next.balance, amount: cost };
-};
+});
 
 export const consumeDailyFreePass = async (key, limit = 1) => {
   const today = dateKey();
@@ -204,14 +205,30 @@ export const consumeWeeklyFreePass = async (key, limit = 1) => {
   return { ok: true, free: true, used: used + 1, remaining: Math.max(0, limit - used - 1) };
 };
 
+export const getRewardedAdStatus = async (now = Date.now()) => {
+  const today = dateKey(now);
+  const state = parseJson(await AsyncStorage.getItem(STAR_KEYS.dailyAd), {});
+  const count = state?.date === today ? Math.min(10, Math.max(0, Number(state.count || 0))) : 0;
+  return { count, remaining: Math.max(0, 10 - count), completed: count >= 10, bonusGranted: count >= 10 };
+};
+
 export const grantRewardedAdStars = async (meta = {}) => {
+  const work = rewardedAdQueue.catch(() => {}).then(async () => {
   const today = dateKey();
   const raw = await AsyncStorage.getItem(STAR_KEYS.dailyAd);
   const state = parseJson(raw, {});
   const next = state?.date === today ? state : { date: today, count: 0 };
-  next.count = Number(next.count || 0) + 1;
+  const previousCount = Math.max(0, Number(next.count || 0));
+  if (previousCount >= 10) {
+    return { ok: true, amount: 0, reason: 'daily_limit', ...(await getRewardedAdStatus()) };
+  }
+  next.count = previousCount + 1;
   await AsyncStorage.setItem(STAR_KEYS.dailyAd, JSON.stringify(next));
 
-  const amount = next.count <= 10 ? 3 : 1;
-  return grantStars(amount, 'rewarded_ad', { ...meta, dailyCount: next.count });
+  const amount = next.count === 10 ? 3 : 1;
+  const granted = await grantStars(amount, 'rewarded_ad', { ...meta, dailyCount: next.count, completionBonus: next.count === 10 ? 2 : 0 });
+    return { ...granted, reason: 'awarded', count: next.count, remaining: 10 - next.count, completed: next.count === 10, bonusGranted: next.count === 10 };
+  });
+  rewardedAdQueue = work;
+  return work;
 };

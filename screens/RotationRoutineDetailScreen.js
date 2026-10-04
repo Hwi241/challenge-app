@@ -19,6 +19,7 @@ import {
   subscribeFocusSessions,
 } from '../utils/focusSessionStore';
 import { color, space, surface, text } from '../styles/common';
+import { rewardFirstFeatureUse, rewardRoutineCycle } from '../utils/growthRewards';
 
 function confirm(title, message, label) {
   return new Promise((resolve) => {
@@ -264,6 +265,12 @@ const { handleBackPress, markAsSaved } = useUnsavedChangesGuard({
       const messages = ['기록이 저장되었습니다.'];
       if (transition.result?.completedCycle) {
         messages.push(String(transition.result.nextCycleNumber - 1) + '번째 회전을 완료했습니다.');
+        try {
+          await rewardRoutineCycle({ activityId: routineId, occurredAt: transition.entry?.timestamp ?? Date.now() });
+          await rewardFirstFeatureUse('routine_completion');
+        } catch (rewardError) {
+          console.warn('[Growth] routine reward failed:', rewardError?.message || rewardError);
+        }
       } else if (transition.result?.completedItem) {
         messages.push('현재 활동을 완료하고 다음 활동으로 이동했습니다.');
       }

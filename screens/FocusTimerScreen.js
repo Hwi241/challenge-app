@@ -18,6 +18,7 @@ import {
   setFocusSessionAlarmEnabled,
 } from '../utils/focusSessionStore';
 import { color, primitive, radius, space, surface, text } from '../styles/common';
+import { rewardFirstFeatureUse, rewardFocusSession } from '../utils/growthRewards';
 
 const RING_SIZE = 270;
 const RING_STROKE = 14;
@@ -155,6 +156,16 @@ export default function FocusTimerScreen({ navigation, route }) {
     try {
       const completed = await finishFocusSession(session.id);
       const measuredSeconds = Math.max(0, Number(completed.elapsedSeconds) || 0);
+      try {
+        await rewardFocusSession({
+          sessionId: completed.id,
+          durationSeconds: measuredSeconds,
+          occurredAt: completed.endedAt,
+        });
+        await rewardFirstFeatureUse('focus_completion');
+      } catch (rewardError) {
+        console.warn('[Growth] focus reward failed:', rewardError?.message || rewardError);
+      }
       setSession(completed);
       setNow(Number(completed.endedAt) || Date.now());
       if (completed.targetSubtype === 'rotation') {

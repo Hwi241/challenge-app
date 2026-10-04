@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   ScrollView,
@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
+import GrowthToolPreview from '../components/GrowthToolPreview';
+import { getProfileAnalysisDiscoveryTool } from '../utils/growthToolRecommendations';
 
 import {
   color,
@@ -374,7 +376,14 @@ export default function ProfileAnalysisScreen() {
   const [pageIndex, setPageIndex] = useState(initialIndex);
   const analysisData = route.params?.analysisData;
 
+  useEffect(() => {
+    import('../utils/growthRewards')
+      .then(({ rewardFirstFeatureUse }) => rewardFirstFeatureUse('record_room_analysis'))
+      .catch((error) => console.warn('[Growth] analysis reward failed:', error?.message || error));
+  }, []);
+
   const renderPage = useCallback(({ item, index }) => {
+    const discoveryTool = getProfileAnalysisDiscoveryTool(item.key);
     const content = item.key === 'consistency' ? (
       <ConsistencyPage analysis={analysisData?.consistency} />
     ) : item.key === 'growth' ? (
@@ -395,7 +404,28 @@ export default function ProfileAnalysisScreen() {
 
     return (
       <View style={[styles.page, { width }]}>
-        <View style={styles.pageInner}>{content}</View>
+        <View style={styles.pageInner}>
+          {content}
+          {discoveryTool ? <TouchableOpacity
+            style={styles.discoveryLink}
+            onPress={() => navigation.navigate('GraphShop', {
+              mode: 'category',
+              category: item.key,
+              scope: 'record_room',
+              entryKey: Date.now(),
+            })}
+          >
+            <Text style={styles.discoveryLabel}>더 알아볼 수 있어요</Text>
+            <View style={styles.discoveryContent}>
+              <GrowthToolPreview tool={discoveryTool} width={92} height={56} />
+              <View style={styles.discoveryCopy}>
+                <Text style={styles.discoveryHeadline} numberOfLines={2}>{discoveryTool.discovery.headline}</Text>
+                <Text style={styles.discoveryTitle}>{discoveryTool.title}</Text>
+              </View>
+              <Text style={styles.discoveryArrow}>›</Text>
+            </View>
+          </TouchableOpacity> : null}
+        </View>
       </View>
     );
   }, [analysisData, width]);
@@ -482,6 +512,24 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     paddingHorizontal: space.lg,
   },
+  discoveryLink: {
+    marginHorizontal: space.lg,
+    marginBottom: space.lg,
+    paddingTop: space.lg,
+    borderTopWidth: 1,
+    borderTopColor: color.border,
+  },
+  discoveryLabel: {
+    color: color.textPrimary,
+    fontSize: 14,
+    fontWeight: font.weight.bold,
+    marginBottom: space.md,
+  },
+  discoveryContent: { flexDirection: 'row', alignItems: 'center' },
+  discoveryCopy: { flex: 1, marginLeft: space.md },
+  discoveryHeadline: { fontSize: 14, lineHeight: 19, fontWeight: font.weight.heavy },
+  discoveryTitle: { fontSize: 11, color: color.textTertiary, marginTop: 4 },
+  discoveryArrow: { fontSize: 24, color: color.textTertiary, marginLeft: space.sm },
   readyWrap: {
     flex: 1,
     paddingTop: 64,

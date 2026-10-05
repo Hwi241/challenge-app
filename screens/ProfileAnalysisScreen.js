@@ -11,8 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
-import GrowthToolPreview from '../components/GrowthToolPreview';
-import { getProfileAnalysisDiscoveryTool } from '../utils/growthToolRecommendations';
+import RecordRoomAnalysisPage, { RECORD_ROOM_ANALYSIS_PAGES } from '../components/RecordRoomAnalysisPages';
 
 import {
   color,
@@ -23,23 +22,17 @@ import {
   text as canonicalTextStyles,
 } from '../styles/common';
 
-const ANALYSIS_PAGES = [
-  { key: 'consistency', title: '꾸준함', eyebrow: 'CONSISTENCY' },
-  { key: 'growth', title: '성장', eyebrow: 'GROWTH' },
-  { key: 'rhythm', title: '리듬', eyebrow: 'RHYTHM' },
-  { key: 'balance', title: '균형', eyebrow: 'BALANCE' },
-  { key: 'achievement', title: '성취', eyebrow: 'ACHIEVEMENT' },
-];
+const ANALYSIS_PAGES = RECORD_ROOM_ANALYSIS_PAGES;
 
 const clampPageIndex = (value) => Math.max(
   0,
   Math.min(ANALYSIS_PAGES.length - 1, Math.floor(Number(value) || 0))
 );
 
-const ReadyState = ({ pageNumber, eyebrow, title = '분석 준비 중', summary, detail }) => (
-  <View style={styles.readyWrap}>
-    <Text style={styles.pageNumber}>{pageNumber}</Text>
-    <Text style={styles.eyebrow}>{eyebrow}</Text>
+const ReadyState = ({ pageNumber, eyebrow, title = '분석 준비 중', summary, detail, embedded = false }) => (
+  <View style={[styles.readyWrap, embedded && styles.readyWrapEmbedded]}>
+    {!embedded ? <Text style={styles.pageNumber}>{pageNumber}</Text> : null}
+    {!embedded ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
     <Text style={styles.readyTitle}>{title}</Text>
     <View style={styles.rule} />
     <Text style={styles.readyDescription}>{summary}</Text>
@@ -55,7 +48,7 @@ const MetricLine = ({ label, value, score }) => (
   </View>
 );
 
-const ConsistencyPage = ({ analysis }) => {
+const ConsistencyPage = ({ analysis, embedded = false }) => {
   if (!analysis || analysis.score == null) {
     return (
       <ReadyState
@@ -63,13 +56,14 @@ const ConsistencyPage = ({ analysis }) => {
         eyebrow="CONSISTENCY"
         summary={analysis?.summary || '조금 더 기록이 쌓이면 꾸준함을 분석할 수 있어요.'}
         detail={analysis ? `현재 ${analysis.metrics.trackedDays}일 기록` : null}
+        embedded={embedded}
       />
     );
   }
 
   return (
     <ScrollView contentContainerStyle={styles.analysisContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.eyebrow}>CONSISTENCY</Text>
+      {!embedded ? <Text style={styles.eyebrow}>CONSISTENCY</Text> : null}
       <View style={styles.scoreHero}>
         <Text style={styles.scoreValue}>{analysis.score}</Text>
         <View style={styles.scoreCopy}>
@@ -138,7 +132,7 @@ const GrowthChart = ({ flow }) => {
   );
 };
 
-const GrowthPage = ({ analysis }) => {
+const GrowthPage = ({ analysis, embedded = false }) => {
   if (!analysis || analysis.score == null) {
     return (
       <ReadyState
@@ -146,13 +140,14 @@ const GrowthPage = ({ analysis }) => {
         eyebrow="GROWTH"
         summary={analysis?.summary || '이전 30일과 비교하려면 조금 더 기록이 필요해요.'}
         detail={analysis ? `현재 ${analysis.metrics.trackedDays}일 기록` : null}
+        embedded={embedded}
       />
     );
   }
 
   return (
     <ScrollView contentContainerStyle={styles.analysisContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.eyebrow}>GROWTH</Text>
+      {!embedded ? <Text style={styles.eyebrow}>GROWTH</Text> : null}
       <View style={styles.scoreHero}>
         <Text style={styles.scoreValue}>{analysis.score}</Text>
         <View style={styles.scoreCopy}>
@@ -211,7 +206,7 @@ const RhythmHeatmap = ({ rows }) => {
   );
 };
 
-const RhythmPage = ({ analysis }) => {
+const RhythmPage = ({ analysis, embedded = false }) => {
   if (!analysis || !analysis.rhythmType) {
     return (
       <ReadyState
@@ -219,6 +214,7 @@ const RhythmPage = ({ analysis }) => {
         eyebrow="RHYTHM"
         summary={analysis?.summaryLines?.[0] || '조금 더 기록이 쌓이면 활동 시간과 요일 패턴을 보여드릴게요.'}
         detail={analysis ? `최근 30일 · 기록 ${analysis.totalRecords}건 · 활동 ${analysis.activeDays}일` : null}
+        embedded={embedded}
       />
     );
   }
@@ -229,7 +225,7 @@ const RhythmPage = ({ analysis }) => {
     : '특정 요일 없음';
   return (
     <ScrollView contentContainerStyle={styles.analysisContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.eyebrow}>RHYTHM</Text>
+      {!embedded ? <Text style={styles.eyebrow}>RHYTHM</Text> : null}
       <Text style={styles.typeHero}>{analysis.rhythmType}</Text>
       <Text style={styles.typeSubtitle}>{analysis.patternStrength}</Text>
       {analysis.rhythmKind !== 'mixed' ? (
@@ -255,7 +251,7 @@ const RhythmPage = ({ analysis }) => {
   );
 };
 
-const BalancePage = ({ analysis }) => {
+const BalancePage = ({ analysis, embedded = false }) => {
   if (!analysis || !analysis.balanceType) {
     const isEmpty = analysis?.total === 0;
     return (
@@ -265,6 +261,7 @@ const BalancePage = ({ analysis }) => {
         title={isEmpty ? '기록 없음' : '분석 준비 중'}
         summary={isEmpty ? '최근 30일에 집계 가능한 활동이 없어요.' : '조금 더 기록이 쌓이면 활동 구성을 보여드릴게요.'}
         detail={analysis ? `최근 30일 · 집계 가능한 활동 ${analysis.total}회` : null}
+        embedded={embedded}
       />
     );
   }
@@ -276,7 +273,7 @@ const BalancePage = ({ analysis }) => {
     : [];
   return (
     <ScrollView contentContainerStyle={styles.analysisContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.eyebrow}>BALANCE</Text>
+      {!embedded ? <Text style={styles.eyebrow}>BALANCE</Text> : null}
       <Text style={styles.typeHero}>{analysis.balanceType}</Text>
       <Text style={styles.typeSubtitle}>
         {analysis.balanceKind === 'singleOnly'
@@ -364,6 +361,14 @@ const AchievementPage = ({ analysis }) => {
   );
 };
 
+export function RecordRoomAnalysisContent({ type, analysisData, embedded = false }) {
+  if (type === 'consistency') return <ConsistencyPage analysis={analysisData?.consistency} embedded={embedded} />;
+  if (type === 'growth') return <GrowthPage analysis={analysisData?.growth} embedded={embedded} />;
+  if (type === 'rhythm') return <RhythmPage analysis={analysisData?.rhythm} embedded={embedded} />;
+  if (type === 'balance') return <BalancePage analysis={analysisData?.balance} embedded={embedded} />;
+  return <ReadyState eyebrow="ANALYSIS" summary="기록이 쌓인 흐름을 살펴볼 수 있도록 준비하고 있어요." embedded={embedded} />;
+}
+
 export default function ProfileAnalysisScreen() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -382,50 +387,12 @@ export default function ProfileAnalysisScreen() {
       .catch((error) => console.warn('[Growth] analysis reward failed:', error?.message || error));
   }, []);
 
-  const renderPage = useCallback(({ item, index }) => {
-    const discoveryTool = getProfileAnalysisDiscoveryTool(item.key);
-    const content = item.key === 'consistency' ? (
-      <ConsistencyPage analysis={analysisData?.consistency} />
-    ) : item.key === 'growth' ? (
-      <GrowthPage analysis={analysisData?.growth} />
-    ) : item.key === 'rhythm' ? (
-      <RhythmPage analysis={analysisData?.rhythm} />
-    ) : item.key === 'balance' ? (
-      <BalancePage analysis={analysisData?.balance} />
-    ) : item.key === 'achievement' ? (
-      <AchievementPage analysis={analysisData?.achievement} />
-    ) : (
-      <ReadyState
-        pageNumber={String(index + 1).padStart(2, '0')}
-        eyebrow={item.eyebrow}
-        summary="기록이 쌓인 흐름을 더 깊이 살펴볼 수 있도록 준비하고 있어요."
-      />
-    );
-
+  const renderPage = useCallback(({ item }) => {
     return (
       <View style={[styles.page, { width }]}>
-        <View style={styles.pageInner}>
-          {content}
-          {discoveryTool ? <TouchableOpacity
-            style={styles.discoveryLink}
-            onPress={() => navigation.navigate('GraphShop', {
-              mode: 'category',
-              category: item.key,
-              scope: 'record_room',
-              entryKey: Date.now(),
-            })}
-          >
-            <Text style={styles.discoveryLabel}>더 알아볼 수 있어요</Text>
-            <View style={styles.discoveryContent}>
-              <GrowthToolPreview tool={discoveryTool} width={92} height={56} />
-              <View style={styles.discoveryCopy}>
-                <Text style={styles.discoveryHeadline} numberOfLines={2}>{discoveryTool.discovery.headline}</Text>
-                <Text style={styles.discoveryTitle}>{discoveryTool.title}</Text>
-              </View>
-              <Text style={styles.discoveryArrow}>›</Text>
-            </View>
-          </TouchableOpacity> : null}
-        </View>
+        <ScrollView style={styles.pageInner} contentContainerStyle={styles.sharedPageContent} showsVerticalScrollIndicator={false}>
+          <RecordRoomAnalysisPage type={item.key} analysisData={analysisData} hallCards={analysisData?.hallCards || []} />
+        </ScrollView>
       </View>
     );
   }, [analysisData, width]);
@@ -512,27 +479,12 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     paddingHorizontal: space.lg,
   },
-  discoveryLink: {
-    marginHorizontal: space.lg,
-    marginBottom: space.lg,
-    paddingTop: space.lg,
-    borderTopWidth: 1,
-    borderTopColor: color.border,
-  },
-  discoveryLabel: {
-    color: color.textPrimary,
-    fontSize: 14,
-    fontWeight: font.weight.bold,
-    marginBottom: space.md,
-  },
-  discoveryContent: { flexDirection: 'row', alignItems: 'center' },
-  discoveryCopy: { flex: 1, marginLeft: space.md },
-  discoveryHeadline: { fontSize: 14, lineHeight: 19, fontWeight: font.weight.heavy },
-  discoveryTitle: { fontSize: 11, color: color.textTertiary, marginTop: 4 },
-  discoveryArrow: { fontSize: 24, color: color.textTertiary, marginLeft: space.sm },
   readyWrap: {
     flex: 1,
     paddingTop: 64,
+  },
+  readyWrapEmbedded: {
+    paddingTop: space.lg,
   },
   analysisContent: {
     paddingTop: space.lg,
@@ -875,9 +827,10 @@ const styles = StyleSheet.create({
     backgroundColor: primitive.neutral[300],
   },
   dotActive: {
-    width: 9,
-    height: 7,
-    borderRadius: 4,
+    width: 16,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: color.primary,
   },
+  sharedPageContent: { flexGrow: 1 },
 });

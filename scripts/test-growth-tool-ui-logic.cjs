@@ -2,6 +2,13 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const cache=new Map();
 function load(file){const filename=path.resolve(__dirname,'..',file);if(cache.has(filename))return cache.get(filename).exports;const mod={exports:{}};cache.set(filename,mod);const code=babel.transformSync(fs.readFileSync(filename,'utf8'),{filename,presets:['babel-preset-expo'],babelrc:false,configFile:false}).code;const req=r=>r.startsWith('.')?load(path.relative(path.resolve(__dirname,'..'),path.resolve(path.dirname(filename),r+(path.extname(r)?'':'.js')))):require(r);vm.runInThisContext(`(function(require,module,exports){${code}\n})`,{filename})(req,mod,mod.exports);return mod.exports;}
 const n=load('utils/growthToolNavigation.js'),c=load('constants/growthToolCatalog.js');
+const growthToolScreen=fs.readFileSync(path.resolve(__dirname,'..','screens/GrowthToolScreen.js'),'utf8');
+assert.match(growthToolScreen,/GROWTH_TOOL_RAIL_EXPANDED_KEY\s*=\s*'growth_tool_rail_expanded_v1'/);
+assert.match(growthToolScreen,/AsyncStorage\.getItem\(GROWTH_TOOL_RAIL_EXPANDED_KEY\)/);
+assert.match(growthToolScreen,/saved==='0'[\s\S]*?setExpanded\(false\)/);
+assert.match(growthToolScreen,/saved==='1'[\s\S]*?setExpanded\(true\)/);
+assert.match(growthToolScreen,/AsyncStorage\.setItem\(GROWTH_TOOL_RAIL_EXPANDED_KEY,next\?'1':'0'\)/);
+assert.match(growthToolScreen,/<AppHeader toggle=\{toggleRail\}/);
 assert.deepEqual(n.GROWTH_TOOL_RAIL_TABS.map(t=>t.key),['owned','new','consistency','growth','rhythm','achievement','balance','relation']);
 assert.equal(n.GROWTH_TOOL_RAIL_TABS[0].label,'내 그래프');assert.equal(n.GROWTH_TOOL_RAIL_TABS[1].label,'NEW');assert.equal(n.GROWTH_TOOL_RAIL_TABS[1].dividerBefore,true);assert.equal(n.GROWTH_TOOL_RAIL_TABS[1].dividerAfter,true);
 let state=n.createGrowthToolNavigationState();assert.equal(state.selectedTab,'owned');assert.equal(n.getGrowthToolBackResult(state).effect,'navigator');

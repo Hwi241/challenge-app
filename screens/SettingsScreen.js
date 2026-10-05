@@ -29,10 +29,12 @@ import {
   getFocusOverlayTimerEnabled,
   getMyPushEnabled,
   getNotificationsEnabled,
+  getRecordRoomAnalysisPeriod,
   setFocusMiniTimerEnabled,
   setFocusOverlayTimerEnabled,
   setMyPushEnabled,
   setNotificationsEnabled,
+  setRecordRoomAnalysisPeriod,
 } from '../utils/appSettings';
 import {
   canDrawFocusOverlay,
@@ -64,6 +66,7 @@ export default function SettingsScreen() {
   const [overlayTimerEnabled, setOverlayTimerEnabledState] = useState(false);
   const [overlayTimerLoading, setOverlayTimerLoading] = useState(true);
   const [overlayPermissionPending, setOverlayPermissionPending] = useState(false);
+  const [recordRoomPeriod, setRecordRoomPeriodState] = useState('rolling30');
 
   const version = Application.nativeApplicationVersion ?? '-';
   const build = Application.nativeBuildVersion ?? '-';
@@ -87,6 +90,23 @@ export default function SettingsScreen() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    getRecordRoomAnalysisPeriod()
+      .then(setRecordRoomPeriodState)
+      .catch(() => setRecordRoomPeriodState('rolling30'));
+  }, []);
+
+  const selectRecordRoomPeriod = useCallback(async (next) => {
+    const previous = recordRoomPeriod;
+    setRecordRoomPeriodState(next);
+    try {
+      await setRecordRoomAnalysisPeriod(next);
+    } catch {
+      setRecordRoomPeriodState(previous);
+      Alert.alert('저장 실패', '내 기록실 분석 기준을 저장하지 못했습니다.');
+    }
+  }, [recordRoomPeriod]);
 
   useEffect(() => {
     let mounted = true;
@@ -419,6 +439,20 @@ export default function SettingsScreen() {
         </Text>
       </View>
 
+      <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
+        <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>내 기록실</Text>
+        <Text style={canonicalTextStyles.bodyStrong}>분석 기준</Text>
+        <View style={styles.periodOptions}>
+          {[['rolling30', '최근 30일'], ['monthly', '월간']].map(([value, label]) => {
+            const selected = recordRoomPeriod === value;
+            return <TouchableOpacity key={value} style={[styles.periodOption, selected && styles.periodOptionSelected]} onPress={() => selectRecordRoomPeriod(value)} activeOpacity={0.8}><Text style={[styles.periodOptionText, selected && styles.periodOptionTextSelected]}>{label}</Text></TouchableOpacity>;
+          })}
+        </View>
+        <Text style={[canonicalTextStyles.bodyMuted, styles.topSpacer]}>
+          {recordRoomPeriod === 'monthly' ? '이번 달 1일부터 오늘까지 분석합니다.' : '오늘을 포함한 최근 30일을 분석합니다.'}
+        </Text>
+      </View>
+
             {/* 데이터 연동 */}
       <View style={[canonicalCardStyles.base, styles.sectionSpacing]}>
         <Text style={[canonicalTextStyles.cardTitle, styles.sectionTitleMargin]}>데이터 연동</Text>
@@ -528,4 +562,9 @@ const styles = StyleSheet.create({
  ...canonicalTextStyles.body,
  fontWeight: font.weight.bold,
  },
+ periodOptions: { flexDirection: 'row', marginTop: space.sm, columnGap: space.sm },
+ periodOption: { flex: 1, minHeight: 40, borderWidth: 1, borderColor: primitive.neutral[300], borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: primitive.white },
+ periodOptionSelected: { backgroundColor: primitive.black, borderColor: primitive.black },
+ periodOptionText: { color: primitive.black, fontSize: 13, fontWeight: font.weight.bold },
+ periodOptionTextSelected: { color: primitive.white },
 });

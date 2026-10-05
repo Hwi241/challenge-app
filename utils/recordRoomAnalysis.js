@@ -36,15 +36,64 @@ const differenceInLocalDays = (later, earlier) => {
   return Math.round((laterUtc - earlierUtc) / 86400000);
 };
 
-export const getRecordRoomAnalysisPeriods = (now = new Date()) => {
+export const getRecordRoomAnalysisPeriods = (now = new Date(), mode = 'rolling30') => {
   const currentEnd = endOfLocalDay(now);
+  if (mode === 'monthly') {
+    const currentStart = startOfLocalDay(new Date(currentEnd.getFullYear(), currentEnd.getMonth(), 1));
+    const previousStart = startOfLocalDay(new Date(currentEnd.getFullYear(), currentEnd.getMonth() - 1, 1));
+    const previousMonthLastDay = new Date(currentEnd.getFullYear(), currentEnd.getMonth(), 0).getDate();
+    const previousEndDay = Math.min(currentEnd.getDate(), previousMonthLastDay);
+    const previousEnd = endOfLocalDay(new Date(previousStart.getFullYear(), previousStart.getMonth(), previousEndDay));
+    return {
+      mode: 'monthly',
+      current: { start: currentStart, end: currentEnd, days: differenceInLocalDays(currentEnd, currentStart) + 1 },
+      previous: { start: previousStart, end: previousEnd, days: differenceInLocalDays(previousEnd, previousStart) + 1 },
+    };
+  }
   const currentStart = startOfLocalDay(addLocalDays(currentEnd, -(ANALYSIS_DAYS - 1)));
   const previousEnd = endOfLocalDay(addLocalDays(currentStart, -1));
   const previousStart = startOfLocalDay(addLocalDays(previousEnd, -(ANALYSIS_DAYS - 1)));
 
   return {
+    mode: 'rolling30',
     current: { start: currentStart, end: currentEnd, days: ANALYSIS_DAYS },
     previous: { start: previousStart, end: previousEnd, days: ANALYSIS_DAYS },
+  };
+};
+
+export const buildRecordRoomActivityCalendar = (analysis) => {
+  const days = Array.isArray(analysis?.activity) ? analysis.activity : [];
+  if (!days.length) return { cells: [], months: [] };
+  const mode = analysis?.periods?.mode || 'rolling30';
+  const firstPeriodDate = new Date(`${days[0].key}T12:00:00`);
+  const lastPeriodDate = new Date(`${days[days.length - 1].key}T12:00:00`);
+  const displayStart = mode === 'monthly'
+    ? new Date(lastPeriodDate.getFullYear(), lastPeriodDate.getMonth(), 1, 12)
+    : firstPeriodDate;
+  const displayEnd = mode === 'monthly'
+    ? new Date(lastPeriodDate.getFullYear(), lastPeriodDate.getMonth() + 1, 0, 12)
+    : lastPeriodDate;
+  const gridStart = new Date(displayStart);
+  gridStart.setDate(displayStart.getDate() - ((displayStart.getDay() + 6) % 7));
+  const gridEnd = new Date(displayEnd);
+  gridEnd.setDate(displayEnd.getDate() + (6 - ((displayEnd.getDay() + 6) % 7)));
+  const byKey = new Map(days.map((item) => [item.key, item]));
+  const cells = [];
+  for (let cursor = new Date(gridStart); cursor <= gridEnd; cursor = addLocalDays(cursor, 1)) {
+    const key = toLocalDateKey(cursor);
+    const inDisplayRange = cursor >= displayStart && cursor <= displayEnd;
+    cells.push({
+      key,
+      date: new Date(cursor),
+      item: byKey.get(key),
+      filler: !inDisplayRange,
+      future: mode === 'monthly' && inDisplayRange && cursor > lastPeriodDate,
+      monthBoundary: mode === 'rolling30' && inDisplayRange && cursor.getDate() === 1 && cursor > firstPeriodDate,
+    });
+  }
+  return {
+    cells,
+    months: Array.from(new Set(days.map((item) => `${new Date(`${item.key}T12:00:00`).getMonth() + 1}월`))),
   };
 };
 
@@ -220,17 +269,29 @@ const BALANCE_TYPES = [
   { key: CHALLENGE_TYPE.CHALLENGE, label: '도전' },
 ];
 
-const normalizeBalanceActivities = (entries, cards) => {
-  const cardById = new Map(
-    cards.filter((card) => card?.id != null).map((card) => [String(card.id), card])
-  );
+const normalizeBalanceActivities = (entries, cards, hallCards = []) => {
+  const currentCardById = new Map(cards.filter((card) => card?.id != null).map((card) => [String(card.id), card]));
+  const hallCardById = new Map(hallCards.filter((card) => card?.id != null || card?.challengeId != null).map((card) => [String(card.id ?? card.challengeId), card]));
   const seen = new Set();
+  const unresolvedCardIds = new Set();
   const activities = [];
   entries.forEach((entry) => {
     const challengeId = String(entry?.challengeId ?? '');
-    const card = cardById.get(challengeId);
-    if (!card) return;
-    const type = getChallengeType(card);
+    const currentCard = currentCardById.get(challengeId);
+    const hallCard = hallCardById.get(challengeId);
+    const card = currentCard || hallCard;
+    let type = null;
+    if (currentCard) {
+      type = getChallengeType(currentCard);
+    } else if (hallCard?.type === CHALLENGE_TYPE.HABIT || hallCard?.type === CHALLENGE_TYPE.ROTATION || hallCard?.type === CHALLENGE_TYPE.CHALLENGE || hallCard?.rotation) {
+      type = getChallengeType(hallCard);
+    } else if ([CHALLENGE_TYPE.HABIT, CHALLENGE_TYPE.ROTATION, CHALLENGE_TYPE.CHALLENGE].includes(entry?.type)) {
+      type = entry.type;
+    }
+    if (!card || !type) {
+      if (challengeId) unresolvedCardIds.add(challengeId);
+      return;
+    }
     const dateKey = toLocalDateKey(entry?.timestamp);
     if (!dateKey) return;
     let key = '';
@@ -248,7 +309,7 @@ const normalizeBalanceActivities = (entries, cards) => {
     seen.add(key);
     activities.push({ key, type, timestamp: entry.timestamp, challengeId });
   });
-  return activities;
+  return { activities, unresolvedCardCount: unresolvedCardIds.size };
 };
 
 const largestRemainderPercents = (items, total) => {
@@ -306,6 +367,133 @@ const analyzeBalancePeriod = (activities, period) => {
   const displayPercents = largestRemainderPercents(baseItems, total);
   const items = baseItems.map((item, index) => ({ ...item, displayPercent: displayPercents[index] }));
   return { total, items, classification: classifyBalance(items, total) };
+};
+
+const CUMULATIVE_COMPOSITION_TYPES = [
+  { key: CHALLENGE_TYPE.CHALLENGE, label: '도전' },
+  { key: CHALLENGE_TYPE.HABIT, label: '습관' },
+  { key: CHALLENGE_TYPE.ROTATION, label: '루틴' },
+];
+
+const getCompositionCardId = (card) => {
+  const raw = card?.id ?? card?.challengeId;
+  return raw == null ? '' : String(raw);
+};
+
+const getCompositionEndTime = (rawEndDate) => {
+  if (!rawEndDate) return null;
+
+  const value = String(rawEndDate);
+  const localDateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (localDateMatch) {
+    const [, year, month, day] = localDateMatch;
+    const date = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      23,
+      59,
+      59,
+      999
+    );
+    return date.getTime();
+  }
+
+  const parsed = new Date(rawEndDate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+};
+
+const isCurrentCompositionCard = (card, now = new Date()) => {
+  if (!card || typeof card !== 'object') return false;
+
+  if (
+    card.status === 'completed'
+    || card.archived === true
+    || card.rewardClaimed === true
+  ) {
+    return false;
+  }
+
+  const goalScore = Number(card.goalScore);
+  const currentScore = Number(card.currentScore);
+
+  if (
+    Number.isFinite(goalScore)
+    && goalScore > 0
+    && Number.isFinite(currentScore)
+    && currentScore >= goalScore
+  ) {
+    return false;
+  }
+
+  const endTime = getCompositionEndTime(card.endDate);
+  if (endTime != null && endTime < startOfLocalDay(now).getTime()) {
+    return false;
+  }
+
+  return true;
+};
+
+const getCompositionFallbackId = (card, source, index) => [
+  source,
+  getChallengeType(card),
+  String(card?.title ?? ''),
+  String(card?.createdAt ?? ''),
+  String(card?.startDate ?? ''),
+  String(card?.endDate ?? ''),
+  String(index),
+].join('|');
+
+const buildCumulativeCompositionCards = ({ cards = [], hallCards = [], now = new Date() } = {}) => {
+  const unique = new Map();
+
+  const add = (card, source, index) => {
+    if (!card || typeof card !== 'object') return;
+
+    const id = getCompositionCardId(card);
+    const key = id ? `id:${id}` : getCompositionFallbackId(card, source, index);
+    if (!unique.has(key)) {
+      unique.set(key, card);
+    }
+  };
+
+  cards
+    .filter((card) => isCurrentCompositionCard(card, now))
+    .forEach((card, index) => add(card, 'current', index));
+
+  hallCards.forEach((card, index) => add(card, 'hall', index));
+
+  return [...unique.values()];
+};
+
+const buildCumulativeComposition = ({ cards = [], hallCards = [], now = new Date() } = {}) => {
+  const cumulativeCards = buildCumulativeCompositionCards({ cards, hallCards, now });
+  const counts = Object.fromEntries(
+    CUMULATIVE_COMPOSITION_TYPES.map((item) => [item.key, 0])
+  );
+
+  cumulativeCards.forEach((card) => {
+    const type = getChallengeType(card);
+    if (Object.prototype.hasOwnProperty.call(counts, type)) {
+      counts[type] += 1;
+    }
+  });
+
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const items = CUMULATIVE_COMPOSITION_TYPES.map((item) => {
+    const count = counts[item.key];
+    const share = total > 0 ? count / total : 0;
+
+    return {
+      ...item,
+      count,
+      share,
+      displayPercent: total > 0 ? Math.round(share * 1000) / 10 : 0,
+    };
+  });
+
+  return { total, counts, items };
 };
 
 const getBalanceShift = (current, previous) => {
@@ -545,8 +733,8 @@ const createBalanceDistribution = (entries, cards) => {
   }));
 };
 
-export const buildRecordRoomIndexSummary = ({ entries = [], cards = [], now = new Date() } = {}) => {
-  const periods = getRecordRoomAnalysisPeriods(now);
+export const buildRecordRoomIndexSummary = ({ entries = [], cards = [], now = new Date(), mode = 'rolling30' } = {}) => {
+  const periods = getRecordRoomAnalysisPeriods(now, mode);
   const validEntries = entries.filter((entry) => Number.isFinite(new Date(entry?.timestamp).getTime()));
   const currentEntries = entriesInPeriod(validEntries, periods.current);
   const previousEntries = entriesInPeriod(validEntries, periods.previous);
@@ -569,8 +757,8 @@ export const buildRecordRoomIndexSummary = ({ entries = [], cards = [], now = ne
   };
 };
 
-export const calculateConsistencyAnalysis = ({ entries = [], now = new Date() } = {}) => {
-  const summary = buildRecordRoomIndexSummary({ entries, now });
+export const calculateConsistencyAnalysis = ({ entries = [], now = new Date(), mode = 'rolling30' } = {}) => {
+  const summary = buildRecordRoomIndexSummary({ entries, now, mode });
   const activity = summary.daily.map((day) => ({
     key: day.key,
     count: day.count,
@@ -594,7 +782,12 @@ export const calculateConsistencyAnalysis = ({ entries = [], now = new Date() } 
     previousActivityDays,
     currentStreak,
     longestGap,
+    periodDays: summary.periods.current.days,
   };
+  const activityDelta = summary.activityDays - previousActivityDays;
+  const factualSummary = activityDelta === 0
+    ? '활동일이 비교 기간과 같아요.'
+    : `활동일이 비교 기간보다 ${Math.abs(activityDelta)}일 ${activityDelta > 0 ? '늘었어요.' : '줄었어요.'}`;
 
   if (trackedDays < 7) {
     return {
@@ -604,7 +797,8 @@ export const calculateConsistencyAnalysis = ({ entries = [], now = new Date() } 
       metrics,
       comparison: null,
       activity,
-      summary: '조금 더 기록이 쌓이면 꾸준함을 분석할 수 있어요.',
+      periods: summary.periods,
+      summary: summary.currentEntries.length > 0 ? factualSummary : '현재 분석 기간에 기록된 활동이 없어요.',
     };
   }
 
@@ -625,12 +819,13 @@ export const calculateConsistencyAnalysis = ({ entries = [], now = new Date() } 
       text: getActivityDaysComparison(summary.activityDays, previousActivityDays),
     },
     activity,
-    summary: getActivityDaysComparison(summary.activityDays, previousActivityDays),
+    periods: summary.periods,
+    summary: factualSummary,
   };
 };
 
-export const calculateGrowthAnalysis = ({ entries = [], now = new Date() } = {}) => {
-  const indexSummary = buildRecordRoomIndexSummary({ entries, now });
+export const calculateGrowthAnalysis = ({ entries = [], now = new Date(), mode = 'rolling30' } = {}) => {
+  const indexSummary = buildRecordRoomIndexSummary({ entries, now, mode });
   const validTimes = entries
     .map((entry) => new Date(entry?.timestamp))
     .filter((date) => !Number.isNaN(date.getTime()) && date.getTime() <= new Date(now).getTime());
@@ -653,6 +848,9 @@ export const calculateGrowthAnalysis = ({ entries = [], now = new Date() } = {})
     current: createCumulativeSeries(indexSummary.daily),
     previous: createCumulativeSeries(previousDaily),
   };
+  const activityDelta = metrics.currentActivityDays - metrics.previousActivityDays;
+  const countDelta = metrics.currentCount - metrics.previousCount;
+  const factualGrowthSummary = `활동일은 ${activityDelta === 0 ? '변화 없고' : `${Math.abs(activityDelta)}일 ${activityDelta > 0 ? '늘고' : '줄고'}`} 기록량은 ${countDelta === 0 ? '변화 없어요.' : `${Math.abs(countDelta)}회 ${countDelta > 0 ? '늘었어요.' : '줄었어요.'}`}`;
 
   if (trackedDays < 60) {
     return {
@@ -662,7 +860,8 @@ export const calculateGrowthAnalysis = ({ entries = [], now = new Date() } = {})
       metrics,
       comparison: { activityDays, activityCount },
       flow,
-      summary: '이전 30일과 비교하려면 조금 더 기록이 필요해요.',
+      periods: indexSummary.periods,
+      summary: indexSummary.previousCount === 0 ? '비교할 이전 기록이 아직 충분하지 않아요.' : factualGrowthSummary,
     };
   }
 
@@ -675,6 +874,7 @@ export const calculateGrowthAnalysis = ({ entries = [], now = new Date() } = {})
       metrics,
       comparison: { activityDays, activityCount },
       flow,
+      periods: indexSummary.periods,
       summary: '비교할 수 있는 활동 기록이 아직 없어요.',
     };
   }
@@ -693,12 +893,13 @@ export const calculateGrowthAnalysis = ({ entries = [], now = new Date() } = {})
     metrics,
     comparison: { activityDays, activityCount },
     flow,
-    summary: getGrowthSummary(activityDays, activityCount),
+    periods: indexSummary.periods,
+    summary: factualGrowthSummary,
   };
 };
 
-export const calculateRhythmAnalysis = ({ entries = [], now = new Date() } = {}) => {
-  const periods = getRecordRoomAnalysisPeriods(now);
+export const calculateRhythmAnalysis = ({ entries = [], now = new Date(), mode = 'rolling30' } = {}) => {
+  const periods = getRecordRoomAnalysisPeriods(now, mode);
   const validEntries = entries.filter((entry) => Number.isFinite(new Date(entry?.timestamp).getTime()));
   const current = analyzeRhythmPeriod(validEntries, periods.current);
   const previous = analyzeRhythmPeriod(validEntries, periods.previous);
@@ -719,6 +920,7 @@ export const calculateRhythmAnalysis = ({ entries = [], now = new Date() } = {})
       heatmap: current.heatmap,
       comparison: null,
       summaryLines: ['조금 더 기록이 쌓이면 활동 시간과 요일 패턴을 보여드릴게요.'],
+      periods,
     };
   }
 
@@ -746,56 +948,32 @@ export const calculateRhythmAnalysis = ({ entries = [], now = new Date() } = {})
     heatmap: current.heatmap,
     comparison,
     summaryLines,
+    periods,
   };
 };
 
 export const calculateBalanceAnalysis = ({
-  entries = [],
   cards = [],
+  hallCards = [],
   now = new Date(),
 } = {}) => {
-  const periods = getRecordRoomAnalysisPeriods(now);
-  const activities = normalizeBalanceActivities(entries, cards);
-  const current = analyzeBalancePeriod(activities, periods.current);
-  const previous = analyzeBalancePeriod(activities, periods.previous);
-  const deltas = current.items.map((item) => ({
-    key: item.key,
-    label: item.label,
-    deltaPp: (item.share - (previous.items.find((candidate) => candidate.key === item.key)?.share || 0)) * 100,
-  }));
-  const shift = current.total >= 10 ? getBalanceShift(current, previous) : null;
-  const leading = [...current.items].sort((a, b) => b.share - a.share)[0];
-  let currentSummary = '';
-  if (current.classification.kind === 'singleOnly') {
-    currentSummary = `최근 30일에는 ${leading.label} 활동만 기록되어 있어요.`;
-  } else if (current.total >= 10) {
-    currentSummary = `최근에는 ${leading.label} 활동의 비중이 가장 높아요.`;
-  }
-  const meaningfulDelta = [...deltas]
-    .filter((item) => Math.abs(item.deltaPp) >= 5)
-    .sort((a, b) => Math.abs(b.deltaPp) - Math.abs(a.deltaPp))[0];
-  let deltaSummary = '';
-  if (previous.total >= 10 && meaningfulDelta) {
-    const magnitude = Math.abs(Math.round(meaningfulDelta.deltaPp));
-    const degree = magnitude >= 10 ? '크게 ' : '조금 ';
-    deltaSummary = `이전 30일보다 ${meaningfulDelta.label} 비중이 ${magnitude}%p ${degree}${meaningfulDelta.deltaPp > 0 ? '늘었어요.' : '줄었어요.'}`;
-  }
+  const composition = buildCumulativeComposition({ cards, hallCards, now });
 
   return {
-    status: current.classification.type,
+    status: '',
     score: null,
-    total: current.total,
-    counts: Object.fromEntries(current.items.map((item) => [item.key, item.count])),
-    shares: current.items,
-    activeTypes: current.items.filter((item) => item.count > 0).map((item) => item.key),
-    balanceType: current.total >= 10 ? current.classification.type : null,
-    balanceKind: current.classification.kind,
-    primary: current.classification.primary,
-    deltas,
-    previousTotal: previous.total,
-    previousType: previous.total >= 10 ? previous.classification.type : null,
-    shift,
-    summaryLines: [currentSummary, shift || deltaSummary].filter(Boolean).slice(0, 2),
+    total: composition.total,
+    counts: composition.counts,
+    shares: composition.items,
+    activeTypes: composition.items.filter((item) => item.count > 0).map((item) => item.key),
+    balanceType: null,
+    balanceKind: null,
+    primary: [],
+    deltas: [],
+    previousTotal: null,
+    previousType: null,
+    shift: null,
+    summaryLines: [],
   };
 };
 
@@ -839,20 +1017,11 @@ export const calculateAchievementAnalysis = ({
 };
 
 export const buildRecordRoomHomeSummary = ({ consistency, growth, rhythm, balance } = {}) => {
-  const consistencyScore = consistency?.score;
-  const growthScore = growth?.score;
-  let first = '최근 30일의 활동 흐름을 정리했어요.';
-  if (Number.isFinite(consistencyScore) && Number.isFinite(growthScore)) {
-    if (consistencyScore >= 75 && growthScore >= 60) {
-      first = '최근 활동 흐름이 안정적으로 이어지고 있어요.';
-    } else if (consistencyScore >= 75 && growthScore < 45) {
-      first = '꾸준함은 유지되고 있지만 최근 활동량은 이전보다 줄었어요.';
-    } else if (consistencyScore < 60 && growthScore >= 60) {
-      first = '최근 활동은 늘고 있고 꾸준한 흐름도 만들어지고 있어요.';
-    } else if (consistencyScore < 60 && growthScore < 45) {
-      first = '최근 활동 흐름이 이전 기간보다 조금 약해졌어요.';
-    }
-  }
+  const activityDelta = Number(growth?.metrics?.currentActivityDays || 0) - Number(growth?.metrics?.previousActivityDays || 0);
+  const countDelta = Number(growth?.metrics?.currentCount || 0) - Number(growth?.metrics?.previousCount || 0);
+  const activityText = activityDelta === 0 ? '활동일은 비슷하게 유지되고' : `활동일이 비교 기간보다 ${Math.abs(activityDelta)}일 ${activityDelta > 0 ? '늘고' : '줄고'}`;
+  const countText = countDelta === 0 ? '기록량도 비슷해요.' : `기록량은 ${Math.abs(countDelta)}회 ${countDelta > 0 ? '늘었어요.' : '줄었어요.'}`;
+  const first = `${activityText} ${countText}`;
 
   let second = '';
   const rhythmReady = Boolean(rhythm?.rhythmType);

@@ -44,6 +44,19 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 /* ---------- 상수 ---------- */
 const CARD_COLLAPSE_ANIM_MS = 320;
 
+const HallOfFameTrophyIcon = memo(
+  function HallOfFameTrophyIcon() {
+    return (
+      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" pointerEvents="none">
+        <Path d="M8 4H16V7.5C16 10.6 14.25 13 12 13C9.75 13 8 10.6 8 7.5V4Z" stroke={color.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M8 6H5V7.5C5 9.8 6.25 11 8.35 11" stroke={color.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M16 6H19V7.5C19 9.8 17.75 11 15.65 11" stroke={color.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M12 13V17M9.5 20H14.5M10 17H14" stroke={color.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    );
+  }
+);
+
 const ORDER_KEY = 'ch_order';
 const CHALLENGES_KEY = 'challenges';
 const COLLAPSED_CARDS_KEY = 'ch_collapsed_cards';
@@ -4296,31 +4309,23 @@ export default function ChallengeListScreen() {
         </Text>
 
         <TouchableOpacity
-          style={[
-            buttonStyles.compactRight,
-            styles.hofBtn,
-          ]}
+          style={styles.hofBtn}
           onPress={() => (
             navigationRef.current.navigate(
               'HallOfFameScreen'
             )
           )}
-          activeOpacity={0.9}
+          activeOpacity={0.8}
           hitSlop={{
-            top: 6,
-            bottom: 6,
-            left: 6,
-            right: 6,
+            top: 8,
+            bottom: 8,
+            left: 8,
+            right: 8,
           }}
+          accessibilityRole="button"
+          accessibilityLabel="명예의 전당"
         >
-          <Text
-            style={[
-              buttonStyles.compactRightText,
-              styles.hofBtnText,
-            ]}
-          >
-            명예의 전당
-          </Text>
+          <HallOfFameTrophyIcon />
         </TouchableOpacity>
       </View>
 
@@ -5050,13 +5055,13 @@ const styles = StyleSheet.create({
   },
 
   hofBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
-
-  hofBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    zIndex: 2,
   },
 
   header: {

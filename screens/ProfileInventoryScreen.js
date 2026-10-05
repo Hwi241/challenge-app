@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   AppState,
+  FlatList,
   Image,
   Modal,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -26,7 +28,6 @@ import {
   getDashboardRowGapForChallenge,
 } from '../utils/dashboardLayout';
 import {
- buttonStyles,
  card as canonicalCardStyles,
  color,
  control as canonicalControlStyles,
@@ -37,10 +38,14 @@ import {
  primitive,
  radius,
  space,
- surface as canonicalSurfaceStyles,
  text as canonicalTextStyles,
 } from '../styles/common';
 import { ensureInitialStars, getStarBalance } from '../utils/starWallet';
+import { getGrowthProgress, getLevelProgress } from '../utils/growthProgress';
+import { GROWTH_MILESTONES_KEY } from '../utils/growthMilestones';
+import RecordRoomAnalysisPage, { RECORD_ROOM_ANALYSIS_PAGES } from '../components/RecordRoomAnalysisPages';
+import { getRecordRoomAnalysisPeriod } from '../utils/appSettings';
+import { loadRecordRoomEntries } from '../utils/recordRoomEntries';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import { buildResponsiveDashboardLayout } from '../utils/dashboardAutoLayout';
@@ -55,6 +60,7 @@ import {
 } from '../utils/recordRoomAnalysis';
 
 const CHALLENGES_KEY = 'challenges';
+const TRASH_CHALLENGES_KEY = 'trash_challenges';
 const HOF_STORAGE_KEYS = ['hof', 'hallOfFame', 'hall_of_fame', 'HOF'];
 const RECORD_ROOM_MEMO_KEY = 'record_room_memo';
 const RECORD_ROOM_HOF_GOAL_KEY = 'record_room_hof_goal';
@@ -279,91 +285,6 @@ const collectArraysDeep = (value, depth = 0) => {
   });
 
   return result;
-};
-
-const looksLikeEntry = (item) => {
-  if (!item || typeof item !== 'object') return false;
-
-  const hasTime = Boolean(
-    item.timestamp ||
-    item.date ||
-    item.createdAt ||
-    item.updatedAt
-  );
-
-  const hasContent = Boolean(
-    typeof item.text === 'string' ||
-    typeof item.memo === 'string' ||
-    typeof item.note === 'string' ||
-    item.imageUri ||
-    item.photoUri ||
-    item.duration ||
-    item.minutes
-  );
-
-  return hasTime && hasContent;
-};
-
-const normalizeEntry = (item, sourceKey, index) => {
-  const rawTime = item?.timestamp ?? item?.date ?? item?.createdAt ?? item?.updatedAt;
-  const date = rawTime ? new Date(rawTime) : null;
-  if (!date || Number.isNaN(date.getTime())) return null;
-  const sourceChallengeId = typeof sourceKey === 'string' && sourceKey.startsWith('entries_')
-    ? sourceKey.slice('entries_'.length)
-    : '';
-
-  return {
-    id: String(item?.id ?? `${sourceKey}-${index}-${date.getTime()}`),
-    challengeId: String(item?.challengeId ?? item?.cid ?? item?.cardId ?? item?.routineId ?? sourceChallengeId),
-    text: normalizeText(item?.text ?? item?.memo ?? item?.note),
-    timestamp: date.toISOString(),
-    duration: Number(item?.duration ?? item?.minutes ?? 0) || 0,
-    kind: typeof item?.kind === 'string' ? item.kind : '',
-    cycleNumber: Number.isFinite(Number(item?.cycleNumber)) ? Number(item.cycleNumber) : null,
-    completedCycle: item?.completedCycle === true,
-  };
-};
-
-const dedupeEntries = (entries) => {
-  const seen = new Set();
-  const result = [];
-
-  entries.forEach((entry) => {
-    if (!entry) return;
-    const key = `${entry.id}|${entry.timestamp}|${entry.text}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    result.push(entry);
-  });
-
-  return result.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-};
-
-const loadAllEntriesFromStorage = async () => {
-  const keys = await AsyncStorage.getAllKeys();
-  const pairs = await AsyncStorage.multiGet(keys);
-  const found = [];
-
-  pairs.forEach(([key, raw]) => {
-    if (!raw || typeof raw !== 'string') return;
-
-    const parsed = parseJsonSafe(raw, null);
-    if (!parsed) return;
-
-    const arrays = collectArraysDeep(parsed);
-    arrays.forEach((arr) => {
-      const entryLikeCount = arr.filter(looksLikeEntry).length;
-      if (entryLikeCount === 0) return;
-      if (entryLikeCount < Math.max(1, Math.ceil(arr.length * 0.35))) return;
-
-      arr.forEach((item, index) => {
-        const normalized = normalizeEntry(item, key, index);
-        if (normalized) found.push(normalized);
-      });
-    });
-  });
-
-  return dedupeEntries(found);
 };
 
 const loadTrashCountFromStorage = async () => {
@@ -1173,6 +1094,37 @@ export default function ProfileInventoryScreen() {
   const { refresh: refreshFoldableLayoutState } = useFoldableLayoutState(foldableLayoutRefreshKey);
   const isWideRecordRoomLayout = recordRoomLayoutWidth >= 600;
   const columns = isWideRecordRoomLayout ? WIDE_GRID_COLUMNS : PHONE_GRID_COLUMNS;
+  const [growthProgress, setGrowthProgress] = useState(getLevelProgress(0));
+  const [recentMilestone, setRecentMilestone] = useState(null);
+  const [milestoneCount, setMilestoneCount] = useState(0);
+  const analysisPagerRef = useRef(null);
+  const [activeAnalysisIndex, setActiveAnalysisIndex] = useState(0);
+  const [analysisPageHeights, setAnalysisPageHeights] = useState({});
+  const analysisPagerHeight = useMemo(() => {
+    const measuredHeights = Object.values(analysisPageHeights).filter((height) => Number.isFinite(height) && height > 0);
+    return measuredHeights.length === RECORD_ROOM_ANALYSIS_PAGES.length
+      ? Math.max(...measuredHeights)
+      : 620;
+  }, [analysisPageHeights]);
+  const [recordRoomAnalysisPeriod, setRecordRoomAnalysisPeriod] = useState('rolling30');
+
+  useFocusEffect(useCallback(() => {
+    Promise.all([
+      getGrowthProgress(),
+      AsyncStorage.getItem(GROWTH_MILESTONES_KEY),
+      getRecordRoomAnalysisPeriod(),
+    ]).then(([progress, raw, periodMode]) => {
+      setGrowthProgress(getLevelProgress(progress.totalXp));
+      setRecordRoomAnalysisPeriod(periodMode);
+      let parsed = {};
+      try { parsed = raw ? JSON.parse(raw) : {}; } catch {}
+      const supportedIds = new Set(['activity_streak_7', 'activity_streak_30', 'activity_streak_100']);
+      const achieved = Object.values(parsed.milestones || {}).filter((item) => supportedIds.has(item.milestoneId)).sort((a, b) => Number(b.achievedAt) - Number(a.achievedAt));
+      const latest = achieved[0] || null;
+      setMilestoneCount(achieved.length);
+      setRecentMilestone(latest);
+    }).catch((error) => console.warn('[ProfileInventory] growth load failed:', error?.message || error));
+  }, []));
 
   useFocusEffect(
     useCallback(() => {
@@ -1248,7 +1200,7 @@ export default function ProfileInventoryScreen() {
     const [
       nextStars,
       rawChallenges,
-      nextEntries,
+      rawTrashChallenges,
       nextTrashInfo,
       nextStarHistory,
       nextHallCards,
@@ -1259,7 +1211,7 @@ export default function ProfileInventoryScreen() {
     ] = await Promise.all([
       getStarBalance(),
       AsyncStorage.getItem(CHALLENGES_KEY),
-      loadAllEntriesFromStorage(),
+      AsyncStorage.getItem(TRASH_CHALLENGES_KEY),
       loadTrashCountFromStorage(),
       loadStarHistoryFromStorage(),
       loadHallCardsFromStorage(),
@@ -1270,6 +1222,13 @@ export default function ProfileInventoryScreen() {
     ]);
 
     const parsedCards = parseJsonSafe(rawChallenges, []);
+    const parsedTrashCards = parseJsonSafe(rawTrashChallenges, []);
+    const nextEntries = await loadRecordRoomEntries({
+      storage: AsyncStorage,
+      cards: asArray(parsedCards),
+      hallCards: asArray(nextHallCards),
+      trashCards: asArray(parsedTrashCards),
+    });
     const parsedProfile = parseJsonSafe(storedProfile, { name: '', headline: '', bio: '' });
     const goalNumber = Number(storedHofGoal);
 
@@ -1331,26 +1290,27 @@ export default function ProfileInventoryScreen() {
   }), [cards, entries, trashInfo, stars, starHistory, hofGoal, hallCards, weekBaseDate, calendarBaseDate]);
 
   const indexSummary = useMemo(
-    () => buildRecordRoomIndexSummary({ entries, cards }),
-    [entries, cards]
+    () => buildRecordRoomIndexSummary({ entries, cards, mode: recordRoomAnalysisPeriod }),
+    [entries, cards, recordRoomAnalysisPeriod]
   );
 
   const recordRoomAnalyses = useMemo(() => {
     const now = new Date();
     return {
-      consistency: calculateConsistencyAnalysis({ entries, now }),
-      growth: calculateGrowthAnalysis({ entries, now }),
-      rhythm: calculateRhythmAnalysis({ entries, now }),
-      balance: calculateBalanceAnalysis({ entries, cards, now }),
+      consistency: calculateConsistencyAnalysis({ entries, now, mode: recordRoomAnalysisPeriod }),
+      growth: calculateGrowthAnalysis({ entries, now, mode: recordRoomAnalysisPeriod }),
+      rhythm: calculateRhythmAnalysis({ entries, now, mode: recordRoomAnalysisPeriod }),
+      balance: calculateBalanceAnalysis({ cards, hallCards, now }),
       achievement: calculateAchievementAnalysis({ entries, hallCards, now }),
+      hallCards,
     };
-  }, [cards, entries, hallCards]);
+  }, [cards, entries, hallCards, recordRoomAnalysisPeriod]);
 
   const indexPresentation = useMemo(() => {
     const { consistency, growth, rhythm, balance, achievement } = recordRoomAnalyses;
 
     return {
-      periodLabel: `${formatShortLocalDate(indexSummary.periods.current.start)} — ${formatShortLocalDate(indexSummary.periods.current.end)}`,
+      periodLabel: recordRoomAnalysisPeriod === 'monthly' ? `${indexSummary.periods.current.end.getMonth() + 1}월` : '최근 30일',
       monthLabel: pad2(indexSummary.periods.current.end.getMonth() + 1),
       summaryLines: buildRecordRoomHomeSummary(recordRoomAnalyses),
       rows: [
@@ -1393,7 +1353,7 @@ export default function ProfileInventoryScreen() {
         },
       ],
     };
-  }, [indexSummary, recordRoomAnalyses]);
+  }, [indexSummary, recordRoomAnalyses, recordRoomAnalysisPeriod]);
 
   const hasModalUnsavedChanges = useCallback(() => {
     if (memoVisible) {
@@ -1675,74 +1635,93 @@ export default function ProfileInventoryScreen() {
  ]);
 
   return (
-    <SafeAreaView style={canonicalSurfaceStyles.screen}>
-      <View style={[canonicalLayoutStyles.rowBetween, styles.header]}>
-        <TouchableOpacity
-          style={[buttonStyles.icon, styles.headerSideBtn]}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.backText}>‹</Text>
-        </TouchableOpacity>
-
-        <Text style={[canonicalTextStyles.headerTitle, styles.headerTitleLayout]}>내 기록실</Text>
-        <View style={[buttonStyles.icon, styles.headerSideBtn]} />
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          canonicalLayoutStyles.screenContent,
-          styles.scrollContent,
-          { paddingBottom: space.lg },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.indexReport}>
-          <View style={styles.indexHero}>
-            <Text style={styles.indexMonth}>{indexPresentation.monthLabel}</Text>
-            <Text style={styles.indexTitle}>MY INDEX</Text>
-            <Text style={styles.indexSubtitle}>YOUR 30 DAY REPORT</Text>
-            <View style={styles.indexPeriodRow}>
-              <Text style={styles.indexPeriodCaption}>최근 30일</Text>
-              <Text style={styles.indexPeriod}>{indexPresentation.periodLabel}</Text>
+    <SafeAreaView style={styles.recordRoomScreen}>
+      <StatusBar backgroundColor={color.primary} barStyle="light-content" />
+      <ScrollView style={styles.recordRoomScroll} contentContainerStyle={styles.recordRoomScrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.blackTopArea}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.settingsHeaderButton} onPress={() => navigation.navigate('Settings')} activeOpacity={0.8} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="설정">
+            <Text style={styles.settingsHeaderIcon}>☰</Text>
+          </TouchableOpacity>
+          <Text pointerEvents="none" style={[canonicalTextStyles.headerTitle, styles.blackHeaderTitle]}>내 기록실</Text>
+          <TouchableOpacity style={styles.milestoneHeaderButton} onPress={() => navigation.navigate('ProfileMilestones')} activeOpacity={0.8} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="마일스톤">
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" pointerEvents="none">
+              <Path d="M3 4H21L17 12L21 20H3Z" stroke={color.textInverse} strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.blackTopContent}>
+          <View style={styles.profileSummary}>
+            <View style={styles.profileHeroTop}>
+              <TouchableOpacity style={styles.profileIdentity} onPress={openProfile} activeOpacity={0.75}>
+                <Text style={styles.profileName}>{profileInfo.name || '내 기록'}</Text>
+                {profileInfo.headline ? <Text style={styles.profileHeadline} numberOfLines={1}>{profileInfo.headline}</Text> : null}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.profileAvatar} onPress={pickProfileImage} activeOpacity={0.75} accessibilityLabel="프로필 사진 변경">
+                {profileImageUri ? <Image source={{ uri: profileImageUri }} style={styles.profileAvatarImage} /> : <Svg width={42} height={42} viewBox="0 0 42 42"><Circle cx="21" cy="15" r="7" fill={primitive.neutral[400]} /><Path d="M9 36 C10 27 15 23 21 23 C27 23 32 27 33 36" fill={primitive.neutral[400]} /></Svg>}
+              </TouchableOpacity>
             </View>
-            <View style={styles.indexSummary}>
-              {indexPresentation.summaryLines.map((line) => (
-                <Text key={line} style={styles.indexSummaryText}>{line}</Text>
-              ))}
+            <View style={styles.heroSummary}>
+              <TouchableOpacity style={styles.heroSummaryAction} onPress={() => navigation.navigate('GrowthLevel')} activeOpacity={0.7}>
+                <Text style={styles.heroLevel}>Lv.{growthProgress.level}</Text>
+                <View style={styles.heroProgressTrack}><View style={[styles.heroProgressFill, { width: `${growthProgress.progress * 100}%` }]} /></View>
+                <Text style={styles.heroSummaryCaption}>{growthProgress.xpIntoLevel} / {growthProgress.xpNeededForLevel} XP</Text>
+              </TouchableOpacity>
+              <View style={styles.heroSummaryDivider} />
+              <TouchableOpacity style={styles.heroStarAction} onPress={() => navigation.navigate('StarWallet')} activeOpacity={0.7}>
+                <Text style={styles.heroStars}>★ {stars.toLocaleString('ko-KR')}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.heroMetrics}>
+              {[
+                ['총 기록', recordRoomAnalyses.achievement.metrics.totalCount, '회'],
+                ['활동일', recordRoomAnalyses.achievement.metrics.totalActivityDays, '일'],
+                ['최장 연속', recordRoomAnalyses.achievement.metrics.longestStreak, '일'],
+              ].map(([label, value, unit], index) => <React.Fragment key={label}>{index ? <View style={styles.heroMetricDivider} /> : null}<View style={styles.heroMetric}><Text style={styles.heroMetricValue}>{Number(value || 0).toLocaleString('ko-KR')}{unit}</Text><Text style={styles.heroMetricLabel}>{label}</Text></View></React.Fragment>)}
             </View>
           </View>
-
-          <View style={styles.indexList}>
-            {indexPresentation.rows.map((row, index) => (
-              <TouchableOpacity
-                key={row.title}
-                style={styles.indexRow}
-                onPress={() => navigation.navigate('ProfileAnalysis', {
-                  initialIndex: index,
-                  analysisData: recordRoomAnalyses,
-                })}
-                activeOpacity={0.72}
-                accessibilityRole="button"
-                accessibilityLabel={`${row.title} 분석 보기`}
-              >
-                <View style={styles.indexRowHeading}>
-                  <Text style={styles.indexNumber}>{String(index + 1).padStart(2, '0')}</Text>
-                  <Text style={styles.indexRowTitle}>{row.title}</Text>
-                  <Text style={[styles.indexValue, index === 4 && styles.indexValueLarge]}>{row.value}</Text>
-                </View>
-                <Text style={styles.indexNote}>{row.note}</Text>
-                {index < 4 ? (
-                  <View style={styles.indexVisualization}>
-                    <IndexMicroVisualization index={index} summary={indexSummary} analyses={recordRoomAnalyses} />
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            ))}
+          <View style={styles.overallAnalysisOnBlack}>
+            <View style={styles.overallHeadingRow}>
+              <Text style={styles.overallTitleOnBlack}>전체 분석 · {indexPresentation.periodLabel}</Text>
+            </View>
+            {indexPresentation.summaryLines.map((line) => <Text key={line} style={styles.overallSummaryOnBlack}>{line}</Text>)}
           </View>
         </View>
+      </View>
+
+      <View style={styles.whiteAnalysisArea}>
+        <View style={styles.embeddedDots}>
+          {RECORD_ROOM_ANALYSIS_PAGES.map((page, index) => (
+            <View key={page.key} style={[styles.embeddedDot, index === activeAnalysisIndex && styles.embeddedDotActive]} />
+          ))}
+        </View>
+        <Text style={styles.embeddedAnalysisTitle}>{RECORD_ROOM_ANALYSIS_PAGES[activeAnalysisIndex].title}</Text>
+        <FlatList
+          ref={analysisPagerRef}
+          style={[styles.analysisPager, { height: analysisPagerHeight }]}
+          data={RECORD_ROOM_ANALYSIS_PAGES}
+          keyExtractor={(item) => item.key}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          getItemLayout={(_, index) => ({ length: windowWidth, offset: windowWidth * index, index })}
+          renderItem={({ item }) => (
+            <View style={[styles.embeddedAnalysisPage, { width: windowWidth }]}>
+              <View style={styles.embeddedAnalysisInner} onLayout={(event) => {
+                const height = Math.ceil(event.nativeEvent.layout.height);
+                const index = RECORD_ROOM_ANALYSIS_PAGES.findIndex((page) => page.key === item.key);
+                if (height > 0) setAnalysisPageHeights((previous) => previous[index] === height ? previous : { ...previous, [index]: height });
+              }}>
+                <RecordRoomAnalysisPage type={item.key} analysisData={recordRoomAnalyses} hallCards={hallCards} embedded />
+              </View>
+            </View>
+          )}
+          onMomentumScrollEnd={(event) => {
+            setActiveAnalysisIndex(Math.max(0, Math.min(RECORD_ROOM_ANALYSIS_PAGES.length - 1, Math.round(event.nativeEvent.contentOffset.x / windowWidth))));
+          }}
+          scrollEnabled
+        />
+      </View>
       </ScrollView>
 
 
@@ -1841,11 +1820,75 @@ export default function ProfileInventoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  recordRoomScreen: { flex: 1, backgroundColor: color.primary },
+  recordRoomScroll: { flex: 1, backgroundColor: color.background },
+  recordRoomScrollContent: { flexGrow: 1 },
+  blackTopArea: { width: '100%', backgroundColor: color.primary },
+  blackTopContent: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: space.lg, paddingBottom: space.lg },
+  profileSummary: { width: '100%' },
+  profileHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  profileIdentity: { flex: 1, minHeight: 48, justifyContent: 'center', paddingRight: space.md },
+  profileName: { color: color.textInverse, fontSize: 24, fontWeight: font.weight.heavy },
+  profileHeadline: { marginTop: 4, color: primitive.neutral[400], fontSize: 12 },
+  profileAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: primitive.neutral[800], alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  profileAvatarImage: { width: '100%', height: '100%' },
+  heroSummary: { minHeight: 78, marginTop: space.lg, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: primitive.neutral[50], flexDirection: 'row', alignItems: 'center' },
+  heroSummaryAction: { flex: 1, minHeight: 56, justifyContent: 'center' },
+  heroLevel: { color: color.textPrimary, fontSize: 20, fontWeight: font.weight.heavy },
+  heroProgressTrack: { height: 2, marginTop: 7, backgroundColor: primitive.neutral[200] },
+  heroProgressFill: { height: 2, backgroundColor: color.primary },
+  heroSummaryCaption: { marginTop: 5, color: color.textSecondary, fontSize: 10 },
+  heroSummaryDivider: { width: StyleSheet.hairlineWidth, height: 44, marginHorizontal: space.md, backgroundColor: color.divider },
+  heroStarAction: { minWidth: 88, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
+  heroStars: { color: color.textPrimary, fontSize: 18, fontWeight: font.weight.heavy },
+  heroMetrics: { flexDirection: 'row', alignItems: 'center', marginTop: space.lg },
+  heroMetric: { flex: 1, alignItems: 'center' },
+  heroMetricValue: { color: color.textInverse, fontSize: 17, fontWeight: font.weight.heavy },
+  heroMetricLabel: { marginTop: 3, color: primitive.neutral[400], fontSize: 10 },
+  heroMetricDivider: { width: StyleSheet.hairlineWidth, height: 30, backgroundColor: primitive.neutral[700] },
+  overallAnalysisOnBlack: { marginTop: space.lg },
+  overallHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 },
+  overallTitleOnBlack: { color: color.textInverse, fontSize: 15, fontWeight: font.weight.heavy },
+  overallPeriodOnBlack: { color: primitive.neutral[500], fontSize: 10, fontWeight: font.weight.bold },
+  overallSummaryOnBlack: { marginTop: 2, color: primitive.neutral[400], fontSize: 12, lineHeight: 18 },
+  whiteAnalysisArea: { flex: 1, backgroundColor: color.background },
+  embeddedDots: { paddingTop: space.md, flexDirection: 'row', justifyContent: 'center', columnGap: 7 },
+  embeddedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: primitive.neutral[200] },
+  embeddedDotActive: { width: 16, backgroundColor: color.primary },
+  embeddedAnalysisTitle: { marginTop: 10, marginBottom: 2, textAlign: 'center', color: color.textPrimary, fontSize: 19, fontWeight: font.weight.heavy },
+  analysisPager: { width: '100%' },
+  embeddedAnalysisPage: { alignItems: 'center' },
+  embeddedAnalysisInner: { width: '100%', maxWidth: 620, paddingHorizontal: space.lg },
+  growthSection: {
+    borderTopWidth: 1,
+    borderColor: color.border,
+    paddingVertical: space.lg,
+  },
+  milestoneSection: {
+    borderTopWidth: 1,
+    borderColor: color.border,
+    paddingVertical: space.lg,
+  },
+  growthHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  growthLabel: { color: color.textPrimary, fontSize: 15, fontWeight: font.weight.heavy },
+  growthLink: { color: color.textTertiary, fontSize: 12, fontWeight: font.weight.bold },
+  growthLevel: { marginTop: space.md, color: color.textPrimary, fontSize: 25, fontWeight: font.weight.heavy },
+  growthRemaining: { marginTop: 5, color: color.textSecondary, fontSize: 12 },
+  growthTrack: { height: 2, marginTop: space.md, backgroundColor: primitive.neutral[200] },
+  growthFill: { height: 2, backgroundColor: color.primary },
+  milestoneTitle: { marginTop: space.md, color: color.textPrimary, fontSize: 19, fontWeight: font.weight.heavy },
   header: {
     minHeight: 54,
     paddingHorizontal: space.md,
-    paddingTop: space.xs,
+    paddingTop: space.md,
     paddingBottom: space.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerSideBtn: {
     width: 44,
@@ -1855,6 +1898,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     alignItems: 'flex-start',
   },
+  blackHeaderTitle: { position: 'absolute', left: 0, right: 0, textAlign: 'center', color: color.textInverse, fontWeight: font.weight.heavy },
+  milestoneHeaderButton: { width: 38, height: 38, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  settingsHeaderButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  settingsHeaderIcon: { color: color.textInverse, fontSize: 22, fontWeight: '400' },
   backText: { fontSize: 34, color: color.textPrimary, fontWeight: '300', lineHeight: 34 },
   starPill: {
     position: 'absolute',

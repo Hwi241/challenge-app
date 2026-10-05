@@ -9,6 +9,7 @@ const DEFAULTS = {
   importantCardIds: [],
   focusMiniTimerEnabled: true,
   focusOverlayTimerEnabled: false,
+  recordRoomAnalysisPeriod: 'rolling30',
   dataIntegrations: {
     healthConnect: {
       enabled: false,
@@ -49,6 +50,9 @@ function normalizeAppSettings(settings) {
     ...DEFAULTS,
     ...source,
     myPushEnabled: source.myPushEnabled !== false,
+    recordRoomAnalysisPeriod: ['rolling30', 'monthly'].includes(source.recordRoomAnalysisPeriod)
+      ? source.recordRoomAnalysisPeriod
+      : 'rolling30',
     importantCardIds: normalizeCardIds(source.importantCardIds),
     dataIntegrations: {
       ...DEFAULTS.dataIntegrations,
@@ -154,6 +158,16 @@ export async function getFocusOverlayTimerEnabled() {
 
 export async function setFocusOverlayTimerEnabled(enabled) {
   return setAppSettings({ focusOverlayTimerEnabled: !!enabled });
+}
+
+export async function getRecordRoomAnalysisPeriod() {
+  const settings = await getAppSettings();
+  return settings.recordRoomAnalysisPeriod;
+}
+
+export async function setRecordRoomAnalysisPeriod(value) {
+  const normalized = ['rolling30', 'monthly'].includes(value) ? value : 'rolling30';
+  return setAppSettings({ recordRoomAnalysisPeriod: normalized });
 }
 
 export function subscribeAppSettings(listener) {

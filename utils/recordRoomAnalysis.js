@@ -1,4 +1,5 @@
 import { getChallengeType, CHALLENGE_TYPE } from './challengeType';
+import { KOREAN_WEEKDAYS } from './weekdays';
 
 const ANALYSIS_DAYS = 30;
 
@@ -74,9 +75,9 @@ export const buildRecordRoomActivityCalendar = (analysis) => {
     ? new Date(lastPeriodDate.getFullYear(), lastPeriodDate.getMonth() + 1, 0, 12)
     : lastPeriodDate;
   const gridStart = new Date(displayStart);
-  gridStart.setDate(displayStart.getDate() - ((displayStart.getDay() + 6) % 7));
+  gridStart.setDate(displayStart.getDate() - displayStart.getDay());
   const gridEnd = new Date(displayEnd);
-  gridEnd.setDate(displayEnd.getDate() + (6 - ((displayEnd.getDay() + 6) % 7)));
+  gridEnd.setDate(displayEnd.getDate() + (6 - displayEnd.getDay()));
   const byKey = new Map(days.map((item) => [item.key, item]));
   const cells = [];
   for (let cursor = new Date(gridStart); cursor <= gridEnd; cursor = addLocalDays(cursor, 1)) {
@@ -532,10 +533,11 @@ const FINAL_RHYTHM_BUCKETS = [
   { key: 'night', label: '밤', range: '22:00 — 05:59', shortRange: '22—05시', matches: (hour) => hour >= 22 || hour <= 5 },
 ];
 
-const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
-const WEEKDAY_FULL_LABELS = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+const WEEKDAY_LABELS = KOREAN_WEEKDAYS;
+const WEEKDAY_FULL_LABELS = KOREAN_WEEKDAYS.map((label) => `${label}요일`);
 
-const getMondayFirstWeekday = (date) => (date.getDay() + 6) % 7;
+const getSundayFirstWeekday = (date) => date.getDay();
+const isWeekendWeekdayIndex = (weekday) => weekday === 0 || weekday === 6;
 
 const classifyRhythmDistribution = (timeShares) => {
   const sorted = [...timeShares].sort((a, b) => b.share - a.share);
@@ -596,9 +598,9 @@ const analyzeRhythmPeriod = (entries, period) => {
 
   for (let index = 0; index < period.days; index += 1) {
     const date = addLocalDays(period.start, index);
-    const weekday = getMondayFirstWeekday(date);
+    const weekday = getSundayFirstWeekday(date);
     weekdayOccurrences[weekday] += 1;
-    if (weekday >= 5) weekendCalendarDayCount += 1;
+    if (isWeekendWeekdayIndex(weekday)) weekendCalendarDayCount += 1;
     else weekdayCalendarDayCount += 1;
   }
 
@@ -606,13 +608,13 @@ const analyzeRhythmPeriod = (entries, period) => {
   let weekendActivityCount = 0;
   periodEntries.forEach((entry) => {
     const date = new Date(entry.timestamp);
-    const weekday = getMondayFirstWeekday(date);
+    const weekday = getSundayFirstWeekday(date);
     const bucketIndex = FINAL_RHYTHM_BUCKETS.findIndex((bucket) => bucket.matches(date.getHours()));
     if (bucketIndex < 0) return;
     timeShares[bucketIndex].count += 1;
     heatmap[bucketIndex].values[weekday] += 1;
     weekdayTotals[weekday] += 1;
-    if (weekday >= 5) weekendActivityCount += 1;
+    if (isWeekendWeekdayIndex(weekday)) weekendActivityCount += 1;
     else weekdayActivityCount += 1;
   });
 

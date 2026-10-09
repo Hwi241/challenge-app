@@ -6,8 +6,12 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { buttonStyles, card as canonicalCardStyles, control as canonicalControlStyles, layout as canonicalLayoutStyles, modal as canonicalModalStyles, space, surface as canonicalSurfaceStyles, text as canonicalTextStyles } from '../styles/common';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import {
+  KOREAN_WEEKDAYS,
+  normalizeKoreanWeekdays,
+} from '../utils/weekdays';
 
-const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
+const DAY_LABELS = KOREAN_WEEKDAYS;
 const CIRCLE = 40;
 const MAX_TIMES = 10;
 
@@ -15,12 +19,9 @@ const pad2 = (n) => String(n).padStart(2, '0');
 const toHHmm = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 const normalizeSimpleConfig = (source) => {
-  const days = Array.isArray(source?.days)
-    ? source.days
-        .map(String)
-        .filter((d) => DAY_LABELS.includes(d))
-        .sort((a, b) => DAY_LABELS.indexOf(a) - DAY_LABELS.indexOf(b))
-    : [];
+  const days = normalizeKoreanWeekdays(
+    source?.days
+  );
 
   const rawTimes = Array.isArray(source?.times) && source.times.length
     ? source.times
@@ -64,7 +65,7 @@ export default function SimpleNotificationScreen() {
     if (!initial) return;
     try {
       if (Array.isArray(initial.days)) {
-        const valid = initial.days.filter((d) => DAY_LABELS.includes(d));
+        const valid = normalizeKoreanWeekdays(initial.days);
         setSelectedDays(valid.length ? valid : []);
       }
       if (Array.isArray(initial.times) && initial.times.length) {
@@ -119,7 +120,7 @@ export default function SimpleNotificationScreen() {
     setSelectedDays((prev) => {
       const has = prev.includes(d);
       const next = has ? prev.filter((x) => x !== d) : [...prev, d];
-      return next.sort((a, b) => DAY_LABELS.indexOf(a) - DAY_LABELS.indexOf(b));
+      return normalizeKoreanWeekdays(next);
     });
   }, []);
 
@@ -182,7 +183,7 @@ export default function SimpleNotificationScreen() {
       onConfirm: () => {
         const firstTime = times.slice().sort()[0];
         const payload = {
-          days: selectedDays,
+          days: normalizeKoreanWeekdays(selectedDays),
           time: firstTime,
           times: times.slice().sort(),
           weeks: (Array.isArray(weeks) && weeks.length) ? weeks : 'every',

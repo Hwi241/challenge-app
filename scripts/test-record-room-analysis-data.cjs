@@ -177,11 +177,13 @@ assert.deepEqual(activeKeys,['2026-10-05','2026-10-07','2026-10-10']);
 assert.equal(exactCalendar.cells.filter((cell)=>cell.date.getDay()===0 && cell.item?.count>0).length,0);
 const exactRolling=buildRecordRoomActivityCalendar(calculateConsistencyAnalysis({entries:exactEntries,now:new Date(2026,9,15,12),mode:'rolling30'}));
 assert.deepEqual(exactRolling.cells.filter((cell)=>cell.item?.count>0).map((cell)=>cell.key),activeKeys);
+assert.equal(exactRolling.cells[0].date.getDay(),0);
+assert.equal(exactRolling.cells[exactRolling.cells.length-1].date.getDay(),6);
 const exactRhythm=calculateRhythmAnalysis({entries:exactEntries,now:new Date(2026,9,15,12),mode:'monthly'});
-const sundayRhythmTotal=exactRhythm.heatmap.reduce((sum,row)=>sum+(row.values[6]||0),0);
+const sundayRhythmTotal=exactRhythm.heatmap.reduce((sum,row)=>sum+(row.values[0]||0),0);
 assert.equal(sundayRhythmTotal,0);
 exactEntries.forEach((entry)=>{
-  const weekday=(new Date(entry.timestamp).getDay()+6)%7;
+  const weekday=new Date(entry.timestamp).getDay();
   assert.equal(exactRhythm.heatmap.reduce((sum,row)=>sum+(row.values[weekday]||0),0),1);
 });
 

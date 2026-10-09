@@ -15,8 +15,13 @@ import {
 } from '../styles/common';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import {
+  KOREAN_WEEKDAYS,
+  KOREAN_WEEKDAYS_WEEKDAY,
+  KOREAN_WEEKDAYS_WEEKEND,
+} from '../utils/weekdays';
 
-const WEEK = ['월','화','수','목','금','토','일'];
+const WEEK = KOREAN_WEEKDAYS;
 const MAX_PER_DAY = 10;
 
 const pad2 = (n)=>String(n).padStart(2,'0');
@@ -140,8 +145,12 @@ export default function WeeklyNotificationScreen(){
   // ---- 범위 선택 시 요일 세트 갱신 ----
   const applyScopeToDays = useCallback((scope)=>{
     if (scope==='all') return new Set(WEEK);
-    if (scope==='weekday') return new Set(['월','화','수','목','금']);
-    if (scope==='weekend') return new Set(['토','일']);
+    if (scope === 'weekday') {
+      return new Set(KOREAN_WEEKDAYS_WEEKDAY);
+    }
+    if (scope === 'weekend') {
+      return new Set(KOREAN_WEEKDAYS_WEEKEND);
+    }
     // custom은 현재 선택 유지
     return null;
   },[]);

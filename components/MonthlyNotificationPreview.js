@@ -12,9 +12,12 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { layout as canonicalLayoutStyles, primitive, radius, space } from '../styles/common';
+import {
+  KOREAN_WEEKDAYS,
+} from '../utils/weekdays';
 
-// 한국 사용자 UX에 맞춰 월~일 순서(월요일 시작)를 기본값으로 제공
-const DOW_HEADER = ['월', '화', '수', '목', '금', '토', '일'];
+// 일요일 시작 달력 기준을 앱 전체 공통 순서로 사용
+const DOW_HEADER = KOREAN_WEEKDAYS;
 
 function pad2(n) {
   return n < 10 ? `0${n}` : String(n);
@@ -36,20 +39,20 @@ function formatKoreanTime(hhmm) {
 }
 
 function buildMonthMatrix(year, month /* 1-12 */) {
-  // 월요일 시작 그리드(6주 칸) 생성
+  // 일요일 시작 그리드(6주 칸) 생성
   // JS Date: month는 0-11
   const first = new Date(year, month - 1, 1);
   const last = new Date(year, month, 0);
   const daysInMonth = last.getDate();
 
-  // JS: 0=일,1=월,... → 월요일 시작 인덱스로 보정
-  const firstDowJS = first.getDay(); // 0-6 (일~토)
-  const firstDowMonStart = (firstDowJS + 6) % 7; // 0-6 (월~일)
+  // JS: 0=일,1=월,...,6=토
+  // 앱 달력도 동일하게 일요일을 첫 열로 사용
+  const firstDow = first.getDay();
 
   const totalCells = 42; // 6주 * 7일
   const cells = [];
   for (let i = 0; i < totalCells; i++) {
-    const dayNum = i - firstDowMonStart + 1;
+    const dayNum = i - firstDow + 1;
     if (dayNum < 1 || dayNum > daysInMonth) {
       cells.push(null); // 지난달/다음달 칸은 비움
     } else {

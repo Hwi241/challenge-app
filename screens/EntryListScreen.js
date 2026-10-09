@@ -83,6 +83,9 @@ import {
 import { getOwnedWidgets } from '../utils/widgetOwnership';
 import { useFoldableLayoutState } from '../utils/foldableLayout';
 import { buildResponsiveDashboardLayout } from '../utils/dashboardAutoLayout';
+import {
+  KOREAN_WEEKDAYS,
+} from '../utils/weekdays';
 import { color as canonicalColor, radius } from '../styles/common';
 import {
   GRAPH_RENDER_GRAPH_IDS,
@@ -100,7 +103,7 @@ const ReanimatedSvgText = Reanimated.createAnimatedComponent(SvgText);
 const DASHBOARD_WIDGET_HEADER_HEIGHT = 28;
 const DASHBOARD_WIDGET_HEADER_TOP_OFFSET = 0;
 const DASHBOARD_WIDGET_HEADER_TITLE_TOP_ADJUST = -6;
-const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+const DAY_LABELS = KOREAN_WEEKDAYS;
 const CAL_HEADER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const ICON = require('../assets/icon.png');
 
@@ -406,7 +409,7 @@ const TitleTwoLine = memo(function TitleTwoLine({ text, style, containerWidth=SC
 });
 
 /* ───────── 알림 미리보기들 ───────── */
-const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
+const WEEK_DAYS_KO = KOREAN_WEEKDAYS;
 const sortTimesAsc = (arr=[]) => [...arr].sort((a,b)=>a.localeCompare(b));
 
 const SimplePreviewMini = ({ days=[], times=[], time }) => {
@@ -495,7 +498,7 @@ const FullRangePreviewMini = ({ payload={}, startDate, endDate }) => {
             <View key={`${y}-${mi}`} style={{ marginBottom:8 }}>
               <Text style={{ fontSize:12, fontWeight:'800', color:textGrey, textAlign:'center' }}>{y}.{pad2(mi+1)}</Text>
               <View style={{ flexDirection:'row', marginBottom:4 }}>
-                {['일','월','화','수','목','금','토'].map((w,i)=><View key={w} style={{ flex:1, alignItems:'center', borderRightWidth:i<6?1:0, borderRightColor:'#eee' }}><Text style={{fontSize:11, fontWeight:'800', color:textGrey}}>{w}</Text></View>)}
+                {WEEK_DAYS_KO.map((w,i)=><View key={w} style={{ flex:1, alignItems:'center', borderRightWidth:i<6?1:0, borderRightColor:'#eee' }}><Text style={{fontSize:11, fontWeight:'800', color:textGrey}}>{w}</Text></View>)}
               </View>
               <View style={{ borderTopWidth:1, borderTopColor:'#eee' }}>
                 {Array.from({length: Math.ceil(cells.length/7)}).map((__,r)=>(
@@ -715,7 +718,7 @@ const DashboardWidgetShell = memo(function DashboardWidgetShell({
 
 /* ───────── 건강 실제 걸음수 주간 리듬 (HealthSteps) ───────── */
 const HEALTH_STEPS_WEEKLY_GOAL = 8000;
-const HEALTH_STEPS_WEEKLY_LABELS = Object.freeze(['일', '월', '화', '수', '목', '금', '토']);
+const HEALTH_STEPS_WEEKLY_LABELS = KOREAN_WEEKDAYS;
 
 const formatStepCountCompact = (value) => {
  const numeric = Math.max(0, Math.round(Number(value) || 0));

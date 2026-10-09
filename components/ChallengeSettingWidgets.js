@@ -10,8 +10,12 @@ import {
  space,
  text as canonicalTextStyles,
 } from '../styles/common';
+import {
+  KOREAN_WEEKDAYS,
+  normalizeKoreanWeekdays,
+} from '../utils/weekdays';
 
-const WEEK_DAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
+const WEEK_DAYS_KO = KOREAN_WEEKDAYS;
 
 const sortTimesAsc = (arr = []) => [...arr].sort((a, b) => String(a).localeCompare(String(b)));
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -71,7 +75,9 @@ export function GoalCyclePreview({ cycle }) {
   }
 
   if (cycle.type === 'weekly') {
-    const selected = Array.isArray(cycle.days) ? cycle.days : [];
+    const selected = normalizeKoreanWeekdays(
+      cycle.days
+    );
     return (
       <View>
         <View style={styles.daysRow}>
@@ -245,7 +251,7 @@ const FullRangeNotificationPreview = ({ payload = {}, startDate, endDate }) => {
             <View key={`${y}-${mi}`} style={{ marginBottom: space.xs }}>
               <Text style={styles.fullRangeMonthTitle}>{y}.{pad2(mi + 1)}</Text>
               <View style={styles.fullRangeWeekRow}>
-                {['일', '월', '화', '수', '목', '금', '토'].map((w, i) => (
+                {WEEK_DAYS_KO.map((w, i) => (
                   <View key={w} style={[styles.fullRangeWeekCell, i < 6 && styles.monthCellDivider]}>
                     <Text style={styles.weekDayLabel}>{w}</Text>
                   </View>

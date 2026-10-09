@@ -17,8 +17,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { layout as canonicalLayoutStyles, primitive, radius, space } from '../styles/common';
+import {
+  KOREAN_WEEKDAYS,
+} from '../utils/weekdays';
 
-const DEFAULT_DAY_ORDER = ['월', '화', '수', '목', '금', '토', '일'];
+const DEFAULT_DAY_ORDER = KOREAN_WEEKDAYS;
 
 function formatKoreanTime(hhmm) {
   // 'HH:mm' -> '오전/오후 H시 mm분'

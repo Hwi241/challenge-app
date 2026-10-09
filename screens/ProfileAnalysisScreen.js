@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import RecordRoomAnalysisPage, { RECORD_ROOM_ANALYSIS_PAGES } from '../components/RecordRoomAnalysisPages';
+import { KOREAN_WEEKDAYS } from '../utils/weekdays';
 
 import {
   color,
@@ -187,7 +188,7 @@ const RhythmHeatmap = ({ rows }) => {
     <View style={styles.heatmap}>
       <View style={styles.heatmapHeader}>
         <View style={styles.heatmapLabelSpace} />
-        {['월', '화', '수', '목', '금', '토', '일'].map((label) => (
+        {KOREAN_WEEKDAYS.map((label) => (
           <Text key={label} style={styles.heatmapDayLabel}>{label}</Text>
         ))}
       </View>

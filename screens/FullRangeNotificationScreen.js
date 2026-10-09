@@ -5,6 +5,9 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import BackButton from '../components/BackButton';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import {
+  KOREAN_WEEKDAYS,
+} from '../utils/weekdays';
 
 // screens/FullRangeNotificationScreen.js
 
@@ -361,7 +364,7 @@ export default function FullRangeNotificationScreen(){
 
               {/* 요일 헤더 */}
               <View style={[canonicalLayoutStyles.row, styles.weekHeaderRow]}>
-                {['일','월','화','수','목','금','토'].map((w,idx)=>(
+                {KOREAN_WEEKDAYS.map((w,idx)=>(
                   <View key={w} style={[styles.weekHeaderCell, idx<6 && styles.weekHeaderCellDivider]}>
                     <Text style={canonicalTextStyles.captionStrongMuted}>{w}</Text>
                   </View>

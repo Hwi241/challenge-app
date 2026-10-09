@@ -27,10 +27,16 @@ import BackButton from '../components/BackButton';
 import { SettingSectionCard, GoalCyclePreview as SettingGoalCyclePreview, NotificationPreview as SettingNotificationPreview } from '../components/ChallengeSettingWidgets';
 
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import {
+  KOREAN_WEEKDAYS,
+  KOREAN_WEEKDAYS_WEEKDAY,
+  KOREAN_WEEKDAYS_WEEKEND,
+  normalizeKoreanWeekdays,
+} from '../utils/weekdays';
 
 
 const DRAFT_KEY = 'draft_add_challenge';
-const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
+const WEEK_DAYS_KO = KOREAN_WEEKDAYS;
 const sortTimesAsc = (arr=[]) => [...arr].sort((a,b)=>a.localeCompare(b));
 const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
@@ -871,9 +877,9 @@ const handleGoalChange = useCallback((txt)=>{
                 ['all', 'weekday', 'weekend', 'custom'].map(s => (
                   <TouchableOpacity key={s} onPress={() => {
                     setCycleWeekScope(s);
-                    if (s === 'all') setCycleDays(new Set(['월','화','수','목','금','토','일']));
-                    else if (s === 'weekday') setCycleDays(new Set(['월','화','수','목','금']));
-                    else if (s === 'weekend') setCycleDays(new Set(['토','일']));
+                    if (s === 'all') setCycleDays(new Set(KOREAN_WEEKDAYS));
+                    else if (s === 'weekday') setCycleDays(new Set(KOREAN_WEEKDAYS_WEEKDAY));
+                    else if (s === 'weekend') setCycleDays(new Set(KOREAN_WEEKDAYS_WEEKEND));
                     else if (s === 'custom') setCycleDays(new Set());
                   }} style={[
                 styles.scopeButton,
@@ -918,7 +924,7 @@ const handleGoalChange = useCallback((txt)=>{
                 styles.cycleGridSpacing,
               ]}
             >
-                {['월','화','수','목','금','토','일'].map(d => (
+                {WEEK_DAYS_KO.map(d => (
                   <TouchableOpacity key={d} onPress={() => {
                     const next = new Set(cycleDays);
                     if (next.has(d)) next.delete(d); else next.add(d);
@@ -995,7 +1001,10 @@ const handleGoalChange = useCallback((txt)=>{
                 ]}
                 onPress={() => {
                 if (cycleTab === 'weekly') {
-                  setHabitCycle(cycleDays.size ? { type: 'weekly', days: Array.from(cycleDays) } : null);
+                  setHabitCycle(cycleDays.size ? {
+                    type: 'weekly',
+                    days: normalizeKoreanWeekdays(Array.from(cycleDays)),
+                  } : null);
                 } else {
                   setHabitCycle(cycleDates.size ? { type: 'monthly', dates: Array.from(cycleDates) } : null);
                 }

@@ -32,10 +32,16 @@ import BackButton from '../components/BackButton';
 import { SettingSectionCard, GoalCyclePreview as SettingGoalCyclePreview, NotificationPreview as SettingNotificationPreview } from '../components/ChallengeSettingWidgets';
 import { syncWidgetChallengeList } from '../utils/widgetSync';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import {
+  KOREAN_WEEKDAYS,
+  KOREAN_WEEKDAYS_WEEKDAY,
+  KOREAN_WEEKDAYS_WEEKEND,
+  normalizeKoreanWeekdays,
+} from '../utils/weekdays';
 
 const LIMITS = { title: 50, reward: 50, description: 500, maxGoal: 1000 };
 
-const WEEK_DAYS_KO = ['월','화','수','목','금','토','일'];
+const WEEK_DAYS_KO = KOREAN_WEEKDAYS;
 
 const pad2 = (n)=>String(n).padStart(2,'0');
 const fmtDate = (d)=>!d?'':`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
@@ -177,7 +183,7 @@ function FullRangePreview({ payload={}, startDate, endDate }) {
               <Text style={styles.fullRangeMonthTitle}>{y}.{pad2(mi+1)}</Text>
 
               <View style={styles.weekHeaderRow}>
-                {['일','월','화','수','목','금','토'].map((w,idx)=>(
+                {WEEK_DAYS_KO.map((w,idx)=>(
                   <View key={w} style={[styles.weekHeaderCell, idx<6 && styles.weekHeaderCellDivider]}>
                     <Text style={styles.weekHeaderText}>{w}</Text>
                   </View>
@@ -789,9 +795,9 @@ export default function EditChallengeScreen(){
                 ['all', 'weekday', 'weekend', 'custom'].map(s => (
                   <TouchableOpacity key={s} onPress={() => {
                     setCycleWeekScope(s);
-                    if (s === 'all') setCycleDays(new Set(['월','화','수','목','금','토','일']));
-                    else if (s === 'weekday') setCycleDays(new Set(['월','화','수','목','금']));
-                    else if (s === 'weekend') setCycleDays(new Set(['토','일']));
+                    if (s === 'all') setCycleDays(new Set(KOREAN_WEEKDAYS));
+                    else if (s === 'weekday') setCycleDays(new Set(KOREAN_WEEKDAYS_WEEKDAY));
+                    else if (s === 'weekend') setCycleDays(new Set(KOREAN_WEEKDAYS_WEEKEND));
                     else if (s === 'custom') setCycleDays(new Set());
                   }} style={[
                 styles.scopeButton,
@@ -835,7 +841,7 @@ export default function EditChallengeScreen(){
                 styles.cycleGridSpacing,
               ]}
             >
-                {['월','화','수','목','금','토','일'].map(d => (
+                {WEEK_DAYS_KO.map(d => (
                   <TouchableOpacity key={d} onPress={() => {
                     const next = new Set(cycleDays);
                     if (next.has(d)) next.delete(d); else next.add(d);
@@ -903,7 +909,11 @@ export default function EditChallengeScreen(){
               ]}
               onPress={() => {
                 if (cycleTab === 'weekly') {
-                  setHabitCycle(cycleDays.size ? { type: 'weekly', days: Array.from(cycleDays), dates: [] } : null);
+                  setHabitCycle(cycleDays.size ? {
+                    type: 'weekly',
+                    days: normalizeKoreanWeekdays(Array.from(cycleDays)),
+                    dates: [],
+                  } : null);
                 } else {
                   setHabitCycle(cycleDates.size ? { type: 'monthly', days: [], dates: Array.from(cycleDates) } : null);
                 }

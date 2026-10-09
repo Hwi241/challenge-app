@@ -3,12 +3,13 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { color, font, primitive, space } from '../styles/common';
 import { buildRecordRoomActivityCalendar } from '../utils/recordRoomAnalysis';
+import { KOREAN_WEEKDAYS } from '../utils/weekdays';
 
 export const RECORD_ROOM_ANALYSIS_PAGES = [
   { key: 'consistency', title: '활동 기록' }, { key: 'growth', title: '성장 기록' },
   { key: 'rhythm', title: '활동 패턴' }, { key: 'balance', title: '활동 구성' },
 ];
-const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+const weekdays = KOREAN_WEEKDAYS;
 const formatDate = (value) => `${String(value.getMonth() + 1).padStart(2, '0')}.${String(value.getDate()).padStart(2, '0')}`;
 const periodCaption = (periods) => periods?.mode === 'monthly' ? `${periods.current.end.getMonth() + 1}월` : '최근 30일';
 const deltaText = (value, unit) => value === 0 ? '변화 없음' : `${value > 0 ? '+' : '-'}${Math.abs(value)}${unit}`;

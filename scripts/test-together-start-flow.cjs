@@ -21,7 +21,25 @@ assert.match(home, /modalRoot/);
 assert.match(home, /confirmSheet/);
 assert.match(home, /TogetherDraftCard/);
 assert.match(picker, /함께할 PUSH 선택/);
-assert.match(picker, /\+PUSH 만들기/);
+assert.match(
+  picker,
+  /createButtonPlus/
+);
+
+assert.match(
+  picker,
+  /buttonStyles\.secondary\.container/
+);
+
+assert.match(
+  picker,
+  /buttonStyles\.secondary\.label/
+);
+
+assert.match(
+  picker,
+  /PUSH 만들기/
+);
 assert.match(home, /이 활동으로 시작/);
 assert.match(home, /이 활동을 친구와 함께 이어갈까요\?/);
 assert.match(home, /다른 활동 선택/);

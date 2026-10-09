@@ -39,7 +39,12 @@ const inviteDraft =
 
 assert.match(picker, /<Modal/);
 assert.match(picker, /함께할 PUSH 선택/);
-assert.match(picker, /\+PUSH 만들기/);
+assert.match(picker, /buttonStyles/);
+assert.match(picker, /buttonStyles\.secondary\.container/);
+assert.match(picker, /buttonStyles\.secondary\.label/);
+assert.match(picker, /PUSH 만들기/);
+assert.match(picker, /createButtonPlus/);
+assert.doesNotMatch(picker, /radius\.button/);
 assert.match(picker, /함께할 수 있는 PUSH가 없어요/);
 assert.match(picker, /이미 초대 준비 중이거나/);
 assert.match(together, /TogetherPushPickerModal/);

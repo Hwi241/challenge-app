@@ -16,10 +16,10 @@ import {
 } from 'react-native-safe-area-context';
 
 import {
+  buttonStyles,
   color,
   font,
   primitive,
-  radius,
   space,
 } from '../styles/common';
 
@@ -139,12 +139,30 @@ export default function TogetherPushPickerModal({
 
           <View style={styles.footer}>
             <TouchableOpacity
-              style={styles.createButton}
+              style={[
+                buttonStyles.secondary.container,
+                styles.createButton,
+              ]}
               onPress={onCreatePush}
               activeOpacity={0.82}
+              accessibilityRole="button"
+              accessibilityLabel="PUSH 만들기"
             >
-              <Text style={styles.createButtonText}>
-                +PUSH 만들기
+              <Text
+                style={styles.createButtonPlus}
+                pointerEvents="none"
+              >
+                +
+              </Text>
+
+              <Text
+                style={[
+                  buttonStyles.secondary.label,
+                  styles.createButtonText,
+                ]}
+                pointerEvents="none"
+              >
+                PUSH 만들기
               </Text>
             </TouchableOpacity>
           </View>
@@ -281,17 +299,26 @@ const styles =
       paddingTop: space.md,
     },
     createButton: {
-      minHeight: 50,
-      borderWidth: 1,
-      borderColor: primitive.black,
-      borderRadius: radius.button,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: space.lg,
+      width: '100%',
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+    },
+    createButtonPlus: {
+      marginRight:
+        space.xs,
+      color:
+        color.textPrimary,
+      fontSize: 20,
+      lineHeight: 20,
+      fontWeight:
+        font.weight.medium,
     },
     createButtonText: {
-      color: primitive.black,
-      fontSize: font.size.body,
-      fontWeight: font.weight.bold,
+      color:
+        color.textPrimary,
     },
   });

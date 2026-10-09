@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { emitRewardFeedback, REWARD_FEEDBACK_KIND } from './rewardFeedback';
 
 export const GROWTH_PROGRESS_KEY = 'growth_progress_v1';
 
@@ -59,14 +60,32 @@ export const setGrowthXpIfEmpty = async (totalXp, updatedAt = Date.now()) => {
 };
 
 export const addGrowthXp = async (amount, meta = {}) => {
-  const requested = Math.max(0, Math.floor(Number(amount) || 0));
+  const requested = Math.max(
+    0,
+    Math.floor(Number(amount) || 0)
+  );
   const current = await getGrowthProgress();
+
   const next = {
     version: 1,
     totalXp: current.totalXp + requested,
     updatedAt: Date.now(),
-    lastReward: requested > 0 ? meta : current.lastReward,
+    lastReward: requested > 0
+      ? meta
+      : current.lastReward,
   };
-  await AsyncStorage.setItem(GROWTH_PROGRESS_KEY, JSON.stringify(next));
-  return { amount: requested, ...getLevelProgress(next.totalXp) };
+
+  await AsyncStorage.setItem(
+    GROWTH_PROGRESS_KEY,
+    JSON.stringify(next)
+  );
+
+  if (requested > 0) {
+    emitRewardFeedback(REWARD_FEEDBACK_KIND.XP, requested, meta);
+  }
+
+  return {
+    amount: requested,
+    ...getLevelProgress(next.totalXp),
+  };
 };

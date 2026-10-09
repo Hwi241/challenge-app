@@ -29,6 +29,10 @@ import SettingsScreen from './screens/SettingsScreen';
 import BackupScreen from './screens/BackupScreen';
 import TrashScreen from './screens/TrashScreen';
 import ProfileInventoryScreen from './screens/ProfileInventoryScreen';
+import TogetherScreen from './screens/TogetherScreen';
+import TogetherRoomDetailScreen from './screens/TogetherRoomDetailScreen';
+import TogetherInviteDraftScreen from './screens/TogetherInviteDraftScreen';
+import TogetherInviteAcceptScreen from './screens/TogetherInviteAcceptScreen';
 import ProfileAnalysisScreen from './screens/ProfileAnalysisScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
 import GrowthToolScreen from './screens/GrowthToolScreen';
@@ -40,6 +44,7 @@ import FocusTimerScreen from './screens/FocusTimerScreen';
 import FocusMiniTimer from './components/FocusMiniTimer';
 import FocusOverlayController from './components/FocusOverlayController';
 import MainDock from './components/MainDock';
+import RewardFeedbackHost from './components/RewardFeedbackHost';
 
 import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -58,14 +63,17 @@ const getDockScreenOptions = ({ route }) => ({
       ? 'slide_from_left'
       : 'slide_from_right'
   ),
-  contentStyle: canonicalSurfaceStyles.navigationContent,
+  animationTypeForReplace: 'push',
+  contentStyle:
+    canonicalSurfaceStyles.navigationContent,
 });
 
 const appNavigationRef = createNavigationContainerRef();
 
 const DOCK_ROUTE_TO_KEY = {
-  ChallengeList: 'home',
+  Together: 'together',
   ProfileInventory: 'record',
+  ChallengeList: 'home',
   GraphShop: 'shop',
 };
 
@@ -77,6 +85,17 @@ const linking = {
   config: {
     screens: {
       ChallengeList: 'home',
+      Together: 'together',
+      TogetherInviteAccept: {
+        path: 'together/invite',
+        parse: {
+          data: (value) =>
+            String(
+              value
+              ?? ''
+            ),
+        },
+      },
       Upload: {
         path: 'upload/:challengeId',
         parse: { challengeId: v => String(v) },
@@ -122,7 +141,8 @@ function StartupScreen() {
 
 export default function App() {
   const [showStartup, setShowStartup] = useState(true);
-  const [currentRouteName, setCurrentRouteName] = useState('Startup');
+  const [currentRouteName, setCurrentRouteName] = useState('ChallengeList');
+  const [dockRewardPulse, setDockRewardPulse] = useState(null);
   const dockActive = DOCK_ROUTE_TO_KEY[currentRouteName] || null;
 
   useEffect(() => {
@@ -180,6 +200,21 @@ export default function App() {
     cleanExpiredTrash(30);
   }, []);
 
+  if (showStartup) {
+    return (
+      <GestureHandlerRootView style={canonicalSurfaceStyles.screen}>
+        <StatusBar
+          translucent={false}
+          backgroundColor={color.background}
+          barStyle="dark-content"
+        />
+        <SafeAreaProvider>
+          <StartupScreen />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={canonicalSurfaceStyles.screen}>
       <StatusBar translucent={false} backgroundColor={color.background} barStyle="dark-content" />
@@ -193,36 +228,53 @@ export default function App() {
           <View style={styles.appShell}>
           <View style={styles.navigationHost}>
           <Stack.Navigator
-            initialRouteName={showStartup ? 'Startup' : 'ChallengeList'}
+            initialRouteName="ChallengeList"
             screenOptions={{
               headerShown: false,
               contentStyle: canonicalSurfaceStyles.navigationContent,
             }}
           >
-            {/* 스타트업 */}
-            {showStartup && <Stack.Screen name="Startup" component={StartupScreen} />}
-
             {/* 메인 */}
+            <Stack.Screen
+              name="Together"
+              component={TogetherScreen}
+              options={getDockScreenOptions}
+            />
+            <Stack.Screen
+              name="TogetherRoomDetail"
+              component={TogetherRoomDetailScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="TogetherInviteDraft"
+              component={TogetherInviteDraftScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="TogetherInviteAccept"
+              component={TogetherInviteAcceptScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="ProfileInventory"
+              component={ProfileInventoryScreen}
+              options={getDockScreenOptions}
+            />
             <Stack.Screen
               name="ChallengeList"
               component={ChallengeListScreen}
               options={getDockScreenOptions}
             />
         <Stack.Screen
-          name="ProfileInventory"
-          component={ProfileInventoryScreen}
-          options={getDockScreenOptions}
-        />
-        <Stack.Screen
           name="ProfileAnalysis"
           component={ProfileAnalysisScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen
-          name="GraphShop"
-          component={GrowthToolScreen}
-          options={getDockScreenOptions}
-        />
+            <Stack.Screen
+              name="GraphShop"
+              component={GrowthToolScreen}
+              options={getDockScreenOptions}
+            />
         <Stack.Screen name="LegacyGraphShop" component={GraphShopScreen} />
         <Stack.Screen name="StarWallet" component={StarWalletScreen} />
         <Stack.Screen name="GrowthLevel" component={GrowthLevelScreen} />
@@ -276,6 +328,7 @@ export default function App() {
             <MainDock
               active={dockActive}
               navigationRef={appNavigationRef}
+              rewardPulse={dockRewardPulse}
             />
           )}
           <FocusMiniTimer
@@ -283,6 +336,10 @@ export default function App() {
             routeName={currentRouteName}
           />
           <FocusOverlayController />
+          <RewardFeedbackHost
+            dockVisible={!!dockActive}
+            onDockPulse={setDockRewardPulse}
+          />
           </View>
         </NavigationContainer>
       </SafeAreaProvider>

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { emitRewardFeedback, REWARD_FEEDBACK_KIND } from './rewardFeedback';
 
 export const STAR_KEYS = {
   wallet: 'star_wallet',
@@ -116,15 +117,26 @@ export const getStarLedger = async () => {
   return Array.isArray(list) ? list : [];
 };
 
-export const grantStars = async (amount, reason = 'grant', meta = {}) => enqueueWalletMutation(async () => {
+export const grantStars = async (
+  amount,
+  reason = 'grant',
+  meta = {}
+) => enqueueWalletMutation(async () => {
   await ensureInitialStars();
+
   const wallet = await getStarWallet();
   const before = Number(wallet.balance || 0);
-  const requested = Math.max(0, Number(amount || 0));
+
+  const requested = Math.max(
+    0,
+    Number(amount || 0)
+  );
+
   const after = clampBalance(before + requested, MIN_STARS);
   const actual = after - before;
 
   const next = await writeWalletRaw({ balance: after });
+
   if (actual !== 0) {
     await appendLedger({
       type: 'grant',
@@ -137,7 +149,22 @@ export const grantStars = async (amount, reason = 'grant', meta = {}) => enqueue
     });
   }
 
-  return { ok: true, balance: next.balance, amount: actual };
+  if (actual > 0) {
+    emitRewardFeedback(
+      REWARD_FEEDBACK_KIND.STAR,
+      actual,
+      {
+        reason,
+        ...meta,
+      }
+    );
+  }
+
+  return {
+    ok: true,
+    balance: next.balance,
+    amount: actual,
+  };
 });
 
 export const canSpendStars = async (amount) => {

@@ -47,7 +47,7 @@ const CARD_COLLAPSE_ANIM_MS = 320;
 const HallOfFameTrophyIcon = memo(
   function HallOfFameTrophyIcon() {
     return (
-      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" pointerEvents="none">
+      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" pointerEvents="none">
         <Path d="M8 4H16V7.5C16 10.6 14.25 13 12 13C9.75 13 8 10.6 8 7.5V4Z" stroke={color.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
         <Path d="M8 6H5V7.5C5 9.8 6.25 11 8.35 11" stroke={color.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
         <Path d="M16 6H19V7.5C19 9.8 17.75 11 15.65 11" stroke={color.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />

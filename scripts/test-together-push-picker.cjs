@@ -54,6 +54,56 @@ assert.match(inviteDraft, /useSafeAreaInsets/);
 assert.match(inviteDraft, /insets\.bottom\s*\+\s*72/);
 assert.match(inviteDraft, /96/);
 
+assert.match(
+  picker,
+  /justifyContent:\s*['"]center['"]/
+);
+
+assert.match(
+  picker,
+  /alignItems:\s*['"]center['"]/
+);
+
+assert.match(
+  picker,
+  /maxWidth:\s*520/
+);
+
+assert.match(
+  picker,
+  /maxHeight:\s*['"]70%['"]/
+);
+
+assert.match(
+  picker,
+  /borderRadius:\s*20/
+);
+
+assert.match(
+  picker,
+  /elevation:\s*12/
+);
+
+assert.doesNotMatch(
+  picker,
+  /justifyContent:\s*['"]flex-end['"]/
+);
+
+assert.doesNotMatch(
+  picker,
+  /styles\.handle/
+);
+
+assert.doesNotMatch(
+  picker,
+  /borderTopLeftRadius/
+);
+
+assert.doesNotMatch(
+  picker,
+  /borderTopRightRadius/
+);
+
 console.log(
   'Together PUSH picker tests: PASS'
 );

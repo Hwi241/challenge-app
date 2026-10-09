@@ -129,8 +129,21 @@ function TogetherConfirmSheet({ visible, card, creating, onClose, onConfirm }) {
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={creating ? undefined : onClose}>
       <View style={styles.modalRoot}>
         <Pressable style={styles.modalBackdrop} onPress={creating ? undefined : onClose} accessibilityRole="button" accessibilityLabel="닫기" />
-        <View style={[styles.confirmSheet, { paddingBottom: Math.max(insets.bottom + 18, 28) }]}>
-          <View style={styles.sheetHandle} />
+        <View
+          style={[
+            styles.confirmSheet,
+            {
+              paddingBottom:
+                Math.max(
+                  space.lg,
+                  Math.min(
+                    insets.bottom,
+                    space.xl
+                  )
+                ),
+            },
+          ]}
+        >
           <Text style={styles.confirmEyebrow}>{card.togetherTypeLabel || '도전'}</Text>
           <Text style={styles.confirmTitle}>{card.title || '함께 활동'}</Text>
           <Text style={styles.confirmQuestion}>이 활동을 친구와 함께 이어갈까요?</Text>
@@ -532,10 +545,40 @@ const styles = StyleSheet.create({
   guideLabel: { marginTop: 7, color: color.textSecondary, fontSize: 11, lineHeight: 15, fontWeight: font.weight.medium, textAlign: 'center' },
   guideDivider: { flex: 1, maxWidth: 38, height: 1, marginTop: 13, backgroundColor: color.border },
   emptyFootnote: { marginTop: 28, color: color.textTertiary, fontSize: 11, lineHeight: 17, fontWeight: font.weight.medium, textAlign: 'center' },
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.34)' },
-  sheetHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: color.border, marginBottom: 22 },
-  confirmSheet: { backgroundColor: color.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 10, alignItems: 'stretch' },
+  modalRoot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor:
+      'rgba(0, 0, 0, 0.36)',
+  },
+  confirmSheet: {
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '70%',
+    backgroundColor:
+      color.background,
+    borderRadius: 20,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    alignItems: 'stretch',
+
+    shadowColor:
+      primitive.black,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+
+    elevation: 12,
+  },
   confirmEyebrow: { marginTop: 4, color: color.textSecondary, fontSize: 11, lineHeight: 15, fontWeight: font.weight.bold, textAlign: 'center' },
   confirmTitle: { marginTop: 6, color: color.textPrimary, fontSize: 22, lineHeight: 28, fontWeight: font.weight.heavy, textAlign: 'center' },
   confirmQuestion: { marginTop: 9, color: color.textSecondary, fontSize: 13, lineHeight: 19, fontWeight: font.weight.medium, textAlign: 'center' },

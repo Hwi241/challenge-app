@@ -54,14 +54,15 @@ export default function TogetherPushPickerModal({
             {
               paddingBottom:
                 Math.max(
-                  insets.bottom,
-                  space.md
+                  space.lg,
+                  Math.min(
+                    insets.bottom,
+                    space.xl
+                  )
                 ),
             },
           ]}
         >
-          <View style={styles.handle} />
-
           <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={styles.title}>
@@ -157,28 +158,35 @@ const styles =
   StyleSheet.create({
     root: {
       flex: 1,
-      justifyContent: 'flex-end',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+      paddingHorizontal: 20,
+      paddingVertical: 24,
     },
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.28)',
+      backgroundColor: 'rgba(0,0,0,0.36)',
     },
     sheet: {
       width: '100%',
-      maxHeight: '78%',
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
+      maxWidth: 520,
+      maxHeight: '70%',
+      borderRadius: 20,
       backgroundColor: color.background,
-      paddingTop: space.sm,
+      paddingTop: space.lg,
       paddingHorizontal: space.lg,
-    },
-    handle: {
-      width: 34,
-      height: 4,
-      borderRadius: 2,
-      alignSelf: 'center',
-      backgroundColor: primitive.neutral[300],
-      marginBottom: space.md,
+
+      shadowColor: primitive.black,
+      shadowOffset: {
+        width: 0,
+        height: 8,
+      },
+      shadowOpacity: 0.18,
+      shadowRadius: 20,
+
+      elevation: 12,
     },
     header: {
       flexDirection: 'row',
@@ -214,7 +222,10 @@ const styles =
       marginTop: space.lg,
       backgroundColor: color.border,
     },
-    list: { flexShrink: 1 },
+    list: {
+      flexShrink: 1,
+      maxHeight: 360,
+    },
     listContent: { paddingVertical: space.sm },
     loading: {
       minHeight: 180,

@@ -4,6 +4,9 @@ import {
   getChallengeType,
   CHALLENGE_TYPE,
 } from './challengeType';
+import {
+  acceptTogetherRemoteInvite,
+} from './togetherRemoteRooms';
 
 const ACCEPTED_ROOMS_KEY =
   'together_accepted_rooms_v1';
@@ -11,7 +14,7 @@ const ACCEPTED_ROOMS_KEY =
 const ACCEPTED_ROOM_STATUS =
   'accepted_local';
 
-const SUPPORTED_VERSION = 1;
+const SUPPORTED_VERSION = 2;
 
 const SUPPORTED_SHARE_POLICY =
   'completion_only';
@@ -520,6 +523,8 @@ export const acceptTogetherInvitation =
   async ({
     invitation,
     challengeId,
+    remoteAccept =
+      acceptTogetherRemoteInvite,
   }) => {
     const normalized =
       normalizeInvitationObject(
@@ -560,6 +565,24 @@ export const acceptTogetherInvitation =
       );
     }
 
+    const remoteRoom =
+      await remoteAccept({
+        inviteToken:
+          normalized.invitationId,
+      });
+
+    const serverRoomId =
+      String(
+        remoteRoom?.roomId
+        ?? ''
+      ).trim();
+
+    if (!serverRoomId) {
+      throw new Error(
+        'TOGETHER_REMOTE_ROOM_REQUIRED'
+      );
+    }
+
     const current =
       await loadTogetherAcceptedRooms();
 
@@ -595,6 +618,8 @@ export const acceptTogetherInvitation =
 
       invitationId:
         normalized.invitationId,
+
+      serverRoomId,
 
       challengeId:
         selected.id,

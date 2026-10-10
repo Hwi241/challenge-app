@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  createTogetherRemoteRoom,
+} from './togetherRemoteRooms';
 
 export const TOGETHER_INVITATIONS_KEY = 'together_invitations_v1';
-export const TOGETHER_INVITATION_VERSION = 1;
+export const TOGETHER_INVITATION_VERSION = 2;
 
 const LINK_PREFIX = 'thepush://together/invite?data=';
 const safeArray = (value) => (Array.isArray(value) ? value : []);
@@ -16,8 +19,6 @@ const parseArray = (raw) => {
 };
 
 const safeText = (value, fallback = '', maxLength = 120) => String(value ?? fallback).trim().slice(0, maxLength);
-
-const makeDefaultInvitationId = (now) => `together_invite_${Math.trunc(now).toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
 const normalizePublicPayload = (raw) => {
   if (!raw || typeof raw !== 'object') return null;
@@ -70,6 +71,8 @@ const normalizeStoredInvitation = (raw) => {
   const id = safeText(raw.id, '', 100);
   const draftId = safeText(raw.draftId, '', 160);
   const challengeId = safeText(raw.challengeId, '', 160);
+  const serverRoomId = safeText(raw.serverRoomId, '', 100);
+  const inviteExpiresAt = safeText(raw.inviteExpiresAt, '', 100);
   const title = safeText(raw.title, '', 120);
   const typeLabel = safeText(raw.typeLabel, '', 20);
   const createdAt = Number(raw.createdAt);
@@ -90,6 +93,8 @@ const normalizeStoredInvitation = (raw) => {
     !id
     || !draftId
     || !challengeId
+    || !serverRoomId
+    || !inviteExpiresAt
     || !title
     || !typeLabel
     || !payload
@@ -107,6 +112,8 @@ const normalizeStoredInvitation = (raw) => {
     status: 'ready',
     draftId,
     challengeId,
+    serverRoomId,
+    inviteExpiresAt,
     title,
     typeLabel,
     sharePolicy: 'completion_only',
@@ -137,16 +144,28 @@ export const createOrReuseTogetherInvitation = async ({
   draft,
   storage = AsyncStorage,
   now = Date.now(),
-  invitationIdFactory = makeDefaultInvitationId,
+  remoteRoomFactory = createTogetherRemoteRoom,
 } = {}) => {
-  if (!draft || !draft.id || !draft.challengeId) throw new Error('TOGETHER_INVITATION_DRAFT_REQUIRED');
+  if (!draft || !draft.id || !draft.challengeId) {
+    throw new Error('TOGETHER_INVITATION_DRAFT_REQUIRED');
+  }
   const timestamp = Number(now);
   const safeTimestamp = Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now();
   const invitations = await loadTogetherInvitations({ storage });
   const existingIndex = invitations.findIndex((item) => item.draftId === String(draft.id));
   const existing = existingIndex >= 0 ? invitations[existingIndex] : null;
-  const invitationId = existing?.id || safeText(invitationIdFactory(safeTimestamp), '', 100);
-  if (!invitationId) throw new Error('TOGETHER_INVITATION_ID_REQUIRED');
+  let serverRoomId = existing?.serverRoomId || '';
+  let invitationId = existing?.id || '';
+  let inviteExpiresAt = existing?.inviteExpiresAt || '';
+  if (!existing) {
+    const remoteRoom = await remoteRoomFactory();
+    serverRoomId = safeText(remoteRoom?.roomId, '', 100);
+    invitationId = safeText(remoteRoom?.inviteToken, '', 100);
+    inviteExpiresAt = safeText(remoteRoom?.inviteExpiresAt, '', 100);
+    if (!serverRoomId || !invitationId || !inviteExpiresAt) {
+      throw new Error('TOGETHER_REMOTE_ROOM_REQUIRED');
+    }
+  }
   const createdAt = existing?.createdAt || safeTimestamp;
   const title = safeText(draft.title, '함께 활동', 120);
   const typeLabel = safeText(draft.typeLabel, '도전', 20);
@@ -165,6 +184,8 @@ export const createOrReuseTogetherInvitation = async ({
     status: 'ready',
     draftId: String(draft.id),
     challengeId: String(draft.challengeId),
+    serverRoomId,
+    inviteExpiresAt,
     title,
     typeLabel,
     sharePolicy: 'completion_only',

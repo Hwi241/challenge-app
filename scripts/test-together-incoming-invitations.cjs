@@ -79,6 +79,26 @@ assert.match(
 
 assert.match(
   utilitySource,
+  /SUPPORTED_VERSION\s*=\s*2/
+);
+
+assert.match(
+  utilitySource,
+  /acceptTogetherRemoteInvite/
+);
+
+assert.match(
+  utilitySource,
+  /remoteAccept/
+);
+
+assert.match(
+  utilitySource,
+  /serverRoomId/
+);
+
+assert.match(
+  utilitySource,
   /loadTogetherAcceptedRoomByInvitationId/
 );
 
@@ -104,7 +124,7 @@ assert.match(
 
 assert.match(
   screenSource,
-  /현재는 이 기기에/
+  /같은 함께 방에 연결되었습니다/
 );
 
 assert.match(

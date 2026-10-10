@@ -1,7 +1,8 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Clipboard from 'expo-clipboard';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   color, font, primitive, radius, space,
@@ -19,6 +20,7 @@ import {
 } from '../utils/togetherLocalLifecycle';
 import {
   loadTogetherAcceptableChallenges,
+  parseTogetherInvitationUrl,
 } from '../utils/togetherIncomingInvitations';
 import { createOrReuseTogetherRoomDraft, loadTogetherRoomDrafts } from '../utils/togetherRoomDrafts';
 
@@ -264,6 +266,56 @@ export default function TogetherScreen({ navigation }) {
     navigation.navigate('TogetherRoomDetail', { room });
   }, [navigation]);
 
+  const openCopiedInvitation =
+    useCallback(
+      async () => {
+        try {
+          const raw =
+            await Clipboard.getStringAsync();
+
+          const invitation =
+            parseTogetherInvitationUrl(
+              raw
+            );
+
+          if (!invitation) {
+            Alert.alert(
+              '초대 링크 확인',
+              '복사한 THE PUSH 초대 링크를 찾지 못했어요.'
+            );
+
+            return;
+          }
+
+          navigation.navigate(
+            'TogetherInviteAccept',
+            {
+              data:
+                JSON.stringify(
+                  invitation
+                ),
+            }
+          );
+        } catch (
+          error
+        ) {
+          console.warn(
+            '[Together] read invitation clipboard failed',
+            error?.message
+            || 'unknown'
+          );
+
+          Alert.alert(
+            '초대 링크 확인',
+            '복사한 초대 링크를 불러오지 못했어요.'
+          );
+        }
+      },
+      [
+        navigation,
+      ]
+    );
+
   const loadPushPickerItems =
     useCallback(
       async () => {
@@ -448,6 +500,9 @@ export default function TogetherScreen({ navigation }) {
             <TouchableOpacity style={styles.contentStartButton} activeOpacity={0.82} onPress={openPushPicker} accessibilityRole="button" accessibilityLabel="함께 시작하기">
               <PlusIcon /><Text style={styles.contentStartText}>함께 시작하기</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.inviteLinkButton} activeOpacity={0.78} onPress={openCopiedInvitation} accessibilityRole="button" accessibilityLabel="복사한 초대 링크로 참여하기">
+              <Text style={styles.inviteLinkButtonText}>복사한 초대 링크로 참여하기</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <View style={styles.emptyState}>
@@ -456,6 +511,9 @@ export default function TogetherScreen({ navigation }) {
             <Text style={styles.emptyDescription}>친구 한 명과 같은 활동을 이어가며{`\n`}오늘 했는지 서로 확인할 수 있어요.</Text>
             <TouchableOpacity style={styles.primaryButton} activeOpacity={0.84} onPress={openPushPicker} accessibilityRole="button" accessibilityLabel="함께 시작하기">
               <Text style={styles.primaryButtonText}>함께 시작하기</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inviteLinkButton} activeOpacity={0.78} onPress={openCopiedInvitation} accessibilityRole="button" accessibilityLabel="복사한 초대 링크로 참여하기">
+              <Text style={styles.inviteLinkButtonText}>복사한 초대 링크로 참여하기</Text>
             </TouchableOpacity>
             <View style={styles.guideRow}>
               <View style={styles.guideItem}><View style={styles.guideNumber}><Text style={styles.guideNumberText}>1</Text></View><Text style={styles.guideLabel}>활동 선택</Text></View>
@@ -510,6 +568,8 @@ const styles = StyleSheet.create({
   draftTitle: { marginTop: 5, color: color.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: font.weight.heavy },
   contentStartButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: color.border, borderRadius: radius.md, marginTop: 2 },
   contentStartText: { marginLeft: 8, color: color.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: font.weight.heavy },
+  inviteLinkButton: { minHeight: 42, marginTop: 8, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
+  inviteLinkButtonText: { color: color.textSecondary, fontSize: 12, lineHeight: 16, fontWeight: font.weight.bold, textAlign: 'center', textDecorationLine: 'underline' },
   roomCard: { backgroundColor: color.background, borderWidth: 1, borderColor: color.border, borderRadius: radius.md, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 14 },
   roomCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   roomIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },

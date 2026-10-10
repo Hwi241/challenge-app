@@ -12,6 +12,9 @@ import {
 import { loadTogetherRoomDraftById } from '../utils/togetherRoomDrafts';
 import { createOrReuseTogetherInvitation, loadTogetherInvitationByDraftId } from '../utils/togetherInvitations';
 import { cancelTogetherRoomDraft } from '../utils/togetherLocalLifecycle';
+import {
+  ensureTogetherAnonymousSession,
+} from '../utils/togetherRemoteAuth';
 
 const BackIcon = memo(function BackIcon() {
   return <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" pointerEvents="none"><Path d="M15 5L8 12L15 19" stroke={color.textPrimary} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
@@ -88,11 +91,45 @@ export default function TogetherInviteDraftScreen({ navigation, route }) {
 
   const prepareInvitation = useCallback(async () => {
     if (!draft || preparing) return;
+
     setPreparing(true);
+
     try {
-      setInvitation(await createOrReuseTogetherInvitation({ draft }));
+      const authResult =
+        await ensureTogetherAnonymousSession();
+
+      if (
+        !authResult?.ok
+      ) {
+        console.warn(
+          '[Together] prepare invitation auth failed',
+          authResult?.reason
+            || 'unknown'
+        );
+
+        Alert.alert(
+          '연결 오류',
+          '서버 연결을 확인하지 못했어요. 잠시 후 다시 시도해주세요.'
+        );
+
+        return;
+      }
+
+      setInvitation(
+        await createOrReuseTogetherInvitation({
+          draft,
+        })
+      );
     } catch (error) {
-      console.warn('[Together] create invitation failed', error);
+      console.warn(
+        '[Together] create invitation failed',
+        error
+      );
+
+      Alert.alert(
+        '초대 오류',
+        '초대 링크를 만들지 못했어요. 잠시 후 다시 시도해주세요.'
+      );
     } finally {
       setPreparing(false);
     }
@@ -245,7 +282,7 @@ export default function TogetherInviteDraftScreen({ navigation, route }) {
                   <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.8} onPress={copyLink} accessibilityRole="button" accessibilityLabel="초대 링크 복사"><Text style={styles.secondaryButtonText}>{copied ? '복사됨' : '링크 복사'}</Text></TouchableOpacity>
                   <TouchableOpacity style={styles.shareButton} activeOpacity={0.84} disabled={sharing} onPress={shareInvitation} accessibilityRole="button" accessibilityLabel="초대 공유하기"><Text style={styles.shareButtonText}>{sharing ? '공유 중...' : '공유하기'}</Text></TouchableOpacity>
                 </View>
-                <View style={styles.receiveNotice}><Text style={styles.receiveNoticeTitle}>수락 연결은 다음 단계에서 적용됩니다.</Text><Text style={styles.receiveNoticeText}>지금은 초대 링크와 QR을 안전하게 만들고{`\n`}전달하는 단계입니다. 링크를 받은 친구의{`\n`}수락 화면은 다음 작업에서 연결합니다.</Text></View>
+                <View style={styles.receiveNotice}><Text style={styles.receiveNoticeTitle}>친구 한 명과 연결됩니다.</Text><Text style={styles.receiveNoticeText}>초대를 받은 친구가 자신의 PUSH를 선택해{`\n`}수락하면 같은 함께 방에 연결됩니다.</Text></View>
               </>
             )}
             <TouchableOpacity

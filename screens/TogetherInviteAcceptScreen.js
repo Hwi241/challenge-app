@@ -37,6 +37,9 @@ import {
   loadTogetherAcceptedRoomByInvitationId,
   parseTogetherInvitationData,
 } from '../utils/togetherIncomingInvitations';
+import {
+  ensureTogetherAnonymousSession,
+} from '../utils/togetherRemoteAuth';
 
 const SHARE_DESCRIPTION =
   '완료 여부만 공유';
@@ -188,6 +191,25 @@ export default function TogetherInviteAcceptScreen({
         setErrorMessage('');
 
         try {
+          const authResult =
+            await ensureTogetherAnonymousSession();
+
+          if (
+            !authResult?.ok
+          ) {
+            console.warn(
+              '[Together] accept invitation auth failed',
+              authResult?.reason
+                || 'unknown'
+            );
+
+            setErrorMessage(
+              '서버 연결을 확인하지 못했어요. 잠시 후 다시 시도해주세요.'
+            );
+
+            return;
+          }
+
           const next =
             await acceptTogetherInvitation({
               invitation,
@@ -344,9 +366,8 @@ export default function TogetherInviteAcceptScreen({
               styles.localNotice
             }
           >
-            현재는 이 기기에
-            수락 상태만 저장됩니다.
-            상대 기록 연결은
+            같은 함께 방에 연결되었습니다.
+            완료 상태 동기화는
             다음 단계에서 이어집니다.
           </Text>
 

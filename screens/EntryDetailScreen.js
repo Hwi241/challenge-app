@@ -32,6 +32,7 @@ import { syncWidgetChallengeList } from '../utils/widgetSync';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { getAppSettings } from '../utils/appSettings';
 import { deleteCalendarRecordEvent, updateCalendarRecordEvent } from '../utils/calendarRecord';
+import { emitTogetherLocalProgressChangedV2 } from '../utils/togetherLocalProgressSignalV2';
 
 const MAX_TEXT_LEN = 500;
 const MAX_MINUTES = 1440;
@@ -230,6 +231,7 @@ export default function EntryDetailScreen() {
 
         list[idx] = updated;
         await AsyncStorage.setItem(`entries_${challengeId}`, JSON.stringify(list));
+        emitTogetherLocalProgressChangedV2();
         markAsSaved();
 
         if (updateCalendar && originalEntry?.calendarEventId) {
@@ -378,6 +380,8 @@ export default function EntryDetailScreen() {
           await AsyncStorage.setItem(`challenge_${challengeId}`, JSON.stringify(challenges[idx]));
           await syncWidgetChallengeList();
         }
+
+        emitTogetherLocalProgressChangedV2();
 
         markAsSaved();
 

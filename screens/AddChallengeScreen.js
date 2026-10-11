@@ -58,6 +58,9 @@ const parseDateForClone = (value) => {
 export default function AddChallengeScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const fromTogether = route?.params?.fromTogether === true;
+  const returnToTogetherInviteAccept =
+    route?.params?.returnToTogetherInviteAccept === true;
   const editChallenge = (
     route.params?.editChallenge
     || null
@@ -649,7 +652,15 @@ const handleGoalChange = useCallback((txt)=>{
               }
 
               markAsSaved();
-              if (typeof navigation.popTo === 'function') {
+              if (!isEditMode && fromTogether && returnToTogetherInviteAccept) {
+                navigation.popTo(
+                  'TogetherInviteAccept',
+                  { togetherCreatedPushId: id },
+                  { merge: true }
+                );
+              } else if (!isEditMode && fromTogether) {
+                navigation.popTo('Together', { togetherCreatedPushId: id });
+              } else if (typeof navigation.popTo === 'function') {
                 navigation.popTo('ChallengeList');
               } else {
                 navigation.navigateDeprecated('ChallengeList');
@@ -663,7 +674,7 @@ const handleGoalChange = useCallback((txt)=>{
         },
       ]
     );
-  }, [busy, title, description, habitMode, startDate, endDate, habitCycle, notification, goalScore, reward, saveAndSchedule, syncWidgetChallengeList, markAsSaved, navigation, isEditMode, editChallenge]);
+  }, [busy, title, description, habitMode, startDate, endDate, habitCycle, notification, goalScore, reward, saveAndSchedule, syncWidgetChallengeList, markAsSaved, navigation, isEditMode, editChallenge, fromTogether, returnToTogetherInviteAccept]);
 
   return (
     <SafeAreaView style={canonicalSurfaceStyles.screen}>

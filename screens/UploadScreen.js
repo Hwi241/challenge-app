@@ -85,6 +85,7 @@ import { syncWidgetChallengeList } from '../utils/widgetSync';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
 import { getAppSettings } from '../utils/appSettings';
 import { createCalendarRecordEvent } from '../utils/calendarRecord';
+import { emitTogetherLocalProgressChangedV2 } from '../utils/togetherLocalProgressSignalV2';
 
 /* 습관 연속 인증 레벨 계산 */
 function calcStreakLevel(entries) {
@@ -1001,6 +1002,8 @@ const MAX_MINUTES = 1440; // 24시간
         nextGoal = challenges[idx]?.goalScore;
         nextReward = challenges[idx]?.reward;
       }
+
+      emitTogetherLocalProgressChangedV2();
 
       if (!isPastEntry) {
         try {

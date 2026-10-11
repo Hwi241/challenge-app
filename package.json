@@ -15,6 +15,7 @@
     "expo": "~57.0.19",
     "expo-application": "~57.0.2",
     "expo-calendar": "~57.0.2",
+    "expo-camera": "~57.0.6",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.17",
     "expo-device": "~57.0.1",

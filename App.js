@@ -33,6 +33,10 @@ import TogetherScreen from './screens/TogetherScreen';
 import TogetherRoomDetailScreen from './screens/TogetherRoomDetailScreen';
 import TogetherInviteDraftScreen from './screens/TogetherInviteDraftScreen';
 import TogetherInviteAcceptScreen from './screens/TogetherInviteAcceptScreen';
+import TogetherSharedGoalCreateScreen from './screens/TogetherSharedGoalCreateScreen';
+import TogetherQrScanScreen from './screens/TogetherQrScanScreen';
+import TogetherJoinEntryScreen from './screens/TogetherJoinEntryScreen';
+import TogetherRoomManageScreen from './screens/TogetherRoomManageScreen';
 import ProfileAnalysisScreen from './screens/ProfileAnalysisScreen';
 import GraphShopScreen from './screens/GraphShopScreen';
 import GrowthToolScreen from './screens/GrowthToolScreen';
@@ -45,6 +49,7 @@ import FocusMiniTimer from './components/FocusMiniTimer';
 import FocusOverlayController from './components/FocusOverlayController';
 import MainDock from './components/MainDock';
 import RewardFeedbackHost from './components/RewardFeedbackHost';
+import TogetherSyncController from './components/TogetherSyncController';
 
 import { color, surface as canonicalSurfaceStyles } from './styles/common';
 import { syncWidgetChallengeList } from './utils/widgetSync';
@@ -87,9 +92,9 @@ const linking = {
       ChallengeList: 'home',
       Together: 'together',
       TogetherInviteAccept: {
-        path: 'together/invite',
+        path: 'j/:code',
         parse: {
-          data: (value) =>
+          code: (value) =>
             String(
               value
               ?? ''
@@ -255,6 +260,14 @@ export default function App() {
               component={TogetherInviteAcceptScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="TogetherSharedGoalCreate" component={TogetherSharedGoalCreateScreen} />
+            <Stack.Screen name="TogetherQrScan" component={TogetherQrScanScreen} />
+            <Stack.Screen
+              name="TogetherJoinEntry"
+              component={TogetherJoinEntryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="TogetherRoomManage" component={TogetherRoomManageScreen} />
             <Stack.Screen
               name="ProfileInventory"
               component={ProfileInventoryScreen}
@@ -340,6 +353,7 @@ export default function App() {
             dockVisible={!!dockActive}
             onDockPulse={setDockRewardPulse}
           />
+          <TogetherSyncController />
           </View>
         </NavigationContainer>
       </SafeAreaProvider>

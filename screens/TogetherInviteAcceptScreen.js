@@ -1,1054 +1,172 @@
-import React, {
-  useCallback,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import TogetherPushPickerModal from '../components/TogetherPushPickerModal';
+import { color, font, primitive, radius, space, surface as surfaceStyles } from '../styles/common';
+import { normalizeTogetherInviteCode, getTogetherModeDescription, getTogetherModeLabel } from '../utils/togetherV2';
+import { getTogetherInvitePreviewV2, acceptTogetherInviteV2, loadTogetherRoomSnapshotV2 } from '../utils/togetherRemoteV2';
+import { ensureTogetherAnonymousSession, getExistingTogetherSession } from '../utils/togetherRemoteAuth';
+import { loadTogetherDisplayName } from '../utils/togetherProfile';
+import { createLocalPushFromTogetherTemplate } from '../utils/togetherPushTemplate';
+import { loadTogetherEligibleCards, loadTogetherProgressMetrics } from '../utils/togetherLocalData';
+import { upsertTogetherBinding } from '../utils/togetherBindings';
+import { loadTogetherRoomDraftsV2 } from '../utils/togetherRoomDrafts';
+import { findLocalOwnerInviteV2, isVerifiedOwnerInviteV2, resolveTogetherAcceptOutcomeV2 } from '../utils/togetherInviteAcceptanceGuardV2';
+import { resolveTogetherCreatedPushResumeV2 } from '../utils/togetherInviteCreatedPushResumeV2';
 
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-
-import {
-  useFocusEffect,
-} from '@react-navigation/native';
-
-import {
-  SafeAreaView,
-} from 'react-native-safe-area-context';
-
-import BackButton from '../components/BackButton';
-
-import {
-  color,
-  font,
-  primitive,
-  radius,
-  space,
-  surface,
-} from '../styles/common';
-
-import {
-  acceptTogetherInvitation,
-  loadTogetherAcceptableChallenges,
-  loadTogetherAcceptedRoomByInvitationId,
-  parseTogetherInvitationData,
-} from '../utils/togetherIncomingInvitations';
-import {
-  ensureTogetherAnonymousSession,
-} from '../utils/togetherRemoteAuth';
-
-const SHARE_DESCRIPTION =
-  '완료 여부만 공유';
-
-const getInvitationFromRoute = (
-  route
-) => (
-  parseTogetherInvitationData(
-    route?.params?.data
-  )
-);
-
-export default function TogetherInviteAcceptScreen({
-  navigation,
-  route,
-}) {
-  const invitation =
-    getInvitationFromRoute(
-      route
-    );
-
-  const [
-    challenges,
-    setChallenges,
-  ] = useState([]);
-
-  const [
-    selectedChallengeId,
-    setSelectedChallengeId,
-  ] = useState(null);
-
-  const [
-    acceptedRoom,
-    setAcceptedRoom,
-  ] = useState(null);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    accepting,
-    setAccepting,
-  ] = useState(false);
-
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState('');
-
-  const load = useCallback(
-    async () => {
-      setLoading(true);
-      setErrorMessage('');
-
-      try {
-        if (!invitation) {
-          setChallenges([]);
-          setAcceptedRoom(null);
-
-          return;
-        }
-
-        const [
-          nextChallenges,
-          existingRoom,
-        ] = await Promise.all([
-          loadTogetherAcceptableChallenges(),
-
-          loadTogetherAcceptedRoomByInvitationId(
-            invitation.invitationId
-          ),
-        ]);
-
-        setChallenges(
-          nextChallenges
-        );
-
-        setAcceptedRoom(
-          existingRoom
-          || null
-        );
-
-        if (
-          existingRoom?.challengeId
-          && nextChallenges.some(
-            (challenge) =>
-              challenge.id
-              === existingRoom.challengeId
-          )
-        ) {
-          setSelectedChallengeId(
-            existingRoom.challengeId
-          );
-        } else {
-          setSelectedChallengeId(
-            null
-          );
-        }
-      } catch {
-        setErrorMessage(
-          '초대 정보를 불러오지 못했어요.'
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [
-      invitation?.invitationId,
-    ]
-  );
-
+export default function TogetherInviteAcceptScreen({ navigation, route }) {
+  const code = normalizeTogetherInviteCode(route?.params?.code);
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState('');
+  const [accepting, setAccepting] = useState(false);
+  const [result, setResult] = useState(null);
+  const [picker, setPicker] = useState(false);
+  const [cards, setCards] = useState([]);
+  const [ownedRoomId, setOwnedRoomId] = useState('');
+  const [checkingOwnInvite, setCheckingOwnInvite] = useState(false);
+  const [ownInviteError, setOwnInviteError] = useState('');
+  const [completedRoomId, setCompletedRoomId] = useState('');
+  const [resumeBindingError, setResumeBindingError] = useState('');
+  const [ownerCheckNonce, setOwnerCheckNonce] = useState(0);
+  const ownerCheckSequence = useRef(0);
+  const createdPushResumeConsumedRef = useRef('');
+  const checkOwnInvitation = useCallback(async (inviteCode, sequence) => {
+    const isCurrent = () => ownerCheckSequence.current === sequence;
+    if (isCurrent()) {
+      setCheckingOwnInvite(true);
+      setOwnInviteError('');
+      setOwnedRoomId('');
+    }
+    try {
+      const drafts = await loadTogetherRoomDraftsV2();
+      const candidate = findLocalOwnerInviteV2({ code: inviteCode, drafts });
+      if (!candidate) return { isOwner: false, roomId: '' };
+      const [session, snapshot] = await Promise.all([
+        getExistingTogetherSession(),
+        loadTogetherRoomSnapshotV2({ roomId: candidate.roomId }),
+      ]);
+      const verified = isVerifiedOwnerInviteV2({ snapshot, sessionUserId: session?.user?.id, expectedRoomId: candidate.roomId });
+      if (verified && isCurrent()) setOwnedRoomId(candidate.roomId);
+      return { isOwner: verified, roomId: verified ? candidate.roomId : '' };
+    } catch (error) {
+      console.warn('[TogetherInviteAccept] owner check failed', String(error?.message || 'unknown'));
+      if (isCurrent()) setOwnInviteError('초대 소유자를 확인하지 못했어요. 다시 시도해주세요.');
+      return { isOwner: false, roomId: '', error: true };
+    } finally {
+      if (isCurrent()) setCheckingOwnInvite(false);
+    }
+  }, []);
+  useEffect(() => {
+    const sequence = ++ownerCheckSequence.current;
+    let active = true;
+    setPreview(null);
+    setError('');
+    setResult(null);
+    setCompletedRoomId('');
+    if (!code) {
+      setCheckingOwnInvite(false);
+      setError('초대 코드를 확인해주세요.');
+      return () => { active = false; ownerCheckSequence.current += 1; };
+    }
+    Promise.all([
+      getTogetherInvitePreviewV2({ code }),
+      checkOwnInvitation(code, sequence),
+    ]).then(([value]) => {
+      if (active && ownerCheckSequence.current === sequence) setPreview(value);
+    }).catch(() => {
+      if (active && ownerCheckSequence.current === sequence) setError('사용할 수 없는 초대예요.');
+    });
+    return () => {
+      active = false;
+      if (ownerCheckSequence.current === sequence) ownerCheckSequence.current += 1;
+    };
+  }, [checkOwnInvitation, code, ownerCheckNonce]);
+  const completeAccepted = (accepted) => {
+    const outcome = resolveTogetherAcceptOutcomeV2({ joinStatus: accepted?.joinStatus, roomId: accepted?.roomId, bindingComplete: true });
+    if (outcome.state === 'complete') {
+      setCompletedRoomId(outcome.roomId);
+      setResult({ ...accepted, complete: true });
+      return true;
+    }
+    setCompletedRoomId('');
+    setResult(accepted);
+    return false;
+  };
+  const bindCard = async (card) => {
+    try {
+      const metrics = result.mode === 'shared_goal' ? await loadTogetherProgressMetrics({ challengeId: card.id }) : null;
+      await upsertTogetherBinding({ binding: { roomId: result.roomId, mode: result.mode, localChallengeId: String(card.id), baselineContribution: metrics?.contributionMetric || 0, source: 'selected' } });
+      setPicker(false);
+      completeAccepted(result);
+    } catch {
+      setCompletedRoomId('');
+      setError('PUSH를 연결하지 못했어요. 잠시 후 다시 시도해주세요.');
+    }
+  };
+  const createdPushResumeContextRef = useRef(null);
+  createdPushResumeContextRef.current = { result, bindCard };
+  const returnedCreatedPushId = String(route?.params?.togetherCreatedPushId ?? '').trim();
   useFocusEffect(
-    useCallback(
-      () => {
-        load();
-      },
-      [
-        load,
-      ]
-    )
-  );
-
-  const goTogether =
-    useCallback(
-      () => {
-        navigation.navigate(
-          'Together'
-        );
-      },
-      [
-        navigation,
-      ]
-    );
-
-  const handleAccept =
-    useCallback(
-      async () => {
-        if (
-          !invitation
-          || !selectedChallengeId
-          || accepting
-        ) {
-          return;
-        }
-
-        setAccepting(true);
-        setErrorMessage('');
-
+    useCallback(() => {
+      if (!returnedCreatedPushId || createdPushResumeConsumedRef.current === returnedCreatedPushId) return undefined;
+      createdPushResumeConsumedRef.current = returnedCreatedPushId;
+      let active = true;
+      const resume = async () => {
+        setResumeBindingError('');
         try {
-          const authResult =
-            await ensureTogetherAnonymousSession();
-
-          if (
-            !authResult?.ok
-          ) {
-            console.warn(
-              '[Together] accept invitation auth failed',
-              authResult?.reason
-                || 'unknown'
-            );
-
-            setErrorMessage(
-              '서버 연결을 확인하지 못했어요. 잠시 후 다시 시도해주세요.'
-            );
-
+          const nextCards = await loadTogetherEligibleCards();
+          if (!active) return;
+          const context = createdPushResumeContextRef.current;
+          const resolved = resolveTogetherCreatedPushResumeV2({
+            result: context?.result,
+            createdPushId: returnedCreatedPushId,
+            cards: nextCards,
+          });
+          if (resolved.status === 'invalid-acceptance') {
+            setResumeBindingError('이전 초대 수락 상태를 확인할 수 없어요. 자동 연결을 진행하지 않았어요.');
             return;
           }
-
-          const next =
-            await acceptTogetherInvitation({
-              invitation,
-              challengeId:
-                selectedChallengeId,
-            });
-
-          setAcceptedRoom(
-            next
-          );
-        } catch (
-          error
-        ) {
-          const code =
-            String(
-              error?.message
-              ?? ''
-            );
-
-          if (
-            code
-              === 'CHALLENGE_NOT_AVAILABLE'
-          ) {
-            setErrorMessage(
-              '선택한 활동을 다시 확인해주세요.'
-            );
-
-            await load();
-          } else {
-            setErrorMessage(
-              '초대를 수락하지 못했어요.'
-            );
+          setCards(nextCards);
+          setPicker(true);
+          if (resolved.status !== 'ready') {
+            setResumeBindingError('새로 만든 PUSH를 연결 목록에서 찾지 못했어요. 목록에서 직접 선택해주세요.');
+            return;
           }
+          await context.bindCard(resolved.card);
+        } catch (error) {
+          if (!active) return;
+          console.warn('[TogetherInviteAccept] created PUSH resume failed', String(error?.message || 'unknown'));
+          setResumeBindingError('새 PUSH 자동 연결에 실패했어요. 기존 목록에서 다시 선택해주세요.');
         } finally {
-          setAccepting(false);
+          if (active) navigation.setParams({ togetherCreatedPushId: undefined });
         }
-      },
-      [
-        accepting,
-        invitation,
-        load,
-        selectedChallengeId,
-      ]
-    );
-
-  if (!invitation) {
-    return (
-      <SafeAreaView
-        style={
-          surface.screen
-        }
-      >
-        <BackButton
-          title="함께 초대"
-        />
-
-        <View
-          style={
-            styles.centerState
-          }
-        >
-          <Text
-            style={
-              styles.stateTitle
-            }
-          >
-            유효하지 않은 초대예요.
-          </Text>
-
-          <Text
-            style={
-              styles.stateDescription
-            }
-          >
-            초대 링크가 잘렸거나
-            만료된 형식일 수 있어요.
-          </Text>
-
-          <TouchableOpacity
-            style={
-              styles.primaryButton
-            }
-            onPress={
-              goTogether
-            }
-            activeOpacity={0.84}
-          >
-            <Text
-              style={
-                styles.primaryButtonText
-              }
-            >
-              함께로 돌아가기
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (
-    acceptedRoom
-    && !loading
-  ) {
-    return (
-      <SafeAreaView
-        style={
-          surface.screen
-        }
-      >
-        <BackButton
-          title="함께 초대"
-        />
-
-        <View
-          style={
-            styles.centerState
-          }
-        >
-          <View
-            style={
-              styles.doneMark
-            }
-          >
-            <Text
-              style={
-                styles.doneMarkText
-              }
-            >
-              ✓
-            </Text>
-          </View>
-
-          <Text
-            style={
-              styles.stateTitle
-            }
-          >
-            초대를 수락했어요.
-          </Text>
-
-          <Text
-            style={
-              styles.stateDescription
-            }
-          >
-            {acceptedRoom.challengeTitle}
-            {'\n'}
-            활동과 연결해 두었어요.
-          </Text>
-
-          <Text
-            style={
-              styles.localNotice
-            }
-          >
-            같은 함께 방에 연결되었습니다.
-            완료 상태 동기화는
-            다음 단계에서 이어집니다.
-          </Text>
-
-          <TouchableOpacity
-            style={
-              styles.primaryButton
-            }
-            onPress={
-              goTogether
-            }
-            activeOpacity={0.84}
-          >
-            <Text
-              style={
-                styles.primaryButtonText
-              }
-            >
-              함께로 가기
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView
-      style={
-        surface.screen
-      }
-    >
-      <BackButton
-        title="함께 초대"
-      />
-
-      <ScrollView
-        contentContainerStyle={
-          styles.content
-        }
-        showsVerticalScrollIndicator={
-          false
-        }
-      >
-        <Text
-          style={
-            styles.eyebrow
-          }
-        >
-          받은 초대
-        </Text>
-
-        <Text
-          style={
-            styles.title
-          }
-        >
-          {invitation.title}
-        </Text>
-
-        <View
-          style={
-            styles.metaRow
-          }
-        >
-          <View
-            style={
-              styles.metaBadge
-            }
-          >
-            <Text
-              style={
-                styles.metaBadgeText
-              }
-            >
-              {invitation.typeLabel}
-            </Text>
-          </View>
-
-          <Text
-            style={
-              styles.shareText
-            }
-          >
-            {SHARE_DESCRIPTION}
-          </Text>
-        </View>
-
-        <View
-          style={
-            styles.divider
-          }
-        />
-
-        <Text
-          style={
-            styles.sectionTitle
-          }
-        >
-          내 활동 연결
-        </Text>
-
-        <Text
-          style={
-            styles.sectionDescription
-          }
-        >
-          함께 이어갈
-          내 활동 하나를 선택하세요.
-        </Text>
-
-        {loading ? (
-          <View
-            style={
-              styles.loadingWrap
-            }
-          >
-            <ActivityIndicator
-              color={
-                primitive.black
-              }
-            />
-          </View>
-        ) : challenges.length ? (
-          <View
-            style={
-              styles.challengeList
-            }
-          >
-            {challenges.map(
-              (
-                challenge
-              ) => {
-                const selected =
-                  selectedChallengeId
-                  === challenge.id;
-
-                return (
-                  <TouchableOpacity
-                    key={
-                      challenge.id
-                    }
-                    style={[
-                      styles.challengeCard,
-
-                      selected
-                      && styles.challengeCardSelected,
-                    ]}
-                    onPress={
-                      () =>
-                        setSelectedChallengeId(
-                          challenge.id
-                        )
-                    }
-                    activeOpacity={
-                      0.84
-                    }
-                  >
-                    <View
-                      style={
-                        styles.challengeTextWrap
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.challengeType,
-
-                          selected
-                          && styles.challengeTypeSelected,
-                        ]}
-                      >
-                        {challenge.typeLabel}
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.challengeTitle,
-
-                          selected
-                          && styles.challengeTitleSelected,
-                        ]}
-                        numberOfLines={
-                          2
-                        }
-                      >
-                        {challenge.title}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.selectionCircle,
-
-                        selected
-                        && styles.selectionCircleSelected,
-                      ]}
-                    >
-                      {selected && (
-                        <View
-                          style={
-                            styles.selectionDot
-                          }
-                        />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-            )}
-          </View>
-        ) : (
-          <View
-            style={
-              styles.emptyCard
-            }
-          >
-            <Text
-              style={
-                styles.emptyTitle
-              }
-            >
-              연결할 활동이 없어요.
-            </Text>
-
-            <Text
-              style={
-                styles.emptyDescription
-              }
-            >
-              먼저 활동을 만든 뒤
-              이 초대 링크를 다시 열어주세요.
-            </Text>
-
-            <TouchableOpacity
-              style={
-                styles.secondaryButton
-              }
-              onPress={
-                () =>
-                  navigation.navigate(
-                    'CreateChallengeType'
-                  )
-              }
-              activeOpacity={0.84}
-            >
-              <Text
-                style={
-                  styles.secondaryButtonText
-                }
-              >
-                활동 만들기
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {!!errorMessage && (
-          <Text
-            style={
-              styles.errorText
-            }
-          >
-            {errorMessage}
-          </Text>
-        )}
-
-        {!!challenges.length && (
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-
-              (
-                !selectedChallengeId
-                || accepting
-              )
-              && styles.primaryButtonDisabled,
-            ]}
-            onPress={
-              handleAccept
-            }
-            disabled={
-              !selectedChallengeId
-              || accepting
-            }
-            activeOpacity={0.84}
-          >
-            <Text
-              style={
-                styles.primaryButtonText
-              }
-            >
-              {accepting
-                ? '수락하는 중...'
-                : '이 활동으로 함께하기'}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <Text
-          style={
-            styles.privacyNotice
-          }
-        >
-          기록 내용이나 사진은
-          초대 정보에 포함되지 않아요.
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+      };
+      void resume();
+      return () => { active = false; };
+    }, [navigation, returnedCreatedPushId])
   );
+  const continueAfterAccept = async (accepted) => {
+    if (accepted.joinStatus === 'pending') { setCompletedRoomId(''); setResult(accepted); return; }
+    if (accepted.mode === 'watch') { completeAccepted(accepted); return; }
+    if (accepted.mode === 'same_push') {
+      try { const push = await createLocalPushFromTogetherTemplate({ template: accepted.pushTemplate, roomId: accepted.roomId }); await upsertTogetherBinding({ binding: { roomId: accepted.roomId, mode: accepted.mode, localChallengeId: push.id, baselineContribution: 0, source: 'clone' } }); completeAccepted(accepted); }
+      catch { setCompletedRoomId(''); setResult({ ...accepted, cloneFailed: true }); }
+      return;
+    }
+    setCompletedRoomId(''); setResult(accepted); setCards(await loadTogetherEligibleCards()); setPicker(true);
+  };
+  const accept = async () => {
+    if (accepting || checkingOwnInvite || ownInviteError || ownedRoomId || !preview) return; setAccepting(true); setError('');
+    try { const auth = await ensureTogetherAnonymousSession(); if (!auth?.ok) throw new Error('AUTH'); const displayName = await loadTogetherDisplayName(); await continueAfterAccept(await acceptTogetherInviteV2({ code, displayName })); }
+    catch { setError('초대를 수락하지 못했어요. 잠시 후 다시 시도해주세요.'); }
+    finally { setAccepting(false); }
+  };
+  const retryClone = () => continueAfterAccept(result);
+  return <SafeAreaView style={surfaceStyles.screen}><View style={styles.header}><TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>받은 초대</Text><View style={styles.side} /></View><ScrollView contentContainerStyle={styles.content}>
+    {ownedRoomId ? <View style={styles.result}><Text style={styles.resultTitle}>이미 내가 만든 함께 방이에요.</Text><Text>이 초대는 직접 만든 방의 초대입니다. 초대를 다시 수락할 필요가 없어요.</Text><TouchableOpacity style={styles.primary} onPress={() => navigation.navigate('TogetherRoomDetail', { roomId: ownedRoomId })}><Text style={styles.primaryText}>내 함께 방으로 이동</Text></TouchableOpacity><TouchableOpacity style={styles.secondaryAction} onPress={() => navigation.navigate('Together')}><Text>함께 화면으로 돌아가기</Text></TouchableOpacity></View> : ownInviteError ? <View style={styles.result}><Text style={styles.resultTitle}>초대 소유자를 확인하지 못했어요.</Text><Text>{ownInviteError}</Text><TouchableOpacity style={styles.primary} onPress={() => setOwnerCheckNonce((value) => value + 1)}><Text style={styles.primaryText}>다시 시도</Text></TouchableOpacity></View> : error ? <Text style={styles.error}>{error}</Text> : !preview || checkingOwnInvite ? <Text style={styles.center}>초대를 확인하는 중...</Text> : <><Text style={styles.mode}>{getTogetherModeLabel(preview.mode)}</Text><Text style={styles.title}>{preview.title}</Text><Text style={styles.description}>{getTogetherModeDescription(preview.mode)}</Text><Text style={styles.meta}>{preview.ownerDisplayName || '멤버'} · {preview.memberCount}/{preview.memberLimit}명</Text>{preview.sharedGoal ? <Text style={styles.goal}>목표 {preview.sharedGoal.target} {preview.sharedGoal.unit}</Text> : null}<View style={styles.notice}><Text>개인 기록 내용과 사진은 공유되지 않아요.</Text></View>
+      {!result ? <TouchableOpacity style={styles.primary} onPress={accept} disabled={accepting || checkingOwnInvite}><Text style={styles.primaryText}>{accepting ? '수락하는 중...' : '초대 수락하기'}</Text></TouchableOpacity> : result.joinStatus === 'pending' ? <View style={styles.result}><Text style={styles.resultTitle}>참가 승인 요청을 보냈어요.</Text><Text>방장 또는 관리자가 승인하면 함께 방에 참여할 수 있어요.</Text><TouchableOpacity style={styles.secondaryAction} onPress={() => navigation.navigate('Together')}><Text>함께 화면으로 돌아가기</Text></TouchableOpacity></View> : result.cloneFailed ? <View style={styles.result}><Text style={styles.resultTitle}>초대는 수락되었습니다.</Text><Text>PUSH를 만드는 중 문제가 생겼어요.</Text><TouchableOpacity style={styles.primary} onPress={retryClone}><Text style={styles.primaryText}>PUSH 만들기 다시 시도</Text></TouchableOpacity></View> : result.complete ? <View style={styles.result}><Text style={styles.resultTitle}>함께 방에 참여했어요!</Text><Text>함께 방에 연결되었습니다.</Text>{completedRoomId ? <TouchableOpacity style={styles.primary} onPress={() => navigation.navigate('TogetherRoomDetail', { roomId: completedRoomId })}><Text style={styles.primaryText}>함께 방으로 이동</Text></TouchableOpacity> : null}<TouchableOpacity style={styles.secondaryAction} onPress={() => navigation.navigate('Together')}><Text>함께 화면으로 돌아가기</Text></TouchableOpacity></View> : <View style={styles.result}><Text style={styles.resultTitle}>이제 함께 기록할 내 PUSH를 연결하세요.</Text>{resumeBindingError ? <Text style={styles.error}>{resumeBindingError}</Text> : null}{cards.length === 0 ? <><Text>초대는 이미 수락되었습니다. 함께 기록할 PUSH를 만든 뒤 연결할 수 있어요.</Text><TouchableOpacity style={styles.primary} onPress={() => navigation.navigate('CreateChallengeType', { fromTogether: true, returnToTogetherInviteAccept: true })}><Text style={styles.primaryText}>PUSH 만들기</Text></TouchableOpacity></> : <TouchableOpacity style={styles.primary} onPress={() => setPicker(true)}><Text style={styles.primaryText}>내 PUSH 연결</Text></TouchableOpacity>}</View>}
+    </>}
+  </ScrollView><TogetherPushPickerModal visible={picker} items={cards} loading={false} onClose={() => setPicker(false)} onSelect={bindCard} onCreatePush={() => { setPicker(false); navigation.navigate('CreateChallengeType', { fromTogether: true, returnToTogetherInviteAccept: true }); }} /></SafeAreaView>;
 }
-
-const styles =
-  StyleSheet.create({
-    content: {
-      width: '100%',
-      maxWidth: 720,
-      alignSelf: 'center',
-      paddingHorizontal:
-        space.lg,
-      paddingTop:
-        space.lg,
-      paddingBottom: 48,
-    },
-
-    eyebrow: {
-      color:
-        color.textSecondary,
-      fontSize:
-        font.size.caption,
-      fontWeight:
-        font.weight.bold,
-    },
-
-    title: {
-      marginTop:
-        space.xs,
-      color:
-        color.textPrimary,
-      fontSize:
-        font.size.screenTitle,
-      fontWeight:
-        font.weight.heavy,
-      lineHeight: 32,
-    },
-
-    metaRow: {
-      marginTop:
-        space.md,
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      gap:
-        space.sm,
-    },
-
-    metaBadge: {
-      borderRadius: 999,
-      backgroundColor:
-        primitive.black,
-      paddingHorizontal:
-        space.sm,
-      paddingVertical: 5,
-    },
-
-    metaBadgeText: {
-      color:
-        primitive.white,
-      fontSize:
-        font.size.caption,
-      fontWeight:
-        font.weight.bold,
-    },
-
-    shareText: {
-      color:
-        color.textSecondary,
-      fontSize:
-        font.size.caption,
-    },
-
-    divider: {
-      height: 1,
-      marginVertical:
-        space.xl,
-      backgroundColor:
-        color.border,
-    },
-
-    sectionTitle: {
-      color:
-        color.textPrimary,
-      fontSize:
-        font.size.bodyLarge,
-      fontWeight:
-        font.weight.bold,
-    },
-
-    sectionDescription: {
-      marginTop:
-        space.xs,
-      color:
-        color.textSecondary,
-      lineHeight: 20,
-    },
-
-    loadingWrap: {
-      minHeight: 160,
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-    },
-
-    challengeList: {
-      marginTop:
-        space.lg,
-      gap:
-        space.sm,
-    },
-
-    challengeCard: {
-      minHeight: 78,
-      borderWidth: 1,
-      borderColor:
-        color.border,
-      borderRadius:
-        radius.card,
-      padding:
-        space.md,
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      justifyContent:
-        'space-between',
-      gap:
-        space.md,
-      backgroundColor:
-        color.background,
-    },
-
-    challengeCardSelected: {
-      backgroundColor:
-        primitive.black,
-      borderColor:
-        primitive.black,
-    },
-
-    challengeTextWrap: {
-      flex: 1,
-      minWidth: 0,
-    },
-
-    challengeType: {
-      color:
-        color.textSecondary,
-      fontSize:
-        font.size.caption,
-      fontWeight:
-        font.weight.bold,
-    },
-
-    challengeTypeSelected: {
-      color:
-        primitive.neutral[400],
-    },
-
-    challengeTitle: {
-      marginTop: 4,
-      color:
-        color.textPrimary,
-      fontSize:
-        font.size.body,
-      fontWeight:
-        font.weight.bold,
-      lineHeight: 21,
-    },
-
-    challengeTitleSelected: {
-      color:
-        primitive.white,
-    },
-
-    selectionCircle: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      borderWidth: 1.5,
-      borderColor:
-        primitive.neutral[400],
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-    },
-
-    selectionCircleSelected: {
-      borderColor:
-        primitive.white,
-    },
-
-    selectionDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor:
-        primitive.white,
-    },
-
-    emptyCard: {
-      marginTop:
-        space.lg,
-      borderWidth: 1,
-      borderColor:
-        color.border,
-      borderRadius:
-        radius.card,
-      padding:
-        space.lg,
-    },
-
-    emptyTitle: {
-      color:
-        color.textPrimary,
-      fontSize:
-        font.size.body,
-      fontWeight:
-        font.weight.bold,
-    },
-
-    emptyDescription: {
-      marginTop:
-        space.xs,
-      color:
-        color.textSecondary,
-      lineHeight: 20,
-    },
-
-    primaryButton: {
-      minHeight: 52,
-      marginTop:
-        space.xl,
-      borderRadius:
-        radius.button,
-      backgroundColor:
-        primitive.black,
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      paddingHorizontal:
-        space.lg,
-    },
-
-    primaryButtonDisabled: {
-      opacity: 0.35,
-    },
-
-    primaryButtonText: {
-      color:
-        primitive.white,
-      fontSize:
-        font.size.body,
-      fontWeight:
-        font.weight.bold,
-    },
-
-    secondaryButton: {
-      minHeight: 44,
-      marginTop:
-        space.lg,
-      borderRadius:
-        radius.button,
-      borderWidth: 1,
-      borderColor:
-        primitive.black,
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      paddingHorizontal:
-        space.lg,
-    },
-
-    secondaryButtonText: {
-      color:
-        primitive.black,
-      fontSize:
-        font.size.body,
-      fontWeight:
-        font.weight.bold,
-    },
-
-    privacyNotice: {
-      marginTop:
-        space.lg,
-      color:
-        color.textSecondary,
-      fontSize:
-        font.size.caption,
-      lineHeight: 18,
-      textAlign:
-        'center',
-    },
-
-    errorText: {
-      marginTop:
-        space.md,
-      color:
-        color.textPrimary,
-      fontSize:
-        font.size.caption,
-      textAlign:
-        'center',
-    },
-
-    centerState: {
-      flex: 1,
-      width: '100%',
-      maxWidth: 720,
-      alignSelf: 'center',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      padding:
-        space.xl,
-    },
-
-    stateTitle: {
-      marginTop:
-        space.md,
-      color:
-        color.textPrimary,
-      fontSize:
-        font.size.screenTitle,
-      fontWeight:
-        font.weight.heavy,
-      textAlign:
-        'center',
-    },
-
-    stateDescription: {
-      marginTop:
-        space.sm,
-      color:
-        color.textSecondary,
-      lineHeight: 21,
-      textAlign:
-        'center',
-    },
-
-    localNotice: {
-      marginTop:
-        space.lg,
-      color:
-        color.textSecondary,
-      fontSize:
-        font.size.caption,
-      lineHeight: 18,
-      textAlign:
-        'center',
-    },
-
-    doneMark: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor:
-        primitive.black,
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-    },
-
-    doneMarkText: {
-      color:
-        primitive.white,
-      fontSize: 24,
-      fontWeight:
-        font.weight.heavy,
-    },
-  });
+const styles = StyleSheet.create({ header: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, borderBottomWidth: 1, borderColor: color.border }, back: { fontSize: 34 }, headerTitle: { fontSize: 16, fontWeight: font.weight.heavy }, side: { width: 24 }, content: { padding: space.lg }, center: { textAlign: 'center', marginTop: 80 }, error: { marginTop: 80, color: color.textSecondary, textAlign: 'center' }, mode: { color: color.textSecondary, fontWeight: font.weight.bold }, title: { marginTop: 8, fontSize: 27, fontWeight: font.weight.heavy }, description: { marginTop: 7, color: color.textSecondary }, meta: { marginTop: 15, fontWeight: font.weight.bold }, goal: { marginTop: 8 }, notice: { marginTop: 22, padding: 14, borderWidth: 1, borderColor: color.border, borderRadius: radius.md }, primary: { marginTop: 24, minHeight: 50, borderRadius: radius.md, backgroundColor: primitive.black, alignItems: 'center', justifyContent: 'center' }, primaryText: { color: primitive.white, fontWeight: font.weight.bold }, secondaryAction: { minHeight: 44, marginTop: 8, alignItems: 'center', justifyContent: 'center' }, result: { marginTop: 28, padding: 18, borderWidth: 1, borderColor: color.border, borderRadius: radius.md }, resultTitle: { marginBottom: 7, fontSize: 17, fontWeight: font.weight.heavy } });

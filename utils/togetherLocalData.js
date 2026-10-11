@@ -185,3 +185,27 @@ export const loadTogetherCardSnapshot = async ({ challengeId, storage = AsyncSto
 
   return buildTogetherCardSnapshot({ card, entries, now });
 };
+
+export const loadTogetherProgressMetrics = async ({ challengeId, storage = AsyncStorage, now = Date.now() } = {}) => {
+  const id = String(challengeId ?? '').trim();
+  if (!id) return null;
+  const cards = parseArray(await storage.getItem('challenges'));
+  const card = cards.find((item) => String(item?.id ?? '') === id);
+  if (!card) return null;
+  const entries = await loadRecordRoomEntries({ storage, cards: [card], hallCards: [], trashCards: [] });
+  const snapshot = buildTogetherCardSnapshot({ card, entries, now });
+  const type = getChallengeType(card);
+  const completionCount = safeArray(entries).filter((entry) => isCompletionEntry(card, entry)).length;
+  const contributionMetric = type === CHALLENGE_TYPE.ROTATION
+    ? Math.max(0, Number(card?.rotation?.completedCycleCount ?? card?.completedCycleCount) || 0)
+    : type === CHALLENGE_TYPE.HABIT
+      ? completionCount
+      : Math.max(0, Number(card.currentScore) || 0);
+  const goal = Number(card.goalScore);
+  return {
+    challengeId: id, type, todayState: snapshot?.todayState || 'pending',
+    completed: snapshot?.todayState === 'done', streak: Math.max(0, Number(snapshot?.streak) || 0),
+    progress: type === CHALLENGE_TYPE.CHALLENGE && goal > 0 ? Math.max(0, Math.min(1, (Number(card.currentScore) || 0) / goal)) : null,
+    contributionMetric,
+  };
+};

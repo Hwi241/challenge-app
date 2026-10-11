@@ -88,6 +88,12 @@
             "minSdkVersion": 26
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Together 초대 QR 코드를 스캔하려면 카메라 권한이 필요합니다."
+        }
       ]
     ],
     "extra": {

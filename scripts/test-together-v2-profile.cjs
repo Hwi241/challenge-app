@@ -1,0 +1,1 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');const s=fs.readFileSync('utils/togetherProfile.js','utf8');assert.match(s,/record_room_profile/);assert.match(s,/\.name/);assert.match(s,/slice\(0, 40\)/);assert.match(s,/멤버/);assert.doesNotMatch(s,/console\./);console.log('Together v2 profile tests: PASS');

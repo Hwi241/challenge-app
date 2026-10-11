@@ -1,0 +1,1 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');const s=fs.readFileSync('utils/togetherBindings.js','utf8');for(const m of ['together_room_bindings_v2','roomId','mode','localChallengeId','baselineContribution','owner','clone','selected'])assert.match(s,new RegExp(m));console.log('Together v2 binding tests: PASS');

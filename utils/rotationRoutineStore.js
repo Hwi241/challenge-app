@@ -10,6 +10,7 @@ import {
 } from './rotationRoutineEntryEditing';
 
 import { syncWidgetChallengeList } from './widgetSync';
+import { emitTogetherLocalProgressChangedV2 } from './togetherLocalProgressSignalV2';
 import {
   RotationRoutineError,
   createRotationRoutine,
@@ -155,6 +156,7 @@ export function createRotationRoutineStore({
     }
 
     await targetStorage.multiSet(pairs);
+    emitTogetherLocalProgressChangedV2();
     await notifyChallengesChanged();
     return normalized;
   };

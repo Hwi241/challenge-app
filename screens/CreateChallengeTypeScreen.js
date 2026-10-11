@@ -10,10 +10,24 @@ const TYPES = [
   ['rotation', '루틴', '목표 시간을 채우며 차례대로 진행합니다.'],
 ];
 
-export default function CreateChallengeTypeScreen({ navigation }) {
+export default function CreateChallengeTypeScreen({ navigation, route }) {
   const select = (type) => {
-    if (type === 'rotation') return navigation.navigate('AddRotationRoutine');
-    navigation.navigate('AddChallenge', { initialType: type, resetNonce: Date.now() });
+    const fromTogether = route?.params?.fromTogether === true;
+    const returnToTogetherInviteAccept =
+      route?.params?.returnToTogetherInviteAccept === true;
+    if (type === 'rotation') {
+      navigation.navigate('AddRotationRoutine', {
+        fromTogether,
+        returnToTogetherInviteAccept,
+      });
+      return;
+    }
+    navigation.navigate('AddChallenge', {
+      initialType: type,
+      resetNonce: Date.now(),
+      fromTogether,
+      returnToTogetherInviteAccept,
+    });
   };
 
   return (

@@ -192,6 +192,8 @@ const styles =
       maxWidth: 520,
       maxHeight: '70%',
       borderRadius: 20,
+      borderWidth: 1,
+      borderColor: primitive.black,
       backgroundColor: color.background,
       paddingTop: space.lg,
       paddingHorizontal: space.lg,

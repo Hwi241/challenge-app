@@ -375,3 +375,12 @@ export const ensureTogetherAnonymousSession =
 
     return ensureSessionPromise;
   };
+
+export const getExistingTogetherSession = async (
+  { client = getSupabaseClient() } = {}
+) => {
+  if (!client) return null;
+  const { data, error } = await client.auth.getSession();
+  if (error) return null;
+  return data?.session || null;
+};

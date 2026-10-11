@@ -69,6 +69,9 @@ export default function AddRotationRoutineScreen({
   navigation,
 }) {
   const duplicateTemplate = route?.params?.duplicateTemplate || null;
+  const fromTogether = route?.params?.fromTogether === true;
+  const returnToTogetherInviteAccept =
+    route?.params?.returnToTogetherInviteAccept === true;
 
   const [title, setTitle] = useState(
     () => (
@@ -179,7 +182,7 @@ export default function AddRotationRoutineScreen({
         setBusy(true);
 
         try {
-          await createAndSaveRotationRoutine({
+          const created = await createAndSaveRotationRoutine({
             title: title.trim(),
             description: description.trim(),
             items: items.map((item, order) => ({
@@ -190,7 +193,21 @@ export default function AddRotationRoutineScreen({
           });
 
           guard.markAsSaved();
-          navigation.popTo('ChallengeList');
+          const createdId = String(created?.routine?.id ?? '').trim();
+          if (fromTogether && returnToTogetherInviteAccept && createdId) {
+            navigation.popTo(
+              'TogetherInviteAccept',
+              { togetherCreatedPushId: createdId },
+              { merge: true }
+            );
+          } else if (fromTogether && createdId) {
+            navigation.popTo('Together', { togetherCreatedPushId: createdId });
+          } else {
+            navigation.popTo('ChallengeList');
+            if (fromTogether && !createdId) {
+              Alert.alert('PUSH 저장 완료', '루틴은 저장됐지만 함께 만들기를 자동으로 이어가지 못했어요.');
+            }
+          }
         } catch (error) {
           Alert.alert(
             '저장 실패',

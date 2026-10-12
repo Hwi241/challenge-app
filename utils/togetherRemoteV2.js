@@ -22,6 +22,7 @@ const action = (name, map) => async (values = {}) => {
   await ensureTogetherAnonymousSession();
   return rpc(values.client, name, map(values));
 };
+export const updateTogetherMemberDisplayNameV2 = action('update_together_member_display_name_v2', (v) => ({ p_room_id: v.roomId, p_display_name: v.displayName }));
 export const renameTogetherRoomV2 = action('rename_together_room_v2', (v) => ({ p_room_id: v.roomId, p_title: v.title }));
 export const setTogetherRoomLockedV2 = action('set_together_room_locked_v2', (v) => ({ p_room_id: v.roomId, p_locked: v.locked }));
 export const setTogetherJoinPolicyV2 = action('set_together_join_policy_v2', (v) => ({ p_room_id: v.roomId, p_join_policy: v.joinPolicy }));

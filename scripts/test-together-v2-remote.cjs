@@ -39,6 +39,8 @@ const api = moduleObject.exports;
   assert.deepEqual(calls[0], { name: 'create_together_room_v2', args: { p_mode: 'watch', p_title: '걷기', p_timezone: 'Asia/Seoul', p_push_template: { version: 1 }, p_shared_goal: null, p_client_request_id: 'request-1', p_display_name: '멤버' } });
   await api.getTogetherInvitePreviewV2({ code: 'ABCD1234', client });
   await api.acceptTogetherInviteV2({ code: 'ABCD1234', displayName: '멤버', client });
+  await api.updateTogetherMemberDisplayNameV2({ roomId: 'room-1', displayName: '새 이름', client });
+  assert.deepEqual(calls.at(-1), { name: 'update_together_member_display_name_v2', args: { p_room_id: 'room-1', p_display_name: '새 이름' } });
   await api.upsertTogetherMemberStateV2({ roomId: 'room-1', localDate: '2026-10-10', completed: true, progress: 0.5, streak: 2, contribution: 3, displayName: '멤버', client });
   assert.deepEqual(calls.at(-1), { name: 'upsert_together_member_state_v2', args: { p_room_id: 'room-1', p_local_date: '2026-10-10', p_completed: true, p_progress: 0.5, p_streak: 2, p_contribution: 3, p_display_name: '멤버' } });
   assert.equal(JSON.stringify(calls).includes('challengeId'), false);

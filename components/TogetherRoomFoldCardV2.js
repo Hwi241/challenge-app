@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import {
   font,
@@ -16,6 +17,23 @@ import {
 
 const CARD_COMPACT_HEIGHT = 64;
 const CARD_EXPANDED_HEIGHT = 224;
+
+const FoldChevronIcon = ({ collapsed }) => (
+  <Svg width={8} height={5} viewBox="0 0 8 5">
+    <Path
+      d={
+        collapsed
+          ? 'M0.8 0.8L4 4.2L7.2 0.8'
+          : 'M0.8 4.2L4 0.8L7.2 4.2'
+      }
+      fill="none"
+      stroke={primitive.neutral[400]}
+      strokeWidth={1.15}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
 
 const MODE_LABELS = {
   watch: '서로 지켜보기',
@@ -52,13 +70,24 @@ const getStatusLabel = (room, variant) => {
       : '초대 준비 중';
   }
 
-  const status = STATUS_LABELS[
-    asText(
-      room?.status ??
-      room?.roomStatus ??
-      room?.room_status
-    )
-  ] || '';
+  const rawStatus = asText(
+    room?.status ??
+    room?.roomStatus ??
+    room?.room_status
+  );
+  const role = asText(
+    room?.myRole ??
+    room?.memberRole ??
+    room?.member_role
+  );
+  const memberCount = getMemberCount(room);
+  const status =
+    rawStatus === 'active' &&
+    memberCount !== null &&
+    memberCount <= 1 &&
+    role === 'owner'
+      ? '초대 수락 대기 중'
+      : STATUS_LABELS[rawStatus] || '';
 
   return room?.locked
     ? `${status ? `${status} · ` : ''}잠금`
@@ -110,7 +139,7 @@ const TogetherRoomFoldCardV2 = memo(
 
     const title =
       asText(room?.title) ||
-      '함께 방';
+      '함께 PUSH';
 
     const modeLabel =
       getModeLabel(room);
@@ -126,6 +155,11 @@ const TogetherRoomFoldCardV2 = memo(
           room?.member_role
         )
       ] || '';
+
+    const headerMeta = [
+      statusLabel,
+      roleLabel,
+    ].filter(Boolean).join(' · ');
 
     const memberCount =
       isDraft
@@ -146,14 +180,14 @@ const TogetherRoomFoldCardV2 = memo(
             : styles.expanded,
         ]}
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.identity}
-            onPress={onOpen}
-            activeOpacity={0.82}
-            accessibilityRole="button"
-            accessibilityLabel={`${title} 함께 방 열기`}
-          >
+        <TouchableOpacity
+          style={styles.header}
+          onPress={onOpen}
+          activeOpacity={0.82}
+          accessibilityRole="button"
+          accessibilityLabel={`${title} 열기`}
+        >
+          <View style={styles.identity}>
             <Text
               style={styles.title}
               numberOfLines={1}
@@ -161,32 +195,16 @@ const TogetherRoomFoldCardV2 = memo(
               {title}
             </Text>
 
-            {statusLabel ? (
+            {headerMeta ? (
               <Text
                 style={styles.subtitle}
                 numberOfLines={1}
               >
-                {statusLabel}
+                {headerMeta}
               </Text>
             ) : null}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.foldButton}
-            onPress={onToggleCollapsed}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={
-              collapsed
-                ? '함께 카드 펼치기'
-                : '함께 카드 접기'
-            }
-          >
-            <Text style={styles.foldIcon}>
-              {collapsed ? '⌄' : '⌃'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
 
         {!collapsed ? (
           <TouchableOpacity
@@ -194,41 +212,21 @@ const TogetherRoomFoldCardV2 = memo(
             onPress={onOpen}
             activeOpacity={0.84}
             accessibilityRole="button"
-            accessibilityLabel={`${title} 상세 보기`}
+            accessibilityLabel={`${title} 열기`}
           >
             <View style={styles.divider} />
 
             <View style={styles.detailRows}>
               {modeLabel ? (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>
-                    함께 방식
-                  </Text>
-
                   <Text style={styles.detailValue}>
                     {modeLabel}
                   </Text>
                 </View>
               ) : null}
 
-              {roleLabel ? (
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>
-                    내 역할
-                  </Text>
-
-                  <Text style={styles.detailValue}>
-                    {roleLabel}
-                  </Text>
-                </View>
-              ) : null}
-
               {memberCount !== null ? (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>
-                    참여 인원
-                  </Text>
-
                   <Text style={styles.detailValue}>
                     {memberCount}{memberLimit !== null ? `/${memberLimit}` : ''}명
                   </Text>
@@ -242,19 +240,19 @@ const TogetherRoomFoldCardV2 = memo(
               ) : null}
             </View>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                {isDraft
-                  ? '초대 준비 계속하기'
-                  : '함께 방 상세 보기'}
-              </Text>
-
-              <Text style={styles.footerArrow}>
-                ›
-              </Text>
-            </View>
           </TouchableOpacity>
         ) : null}
+
+        <TouchableOpacity
+          style={styles.foldButton}
+          onPress={onToggleCollapsed}
+          activeOpacity={0.65}
+          hitSlop={{ top: 5, bottom: 5, left: 18, right: 18 }}
+          accessibilityRole="button"
+          accessibilityLabel={collapsed ? '함께 카드 펼치기' : '함께 카드 접기'}
+        >
+          <FoldChevronIcon collapsed={collapsed} />
+        </TouchableOpacity>
       </View>
     );
   }
@@ -284,15 +282,15 @@ const styles = StyleSheet.create({
 
   header: {
     height: CARD_COMPACT_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
     paddingLeft: 12,
-    paddingRight: 8,
+    paddingRight: 12,
   },
 
   identity: {
     flex: 1,
     minWidth: 0,
+    alignItems: 'center',
     justifyContent: 'center',
   },
 
@@ -301,6 +299,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 22,
     fontWeight: font.weight.heavy,
+    textAlign: 'center',
   },
 
   subtitle: {
@@ -309,24 +308,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     fontWeight: font.weight.medium,
+    textAlign: 'center',
   },
 
   foldButton: {
-    width: 44,
-    height: 44,
+    position: 'absolute',
+    left: '50%',
+    bottom: 7,
+    width: 28,
+    height: 18,
+    marginLeft: -14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  foldIcon: {
-    color: primitive.white,
-    fontSize: 26,
-    lineHeight: 30,
+    zIndex: 4,
   },
 
   expandedContent: {
     flex: 1,
     paddingHorizontal: 12,
+    paddingBottom: 28,
   },
 
   divider: {
@@ -338,27 +338,21 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: space.sm,
     gap: space.xs,
+    alignItems: 'center',
   },
 
   detailRow: {
+    width: '100%',
     minHeight: 20,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-  },
-
-  detailLabel: {
-    color: primitive.neutral[400],
-    fontSize: 12,
-    fontWeight: font.weight.medium,
+    justifyContent: 'center',
   },
 
   detailValue: {
     color: primitive.white,
     fontSize: 12,
     fontWeight: font.weight.bold,
-    textAlign: 'right',
+    textAlign: 'center',
   },
 
   notice: {
@@ -366,26 +360,7 @@ const styles = StyleSheet.create({
     color: primitive.neutral[400],
     fontSize: 12,
     lineHeight: 18,
+    textAlign: 'center',
   },
 
-  footer: {
-    height: 43,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: primitive.neutral[700],
-  },
-
-  footerText: {
-    color: primitive.white,
-    fontSize: 12,
-    fontWeight: font.weight.bold,
-  },
-
-  footerArrow: {
-    color: primitive.white,
-    fontSize: 22,
-    lineHeight: 26,
-  },
 });

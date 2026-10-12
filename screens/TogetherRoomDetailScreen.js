@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import TogetherPushPickerModal from '../components/TogetherPushPickerModal';
 import TogetherMemberSyncMetaV2 from '../components/TogetherMemberSyncMetaV2';
+import TogetherRoomInvitePanelV2 from '../components/TogetherRoomInvitePanelV2';
 import { color, font, primitive, radius, space, surface as surfaceStyles } from '../styles/common';
 import { loadTogetherRoomSnapshotV2, subscribeTogetherRoomV2 } from '../utils/togetherRemoteV2';
 import { getTogetherModeLabel } from '../utils/togetherV2';
@@ -11,6 +12,7 @@ import { loadTogetherBindingByRoomId, upsertTogetherBinding } from '../utils/tog
 import { loadTogetherEligibleCards, loadTogetherProgressMetrics } from '../utils/togetherLocalData';
 import { createLocalPushFromTogetherTemplate } from '../utils/togetherPushTemplate';
 import { getTogetherMemberActivityDisplayV2 } from '../utils/togetherMemberActivityDisplayV2';
+import { syncTogetherMemberDisplayNameV2 } from '../utils/togetherMemberDisplayNameSyncV2';
 
 export default function TogetherRoomDetailScreen({ navigation, route }) {
   const roomId = String(route?.params?.roomId || '');
@@ -35,7 +37,7 @@ export default function TogetherRoomDetailScreen({ navigation, route }) {
         throw new Error('TOGETHER_ROOM_REQUIRED');
       }
 
-      const nextSnapshot = await loadTogetherRoomSnapshotV2({ roomId: targetRoomId });
+      let nextSnapshot = await loadTogetherRoomSnapshotV2({ roomId: targetRoomId });
 
       if (
         !nextSnapshot ||
@@ -45,6 +47,47 @@ export default function TogetherRoomDetailScreen({ navigation, route }) {
         !String(nextSnapshot.room.id ?? '').trim()
       ) {
         throw new Error('TOGETHER_ROOM_SNAPSHOT_INVALID');
+      }
+
+      if (!screenActiveRef.current || sequence !== requestSequenceRef.current) {
+        return null;
+      }
+
+      try {
+        const displayNameChanged =
+          await syncTogetherMemberDisplayNameV2({
+            roomId: targetRoomId,
+          });
+
+        if (
+          displayNameChanged &&
+          screenActiveRef.current &&
+          sequence === requestSequenceRef.current
+        ) {
+          const refreshedSnapshot =
+            await loadTogetherRoomSnapshotV2({
+              roomId: targetRoomId,
+            });
+
+          if (
+            refreshedSnapshot?.room &&
+            String(
+              refreshedSnapshot.room.id ?? ''
+            ).trim()
+          ) {
+            nextSnapshot = refreshedSnapshot;
+          }
+        }
+      } catch (error) {
+        if (
+          screenActiveRef.current &&
+          sequence === requestSequenceRef.current
+        ) {
+          console.warn(
+            '[TogetherRoomDetail] display name sync failed',
+            String(error?.message || 'unknown')
+          );
+        }
       }
 
       if (!screenActiveRef.current || sequence !== requestSequenceRef.current) {
@@ -139,11 +182,11 @@ export default function TogetherRoomDetailScreen({ navigation, route }) {
   const choose = async (card) => { const metrics = room.mode === 'shared_goal' ? await loadTogetherProgressMetrics({ challengeId: card.id }) : null; await upsertTogetherBinding({ binding: { roomId, mode: room.mode, localChallengeId: card.id, baselineContribution: metrics?.contributionMetric || 0, source: 'selected' } }); setPicker(false); await load(); };
   const total = members.reduce((sum, member) => sum + (Number(member?.state?.contribution) || 0), 0);
   if (!room) return <SafeAreaView style={surfaceStyles.screen}><Text style={styles.loading}>{loadError ? '함께 방 정보를 불러오지 못했어요.' : '함께 방을 불러오는 중...'}</Text>{loadError ? <TouchableOpacity style={styles.retryButton} onPress={() => { setLoadError(''); void load({ manual: true }); }} activeOpacity={0.84} accessibilityRole="button" accessibilityLabel="다시 시도"><Text style={styles.retryButtonText}>다시 시도</Text></TouchableOpacity> : null}</SafeAreaView>;
-  return <SafeAreaView style={surfaceStyles.screen}><View style={styles.header}><TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>함께 방</Text>{['owner', 'admin'].includes(room.myRole) ? <TouchableOpacity onPress={() => navigation.navigate('TogetherRoomManage', { roomId })}><Text style={styles.manage}>관리</Text></TouchableOpacity> : <View style={styles.side} />}</View><ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void load({ manual: true }); }} colors={[color.primary]} tintColor={color.primary} />}>
-    <Text style={styles.mode}>{getTogetherModeLabel(room.mode)}</Text><Text style={styles.title}>{room.title}</Text><Text style={styles.meta}>{members.length}/{room.memberLimit}명</Text>
+  return <SafeAreaView style={surfaceStyles.screen}><View style={styles.header}><TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>함께 PUSH</Text>{['owner', 'admin', 'member'].includes(room.myRole) ? <TouchableOpacity style={styles.manageButton} onPress={() => navigation.navigate('TogetherRoomManage', { roomId })} activeOpacity={0.84} accessibilityRole="button" accessibilityLabel="함께 PUSH 관리"><Text style={styles.manageButtonText}>관리</Text></TouchableOpacity> : <View style={styles.side} />}</View><ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void load({ manual: true }); }} colors={[color.primary]} tintColor={color.primary} />}>
+    <Text style={styles.mode}>{getTogetherModeLabel(room.mode)}</Text><Text style={styles.title}>{room.title}</Text><Text style={styles.meta}>{members.length}/{room.memberLimit}명</Text>{['owner', 'admin'].includes(room.myRole) ? <TogetherRoomInvitePanelV2 activeInvite={snapshot?.activeInvite} memberCount={members.length} onManage={() => navigation.navigate('TogetherRoomManage', { roomId })} /> : null}
     {room.mode === 'shared_goal' ? <View style={styles.goal}><Text style={styles.goalValue}>{total} / {room.sharedGoal?.target} {room.sharedGoal?.unit}</Text><View style={styles.track}><View style={[styles.fill, { width: `${Math.min(100, room.sharedGoal?.target ? total / room.sharedGoal.target * 100 : 0)}%` }]} /></View></View> : null}
     {!binding && room.mode !== 'watch' ? <TouchableOpacity style={styles.primary} onPress={connect}><Text style={styles.primaryText}>{room.mode === 'same_push' ? '내 PUSH 만들기' : '내 PUSH 연결'}</Text></TouchableOpacity> : null}
     <Text style={styles.section}>멤버</Text>{members.map((member) => <View key={member.userId} style={styles.member}><View><Text style={styles.memberName}>{member.displayName}</Text><Text style={styles.role}>{member.role}</Text></View><View><Text style={styles.state}>{getTogetherMemberActivityDisplayV2(member).completionLabel}</Text>{member.state?.progress != null ? <Text style={styles.state}>{Math.round(member.state.progress * 100)}%</Text> : null}{room.mode === 'shared_goal' ? <Text style={styles.state}>{member.state?.contribution || 0} {room.sharedGoal?.unit}</Text> : <Text style={styles.state}>{member.state?.streak || 0}일 연속</Text>}<TogetherMemberSyncMetaV2 member={member} /></View></View>)}
   </ScrollView><TogetherPushPickerModal visible={picker} items={cards} loading={false} onClose={() => setPicker(false)} onSelect={choose} onCreatePush={() => { setPicker(false); navigation.navigate('CreateChallengeType'); }} /></SafeAreaView>;
 }
-const styles = StyleSheet.create({ header: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, borderBottomWidth: 1, borderColor: color.border }, back: { fontSize: 34 }, headerTitle: { fontSize: 16, fontWeight: font.weight.heavy }, manage: { fontWeight: font.weight.bold }, side: { width: 30 }, loading: { marginTop: 100, textAlign: 'center' }, retryButton: { minHeight: 44, minWidth: 140, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginTop: 16, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: primitive.black }, retryButtonText: { color: primitive.white, fontSize: 14, fontWeight: font.weight.bold }, content: { padding: space.lg }, mode: { color: color.textSecondary, fontWeight: font.weight.bold }, title: { marginTop: 7, fontSize: 27, fontWeight: font.weight.heavy }, meta: { marginTop: 8, color: color.textSecondary }, goal: { marginTop: 24 }, goalValue: { fontSize: 21, fontWeight: font.weight.heavy }, track: { marginTop: 10, height: 8, backgroundColor: color.border, borderRadius: 4, overflow: 'hidden' }, fill: { height: 8, backgroundColor: primitive.black }, primary: { marginTop: 22, minHeight: 48, backgroundColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, primaryText: { color: primitive.white, fontWeight: font.weight.bold }, section: { marginTop: 30, marginBottom: 10, fontSize: 17, fontWeight: font.weight.heavy }, member: { minHeight: 72, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: color.border }, memberName: { fontWeight: font.weight.bold }, role: { marginTop: 3, color: color.textSecondary, fontSize: 11 }, state: { textAlign: 'right', color: color.textSecondary, fontSize: 11 } });
+const styles = StyleSheet.create({ header: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, borderBottomWidth: 1, borderColor: color.border }, back: { fontSize: 34 }, headerTitle: { fontSize: 16, fontWeight: font.weight.heavy }, manageButton: { minWidth: 58, height: 34, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: primitive.white, borderWidth: 1, borderColor: primitive.black, borderRadius: radius.md }, manageButtonText: { color: primitive.black, fontSize: 13, fontWeight: font.weight.bold }, side: { width: 30 }, loading: { marginTop: 100, textAlign: 'center' }, retryButton: { minHeight: 44, minWidth: 140, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginTop: 16, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: primitive.black }, retryButtonText: { color: primitive.white, fontSize: 14, fontWeight: font.weight.bold }, content: { padding: space.lg }, mode: { color: color.textSecondary, fontWeight: font.weight.bold }, title: { marginTop: 7, fontSize: 27, fontWeight: font.weight.heavy }, meta: { marginTop: 8, color: color.textSecondary }, goal: { marginTop: 24 }, goalValue: { fontSize: 21, fontWeight: font.weight.heavy }, track: { marginTop: 10, height: 8, backgroundColor: color.border, borderRadius: 4, overflow: 'hidden' }, fill: { height: 8, backgroundColor: primitive.black }, primary: { marginTop: 22, minHeight: 48, backgroundColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, primaryText: { color: primitive.white, fontWeight: font.weight.bold }, section: { marginTop: 30, marginBottom: 10, fontSize: 17, fontWeight: font.weight.heavy }, member: { minHeight: 72, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: color.border }, memberName: { fontWeight: font.weight.bold }, role: { marginTop: 3, color: color.textSecondary, fontSize: 11 }, state: { textAlign: 'right', color: color.textSecondary, fontSize: 11 } });

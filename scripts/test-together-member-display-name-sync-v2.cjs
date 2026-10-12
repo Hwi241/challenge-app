@@ -122,7 +122,8 @@ const {
   assert.match(card, /초대 수락 대기 중/);
   assert.match(home, />함께 PUSH<\/Text>/);
   assert.match(card, /headerMeta/);
-  assert.match(card, /textAlign:\s*'center'/);
+  assert.match(card, /textAlign:\s*'left'/);
+  assert.match(card, /textAlign:\s*'right'/);
   assert.match(detail, /syncTogetherMemberDisplayNameV2/);
   assert.match(manage, /syncTogetherMemberDisplayNameV2/);
   assert.match(detail, /backgroundColor:\s*primitive\.white/);

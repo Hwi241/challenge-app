@@ -58,6 +58,31 @@ assert.match(
 );
 
 assert.match(
+  card,
+  /함께 방식/
+);
+
+assert.match(
+  card,
+  /참여 인원/
+);
+
+assert.match(
+  card,
+  /detailLabel/
+);
+
+assert.match(
+  card,
+  /justifyContent:\s*'space-between'/
+);
+
+assert.match(
+  card,
+  /flexDirection:\s*'row'/
+);
+
+assert.match(
   store,
   /together_collapsed_room_ids_v1/
 );

@@ -181,13 +181,21 @@ const TogetherRoomFoldCardV2 = memo(
         ]}
       >
         <TouchableOpacity
-          style={styles.header}
+          style={[
+            styles.header,
+            !collapsed && styles.headerExpanded,
+          ]}
           onPress={onOpen}
           activeOpacity={0.82}
           accessibilityRole="button"
           accessibilityLabel={`${title} 열기`}
         >
-          <View style={styles.identity}>
+          <View
+            style={[
+              styles.identity,
+              !collapsed && styles.identityExpanded,
+            ]}
+          >
             <Text
               style={styles.title}
               numberOfLines={1}
@@ -197,7 +205,10 @@ const TogetherRoomFoldCardV2 = memo(
 
             {headerMeta ? (
               <Text
-                style={styles.subtitle}
+                style={[
+                  styles.subtitle,
+                  !collapsed && styles.subtitleExpanded,
+                ]}
                 numberOfLines={1}
               >
                 {headerMeta}
@@ -219,6 +230,9 @@ const TogetherRoomFoldCardV2 = memo(
             <View style={styles.detailRows}>
               {modeLabel ? (
                 <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>
+                    함께 방식
+                  </Text>
                   <Text style={styles.detailValue}>
                     {modeLabel}
                   </Text>
@@ -227,6 +241,9 @@ const TogetherRoomFoldCardV2 = memo(
 
               {memberCount !== null ? (
                 <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>
+                    참여 인원
+                  </Text>
                   <Text style={styles.detailValue}>
                     {memberCount}{memberLimit !== null ? `/${memberLimit}` : ''}명
                   </Text>
@@ -283,15 +300,24 @@ const styles = StyleSheet.create({
   header: {
     height: CARD_COMPACT_HEIGHT,
     justifyContent: 'center',
-    paddingLeft: 12,
-    paddingRight: 12,
+    paddingHorizontal: 16,
+  },
+
+  headerExpanded: {
+    height: 96,
+    paddingTop: 18,
+    justifyContent: 'flex-start',
   },
 
   identity: {
     flex: 1,
     minWidth: 0,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
+  },
+
+  identityExpanded: {
+    justifyContent: 'flex-start',
   },
 
   title: {
@@ -299,7 +325,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 22,
     fontWeight: font.weight.heavy,
-    textAlign: 'center',
+    textAlign: 'left',
   },
 
   subtitle: {
@@ -308,7 +334,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     fontWeight: font.weight.medium,
-    textAlign: 'center',
+    textAlign: 'left',
+  },
+
+  subtitleExpanded: {
+    marginTop: 12,
   },
 
   foldButton: {
@@ -325,7 +355,7 @@ const styles = StyleSheet.create({
 
   expandedContent: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingBottom: 28,
   },
 
@@ -336,23 +366,30 @@ const styles = StyleSheet.create({
 
   detailRows: {
     flex: 1,
-    paddingTop: space.sm,
-    gap: space.xs,
-    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+    justifyContent: 'space-evenly',
   },
 
   detailRow: {
     width: '100%',
-    minHeight: 20,
+    minHeight: 26,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+  },
+
+  detailLabel: {
+    color: primitive.neutral[400],
+    fontSize: 13,
+    fontWeight: font.weight.medium,
   },
 
   detailValue: {
     color: primitive.white,
-    fontSize: 12,
-    fontWeight: font.weight.bold,
-    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: font.weight.medium,
+    textAlign: 'right',
   },
 
   notice: {

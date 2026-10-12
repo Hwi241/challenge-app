@@ -58,6 +58,10 @@ import {
   calculateGrowthAnalysis,
   calculateRhythmAnalysis,
 } from '../utils/recordRoomAnalysis';
+import {
+  loadOfficialTogetherNicknameV2,
+  saveTogetherNicknameV2,
+} from '../utils/togetherNicknameV2';
 
 const CHALLENGES_KEY = 'challenges';
 const TRASH_CHALLENGES_KEY = 'trash_challenges';
@@ -1183,6 +1187,11 @@ export default function ProfileInventoryScreen() {
   const [profileInfo, setProfileInfo] = useState({ name: '', headline: '', bio: '' });
   const [profileDraft, setProfileDraft] = useState({ name: '', headline: '', bio: '' });
   const [profileVisible, setProfileVisible] = useState(false);
+  const [officialNicknameStatus, setOfficialNicknameStatus] = useState({
+    kind: 'unknown',
+    name: '',
+  });
+  const officialNicknameCheckSeqRef = useRef(0);
   const [profileImageUri, setProfileImageUri] = useState('');
   const [hofGoal, setHofGoal] = useState(10);
   const [hofGoalDraft, setHofGoalDraft] = useState('10');
@@ -1447,10 +1456,36 @@ export default function ProfileInventoryScreen() {
     resetGuard();
     setProfileDraft(profileInfo);
     setProfileVisible(true);
+
+    const sequence = ++officialNicknameCheckSeqRef.current;
+
+    setOfficialNicknameStatus({
+      kind: 'checking',
+      name: '',
+    });
+
+    void loadOfficialTogetherNicknameV2()
+      .then((name) => {
+        if (officialNicknameCheckSeqRef.current !== sequence) return;
+
+        setOfficialNicknameStatus({
+          kind: 'loaded',
+          name: String(name ?? '').trim(),
+        });
+      })
+      .catch(() => {
+        if (officialNicknameCheckSeqRef.current !== sequence) return;
+
+        setOfficialNicknameStatus({
+          kind: 'unavailable',
+          name: '',
+        });
+      });
   }, [profileInfo, resetGuard]);
 
   const closeProfileModal = useCallback(() => {
     const close = () => {
+      officialNicknameCheckSeqRef.current += 1;
       setProfileDraft(profileInfo);
       setProfileVisible(false);
     };
@@ -1464,19 +1499,134 @@ export default function ProfileInventoryScreen() {
   }, [confirmCloseModal, hasModalUnsavedChanges, profileInfo]);
 
   const saveProfile = useCallback(() => {
-    confirmSave({
-      title: '저장하시겠습니까?',
-      message: '내 정보를 저장할까요?',
-      onConfirm: async () => {
-        const nextProfile = normalizeProfileDraft(profileDraft);
-        await AsyncStorage.setItem(RECORD_ROOM_PROFILE_KEY, JSON.stringify(nextProfile));
-        setProfileInfo(nextProfile);
-        setProfileDraft(nextProfile);
-        markAsSaved();
-        setProfileVisible(false);
+    const nextProfile = normalizeProfileDraft(profileDraft);
+    const previousName = normalizeProfileDraft(profileInfo).name;
+
+    const serverLoaded = officialNicknameStatus.kind === 'loaded';
+    const serverName = serverLoaded
+      ? officialNicknameStatus.name
+      : '';
+
+    const nicknameChanged = nextProfile.name !== previousName;
+
+    const nicknameNeedsServer =
+      nicknameChanged ||
+      (serverLoaded && nextProfile.name !== serverName);
+
+    const persistProfile = async () => {
+      if (nicknameNeedsServer) {
+        try {
+          nextProfile.name = await saveTogetherNicknameV2(
+            nextProfile.name
+          );
+        } catch (error) {
+          const reason = String(error?.message || '');
+
+          if (reason === 'TOGETHER_NICKNAME_TAKEN') {
+            Alert.alert(
+              '이미 사용 중인 닉네임',
+              '다른 닉네임을 입력해주세요.'
+            );
+          } else if (reason === 'TOGETHER_NICKNAME_TOO_LONG') {
+            Alert.alert(
+              '닉네임 길이 확인',
+              '닉네임은 40자 이내로 입력해주세요.'
+            );
+          } else {
+            Alert.alert(
+              '닉네임 저장 실패',
+              '서버에 닉네임을 저장하지 못했어요. 연결 상태를 확인하고 다시 시도해주세요.'
+            );
+          }
+
+          return;
+        }
+      }
+
+      try {
+        await AsyncStorage.setItem(
+          RECORD_ROOM_PROFILE_KEY,
+          JSON.stringify(nextProfile)
+        );
+      } catch {
+        Alert.alert(
+          '내 정보 저장 실패',
+          nicknameNeedsServer
+            ? '서버 닉네임은 저장됐지만 기기 내 정보를 저장하지 못했어요. 다시 저장해주세요.'
+            : '기기 내 정보를 저장하지 못했어요. 다시 시도해주세요.'
+        );
+        return;
+      }
+
+      if (nicknameNeedsServer) {
+        officialNicknameCheckSeqRef.current += 1;
+        setOfficialNicknameStatus({
+          kind: 'loaded',
+          name: nextProfile.name,
+        });
+      }
+
+      setProfileInfo(nextProfile);
+      setProfileDraft(nextProfile);
+      markAsSaved();
+      setProfileVisible(false);
+    };
+
+    if (!nicknameNeedsServer) {
+      confirmSave({
+        title: '저장하시겠습니까?',
+        message: '내 정보를 저장할까요?',
+        onConfirm: persistProfile,
+      });
+      return;
+    }
+
+    const isInitialRegistration =
+      nextProfile.name !== '' &&
+      (serverLoaded ? serverName === '' : previousName === '');
+
+    let title;
+    let message;
+    let confirmText;
+
+    if (!nextProfile.name) {
+      title = '닉네임 등록 해제';
+      message =
+        '닉네임 등록을 해제할까요?\n함께 PUSH에서는 이름이 멤버로 표시됩니다.';
+      confirmText = '등록 해제';
+    } else if (isInitialRegistration) {
+      title = '닉네임 최초 등록';
+      message =
+        `"${nextProfile.name}"을(를) 내 닉네임으로 등록할까요?\n` +
+        '등록 후 다른 사용자는 같은 닉네임을 사용할 수 없습니다.';
+      confirmText = '등록하고 저장';
+    } else {
+      title = '닉네임 변경';
+      message =
+        `"${nextProfile.name}"(으)로 닉네임을 변경할까요?\n` +
+        '변경하면 함께 PUSH의 표시 이름에도 반영됩니다.';
+      confirmText = '변경하고 저장';
+    }
+
+    Alert.alert(title, message, [
+      {
+        text: '취소',
+        style: 'cancel',
       },
-    });
-  }, [confirmSave, markAsSaved, profileDraft]);
+      {
+        text: confirmText,
+        onPress: () => {
+          void persistProfile();
+        },
+      },
+    ]);
+  }, [
+    confirmSave,
+    markAsSaved,
+    profileDraft,
+    profileInfo,
+    officialNicknameStatus,
+  ]);
 
   const pickProfileImage = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -1760,6 +1910,7 @@ export default function ProfileInventoryScreen() {
           <TextInput
             value={profileDraft.name}
             onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, name: value }))}
+            maxLength={40}
             placeholder="이름 또는 별명"
             placeholderTextColor={color.textTertiary}
             style={[canonicalInputStyles.base, styles.profileInput]}

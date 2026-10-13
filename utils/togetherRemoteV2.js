@@ -18,6 +18,33 @@ export const loadMyTogetherRoomsV2 = async ({ client = null } = {}) => { const d
 export const loadTogetherRoomSnapshotV2 = async ({ roomId, client = null } = {}) => first(await rpc(client, 'get_together_room_snapshot_v2', { p_room_id: required(roomId, 'TOGETHER_ROOM_REQUIRED') }));
 export const upsertTogetherMemberStateV2 = ({ roomId, localDate, completed, progress, streak, contribution, displayName, client = null } = {}) => rpc(client, 'upsert_together_member_state_v2', { p_room_id: roomId, p_local_date: localDate, p_completed: completed, p_progress: progress, p_streak: streak, p_contribution: contribution, p_display_name: displayName });
 
+export const replaceTogetherMemberWeekV3 = ({
+  roomId,
+  days,
+  client = null,
+} = {}) => {
+  if (!Array.isArray(days) || days.length > 7) {
+    throw new Error('TOGETHER_WEEK_INVALID');
+  }
+
+  return rpc(client, 'replace_together_member_week_v3', {
+    p_room_id: required(roomId, 'TOGETHER_ROOM_REQUIRED'),
+    p_days: days,
+  });
+};
+
+export const loadTogetherWeekV3 = ({
+  roomId,
+  startDate = null,
+  client = null,
+} = {}) =>
+  first(
+    rpc(client, 'get_together_week_v3', {
+      p_room_id: required(roomId, 'TOGETHER_ROOM_REQUIRED'),
+      p_start_date: startDate,
+    })
+  );
+
 const action = (name, map) => async (values = {}) => {
   await ensureTogetherAnonymousSession();
   return rpc(values.client, name, map(values));

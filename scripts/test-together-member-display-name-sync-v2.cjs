@@ -111,6 +111,20 @@ const {
     ),
     'utf8'
   );
+  const overview = fs.readFileSync(
+    path.join(
+      root,
+      'components/TogetherRoomOverviewV3.js'
+    ),
+    'utf8'
+  );
+  const overviewData = fs.readFileSync(
+    path.join(
+      root,
+      'utils/togetherRoomOverviewV3.js'
+    ),
+    'utf8'
+  );
   const migration = fs.readFileSync(
     path.join(
       root,
@@ -128,7 +142,9 @@ const {
   assert.match(manage, /syncTogetherMemberDisplayNameV2/);
   assert.match(detail, /backgroundColor:\s*primitive\.white/);
   assert.match(detail, /borderColor:\s*primitive\.black/);
-  assert.match(detail, /member\.displayName/);
+  assert.match(detail, /TogetherRoomOverviewV3/);
+  assert.match(overviewData, /member\.displayName/);
+  assert.match(overview, /member\.name/);
   assert.match(manage, /member\.displayName/);
   assert.match(
     migration,

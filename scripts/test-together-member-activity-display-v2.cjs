@@ -134,6 +134,13 @@ const detail = fs.readFileSync(
   ),
   'utf8'
 );
+const overview = fs.readFileSync(
+  path.join(
+    root,
+    'components/TogetherRoomOverviewV3.js'
+  ),
+  'utf8'
+);
 
 assert.match(
   component,
@@ -141,10 +148,14 @@ assert.match(
 );
 assert.match(
   detail,
+  /TogetherRoomOverviewV3/
+);
+assert.match(
+  overview,
   /TogetherMemberSyncMetaV2/
 );
 assert.match(
-  detail,
+  component,
   /getTogetherMemberActivityDisplayV2/
 );
 

@@ -112,6 +112,36 @@ assert.match(
   /collapsedTogetherRooms/
 );
 
+assert.match(
+  home,
+  /TOGETHER_CARD_GRID_WIDE_WIDTH\s*=\s*600/
+);
+
+assert.match(
+  home,
+  /onCardListLayout/
+);
+
+assert.match(
+  home,
+  /cardCellWidth/
+);
+
+assert.match(
+  home,
+  /styles\.cardListWide/
+);
+
+assert.match(
+  home,
+  /flexWrap:\s*'wrap'/
+);
+
+assert.match(
+  home,
+  /width:\s*cardCellWidth/
+);
+
 assert.doesNotMatch(
   card,
   /navigation\.navigate\(['"]Upload['"]/

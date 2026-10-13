@@ -4965,7 +4965,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
     if (widgetKind === 'healthStepsGoalRate') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthStepsGoalRate" title="걸음 목표 달성률">
-            {React.createElement(HealthStepsGoalRateWidget, { entries: entries, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE, key: widgetKind + '-' + id })}
+            {React.createElement(HealthStepsGoalRateWidget, { entries: entries, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_GOAL_RATE, key: widgetKind + '-' + widgetId })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }
@@ -4994,7 +4994,7 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
     if (widgetKind === 'healthStepsCumulative') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthStepsCumulative" title="누적 걸음수">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'steps', title: '누적 걸음수', unit: '보', isCumulative: true, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'steps', title: '누적 걸음수', unit: '보', isCumulative: true, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_STEPS_CUMULATIVE, key: widgetKind + '-' + widgetId })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }
@@ -5010,21 +5010,21 @@ const HealthWeeklyMetricWidget = memo(function HealthWeeklyMetricWidget(_ref2) {
     if (widgetKind === 'healthExerciseWeeklyMinutes') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthExerciseWeeklyMinutes" title="주간 운동시간">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'minutes', title: '주간 운동시간', unit: '분', disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_WEEKLY_MINUTES, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'minutes', title: '주간 운동시간', unit: '분', disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_EXERCISE_WEEKLY_MINUTES, key: widgetKind + '-' + widgetId })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }
         if (widgetKind === 'healthDistanceWeekly') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthDistanceWeekly" title="주간 이동거리">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '주간 이동거리', unit: 'km', disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_WEEKLY, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '주간 이동거리', unit: 'km', disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_WEEKLY, key: widgetKind + '-' + widgetId })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }
         if (widgetKind === 'healthDistanceCumulative') {
           return (
             <HealthDashboardWidgetErrorBoundary widgetId="healthDistanceCumulative" title="누적 운동거리">
-            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '누적 운동거리', unit: 'km', isCumulative: true, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_CUMULATIVE, key: widgetKind + '-' + id })}
+            {React.createElement(HealthWeeklyMetricWidget, { entries: entries, metricType: 'distance', title: '누적 운동거리', unit: 'km', isCumulative: true, disabled: isShare, graphId: GRAPH_RENDER_GRAPH_IDS.HEALTH_DISTANCE_CUMULATIVE, key: widgetKind + '-' + widgetId })}
           </HealthDashboardWidgetErrorBoundary>
           );
         }

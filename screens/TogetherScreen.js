@@ -16,6 +16,9 @@ import { resolveTogetherRoomPresentation } from '../utils/togetherRoomViewIntegr
 import { loadTogetherCollapsedRoomsV2, saveTogetherCollapsedRoomsV2 } from '../utils/togetherRoomCardCollapseV2';
 import { subscribeTogetherHomeChangesV2 } from '../utils/togetherHomeRealtimeV2';
 
+const TOGETHER_CARD_GRID_GAP = 16;
+const TOGETHER_CARD_GRID_WIDE_WIDTH = 600;
+
 export default function TogetherScreen({ navigation, route }) {
   const [rooms, setRooms] = useState([]);
   const [drafts, setDrafts] = useState([]);
@@ -33,10 +36,27 @@ export default function TogetherScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [homeLoadError, setHomeLoadError] = useState('');
   const [homeInitialLoaded, setHomeInitialLoaded] = useState(false);
+  const [cardListWidth, setCardListWidth] = useState(0);
   const openEntryMenu = useCallback(() => { setEntryMenuVisible(true); }, []);
   const closeEntryMenu = useCallback(() => { setEntryMenuVisible(false); }, []);
   const openTogetherStart = useCallback(() => { setModeVisible(true); }, []);
   const openJoinEntry = useCallback(() => { navigation.navigate('TogetherJoinEntry'); }, [navigation]);
+  const onCardListLayout = useCallback((event) => {
+    const nextWidth = Math.round(
+      Number(event?.nativeEvent?.layout?.width) || 0
+    );
+
+    if (nextWidth <= 0) return;
+
+    setCardListWidth((previous) =>
+      previous === nextWidth ? previous : nextWidth
+    );
+  }, []);
+  const isTwoColumnCardLayout =
+    cardListWidth >= TOGETHER_CARD_GRID_WIDE_WIDTH;
+  const cardCellWidth = isTwoColumnCardLayout
+    ? (cardListWidth - TOGETHER_CARD_GRID_GAP) / 2
+    : '100%';
   useFocusEffect(useCallback(() => {
     let active = true;
     loadTogetherCollapsedRoomsV2().then((value) => {
@@ -281,8 +301,78 @@ export default function TogetherScreen({ navigation, route }) {
     <ScrollView contentContainerStyle={[styles.content, !hasContent && styles.emptyContent]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void reload({ manual: true }); }} colors={[color.primary]} tintColor={color.primary} />}>
       {!homeInitialLoaded ? <View style={styles.homeLoading}><Text style={styles.homeLoadingText}>함께 목록을 불러오는 중...</Text></View> : null}
       {homeLoadError ? <View style={styles.homeRefreshError}><Text style={styles.homeRefreshErrorText}>{homeLoadError}</Text><TouchableOpacity style={styles.homeRefreshRetry} onPress={() => { void reload({ manual: true }); }} activeOpacity={0.84} accessibilityRole="button" accessibilityLabel="함께 목록 다시 시도"><Text style={styles.homeRefreshRetryText}>다시 시도</Text></TouchableOpacity></View> : null}
-      {visibleRooms.length > 0 ? <View><View style={styles.cardList}>{visibleRooms.map((room) => { const id = String(room.room_id ?? room.roomId ?? room.id ?? ''); return <TogetherRoomFoldCardV2 key={id} room={room} variant="room" collapsed={!!collapsedTogetherRooms[id]} onToggleCollapsed={() => toggleTogetherCollapsed(id)} onOpen={() => navigation.navigate('TogetherRoomDetail', { roomId: id })} />; })}</View></View> : null}
-      {visibleDrafts.length > 0 ? <View><Text style={styles.section}>초대 준비 중</Text><View style={styles.cardList}>{visibleDrafts.map((draft) => { const id = String(draft?.id ?? ''); return <TogetherRoomFoldCardV2 key={id} room={draft} variant="draft" collapsed={!!collapsedTogetherRooms[id]} onToggleCollapsed={() => toggleTogetherCollapsed(id)} onOpen={() => navigation.navigate('TogetherInviteDraft', { draft, draftId: draft.id })} />; })}</View></View> : null}
+      {visibleRooms.length > 0 ? (
+        <View>
+          <View
+            style={[
+              styles.cardList,
+              isTwoColumnCardLayout && styles.cardListWide,
+            ]}
+            onLayout={onCardListLayout}
+          >
+            {visibleRooms.map((room) => {
+              const id = String(
+                room.room_id ?? room.roomId ?? room.id ?? ''
+              );
+
+              return (
+                <View key={id} style={{ width: cardCellWidth }}>
+                  <TogetherRoomFoldCardV2
+                    room={room}
+                    variant="room"
+                    collapsed={!!collapsedTogetherRooms[id]}
+                    onToggleCollapsed={() =>
+                      toggleTogetherCollapsed(id)
+                    }
+                    onOpen={() =>
+                      navigation.navigate(
+                        'TogetherRoomDetail',
+                        { roomId: id }
+                      )
+                    }
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+      {visibleDrafts.length > 0 ? (
+        <View>
+          <Text style={styles.section}>초대 준비 중</Text>
+
+          <View
+            style={[
+              styles.cardList,
+              isTwoColumnCardLayout && styles.cardListWide,
+            ]}
+            onLayout={onCardListLayout}
+          >
+            {visibleDrafts.map((draft) => {
+              const id = String(draft?.id ?? '');
+
+              return (
+                <View key={id} style={{ width: cardCellWidth }}>
+                  <TogetherRoomFoldCardV2
+                    room={draft}
+                    variant="draft"
+                    collapsed={!!collapsedTogetherRooms[id]}
+                    onToggleCollapsed={() =>
+                      toggleTogetherCollapsed(id)
+                    }
+                    onOpen={() =>
+                      navigation.navigate(
+                        'TogetherInviteDraft',
+                        { draft, draftId: draft.id }
+                      )
+                    }
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
       {homeInitialLoaded && !homeLoadError && !hasContent ? <View style={styles.empty}><Text style={styles.emptyTitle}>혼자 하던 일을{`\n`}함께 이어가보세요.</Text><Text style={styles.guide}>1 방식 선택   2 PUSH 선택   3 초대</Text></View> : null}
       {showEmptyActions ? <><TouchableOpacity style={styles.emptyStartButton} onPress={openTogetherStart}><Text style={styles.emptyStartText}>함께 시작하기</Text></TouchableOpacity><TouchableOpacity style={styles.emptyJoinButton} onPress={openJoinEntry}><Text style={styles.emptyJoinText}>초대 참여하기</Text></TouchableOpacity></> : null}
     </ScrollView>
@@ -292,5 +382,5 @@ export default function TogetherScreen({ navigation, route }) {
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  header: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, borderBottomWidth: 1, borderColor: color.border }, settingsHeaderButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', zIndex: 2 }, settingsHeaderIcon: { color: color.textPrimary, fontSize: 22, fontWeight: '400' }, side: { width: 40, alignItems: 'center' }, headerTitle: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 17, fontWeight: font.weight.heavy }, addTogetherButton: { minWidth: 78, height: 34, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: primitive.black, borderRadius: radius.md, zIndex: 2 }, addTogetherButtonText: { color: primitive.white, fontSize: 12, fontWeight: font.weight.bold }, content: { padding: space.md, paddingBottom: 60 }, emptyContent: { flexGrow: 1, justifyContent: 'center' }, homeLoading: { alignItems: 'center', paddingVertical: space.lg }, homeLoadingText: { color: color.textSecondary, fontSize: font.size.bodySmall }, homeRefreshError: { marginBottom: space.md, borderWidth: 1, borderColor: color.border, borderRadius: radius.md, padding: space.md, backgroundColor: color.background }, homeRefreshErrorText: { color: color.textPrimary, fontSize: font.size.bodySmall, lineHeight: 19 }, homeRefreshRetry: { minHeight: 40, alignSelf: 'flex-start', justifyContent: 'center', marginTop: space.xs, paddingHorizontal: space.sm, borderWidth: 1, borderColor: primitive.black, borderRadius: radius.sm }, homeRefreshRetryText: { color: primitive.black, fontSize: font.size.bodySmall, fontWeight: font.weight.bold }, section: { marginTop: 16, marginBottom: 10, fontSize: 16, fontWeight: font.weight.heavy }, cardList: { width: '100%', gap: 16 }, empty: { alignItems: 'center', marginBottom: 24 }, emptyTitle: { textAlign: 'center', fontSize: 24, lineHeight: 32, fontWeight: font.weight.heavy }, guide: { marginTop: 14, color: color.textSecondary }, emptyStartButton: { width: '100%', minHeight: 50, backgroundColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, emptyStartText: { color: primitive.white, fontSize: 14, fontWeight: font.weight.bold }, emptyJoinButton: { width: '100%', minHeight: 50, marginTop: 10, backgroundColor: primitive.white, borderWidth: 1, borderColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, emptyJoinText: { color: primitive.black, fontSize: 14, fontWeight: font.weight.bold }, primary: { minHeight: 50, backgroundColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, primaryText: { color: primitive.white, fontWeight: font.weight.bold }, linkButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center' }, linkText: { color: color.textSecondary, fontSize: 12, fontWeight: font.weight.bold, textDecorationLine: 'underline' },
+  header: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, borderBottomWidth: 1, borderColor: color.border }, settingsHeaderButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', zIndex: 2 }, settingsHeaderIcon: { color: color.textPrimary, fontSize: 22, fontWeight: '400' }, side: { width: 40, alignItems: 'center' }, headerTitle: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 17, fontWeight: font.weight.heavy }, addTogetherButton: { minWidth: 78, height: 34, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: primitive.black, borderRadius: radius.md, zIndex: 2 }, addTogetherButtonText: { color: primitive.white, fontSize: 12, fontWeight: font.weight.bold }, content: { padding: space.md, paddingBottom: 60 }, emptyContent: { flexGrow: 1, justifyContent: 'center' }, homeLoading: { alignItems: 'center', paddingVertical: space.lg }, homeLoadingText: { color: color.textSecondary, fontSize: font.size.bodySmall }, homeRefreshError: { marginBottom: space.md, borderWidth: 1, borderColor: color.border, borderRadius: radius.md, padding: space.md, backgroundColor: color.background }, homeRefreshErrorText: { color: color.textPrimary, fontSize: font.size.bodySmall, lineHeight: 19 }, homeRefreshRetry: { minHeight: 40, alignSelf: 'flex-start', justifyContent: 'center', marginTop: space.xs, paddingHorizontal: space.sm, borderWidth: 1, borderColor: primitive.black, borderRadius: radius.sm }, homeRefreshRetryText: { color: primitive.black, fontSize: font.size.bodySmall, fontWeight: font.weight.bold }, section: { marginTop: 16, marginBottom: 10, fontSize: 16, fontWeight: font.weight.heavy }, cardList: { width: '100%', gap: 16 }, cardListWide: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }, empty: { alignItems: 'center', marginBottom: 24 }, emptyTitle: { textAlign: 'center', fontSize: 24, lineHeight: 32, fontWeight: font.weight.heavy }, guide: { marginTop: 14, color: color.textSecondary }, emptyStartButton: { width: '100%', minHeight: 50, backgroundColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, emptyStartText: { color: primitive.white, fontSize: 14, fontWeight: font.weight.bold }, emptyJoinButton: { width: '100%', minHeight: 50, marginTop: 10, backgroundColor: primitive.white, borderWidth: 1, borderColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, emptyJoinText: { color: primitive.black, fontSize: 14, fontWeight: font.weight.bold }, primary: { minHeight: 50, backgroundColor: primitive.black, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }, primaryText: { color: primitive.white, fontWeight: font.weight.bold }, linkButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center' }, linkText: { color: color.textSecondary, fontSize: 12, fontWeight: font.weight.bold, textDecorationLine: 'underline' },
 });

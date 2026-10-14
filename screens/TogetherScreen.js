@@ -240,10 +240,18 @@ export default function TogetherScreen({ navigation, route }) {
       });
     return () => { active = false; };
   }, []));
-  const chooseMode = async (mode) => { setSelectedMode(mode); setModeVisible(false); setLoadingCards(true); setPickerVisible(true); try { setCards(await loadTogetherEligibleCards()); } finally { setLoadingCards(false); } };
+  const chooseMode = async (mode) => {
+    setModeVisible(false);
+    if (mode === 'shared_goal') {
+      setSelectedMode(''); setPickerVisible(false);
+      navigation.navigate('TogetherSharedGoalCreate');
+      return;
+    }
+    setSelectedMode(mode); setLoadingCards(true); setPickerVisible(true);
+    try { setCards(await loadTogetherEligibleCards()); } finally { setLoadingCards(false); }
+  };
   const selectActivity = useCallback(async (card) => {
     setPickerVisible(false);
-    if (selectedMode === 'shared_goal') { navigation.navigate('TogetherSharedGoalCreate', { selectedCard: card }); return; }
     const draft = await createTogetherRoomDraftV2({ mode: selectedMode, card });
     navigation.navigate('TogetherInviteDraft', { draft, draftId: draft.id });
   }, [navigation, selectedMode]);

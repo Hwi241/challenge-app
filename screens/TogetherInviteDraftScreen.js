@@ -9,7 +9,7 @@ import { loadTogetherRoomDraftByIdV2, updateTogetherRoomDraftRemoteV2, cancelTog
 import { loadTogetherDisplayName } from '../utils/togetherProfile';
 import { loadTogetherEligibleCards, loadTogetherProgressMetrics } from '../utils/togetherLocalData';
 import { buildTogetherPushTemplate } from '../utils/togetherPushTemplate';
-import { createTogetherRoomV2 } from '../utils/togetherRemoteV2';
+import { createTogetherRoomV2, initializeTogetherSharedActivityV4 } from '../utils/togetherRemoteV2';
 import { upsertTogetherBinding } from '../utils/togetherBindings';
 import { buildTogetherInviteLink, getTogetherModeDescription, getTogetherModeLabel } from '../utils/togetherV2';
 import useTogetherInvitePresenceV2 from '../hooks/useTogetherInvitePresenceV2';
@@ -38,14 +38,19 @@ export default function TogetherInviteDraftScreen({ navigation, route }) {
     try {
       const auth = await ensureTogetherAnonymousSession();
       if (!auth?.ok) throw new Error(auth?.reason || 'TOGETHER_AUTH_FAILED');
-      const [displayName, cards] = await Promise.all([loadTogetherDisplayName(), loadTogetherEligibleCards()]);
-      const card = cards.find((item) => String(item.id) === draft.challengeId);
-      if (!card) throw new Error('TOGETHER_LOCAL_PUSH_NOT_FOUND');
-      const pushTemplate = ['watch', 'same_push'].includes(draft.mode) ? buildTogetherPushTemplate(card) : null;
+      const newShared = draft.mode === 'shared_goal' && draft.sharedGoal?.source === 'room_contributions_v1';
+      const displayName = await loadTogetherDisplayName();
+      const cards = newShared ? [] : await loadTogetherEligibleCards();
+      const card = newShared ? null : cards.find((item) => String(item.id) === draft.challengeId);
+      if (!newShared && !card) throw new Error('TOGETHER_LOCAL_PUSH_NOT_FOUND');
+      const pushTemplate = !newShared && ['watch', 'same_push'].includes(draft.mode) ? buildTogetherPushTemplate(card) : null;
       let timezone = 'Asia/Seoul'; try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || timezone; } catch {}
       const remote = await createTogetherRoomV2({ mode: draft.mode, title: draft.title, timezone, pushTemplate, sharedGoal: draft.sharedGoal, requestId: draft.requestId, displayName });
-      const metrics = draft.mode === 'shared_goal' ? await loadTogetherProgressMetrics({ challengeId: draft.challengeId }) : null;
-      await upsertTogetherBinding({ binding: { roomId: remote.roomId, mode: draft.mode, localChallengeId: draft.challengeId, baselineContribution: metrics?.contributionMetric || 0, source: 'owner' } });
+      if (newShared) await initializeTogetherSharedActivityV4({ roomId: remote.roomId });
+      else {
+        const metrics = draft.mode === 'shared_goal' ? await loadTogetherProgressMetrics({ challengeId: draft.challengeId }) : null;
+        await upsertTogetherBinding({ binding: { roomId: remote.roomId, mode: draft.mode, localChallengeId: draft.challengeId, baselineContribution: metrics?.contributionMetric || 0, source: 'owner' } });
+      }
       setDraft(await updateTogetherRoomDraftRemoteV2({ draftId: draft.id, ...remote }));
       setCreatedRoomId(String(remote.roomId).trim());
     } catch (error) {

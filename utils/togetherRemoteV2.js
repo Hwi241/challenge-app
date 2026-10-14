@@ -45,6 +45,11 @@ export const loadTogetherWeekV3 = ({
     })
   );
 
+export const initializeTogetherSharedActivityV4 = ({ roomId, client = null } = {}) => rpc(client, 'initialize_together_shared_activity_v4', { p_room_id: required(roomId, 'TOGETHER_ROOM_REQUIRED') });
+export const addTogetherSharedContributionV4 = ({ roomId, amount, requestId, client = null } = {}) => rpc(client, 'add_together_shared_contribution_v4', { p_room_id: required(roomId, 'TOGETHER_ROOM_REQUIRED'), p_amount: amount, p_request_id: required(requestId, 'TOGETHER_REQUEST_ID_REQUIRED') });
+export const deleteTogetherSharedContributionV4 = ({ contributionId, client = null } = {}) => rpc(client, 'delete_together_shared_contribution_v4', { p_contribution_id: required(contributionId, 'TOGETHER_CONTRIBUTION_REQUIRED') });
+export const loadTogetherSharedSummaryV4 = ({ roomId, client = null } = {}) => rpc(client, 'get_together_shared_summary_v4', { p_room_id: required(roomId, 'TOGETHER_ROOM_REQUIRED') });
+
 const action = (name, map) => async (values = {}) => {
   await ensureTogetherAnonymousSession();
   return rpc(values.client, name, map(values));

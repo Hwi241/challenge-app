@@ -6,8 +6,9 @@ import TogetherPushPickerModal from '../components/TogetherPushPickerModal';
 import TogetherRoomInvitePanelV2 from '../components/TogetherRoomInvitePanelV2';
 import TogetherRoomOverviewV3 from '../components/TogetherRoomOverviewV3';
 import TogetherRoomWeeklyV3 from '../components/TogetherRoomWeeklyV3';
+import TogetherSharedContributionV4 from '../components/TogetherSharedContributionV4';
 import { color, font, primitive, radius, space, surface as surfaceStyles } from '../styles/common';
-import { loadTogetherRoomSnapshotV2, subscribeTogetherRoomV2 } from '../utils/togetherRemoteV2';
+import { loadTogetherRoomSnapshotV2, subscribeTogetherRoomV2, loadTogetherSharedSummaryV4 } from '../utils/togetherRemoteV2';
 import { getTogetherModeLabel } from '../utils/togetherV2';
 import { loadTogetherBindingByRoomId, upsertTogetherBinding } from '../utils/togetherBindings';
 import { loadTogetherEligibleCards, loadTogetherProgressMetrics } from '../utils/togetherLocalData';
@@ -24,6 +25,8 @@ export default function TogetherRoomDetailScreen({ navigation, route }) {
   const screenActiveRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [sharedSummary, setSharedSummary] = useState(null);
+  const [sharedSummaryError, setSharedSummaryError] = useState('');
   const load = useCallback(async ({ manual = false } = {}) => {
     const targetRoomId = String(roomId ?? '').trim();
     const sequence = ++requestSequenceRef.current;
@@ -96,6 +99,11 @@ export default function TogetherRoomDetailScreen({ navigation, route }) {
 
       setSnapshot(nextSnapshot);
       setLoadError('');
+
+      if (nextSnapshot.room?.mode === 'shared_goal' && nextSnapshot.room?.sharedGoal?.source === 'room_contributions_v1') {
+        try { setSharedSummary(await loadTogetherSharedSummaryV4({ roomId: targetRoomId })); setSharedSummaryError(''); }
+        catch { setSharedSummaryError('TOGETHER_SHARED_SUMMARY_FAILED'); }
+      } else { setSharedSummary(null); setSharedSummaryError(''); }
 
       try {
         const nextBinding = await loadTogetherBindingByRoomId({ roomId: targetRoomId });
@@ -178,13 +186,15 @@ export default function TogetherRoomDetailScreen({ navigation, route }) {
   );
   const room = snapshot?.room;
   const members = snapshot?.members || [];
+  const isNewShared = room?.mode === 'shared_goal' && room?.sharedGoal?.source === 'room_contributions_v1';
   const connect = async () => { if (room.mode === 'same_push') { const push = await createLocalPushFromTogetherTemplate({ template: room.pushTemplate, roomId }); await upsertTogetherBinding({ binding: { roomId, mode: room.mode, localChallengeId: push.id, baselineContribution: 0, source: 'clone' } }); await load(); return; } setCards(await loadTogetherEligibleCards()); setPicker(true); };
   const choose = async (card) => { const metrics = room.mode === 'shared_goal' ? await loadTogetherProgressMetrics({ challengeId: card.id }) : null; await upsertTogetherBinding({ binding: { roomId, mode: room.mode, localChallengeId: card.id, baselineContribution: metrics?.contributionMetric || 0, source: 'selected' } }); setPicker(false); await load(); };
   if (!room) return <SafeAreaView style={surfaceStyles.screen}><Text style={styles.loading}>{loadError ? '함께 방 정보를 불러오지 못했어요.' : '함께 방을 불러오는 중...'}</Text>{loadError ? <TouchableOpacity style={styles.retryButton} onPress={() => { setLoadError(''); void load({ manual: true }); }} activeOpacity={0.84} accessibilityRole="button" accessibilityLabel="다시 시도"><Text style={styles.retryButtonText}>다시 시도</Text></TouchableOpacity> : null}</SafeAreaView>;
   return <SafeAreaView style={surfaceStyles.screen}><View style={styles.header}><TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>함께 PUSH</Text>{['owner', 'admin', 'member'].includes(room.myRole) ? <TouchableOpacity style={styles.manageButton} onPress={() => navigation.navigate('TogetherRoomManage', { roomId })} activeOpacity={0.84} accessibilityRole="button" accessibilityLabel="함께 PUSH 관리"><Text style={styles.manageButtonText}>관리</Text></TouchableOpacity> : <View style={styles.side} />}</View><ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void load({ manual: true }); }} colors={[color.primary]} tintColor={color.primary} />}>
     <Text style={styles.mode}>{getTogetherModeLabel(room.mode)}</Text><Text style={styles.title}>{room.title}</Text><Text style={styles.meta}>{members.length}/{room.memberLimit}명</Text>{['owner', 'admin'].includes(room.myRole) ? <TogetherRoomInvitePanelV2 activeInvite={snapshot?.activeInvite} memberCount={members.length} onManage={() => navigation.navigate('TogetherRoomManage', { roomId })} /> : null}
-    {!binding && room.mode !== 'watch' ? <TouchableOpacity style={styles.primary} onPress={connect}><Text style={styles.primaryText}>{room.mode === 'same_push' ? '내 PUSH 만들기' : '내 PUSH 연결'}</Text></TouchableOpacity> : null}
-    <TogetherRoomOverviewV3 room={room} members={members} />
+    {!binding && room.mode !== 'watch' && !isNewShared ? <TouchableOpacity style={styles.primary} onPress={connect}><Text style={styles.primaryText}>{room.mode === 'same_push' ? '내 PUSH 만들기' : '내 PUSH 연결'}</Text></TouchableOpacity> : null}
+    {isNewShared ? <TogetherSharedContributionV4 roomId={roomId} sharedGoal={room.sharedGoal} summary={sharedSummary} error={sharedSummaryError} onReload={() => load({ manual: false })} /> : null}
+    <TogetherRoomOverviewV3 room={room} members={members} sharedSummary={sharedSummary} />
     <TogetherRoomWeeklyV3 room={room} members={members} />
   </ScrollView><TogetherPushPickerModal visible={picker} items={cards} loading={false} onClose={() => setPicker(false)} onSelect={choose} onCreatePush={() => { setPicker(false); navigation.navigate('CreateChallengeType'); }} /></SafeAreaView>;
 }

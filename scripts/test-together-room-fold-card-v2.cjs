@@ -29,7 +29,7 @@ assert.match(
 
 assert.match(
   card,
-  /CARD_EXPANDED_HEIGHT\s*=\s*224/
+  /CARD_EXPANDED_HEIGHT\s*=\s*160/
 );
 
 assert.match(

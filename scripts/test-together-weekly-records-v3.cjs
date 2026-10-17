@@ -179,8 +179,50 @@ const routine = buildTogetherWeekDaysV3({
 
 assert.deepEqual(routine, [
   {
+    localDate: '2026-10-10',
+    status: 'pending',
+  },
+  {
+    localDate: '2026-10-11',
+    status: 'pending',
+  },
+  {
+    localDate: '2026-10-12',
+    status: 'pending',
+  },
+  {
     localDate: '2026-10-13',
     status: 'done',
+  },
+]);
+
+const challengeDays = buildTogetherWeekDaysV3({
+  card: {
+    id: 'c1',
+    type: 'challenge',
+    startDate: '2026-10-12',
+  },
+  entries: [],
+  joinedAt,
+  now,
+});
+
+assert.deepEqual(challengeDays, [
+  {
+    localDate: '2026-10-10',
+    status: 'off',
+  },
+  {
+    localDate: '2026-10-11',
+    status: 'off',
+  },
+  {
+    localDate: '2026-10-12',
+    status: 'pending',
+  },
+  {
+    localDate: '2026-10-13',
+    status: 'pending',
   },
 ]);
 

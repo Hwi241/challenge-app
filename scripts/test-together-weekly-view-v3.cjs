@@ -275,12 +275,12 @@ assert.match(
 
 assert.match(
   component,
-  /미수신 또는 비공개/
+  /기록 확인 실패/
 );
 
 assert.match(
   component,
-  /status === 'done'/
+  /info\.symbol === '✓'/
 );
 
 assert.doesNotMatch(

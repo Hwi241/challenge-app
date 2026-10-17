@@ -142,6 +142,10 @@ export const buildTogetherWeekDaysV3 = ({
       (startDate && localDate < startDate)
       || (endDate && localDate > endDate)
     ) {
+      days.push({
+        localDate,
+        status: 'off',
+      });
       continue;
     }
 
@@ -154,6 +158,10 @@ export const buildTogetherWeekDaysV3 = ({
     }
 
     if (type !== CHALLENGE_TYPE.HABIT) {
+      days.push({
+        localDate,
+        status: 'pending',
+      });
       continue;
     }
 

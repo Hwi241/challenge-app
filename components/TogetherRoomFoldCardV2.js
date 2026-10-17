@@ -16,7 +16,7 @@ import {
 } from '../styles/common';
 
 const CARD_COMPACT_HEIGHT = 64;
-const CARD_EXPANDED_HEIGHT = 224;
+const CARD_EXPANDED_HEIGHT = 160;
 
 const FoldChevronIcon = ({ collapsed }) => (
   <Svg width={8} height={5} viewBox="0 0 8 5">
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
 
   headerExpanded: {
-    height: 96,
+    height: 68,
     paddingTop: 18,
     justifyContent: 'flex-start',
   },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   },
 
   subtitleExpanded: {
-    marginTop: 12,
+    marginTop: 4,
   },
 
   foldButton: {
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   expandedContent: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingBottom: 28,
+    paddingBottom: 22,
   },
 
   divider: {
@@ -366,14 +366,14 @@ const styles = StyleSheet.create({
 
   detailRows: {
     flex: 1,
-    paddingTop: 10,
-    paddingBottom: 4,
+    paddingTop: 2,
+    paddingBottom: 0,
     justifyContent: 'space-evenly',
   },
 
   detailRow: {
     width: '100%',
-    minHeight: 26,
+    minHeight: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

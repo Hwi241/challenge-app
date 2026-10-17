@@ -8,6 +8,7 @@ import React, {
 
 import {
   ActivityIndicator,
+  AppState,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -31,6 +32,19 @@ import {
 } from '../utils/togetherRemoteV2';
 
 import {
+  requestTogetherImmediateSyncV2,
+} from '../utils/togetherImmediateSyncV2';
+
+import {
+  getTogetherRoomDateKeyV3,
+} from '../utils/togetherRoomOverviewV3';
+
+import {
+  getTogetherWeeklyDateRelationV4,
+  getTogetherWeeklyDayPresentationV4,
+} from '../utils/togetherWeeklyDayV4';
+
+import {
   buildTogetherWeeklyViewV3,
 } from '../utils/togetherWeeklyViewV3';
 
@@ -46,16 +60,20 @@ const STATUS_INFO = {
     label: '완료',
   },
   pending: {
-    symbol: '○',
-    label: '예정 미완료',
+    symbol: '✕',
+    label: '미완료',
+  },
+  todayPending: {
+    symbol: '·',
+    label: '오늘 미기록',
   },
   off: {
     symbol: '–',
-    label: '쉬는 날',
+    label: '활동 제외',
   },
   unknown: {
     symbol: '?',
-    label: '미수신 또는 비공개',
+    label: '기록 확인 실패',
   },
 };
 
@@ -90,21 +108,42 @@ const weekdayLabel = (key) => {
   return DAY_LABELS[date.getUTCDay()];
 };
 
+const dateToneStyle = (localDate, todayKey) => {
+  const relation = getTogetherWeeklyDateRelationV4(
+    localDate,
+    todayKey
+  );
+
+  if (relation === 'today') {
+    return styles.dateToday;
+  }
+
+  if (relation === 'future') {
+    return styles.dateFuture;
+  }
+
+  return styles.datePast;
+};
+
 const StatusCell = ({
   status,
   memberName,
   localDate,
+  todayKey,
 }) => {
-  const info =
-    STATUS_INFO[status]
-    || STATUS_INFO.unknown;
+  const info = getTogetherWeeklyDayPresentationV4({
+    status,
+    localDate,
+    todayKey,
+  });
 
   const statusStyle =
-    status === 'done'
+    info.symbol === '✓'
       ? styles.done
-      : status === 'pending'
+      : info.symbol === '✕'
+        || info.symbol === '·'
         ? styles.pending
-        : status === 'off'
+        : info.symbol === '–'
           ? styles.off
           : styles.unknown;
 
@@ -122,7 +161,7 @@ const StatusCell = ({
       <Text
         style={[
           styles.cellText,
-          status === 'done'
+          info.symbol === '✓'
             && styles.doneText,
         ]}
       >
@@ -134,6 +173,7 @@ const StatusCell = ({
 
 const CompactRow = ({
   row,
+  todayKey,
 }) => (
   <View style={styles.memberCard}>
     <View style={styles.memberHeader}>
@@ -156,11 +196,17 @@ const CompactRow = ({
           key={day.localDate}
           style={styles.compactDay}
         >
-          <Text style={styles.dayLabel}>
+          <Text style={[
+            styles.dayLabel,
+            dateToneStyle(day.localDate, todayKey),
+          ]}>
             {weekdayLabel(day.localDate)}
           </Text>
 
-          <Text style={styles.dateLabel}>
+          <Text style={[
+            styles.dateLabel,
+            dateToneStyle(day.localDate, todayKey),
+          ]}>
             {dateLabel(day.localDate)}
           </Text>
 
@@ -168,6 +214,7 @@ const CompactRow = ({
             status={day.status}
             memberName={row.name}
             localDate={day.localDate}
+            todayKey={todayKey}
           />
         </View>
       ))}
@@ -183,6 +230,7 @@ const CompactRow = ({
 
 const WideMatrix = ({
   view,
+  todayKey,
 }) => (
   <View style={styles.matrix}>
     <View style={styles.matrixRow}>
@@ -197,11 +245,17 @@ const WideMatrix = ({
           key={day}
           style={styles.matrixDayColumn}
         >
-          <Text style={styles.dayLabel}>
+          <Text style={[
+            styles.dayLabel,
+            dateToneStyle(day, todayKey),
+          ]}>
             {weekdayLabel(day)}
           </Text>
 
-          <Text style={styles.dateLabel}>
+          <Text style={[
+            styles.dateLabel,
+            dateToneStyle(day, todayKey),
+          ]}>
             {dateLabel(day)}
           </Text>
         </View>
@@ -236,6 +290,7 @@ const WideMatrix = ({
               status={day.status}
               memberName={row.name}
               localDate={day.localDate}
+              todayKey={todayKey}
             />
           </View>
         ))}
@@ -253,12 +308,54 @@ export default function TogetherRoomWeeklyV3({
 
   const [width, setWidth] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
+  const [nowTick, setNowTick] = useState(
+    () => Date.now()
+  );
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const sequenceRef = useRef(0);
+
+  const todayKey = useMemo(
+    () => getTogetherRoomDateKeyV3(
+      nowTick,
+      room?.timezone || 'Asia/Seoul'
+    ),
+    [nowTick, room?.timezone]
+  );
+
+  useEffect(() => {
+    if (!isFocused) {
+      return undefined;
+    }
+
+    const updateClock = () => {
+      setNowTick(Date.now());
+    };
+
+    updateClock();
+
+    const interval = setInterval(
+      updateClock,
+      60000
+    );
+
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextState) => {
+        if (nextState === 'active') {
+          updateClock();
+        }
+      }
+    );
+
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [isFocused]);
 
   const onLayout = useCallback((event) => {
     const next = Math.round(
@@ -275,7 +372,16 @@ export default function TogetherRoomWeeklyV3({
   }, []);
 
   const reload = useCallback(() => {
-    setReloadKey((previous) => previous + 1);
+    void requestTogetherImmediateSyncV2()
+      .catch((failure) => {
+        console.warn(
+          '[TogetherWeekly] local sync failed',
+          String(failure?.message || 'unknown')
+        );
+      })
+      .finally(() => {
+        setReloadKey((previous) => previous + 1);
+      });
   }, []);
 
   useEffect(() => {
@@ -315,6 +421,7 @@ export default function TogetherRoomWeeklyV3({
 
         setData({
           roomId,
+          todayKey,
           value,
         });
       })
@@ -354,10 +461,12 @@ export default function TogetherRoomWeeklyV3({
     isFocused,
     members,
     reloadKey,
+    todayKey,
   ]);
 
   const week =
     data?.roomId === roomId
+      && data?.todayKey === todayKey
       ? data.value
       : null;
 
@@ -406,7 +515,7 @@ export default function TogetherRoomWeeklyV3({
       {loading && !view ? (
         <View style={styles.message}>
           <ActivityIndicator
-            color={color.primary}
+            color={primitive.black}
           />
           <Text style={styles.messageText}>
             주간 기록을 불러오는 중...
@@ -432,13 +541,17 @@ export default function TogetherRoomWeeklyV3({
 
           {view.rows.length ? (
             wide ? (
-              <WideMatrix view={view} />
+              <WideMatrix
+                view={view}
+                todayKey={todayKey}
+              />
             ) : (
               <View style={styles.compactList}>
                 {view.rows.map((row) => (
                   <CompactRow
                     key={row.userId}
                     row={row}
+                    todayKey={todayKey}
                   />
                 ))}
               </View>
@@ -477,8 +590,8 @@ export default function TogetherRoomWeeklyV3({
           </View>
 
           <Text style={styles.notice}>
-            서버에 마지막으로 동기화된 활동입니다.
-            기록이 없는 날은 미완료로 단정하지 않습니다.
+            서버에 확인된 주간 활동입니다.
+            ✕는 해당 날짜의 완료 기록이 없음을 의미합니다.
           </Text>
         </>
       ) : null}
@@ -558,7 +671,7 @@ const styles = StyleSheet.create({
 
   error: {
     marginTop: space.md,
-    color: color.danger,
+    color: primitive.black,
     fontSize: font.size.bodySmall,
   },
 
@@ -620,6 +733,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  datePast: {
+    color: '#777777',
+    fontWeight: font.weight.regular,
+  },
+
+  dateToday: {
+    color: '#111111',
+    fontWeight: font.weight.heavy,
+  },
+
+  dateFuture: {
+    color: '#C4C4C4',
+    fontWeight: font.weight.regular,
+  },
+
   cell: {
     width: '100%',
     minHeight: 34,
@@ -636,12 +764,12 @@ const styles = StyleSheet.create({
   },
 
   done: {
-    backgroundColor: color.successBg,
-    borderColor: color.successBorder,
+    backgroundColor: primitive.neutral[100],
+    borderColor: primitive.neutral[300],
   },
 
   doneText: {
-    color: color.success,
+    color: primitive.black,
   },
 
   pending: {
@@ -651,12 +779,12 @@ const styles = StyleSheet.create({
 
   off: {
     backgroundColor: primitive.neutral[50],
-    borderColor: color.borderMuted,
+    borderColor: primitive.neutral[200],
   },
 
   unknown: {
-    backgroundColor: color.surface,
-    borderColor: color.border,
+    backgroundColor: primitive.white,
+    borderColor: primitive.neutral[300],
     borderStyle: 'dashed',
   },
 

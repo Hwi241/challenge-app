@@ -2699,6 +2699,7 @@ const HomeHero = memo(function HomeHero({
   rotationSummary,
   onRecord,
   onFocus,
+  onOpen,
 }) {
   if (!item) {
     return (
@@ -2723,7 +2724,13 @@ const HomeHero = memo(function HomeHero({
     const pct = rotationSummary?.progressPct ?? 0;
 
     return (
-      <View style={styles.homeHeroSpotlight}>
+      <TouchableOpacity
+        style={styles.homeHeroSpotlight}
+        onPress={() => onOpen?.(item)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`${item?.title || 'MY PUSH'} 인증목록 열기`}
+      >
         <View style={styles.heroSpotlightTop}>
           <Text style={styles.heroSpotlightEyebrow}>
             MY PUSH
@@ -2793,7 +2800,7 @@ const HomeHero = memo(function HomeHero({
           onRecord={() => onRecord?.(item)}
           onFocus={() => onFocus?.(item)}
         />
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -2814,7 +2821,13 @@ const HomeHero = memo(function HomeHero({
     const runMessage = getHabitRunLabel(runState);
 
     return (
-      <View style={styles.homeHeroSpotlight}>
+      <TouchableOpacity
+        style={styles.homeHeroSpotlight}
+        onPress={() => onOpen?.(item)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`${item?.title || 'MY PUSH'} 인증목록 열기`}
+      >
         <View style={styles.heroSpotlightTop}>
           <Text style={styles.heroSpotlightEyebrow}>
             MY PUSH
@@ -2861,7 +2874,7 @@ const HomeHero = memo(function HomeHero({
           onRecord={() => onRecord?.(item)}
           onFocus={() => onFocus?.(item)}
         />
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -2887,7 +2900,13 @@ const HomeHero = memo(function HomeHero({
     : null;
 
   return (
-    <View style={styles.homeHeroSpotlight}>
+    <TouchableOpacity
+      style={styles.homeHeroSpotlight}
+      onPress={() => onOpen?.(item)}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`${item?.title || 'MY PUSH'} 인증목록 열기`}
+    >
       <View style={styles.heroSpotlightTop}>
         <Text style={styles.heroSpotlightEyebrow}>
           MY PUSH
@@ -2936,7 +2955,7 @@ const HomeHero = memo(function HomeHero({
         onRecord={() => onRecord?.(item)}
         onFocus={() => onFocus?.(item)}
       />
-    </View>
+    </TouchableOpacity>
   );
 });
 
@@ -4238,6 +4257,7 @@ export default function ChallengeListScreen() {
           rotationSummary={heroRotationSummary}
           onRecord={onHeroRecord}
           onFocus={openFocusStart}
+          onOpen={goEntryList}
         />
       )}
 

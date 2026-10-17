@@ -6421,7 +6421,7 @@ const runWeek = useCallback(() => {
           }}
           activeOpacity={0.9}
         >
-          <Text style={styles.uploadFloatingText}>기록하기</Text>
+          <Text style={styles.uploadFloatingText}>기록</Text>
         </TouchableOpacity>
       )}
 
@@ -6958,7 +6958,7 @@ rewardBlockSpacing: {
   },
 
   shareBtn: {
-    position: 'absolute', right: 12,
+    position: 'absolute', left: 12,
     backgroundColor: canonicalColor.primary, borderRadius: radius.md,
     width: 52, height: 42,
     alignItems: 'center', justifyContent: 'center',
@@ -6967,7 +6967,7 @@ rewardBlockSpacing: {
   shareBtnText: { color: canonicalColor.textInverse, fontWeight: '800', fontSize: 13 },
 
   uploadFloatingBtn: {
-    position: 'absolute', left: 12,
+    position: 'absolute', right: 12,
     backgroundColor: canonicalColor.primary, borderRadius: radius.md,
     width: 52, height: 42,
     alignItems: 'center', justifyContent: 'center',
